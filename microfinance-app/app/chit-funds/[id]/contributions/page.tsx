@@ -240,9 +240,6 @@ export default function ChitFundContributionsPage() {
       });
       setShowAddForm(false);
 
-      // Show success message
-      alert('Contribution recorded successfully!');
-
       // Refresh the page to get updated data
       window.location.reload();
     } catch (error: any) {
@@ -284,9 +281,39 @@ export default function ChitFundContributionsPage() {
   // Generate months array for the filter dropdown
   const months = chitFund ? Array.from({ length: chitFund.duration }, (_, i) => i + 1) : [];
 
+  // Generate all members with their contribution status for a specific month
+  const getMembersWithStatusForMonth = (month: number) => {
+    if (!chitFund || !members || members.length === 0) return [];
+
+    const result = [];
+
+    // For each member, check if they have a contribution for this month
+    for (const member of members) {
+      const contribution = contributions.find(c => c.memberId === member.id && c.month === month);
+
+      if (contribution) {
+        // Member has paid for this month
+        result.push({
+          member,
+          status: 'paid',
+          contribution
+        });
+      } else {
+        // Member has not paid for this month
+        result.push({
+          member,
+          status: 'pending',
+          contribution: null
+        });
+      }
+    }
+
+    return result;
+  };
+
   // Organize contributions by month
   const getContributionsByMonth = () => {
-    if (!contributions.length) return [];
+    if (!chitFund) return [];
 
     const monthlyContributions = [];
 
@@ -294,19 +321,26 @@ export default function ChitFundContributionsPage() {
     for (let month = 1; month <= (chitFund?.duration || 0); month++) {
       const contributionsForMonth = contributions.filter(c => c.month === month);
 
+      // Get all members with their status for this month
+      const membersWithStatus = getMembersWithStatusForMonth(month);
+      const pendingMembers = membersWithStatus.filter(m => m.status === 'pending');
+
       // Calculate totals for this month
       const totalExpected = chitFund ? chitFund.monthlyContribution * chitFund.membersCount : 0;
       const totalCollected = contributionsForMonth.reduce((sum, c) => sum + c.amount, 0);
       const totalBalance = contributionsForMonth.reduce((sum, c) => sum + c.balance, 0);
       const contributionCount = contributionsForMonth.length;
+      const pendingCount = pendingMembers.length;
 
       monthlyContributions.push({
         month,
         contributionsForMonth,
+        pendingMembers,
         totalExpected,
         totalCollected,
         totalBalance,
         contributionCount,
+        pendingCount,
         memberCount: chitFund?.membersCount || 0
       });
     }
@@ -408,9 +442,6 @@ export default function ChitFundContributionsPage() {
       // Close the form
       setShowEditForm(false);
       setContributionToEdit(null);
-
-      // Show success message
-      alert('Contribution updated successfully!');
     } catch (error: any) {
       console.error('Error updating contribution:', error);
       setEditFormErrors({
@@ -454,12 +485,8 @@ export default function ChitFundContributionsPage() {
       // Close the modal
       setShowDeleteModal(false);
       setContributionToDelete(null);
-
-      // Show success message
-      alert('Contribution deleted successfully!');
     } catch (error: any) {
       console.error('Error deleting contribution:', error);
-      alert(error.message || 'Failed to delete contribution. Please try again.');
     }
   };
 
@@ -628,7 +655,123 @@ export default function ChitFundContributionsPage() {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {filteredContributions.length === 0 ? (
+                {selectedMonth !== 'all' && chitFund && members && members.length > 0 ? (
+                  // Show all members with their status for the selected month
+                  getMembersWithStatusForMonth(parseInt(selectedMonth)).map((memberData) => (
+                    <tr
+                      key={memberData.member.id}
+                      className={`hover:bg-gray-50 ${memberData.status === 'paid' ? 'cursor-pointer' : ''}`}
+                      onClick={() => memberData.status === 'paid' && handleViewContribution(memberData.contribution!)}
+                    >
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm font-medium text-blue-600">
+                          {memberData.member.globalMember.name}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm text-gray-900">Month {selectedMonth}</div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        {memberData.status === 'paid' ? (
+                          <div className="text-sm text-gray-900">{formatCurrency(memberData.contribution!.amount)}</div>
+                        ) : (
+                          <div className="text-sm text-gray-400">{formatCurrency(chitFund.monthlyContribution)}</div>
+                        )}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        {memberData.status === 'paid' ? (
+                          <div className="text-sm text-gray-900">{formatDate(memberData.contribution!.paidDate)}</div>
+                        ) : (
+                          <div className="text-sm text-red-600 font-semibold">Pending</div>
+                        )}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        {memberData.status === 'paid' ? (
+                          memberData.contribution!.balance > 0 || memberData.contribution!.balancePaymentStatus === 'Paid' ? (
+                            <div>
+                              {memberData.contribution!.balancePaymentStatus === 'Paid' ? (
+                                <div className="text-sm text-green-600 font-semibold">Paid in full</div>
+                              ) : (
+                                <div className="text-sm text-red-600 font-semibold">{formatCurrency(memberData.contribution!.balance)}</div>
+                              )}
+
+                              <div className="text-xs mt-1">
+                                <span className={`px-2 py-1 rounded-full ${
+                                  memberData.contribution!.balancePaymentStatus === 'Paid'
+                                    ? 'bg-green-100 text-green-800'
+                                    : memberData.contribution!.balancePaymentStatus === 'Overdue'
+                                    ? 'bg-red-100 text-red-800'
+                                    : 'bg-yellow-100 text-yellow-800'
+                                }`}>
+                                  {memberData.contribution!.balancePaymentStatus || 'Pending'}
+                                </span>
+                              </div>
+
+                              {memberData.contribution!.balancePaymentDate && (
+                                <div className="text-xs text-gray-500 mt-1">
+                                  Expected payment: {formatDate(memberData.contribution!.balancePaymentDate)}
+                                </div>
+                              )}
+
+                              {memberData.contribution!.actualBalancePaymentDate && (
+                                <div className="text-xs text-green-600 mt-1">
+                                  Paid on: {formatDate(memberData.contribution!.actualBalancePaymentDate)}
+                                </div>
+                              )}
+                            </div>
+                          ) : (
+                            <div className="text-sm text-green-600 font-semibold">Paid in full</div>
+                          )
+                        ) : (
+                          <div className="text-sm text-gray-400">-</div>
+                        )}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-right" onClick={(e) => e.stopPropagation()}>
+                        <div className="flex justify-end space-x-3">
+                          {memberData.status === 'paid' ? (
+                            <>
+                              <button
+                                onClick={() => handleEditContribution(memberData.contribution!)}
+                                className="text-blue-600 hover:text-blue-900"
+                                title="Edit contribution"
+                              >
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                </svg>
+                              </button>
+                              <button
+                                onClick={() => handleDeleteContribution(memberData.contribution!.id)}
+                                className="text-red-600 hover:text-red-900"
+                                title="Delete contribution"
+                              >
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                </svg>
+                              </button>
+                            </>
+                          ) : (
+                            <button
+                              onClick={() => {
+                                setNewContribution({
+                                  ...newContribution,
+                                  memberId: memberData.member.id.toString(),
+                                  month: selectedMonth
+                                });
+                                setShowAddForm(true);
+                              }}
+                              className="text-green-600 hover:text-green-900"
+                              title="Add payment"
+                            >
+                              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                              </svg>
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                ) : filteredContributions.length === 0 ? (
                   <tr>
                     <td colSpan={6} className="px-6 py-4 text-center text-gray-500">
                       No contributions found. Record contributions for this chit fund.
@@ -759,7 +902,26 @@ export default function ChitFundContributionsPage() {
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="text-sm text-gray-900">
                             {monthData.contributionCount} of {monthData.memberCount} members
+                            {monthData.pendingCount > 0 && (
+                              <span className="ml-2 px-2 py-1 bg-red-100 text-red-800 text-xs rounded-full">
+                                {monthData.pendingCount} pending
+                              </span>
+                            )}
                           </div>
+                          {monthData.pendingCount > 0 && (
+                            <div className="mt-2 text-xs text-gray-500">
+                              <details>
+                                <summary className="cursor-pointer text-blue-600 hover:text-blue-800">Show pending members</summary>
+                                <ul className="mt-1 pl-4 list-disc">
+                                  {monthData.pendingMembers.map(memberData => (
+                                    <li key={memberData.member.id} className="text-red-600">
+                                      {memberData.member.globalMember.name}
+                                    </li>
+                                  ))}
+                                </ul>
+                              </details>
+                            </div>
+                          )}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="text-sm text-gray-900">{formatCurrency(monthData.totalExpected)}</div>

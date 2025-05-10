@@ -278,9 +278,6 @@ export default function ChitFundMembersPage() {
       // Close the modal
       setShowDeleteModal(false);
       setMemberToDelete(null);
-
-      // Show success message
-      alert('Member deleted successfully!');
     } catch (error: any) {
       console.error('Error deleting member:', error);
       setDeleteError(error.message || 'Failed to delete member. Please try again.');

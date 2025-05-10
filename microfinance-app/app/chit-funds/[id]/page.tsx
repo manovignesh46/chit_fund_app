@@ -280,12 +280,9 @@ const ChitFundDetails = () => {
 
         // Refresh the page to show updated data
         window.location.reload();
-      } else {
-        alert('Current month is already up to date!');
       }
     } catch (error) {
       console.error('Error updating current month:', error);
-      alert('Failed to update current month. Please try again.');
     }
   };
 
@@ -401,8 +398,17 @@ const ChitFundDetails = () => {
                 </div>
                 <div>
                   <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-2">Current Month</h3>
-                  <div className="flex items-center">
+                  <div className="flex items-center space-x-3">
                     <p className="text-xl font-semibold">{calculateCurrentMonth(chitFund.startDate)} of {chitFund.duration}</p>
+                    {chitFund.currentMonth !== calculateCurrentMonth(chitFund.startDate) && (
+                      <button
+                        onClick={handleUpdateCurrentMonth}
+                        className="px-2 py-1 bg-yellow-600 text-white text-xs rounded hover:bg-yellow-700 transition duration-300"
+                        title="Update current month based on start date"
+                      >
+                        Update
+                      </button>
+                    )}
                   </div>
                 </div>
                 <div>
@@ -593,12 +599,7 @@ const ChitFundDetails = () => {
             </Link>
           )}
 
-          <button
-            onClick={handleUpdateCurrentMonth}
-            className="px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition duration-300"
-          >
-            Update Current Month
-          </button>
+
           <button
             onClick={handleDeleteChitFund}
             className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition duration-300"

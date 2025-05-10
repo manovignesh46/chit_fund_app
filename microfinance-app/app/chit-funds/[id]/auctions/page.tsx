@@ -51,6 +51,8 @@ export default function ChitFundAuctionsPage() {
   const [members, setMembers] = useState<Member[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [selectedAuction, setSelectedAuction] = useState<Auction | null>(null);
+  const [showDetailModal, setShowDetailModal] = useState(false);
 
   // For adding new auction
   const [showAddForm, setShowAddForm] = useState(false);
@@ -366,17 +368,9 @@ export default function ChitFundAuctionsPage() {
                     <td className="px-6 py-4 whitespace-nowrap">
                       <button
                         onClick={() => {
-                          const details = [];
-                          if (auction.numberOfBidders) details.push(`${auction.numberOfBidders} bidders`);
-                          if (auction.lowestBid) details.push(`Lowest bid: ${formatCurrency(auction.lowestBid)}`);
-                          if (auction.highestBid) details.push(`Highest bid: ${formatCurrency(auction.highestBid)}`);
-                          if (auction.notes) details.push(`Notes: ${auction.notes}`);
-
-                          if (details.length > 0) {
-                            alert(`Auction Details:\n\n${details.join('\n')}`);
-                          } else {
-                            alert('No additional details recorded for this auction.');
-                          }
+                          // Show details in a modal instead of an alert
+                          setSelectedAuction(auction);
+                          setShowDetailModal(true);
                         }}
                         className="text-blue-600 hover:text-blue-900 underline"
                       >
@@ -567,6 +561,100 @@ export default function ChitFundAuctionsPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Auction Details Modal */}
+      {showDetailModal && selectedAuction && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-md">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-bold text-blue-700">Auction Details</h2>
+              <button
+                onClick={() => setShowDetailModal(false)}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <div className="bg-gray-50 p-4 rounded-lg mb-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-sm text-gray-500">Month</p>
+                  <p className="text-md font-semibold">Month {selectedAuction.month}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-500">Winner</p>
+                  <p className="text-md font-semibold">{selectedAuction.winner?.globalMember?.name || `Member ID: ${selectedAuction.winnerId}`}</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="mb-4">
+              <h3 className="text-lg font-semibold mb-2">Auction Information</h3>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-sm text-gray-500">Amount</p>
+                  <p className="text-md font-semibold">{formatCurrency(selectedAuction.amount)}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-500">Date</p>
+                  <p className="text-md font-semibold">{formatDate(selectedAuction.date)}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-500">Discount</p>
+                  <p className="text-md font-semibold text-green-600">
+                    {formatCurrency(chitFund.totalAmount - selectedAuction.amount)}
+                    ({Math.round((1 - selectedAuction.amount / chitFund.totalAmount) * 100)}%)
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {(selectedAuction.lowestBid || selectedAuction.highestBid || selectedAuction.numberOfBidders || selectedAuction.notes) && (
+              <div className="mb-4">
+                <h3 className="text-lg font-semibold mb-2">Additional Details</h3>
+                <div className="space-y-2">
+                  {selectedAuction.numberOfBidders && (
+                    <div>
+                      <p className="text-sm text-gray-500">Number of Bidders</p>
+                      <p className="text-md">{selectedAuction.numberOfBidders}</p>
+                    </div>
+                  )}
+                  {selectedAuction.lowestBid && (
+                    <div>
+                      <p className="text-sm text-gray-500">Lowest Bid</p>
+                      <p className="text-md">{formatCurrency(selectedAuction.lowestBid)}</p>
+                    </div>
+                  )}
+                  {selectedAuction.highestBid && (
+                    <div>
+                      <p className="text-sm text-gray-500">Highest Bid</p>
+                      <p className="text-md">{formatCurrency(selectedAuction.highestBid)}</p>
+                    </div>
+                  )}
+                  {selectedAuction.notes && (
+                    <div>
+                      <p className="text-sm text-gray-500">Notes</p>
+                      <p className="text-md whitespace-pre-line">{selectedAuction.notes}</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            <div className="flex justify-end mt-6">
+              <button
+                onClick={() => setShowDetailModal(false)}
+                className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition duration-300"
+              >
+                Close
+              </button>
+            </div>
           </div>
         </div>
       )}

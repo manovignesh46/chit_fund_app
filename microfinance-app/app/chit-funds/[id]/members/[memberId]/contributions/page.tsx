@@ -122,6 +122,38 @@ export default function MemberContributionsPage() {
     return new Date(dateString).toLocaleDateString('en-IN', options);
   };
 
+  // Generate all months with contribution status
+  const getAllMonthsWithStatus = () => {
+    if (!chitFund) return [];
+
+    // Create an array of all months up to the current month
+    const allMonths = [];
+    const currentMonth = chitFund.currentMonth;
+
+    for (let month = 1; month <= currentMonth; month++) {
+      // Find contribution for this month if it exists
+      const contribution = contributions.find(c => c.month === month);
+
+      if (contribution) {
+        // Contribution exists
+        allMonths.push({
+          month,
+          status: 'paid',
+          contribution
+        });
+      } else {
+        // No contribution for this month
+        allMonths.push({
+          month,
+          status: 'pending',
+          contribution: null
+        });
+      }
+    }
+
+    return allMonths;
+  };
+
   // Handle viewing contribution details
   const handleViewContribution = (contribution: Contribution) => {
     setSelectedContribution(contribution);
@@ -276,42 +308,58 @@ export default function MemberContributionsPage() {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {contributions.length === 0 ? (
+              {chitFund && getAllMonthsWithStatus().length === 0 ? (
                 <tr>
                   <td colSpan={5} className="px-6 py-4 text-center text-gray-500">
-                    No contributions found for this member.
+                    No months to display for this member.
                   </td>
                 </tr>
               ) : (
-                contributions.map((contribution) => (
+                getAllMonthsWithStatus().map((monthData) => (
                   <tr
-                    key={contribution.id}
-                    className="hover:bg-gray-50 cursor-pointer"
-                    onClick={() => handleViewContribution(contribution)}
+                    key={monthData.month}
+                    className={`hover:bg-gray-50 ${monthData.status === 'paid' ? 'cursor-pointer' : ''}`}
+                    onClick={() => monthData.contribution && handleViewContribution(monthData.contribution)}
                   >
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">Month {contribution.month}</div>
+                      <div className="text-sm text-gray-900">Month {monthData.month}</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">{formatCurrency(contribution.amount)}</div>
+                      <div className="text-sm text-gray-900">
+                        {monthData.status === 'paid'
+                          ? formatCurrency(monthData.contribution!.amount)
+                          : formatCurrency(chitFund?.monthlyContribution || 0)}
+                      </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">{formatDate(contribution.paidDate)}</div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      {contribution.balancePaymentStatus === 'Paid' ? (
-                        <div className="text-sm text-green-600 font-semibold">Paid in full</div>
-                      ) : contribution.balance > 0 ? (
-                        <div className="text-sm text-red-600 font-semibold">{formatCurrency(contribution.balance)}</div>
+                      {monthData.status === 'paid' ? (
+                        <div className="text-sm text-gray-900">{formatDate(monthData.contribution!.paidDate)}</div>
                       ) : (
-                        <div className="text-sm text-green-600 font-semibold">Paid in full</div>
+                        <div className="text-sm text-red-600 font-semibold">Pending</div>
                       )}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      {contribution.balancePaymentStatus === 'Paid' && contribution.actualBalancePaymentDate ? (
-                        <div className="text-sm text-green-600">{formatDate(contribution.actualBalancePaymentDate)}</div>
-                      ) : contribution.balancePaymentDate ? (
-                        <div className="text-sm text-gray-900">{formatDate(contribution.balancePaymentDate)}</div>
+                      {monthData.status === 'paid' ? (
+                        monthData.contribution!.balancePaymentStatus === 'Paid' ? (
+                          <div className="text-sm text-green-600 font-semibold">Paid in full</div>
+                        ) : monthData.contribution!.balance > 0 ? (
+                          <div className="text-sm text-red-600 font-semibold">{formatCurrency(monthData.contribution!.balance)}</div>
+                        ) : (
+                          <div className="text-sm text-green-600 font-semibold">Paid in full</div>
+                        )
+                      ) : (
+                        <div className="text-sm text-gray-500">-</div>
+                      )}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      {monthData.status === 'paid' ? (
+                        monthData.contribution!.balancePaymentStatus === 'Paid' && monthData.contribution!.actualBalancePaymentDate ? (
+                          <div className="text-sm text-green-600">{formatDate(monthData.contribution!.actualBalancePaymentDate)}</div>
+                        ) : monthData.contribution!.balancePaymentDate ? (
+                          <div className="text-sm text-gray-900">{formatDate(monthData.contribution!.balancePaymentDate)}</div>
+                        ) : (
+                          <div className="text-sm text-gray-500">-</div>
+                        )
                       ) : (
                         <div className="text-sm text-gray-500">-</div>
                       )}
