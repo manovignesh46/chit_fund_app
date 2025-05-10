@@ -310,6 +310,12 @@ export default function ChitFundContributionsPage() {
   // Get contributions organized by month
   const contributionsByMonth = getContributionsByMonth();
 
+  // Handle viewing contribution details
+  const handleViewContribution = (contribution: Contribution) => {
+    setSelectedContribution(contribution);
+    setShowDetailModal(true);
+  };
+
   // Handle edit contribution
   const handleEditContribution = (contribution: Contribution) => {
     setContributionToEdit(contribution);
@@ -623,7 +629,11 @@ export default function ChitFundContributionsPage() {
                   </tr>
                 ) : (
                   filteredContributions.map((contribution) => (
-                    <tr key={contribution.id} className="hover:bg-gray-50">
+                    <tr
+                      key={contribution.id}
+                      className="hover:bg-gray-50 cursor-pointer"
+                      onClick={() => handleViewContribution(contribution)}
+                    >
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="text-sm font-medium text-blue-600">
                           {contribution.member?.globalMember?.name || `Member ID: ${contribution.memberId}`}
@@ -675,7 +685,7 @@ export default function ChitFundContributionsPage() {
                           <div className="text-sm text-green-600 font-semibold">Paid in full</div>
                         )}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right">
+                      <td className="px-6 py-4 whitespace-nowrap text-right" onClick={(e) => e.stopPropagation()}>
                         <div className="flex justify-end space-x-3">
                           <button
                             onClick={() => handleEditContribution(contribution)}
@@ -930,6 +940,114 @@ export default function ChitFundContributionsPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Contribution Detail Modal */}
+      {showDetailModal && selectedContribution && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-md">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-bold text-blue-700">Contribution Details</h2>
+              <button
+                onClick={() => setShowDetailModal(false)}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <div className="bg-gray-50 p-4 rounded-lg mb-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-sm text-gray-500">Member</p>
+                  <p className="text-md font-semibold">
+                    {selectedContribution.member?.globalMember?.name || `Member ID: ${selectedContribution.memberId}`}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-500">Month</p>
+                  <p className="text-md font-semibold">Month {selectedContribution.month}</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="mb-4">
+              <h3 className="text-lg font-semibold mb-2">Payment Information</h3>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-sm text-gray-500">Amount Paid</p>
+                  <p className="text-md font-semibold">{formatCurrency(selectedContribution.amount)}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-500">Payment Date</p>
+                  <p className="text-md font-semibold">{formatDate(selectedContribution.paidDate)}</p>
+                </div>
+              </div>
+            </div>
+
+            {(selectedContribution.balance > 0 || selectedContribution.balancePaymentStatus === 'Paid') && (
+              <div className="mb-4">
+                <h3 className="text-lg font-semibold mb-2">Balance Information</h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-sm text-gray-500">Balance Amount</p>
+                    {selectedContribution.balancePaymentStatus === 'Paid' ? (
+                      <p className="text-md font-semibold text-green-600">Paid in full</p>
+                    ) : (
+                      <p className="text-md font-semibold text-red-600">{formatCurrency(selectedContribution.balance)}</p>
+                    )}
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-500">Status</p>
+                    <p className={`text-md font-semibold ${
+                      selectedContribution.balancePaymentStatus === 'Paid'
+                        ? 'text-green-600'
+                        : selectedContribution.balancePaymentStatus === 'Overdue'
+                        ? 'text-red-600'
+                        : 'text-yellow-600'
+                    }`}>
+                      {selectedContribution.balancePaymentStatus || 'Pending'}
+                    </p>
+                  </div>
+
+                  {selectedContribution.balancePaymentDate && (
+                    <div className="col-span-2">
+                      <p className="text-sm text-gray-500">Expected Payment Date</p>
+                      <p className="text-md font-semibold">{formatDate(selectedContribution.balancePaymentDate)}</p>
+                    </div>
+                  )}
+
+                  {selectedContribution.actualBalancePaymentDate && (
+                    <div className="col-span-2">
+                      <p className="text-sm text-gray-500">Actual Payment Date</p>
+                      <p className="text-md font-semibold text-green-600">{formatDate(selectedContribution.actualBalancePaymentDate)}</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            <div className="flex justify-end space-x-3 mt-6">
+              <button
+                onClick={() => {
+                  setShowDetailModal(false);
+                  handleEditContribution(selectedContribution);
+                }}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-300"
+              >
+                Edit
+              </button>
+              <button
+                onClick={() => setShowDetailModal(false)}
+                className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition duration-300"
+              >
+                Close
+              </button>
+            </div>
           </div>
         </div>
       )}
