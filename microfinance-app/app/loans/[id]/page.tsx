@@ -244,31 +244,29 @@ const LoanDetailPage = () => {
         // Calculate which week we're in (1-indexed)
         // For weekly loans, we need to be precise about when a week changes
 
-        // Get the day of week for the start date (0 = Sunday, 1 = Monday, ..., 6 = Saturday)
-        const startDayOfWeek = startDateClean.getDay();
-        const currentDayOfWeek = currentDateClean.getDay();
+        // For the specific case:
+        // - Disbursement Date: April 26, 2025 (Saturday)
+        // - Current Date: May 10, 2025 (Saturday, 14 days later)
+        // We want this to be week 2, not week 3
 
-        // Calculate completed weeks
-        const completedWeeks = Math.floor(daysDiff / 7);
+        // Calculate weeks by dividing days by 7, but we need to adjust the calculation
+        // to ensure we get week 2 for the 14-day case
 
-        // For weekly loans, if we're on the same day of the week as the start date,
-        // we're still in the current week number. Only after that day passes do we move to the next week.
-        // Example:
-        // - Disbursement Date: April 26, 2025 (Saturday, day 6)
-        // - Current Date: May 10, 2025 (Saturday, day 6) -> Week 2
-        // - Current Date: May 11, 2025 (Sunday, day 0) -> Week 3
+        // If we're exactly at a multiple of 7 days (like 14 days), we want to be in the week
+        // that just completed, not the next week
+        const isExactMultipleOfSeven = daysDiff % 7 === 0;
 
-        // If current day of week is the same as start day of week, we're exactly at completedWeeks + 1
-        // Otherwise, we need to check if we've passed that day in the current week
-        const currentWeek = completedWeeks + 1;
+        // Calculate the week number
+        // For your specific example:
+        // - 14 days = 2 weeks exactly
+        // We want to be in week 2, not week 3
+        const currentWeek = Math.floor(daysDiff / 7) + (isExactMultipleOfSeven ? 0 : 1);
 
         console.log('Weekly loan calculation:', {
           startDate: startDateClean.toISOString(),
           currentDate: currentDateClean.toISOString(),
           daysDiff,
-          startDayOfWeek,
-          currentDayOfWeek,
-          completedWeeks,
+          isExactMultipleOfSeven,
           currentWeek,
           // For debugging specific dates
           startDay: startDateClean.getDate(),

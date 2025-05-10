@@ -230,33 +230,55 @@ export default function NewRepaymentPage() {
             </div>
 
             <div className="md:col-span-2 mt-4">
-              <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg border">
+              <div className="flex items-center justify-between p-5 bg-blue-50 rounded-lg border border-blue-200 shadow-sm">
                 <div>
-                  <h3 className="font-medium text-gray-900">Interest Only Payment</h3>
-                  <p className="text-sm text-gray-500">
+                  <h3 className="font-semibold text-lg text-blue-900">Interest Only Payment</h3>
+                  <p className="text-sm text-blue-700 mt-1">
                     Toggle this if the payment is for interest only and should not reduce the principal amount
                   </p>
                 </div>
-                <label className="relative inline-flex items-center cursor-pointer">
+                <div className="flex items-center">
+                  {/* Custom toggle switch */}
+                  <div
+                    className={`relative w-14 h-7 rounded-full cursor-pointer transition-colors duration-300 ${
+                      formData.paymentType === 'interestOnly' ? 'bg-blue-600' : 'bg-gray-300'
+                    }`}
+                    onClick={() => {
+                      setFormData(prev => ({
+                        ...prev,
+                        paymentType: prev.paymentType === 'interestOnly' ? 'full' : 'interestOnly'
+                      }));
+                    }}
+                  >
+                    <div
+                      className={`absolute top-1 left-1 bg-white border border-gray-300 rounded-full h-5 w-5 shadow-md transition-transform duration-300 transform ${
+                        formData.paymentType === 'interestOnly' ? 'translate-x-7' : 'translate-x-0'
+                      }`}
+                    ></div>
+                  </div>
+
+                  {/* Text label */}
+                  <span className="ml-3 text-sm font-medium text-blue-900">
+                    {formData.paymentType === 'interestOnly' ? 'ON' : 'OFF'}
+                  </span>
+
+                  {/* Hidden input for form submission */}
                   <input
                     type="checkbox"
                     id="paymentType"
                     name="paymentType"
-                    className="sr-only peer"
+                    className="sr-only"
                     checked={formData.paymentType === 'interestOnly'}
-                    onChange={(e) => {
-                      setFormData(prev => ({
-                        ...prev,
-                        paymentType: e.target.checked ? 'interestOnly' : 'full'
-                      }));
-                    }}
+                    onChange={() => {}}
                   />
-                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-green-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-600"></div>
-                </label>
+                </div>
               </div>
               {formData.paymentType === 'interestOnly' && (
-                <div className="mt-2 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-                  <p className="text-sm text-yellow-700">
+                <div className="mt-3 p-4 bg-yellow-50 border border-yellow-300 rounded-lg shadow-sm">
+                  <p className="text-sm text-yellow-800 flex items-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2 text-yellow-600" viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                    </svg>
                     <strong>Note:</strong> This payment will be recorded as interest only and will not reduce the principal loan amount.
                   </p>
                 </div>
