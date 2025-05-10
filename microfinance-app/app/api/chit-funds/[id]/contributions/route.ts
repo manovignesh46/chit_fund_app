@@ -146,8 +146,19 @@ export async function POST(
 
     // Calculate balance if the amount is less than the expected monthly contribution
     let balance = 0;
+    let balancePaymentStatus = null;
+
     if (body.amount < chitFund.monthlyContribution) {
       balance = chitFund.monthlyContribution - body.amount;
+
+      // Set default status to "Pending"
+      balancePaymentStatus = "Pending";
+
+      // If status is provided and is "Paid", set balance to 0
+      if (body.balancePaymentStatus === "Paid") {
+        balancePaymentStatus = "Paid";
+        balance = 0;
+      }
     }
 
     // Create the contribution
@@ -159,6 +170,9 @@ export async function POST(
         paidDate: new Date(body.paidDate),
         chitFundId: chitFundId,
         balance: balance,
+        balancePaymentDate: body.balancePaymentDate ? new Date(body.balancePaymentDate) : null,
+        balancePaymentStatus: balancePaymentStatus,
+        actualBalancePaymentDate: body.actualBalancePaymentDate ? new Date(body.actualBalancePaymentDate) : null,
       },
       include: {
         member: {
@@ -246,8 +260,22 @@ export async function PUT(
 
     // Calculate balance if the amount is less than the expected monthly contribution
     let balance = 0;
+    let balancePaymentStatus = null;
+
     if (body.amount < existingContribution.chitFund.monthlyContribution) {
       balance = existingContribution.chitFund.monthlyContribution - body.amount;
+
+      // Determine balance payment status
+      if (body.balancePaymentStatus) {
+        balancePaymentStatus = body.balancePaymentStatus;
+
+        // If status is "Paid", set balance to 0
+        if (body.balancePaymentStatus === "Paid") {
+          balance = 0;
+        }
+      } else if (balance > 0) {
+        balancePaymentStatus = "Pending";
+      }
     }
 
     // Update the contribution
@@ -257,6 +285,9 @@ export async function PUT(
         amount: body.amount,
         paidDate: new Date(body.paidDate),
         balance: balance,
+        balancePaymentDate: body.balancePaymentDate ? new Date(body.balancePaymentDate) : null,
+        balancePaymentStatus: balancePaymentStatus,
+        actualBalancePaymentDate: body.actualBalancePaymentDate ? new Date(body.actualBalancePaymentDate) : null,
       },
       include: {
         member: {

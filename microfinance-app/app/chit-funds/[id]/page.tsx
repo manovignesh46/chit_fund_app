@@ -116,7 +116,8 @@ const ChitFundDetails = () => {
 
         // Process all contributions to calculate balances
         for (const contribution of contributionsData) {
-          if (contribution.balance > 0) {
+          // Only count balances that are not marked as "Paid"
+          if (contribution.balance > 0 && contribution.balancePaymentStatus !== 'Paid') {
             totalBalanceAmount += contribution.balance;
 
             // Track balance by member

@@ -69,17 +69,20 @@ model Member {
 }
 
 model Contribution {
-  id              Int           @id @default(autoincrement())
-  amount          Float
-  month           Int
-  paidDate        DateTime
-  memberId        Int
-  chitFundId      Int
-  balance         Float         @default(0)  // Track remaining balance if partial payment
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
-  member          Member        @relation(fields: [memberId], references: [id])
-  chitFund        ChitFund      @relation(fields: [chitFundId], references: [id])
+  id                     Int           @id @default(autoincrement())
+  amount                 Float
+  month                  Int
+  paidDate               DateTime
+  memberId               Int
+  chitFundId             Int
+  balance                Float         @default(0)  // Track remaining balance if partial payment
+  balancePaymentDate     DateTime?     // Expected date when the balance will be paid
+  balancePaymentStatus   String?       @default("Pending") // Status of balance payment: "Pending", "Paid", "Overdue"
+  actualBalancePaymentDate DateTime?   // Actual date when the balance was paid
+  createdAt              DateTime      @default(now())
+  updatedAt              DateTime      @updatedAt
+  member                 Member        @relation(fields: [memberId], references: [id])
+  chitFund               ChitFund      @relation(fields: [chitFundId], references: [id])
 }
 
 model Auction {

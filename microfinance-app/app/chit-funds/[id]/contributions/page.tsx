@@ -26,6 +26,9 @@ interface Contribution {
   memberId: number;
   member: Member;
   balance: number;
+  balancePaymentDate: string | null;
+  balancePaymentStatus: string | null;
+  actualBalancePaymentDate: string | null;
 }
 
 interface ChitFund {
@@ -57,6 +60,9 @@ export default function ChitFundContributionsPage() {
     month: '',
     amount: '',
     paidDate: new Date().toISOString().split('T')[0], // Today's date in YYYY-MM-DD format
+    balancePaymentDate: '',
+    balancePaymentStatus: 'Pending',
+    actualBalancePaymentDate: '',
   });
   const [formErrors, setFormErrors] = useState<{[key: string]: string}>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -78,7 +84,14 @@ export default function ChitFundContributionsPage() {
   const [editFormData, setEditFormData] = useState({
     amount: '',
     paidDate: '',
+    balancePaymentDate: '',
+    balancePaymentStatus: '',
+    actualBalancePaymentDate: '',
   });
+
+  // For viewing contribution details
+  const [showDetailModal, setShowDetailModal] = useState(false);
+  const [selectedContribution, setSelectedContribution] = useState<Contribution | null>(null);
   const [editFormErrors, setEditFormErrors] = useState<{[key: string]: string}>({});
   const [isEditing, setIsEditing] = useState(false);
 
@@ -192,6 +205,9 @@ export default function ChitFundContributionsPage() {
           memberId: Number(newContribution.memberId),
           month: Number(newContribution.month),
           amount: Number(newContribution.amount),
+          balancePaymentDate: newContribution.balancePaymentDate || null,
+          balancePaymentStatus: Number(newContribution.amount) < chitFund.monthlyContribution ? 'Pending' : null,
+          actualBalancePaymentDate: newContribution.actualBalancePaymentDate || null,
         }),
       });
 
@@ -211,6 +227,9 @@ export default function ChitFundContributionsPage() {
         month: '',
         amount: chitFund?.monthlyContribution?.toString() || '',
         paidDate: new Date().toISOString().split('T')[0],
+        balancePaymentDate: '',
+        balancePaymentStatus: 'Pending',
+        actualBalancePaymentDate: '',
       });
       setShowAddForm(false);
 
@@ -297,6 +316,13 @@ export default function ChitFundContributionsPage() {
     setEditFormData({
       amount: contribution.amount.toString(),
       paidDate: new Date(contribution.paidDate).toISOString().split('T')[0],
+      balancePaymentDate: contribution.balancePaymentDate
+        ? new Date(contribution.balancePaymentDate).toISOString().split('T')[0]
+        : '',
+      balancePaymentStatus: contribution.balancePaymentStatus || 'Pending',
+      actualBalancePaymentDate: contribution.actualBalancePaymentDate
+        ? new Date(contribution.actualBalancePaymentDate).toISOString().split('T')[0]
+        : '',
     });
     setEditFormErrors({});
     setShowEditForm(true);
@@ -348,6 +374,9 @@ export default function ChitFundContributionsPage() {
           contributionId: contributionToEdit.id,
           amount: Number(editFormData.amount),
           paidDate: editFormData.paidDate,
+          balancePaymentDate: editFormData.balancePaymentDate || null,
+          balancePaymentStatus: editFormData.balancePaymentStatus || null,
+          actualBalancePaymentDate: editFormData.actualBalancePaymentDate || null,
         }),
       });
 
@@ -610,8 +639,38 @@ export default function ChitFundContributionsPage() {
                         <div className="text-sm text-gray-900">{formatDate(contribution.paidDate)}</div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        {contribution.balance > 0 ? (
-                          <div className="text-sm text-red-600 font-semibold">{formatCurrency(contribution.balance)}</div>
+                        {contribution.balance > 0 || contribution.balancePaymentStatus === 'Paid' ? (
+                          <div>
+                            {contribution.balancePaymentStatus === 'Paid' ? (
+                              <div className="text-sm text-green-600 font-semibold">Paid in full</div>
+                            ) : (
+                              <div className="text-sm text-red-600 font-semibold">{formatCurrency(contribution.balance)}</div>
+                            )}
+
+                            <div className="text-xs mt-1">
+                              <span className={`px-2 py-1 rounded-full ${
+                                contribution.balancePaymentStatus === 'Paid'
+                                  ? 'bg-green-100 text-green-800'
+                                  : contribution.balancePaymentStatus === 'Overdue'
+                                  ? 'bg-red-100 text-red-800'
+                                  : 'bg-yellow-100 text-yellow-800'
+                              }`}>
+                                {contribution.balancePaymentStatus || 'Pending'}
+                              </span>
+                            </div>
+
+                            {contribution.balancePaymentDate && (
+                              <div className="text-xs text-gray-500 mt-1">
+                                Expected payment: {formatDate(contribution.balancePaymentDate)}
+                              </div>
+                            )}
+
+                            {contribution.actualBalancePaymentDate && (
+                              <div className="text-xs text-green-600 mt-1">
+                                Paid on: {formatDate(contribution.actualBalancePaymentDate)}
+                              </div>
+                            )}
+                          </div>
                         ) : (
                           <div className="text-sm text-green-600 font-semibold">Paid in full</div>
                         )}
@@ -792,6 +851,63 @@ export default function ChitFundContributionsPage() {
                   <p className="mt-1 text-sm text-red-500">{editFormErrors.paidDate}</p>
                 )}
               </div>
+
+              {Number(editFormData.amount) < chitFund.monthlyContribution && (
+                <>
+                  <div className="mb-4">
+                    <label htmlFor="balancePaymentStatus" className="block text-sm font-medium text-gray-700 mb-1">
+                      Balance Payment Status
+                    </label>
+                    <select
+                      id="balancePaymentStatus"
+                      name="balancePaymentStatus"
+                      value={editFormData.balancePaymentStatus}
+                      onChange={(e) => setEditFormData({...editFormData, balancePaymentStatus: e.target.value})}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    >
+                      <option value="Pending">Pending</option>
+                      <option value="Paid">Paid</option>
+                      <option value="Overdue">Overdue</option>
+                    </select>
+                  </div>
+
+                  <div className="mb-4">
+                    <label htmlFor="balancePaymentDate" className="block text-sm font-medium text-gray-700 mb-1">
+                      Expected Payment Date
+                    </label>
+                    <input
+                      type="date"
+                      id="balancePaymentDate"
+                      name="balancePaymentDate"
+                      value={editFormData.balancePaymentDate}
+                      onChange={handleEditFormChange}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    />
+                    <p className="mt-1 text-xs text-gray-500">
+                      Date when the remaining balance is expected to be paid
+                    </p>
+                  </div>
+
+                  {editFormData.balancePaymentStatus === 'Paid' && (
+                    <div className="mb-4">
+                      <label htmlFor="actualBalancePaymentDate" className="block text-sm font-medium text-gray-700 mb-1">
+                        Actual Payment Date
+                      </label>
+                      <input
+                        type="date"
+                        id="actualBalancePaymentDate"
+                        name="actualBalancePaymentDate"
+                        value={editFormData.actualBalancePaymentDate}
+                        onChange={handleEditFormChange}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      />
+                      <p className="mt-1 text-xs text-gray-500">
+                        Date when the balance was actually paid
+                      </p>
+                    </div>
+                  )}
+                </>
+              )}
               {editFormErrors.submit && (
                 <div className="mb-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
                   <p>{editFormErrors.submit}</p>
@@ -923,6 +1039,63 @@ export default function ChitFundContributionsPage() {
                   <p className="mt-1 text-sm text-red-500">{formErrors.paidDate}</p>
                 )}
               </div>
+
+              {Number(newContribution.amount) > 0 && Number(newContribution.amount) < chitFund.monthlyContribution && (
+                <>
+                  <div className="mb-4">
+                    <label htmlFor="balancePaymentStatus" className="block text-sm font-medium text-gray-700 mb-1">
+                      Balance Payment Status
+                    </label>
+                    <select
+                      id="balancePaymentStatus"
+                      name="balancePaymentStatus"
+                      value={newContribution.balancePaymentStatus}
+                      onChange={handleInputChange}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    >
+                      <option value="Pending">Pending</option>
+                      <option value="Paid">Paid</option>
+                      <option value="Overdue">Overdue</option>
+                    </select>
+                  </div>
+
+                  <div className="mb-4">
+                    <label htmlFor="balancePaymentDate" className="block text-sm font-medium text-gray-700 mb-1">
+                      Expected Payment Date
+                    </label>
+                    <input
+                      type="date"
+                      id="balancePaymentDate"
+                      name="balancePaymentDate"
+                      value={newContribution.balancePaymentDate}
+                      onChange={handleInputChange}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    />
+                    <p className="mt-1 text-xs text-gray-500">
+                      Date when the remaining balance is expected to be paid
+                    </p>
+                  </div>
+
+                  {newContribution.balancePaymentStatus === 'Paid' && (
+                    <div className="mb-4">
+                      <label htmlFor="actualBalancePaymentDate" className="block text-sm font-medium text-gray-700 mb-1">
+                        Actual Payment Date
+                      </label>
+                      <input
+                        type="date"
+                        id="actualBalancePaymentDate"
+                        name="actualBalancePaymentDate"
+                        value={newContribution.actualBalancePaymentDate}
+                        onChange={handleInputChange}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      />
+                      <p className="mt-1 text-xs text-gray-500">
+                        Date when the balance was actually paid
+                      </p>
+                    </div>
+                  )}
+                </>
+              )}
               {formErrors.submit && (
                 <div className="mb-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
                   <p>{formErrors.submit}</p>
