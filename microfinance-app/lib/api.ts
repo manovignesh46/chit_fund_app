@@ -101,7 +101,7 @@ export const chitFundAPI = {
     body: JSON.stringify({ id }),
   }),
 
-  getMembers: (id: number) => fetchAPI<any[]>(`/chit-funds/${id}/members`),
+  getMembers: (id: number, page = 1, pageSize = 10) => fetchAPI<any>(`/chit-funds/${id}/members?page=${page}&pageSize=${pageSize}`),
 
   addMember: (id: number, data: any) => fetchAPI<any>(`/chit-funds/${id}/members`, {
     method: 'POST',
@@ -174,7 +174,7 @@ export const dashboardAPI = {
 
 // Global Members API functions
 export const memberAPI = {
-  getAll: () => fetchAPI<any[]>('/members'),
+  getAll: (page = 1, pageSize = 10) => fetchAPI<any>(`/members?page=${page}&pageSize=${pageSize}`),
 
   getById: (id: number) => fetchAPI<any>(`/members/${id}`),
 

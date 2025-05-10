@@ -9,6 +9,17 @@ export async function GET(
     const { id } = await params;
     const chitFundId = parseInt(id);
 
+    const { searchParams } = new URL(request.url);
+    const page = parseInt(searchParams.get('page') || '1');
+    const pageSize = parseInt(searchParams.get('pageSize') || '10');
+
+    // Validate pagination parameters
+    const validPage = page > 0 ? page : 1;
+    const validPageSize = pageSize > 0 ? pageSize : 10;
+
+    // Calculate skip value for pagination
+    const skip = (validPage - 1) * validPageSize;
+
     if (isNaN(chitFundId)) {
       return NextResponse.json(
         { error: 'Invalid chit fund ID' },
@@ -28,7 +39,12 @@ export async function GET(
       );
     }
 
-    // Get all members for this chit fund
+    // Get total count for pagination
+    const totalCount = await prisma.member.count({
+      where: { chitFundId: chitFundId },
+    });
+
+    // Get paginated members for this chit fund
     const members = await prisma.member.findMany({
       where: { chitFundId: chitFundId },
       include: {
@@ -45,6 +61,8 @@ export async function GET(
         },
       },
       orderBy: { joinDate: 'asc' },
+      skip,
+      take: validPageSize,
     });
 
     // Transform the data to include auction information
@@ -64,7 +82,13 @@ export async function GET(
       };
     });
 
-    return NextResponse.json(transformedMembers);
+    return NextResponse.json({
+      members: transformedMembers,
+      totalCount,
+      page: validPage,
+      pageSize: validPageSize,
+      totalPages: Math.ceil(totalCount / validPageSize)
+    });
   } catch (error) {
     console.error('Error fetching members:', error);
     return NextResponse.json(

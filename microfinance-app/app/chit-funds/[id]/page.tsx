@@ -102,7 +102,15 @@ const ChitFundDetails = () => {
 
         // Set the data
         setChitFund(chitFundData);
-        setMembers(membersData);
+
+        // Handle the new paginated response format for members
+        if (membersData.members && Array.isArray(membersData.members)) {
+          setMembers(membersData.members);
+        } else {
+          // Fallback for backward compatibility
+          setMembers(Array.isArray(membersData) ? membersData : []);
+        }
+
         setAuctions(auctionsData);
         setContributions(contributionsData);
 
@@ -150,8 +158,13 @@ const ChitFundDetails = () => {
 
         // Calculate next payout details if there are auctions
         if (auctionsData.length > 0 && chitFundData.currentMonth < chitFundData.duration) {
+          // Get the members array from the response
+          const membersArray = membersData.members && Array.isArray(membersData.members)
+            ? membersData.members
+            : (Array.isArray(membersData) ? membersData : []);
+
           // Find members who haven't won an auction yet
-          const eligibleMembers = membersData.filter((member: Member) => !member.auctionWon);
+          const eligibleMembers = membersArray.filter((member: Member) => !member.auctionWon);
 
           if (eligibleMembers.length > 0) {
             // For simplicity, we'll just pick the first eligible member as the next receiver

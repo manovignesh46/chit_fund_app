@@ -46,9 +46,33 @@ export default function MembersPage() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
+  // For bulk deleting members
+  const [showBulkDeleteModal, setShowBulkDeleteModal] = useState(false);
+  const [isBulkDeleting, setIsBulkDeleting] = useState(false);
+  const [bulkDeleteError, setBulkDeleteError] = useState<string | null>(null);
+  const [bulkDeleteSuccess, setBulkDeleteSuccess] = useState<string | null>(null);
+
+  // For selecting members
+  const [selectedMembers, setSelectedMembers] = useState<number[]>([]);
+  const [selectAll, setSelectAll] = useState(false);
+
+  // For pagination
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+
+  // For assigning members to chit fund
+  const [showAssignModal, setShowAssignModal] = useState(false);
+  const [chitFunds, setChitFunds] = useState<{id: number, name: string, monthlyContribution: number}[]>([]);
+  const [selectedChitFund, setSelectedChitFund] = useState<string>('');
+  const [contribution, setContribution] = useState<string>('');
+  const [isAssigning, setIsAssigning] = useState(false);
+  const [assignError, setAssignError] = useState<string | null>(null);
+  const [assignSuccess, setAssignSuccess] = useState<string | null>(null);
+
   useEffect(() => {
     fetchMembers();
-  }, []);
+  }, [currentPage, pageSize]);
 
   const fetchMembers = async () => {
     try {
@@ -58,9 +82,23 @@ export default function MembersPage() {
       // Add a small delay to ensure the API route is ready
       await new Promise(resolve => setTimeout(resolve, 500));
 
-      const data = await memberAPI.getAll();
+      const data = await memberAPI.getAll(currentPage, pageSize);
       console.log('Members data received:', data);
-      setMembers(data);
+
+      // Check if the response has pagination metadata
+      if (data.members && Array.isArray(data.members)) {
+        setMembers(data.members);
+        setTotalPages(data.totalPages || Math.ceil(data.totalCount / pageSize));
+      } else {
+        // Fallback for backward compatibility
+        setMembers(Array.isArray(data) ? data : []);
+        setTotalPages(1);
+      }
+
+      // Clear selected members when page changes
+      setSelectedMembers([]);
+      setSelectAll(false);
+
       setError(null);
     } catch (err: any) {
       console.error('Error fetching members:', err);
@@ -162,6 +200,12 @@ export default function MembersPage() {
       // Remove the deleted member from the state
       setMembers(members.filter(m => m.id !== memberToDelete));
 
+      // Remove from selected members if present
+      if (selectedMembers.includes(memberToDelete)) {
+        setSelectedMembers(selectedMembers.filter(id => id !== memberToDelete));
+        if (selectAll) setSelectAll(false);
+      }
+
       // Close the modal
       setShowDeleteModal(false);
       setMemberToDelete(null);
@@ -170,6 +214,210 @@ export default function MembersPage() {
       setDeleteError(error.message || 'Failed to delete member. Please try again.');
     } finally {
       setIsDeleting(false);
+    }
+  };
+
+  // Handle selecting/deselecting a member
+  const handleSelectMember = (memberId: number) => {
+    if (selectedMembers.includes(memberId)) {
+      setSelectedMembers(selectedMembers.filter(id => id !== memberId));
+      setSelectAll(false);
+    } else {
+      setSelectedMembers([...selectedMembers, memberId]);
+      if (selectedMembers.length + 1 === members.length) {
+        setSelectAll(true);
+      }
+    }
+  };
+
+  // Handle bulk delete members
+  const handleBulkDeleteClick = () => {
+    if (selectedMembers.length === 0) return;
+    setShowBulkDeleteModal(true);
+    setBulkDeleteError(null);
+    setBulkDeleteSuccess(null);
+  };
+
+  // Confirm bulk delete members
+  const confirmBulkDeleteMembers = async () => {
+    if (selectedMembers.length === 0) return;
+
+    setIsBulkDeleting(true);
+    setBulkDeleteError(null);
+    setBulkDeleteSuccess(null);
+
+    try {
+      let successCount = 0;
+      let errorCount = 0;
+
+      // Process each selected member
+      for (const memberId of selectedMembers) {
+        try {
+          await memberAPI.delete(memberId);
+          successCount++;
+        } catch (error) {
+          console.error(`Error deleting member ${memberId}:`, error);
+          errorCount++;
+        }
+      }
+
+      // Update the members list
+      if (successCount > 0) {
+        setMembers(members.filter(m => !selectedMembers.includes(m.id)));
+        setBulkDeleteSuccess(`Successfully deleted ${successCount} member${successCount > 1 ? 's' : ''}.`);
+
+        // Clear selection
+        setSelectedMembers([]);
+        setSelectAll(false);
+
+        // Close modal after a delay
+        setTimeout(() => {
+          setShowBulkDeleteModal(false);
+        }, 2000);
+      }
+
+      if (errorCount > 0) {
+        setBulkDeleteError(`Failed to delete ${errorCount} member${errorCount > 1 ? 's' : ''}. They may be associated with chit funds or loans.`);
+      }
+
+    } catch (error: any) {
+      console.error('Error bulk deleting members:', error);
+      setBulkDeleteError(error.message || 'Failed to delete members. Please try again.');
+    } finally {
+      setIsBulkDeleting(false);
+    }
+  };
+
+  // Handle select all members
+  const handleSelectAll = () => {
+    if (selectAll) {
+      setSelectedMembers([]);
+      setSelectAll(false);
+    } else {
+      setSelectedMembers(members.map(member => member.id));
+      setSelectAll(true);
+    }
+  };
+
+  // Open assign modal and fetch chit funds
+  const handleOpenAssignModal = async () => {
+    if (selectedMembers.length === 0) return;
+
+    setShowAssignModal(true);
+    setSelectedChitFund('');
+    setContribution('');
+    setAssignError(null);
+    setAssignSuccess(null);
+
+    try {
+      const response = await fetch('/api/chit-funds');
+      if (!response.ok) {
+        throw new Error('Failed to fetch chit funds');
+      }
+
+      const data = await response.json();
+      setChitFunds(data);
+
+    } catch (error: any) {
+      console.error('Error fetching chit funds:', error);
+      setAssignError(error.message || 'Failed to fetch chit funds. Please try again.');
+    }
+  };
+
+  // Handle chit fund selection
+  const handleChitFundChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const fundId = e.target.value;
+    setSelectedChitFund(fundId);
+
+    if (fundId) {
+      const fund = chitFunds.find(f => f.id === parseInt(fundId));
+      if (fund) {
+        setContribution(fund.monthlyContribution.toString());
+      }
+    } else {
+      setContribution('');
+    }
+  };
+
+  // Validate assign form
+  const validateAssignForm = () => {
+    const errors: {[key: string]: string} = {};
+
+    if (!selectedChitFund) {
+      errors.chitFund = 'Please select a chit fund';
+    }
+
+    if (!contribution) {
+      errors.contribution = 'Contribution amount is required';
+    } else if (isNaN(Number(contribution)) || Number(contribution) <= 0) {
+      errors.contribution = 'Contribution must be a positive number';
+    }
+
+    setFormErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
+  // Handle assigning members to chit fund
+  const handleAssignMembers = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!validateAssignForm()) {
+      return;
+    }
+
+    setIsAssigning(true);
+    setAssignError(null);
+    setAssignSuccess(null);
+
+    try {
+      let successCount = 0;
+      let errorCount = 0;
+
+      // Process each selected member
+      for (const memberId of selectedMembers) {
+        const response = await fetch(`/api/chit-funds/${selectedChitFund}/members`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            globalMemberId: memberId,
+            contribution: Number(contribution),
+          }),
+        });
+
+        if (response.ok) {
+          successCount++;
+        } else {
+          const errorData = await response.json();
+          console.error('Error assigning member:', errorData);
+          errorCount++;
+        }
+      }
+
+      // Show appropriate message
+      if (successCount > 0) {
+        setAssignSuccess(`Successfully assigned ${successCount} member${successCount > 1 ? 's' : ''} to the chit fund.`);
+
+        // Clear selection after successful assignment
+        setSelectedMembers([]);
+        setSelectAll(false);
+
+        // Close modal after a delay
+        setTimeout(() => {
+          setShowAssignModal(false);
+        }, 2000);
+      }
+
+      if (errorCount > 0) {
+        setAssignError(`Failed to assign ${errorCount} member${errorCount > 1 ? 's' : ''}. They may already be part of this chit fund.`);
+      }
+
+    } catch (error: any) {
+      console.error('Error assigning members:', error);
+      setAssignError(error.message || 'Failed to assign members. Please try again.');
+    } finally {
+      setIsAssigning(false);
     }
   };
 
@@ -212,6 +460,27 @@ export default function MembersPage() {
           >
             Add New Member
           </button>
+          {selectedMembers.length > 0 && (
+            <>
+              <button
+                onClick={handleOpenAssignModal}
+                className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition duration-300"
+              >
+                Assign Selected to Chit Fund ({selectedMembers.length})
+              </button>
+              <button
+                onClick={handleBulkDeleteClick}
+                disabled={isBulkDeleting}
+                className={`px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition duration-300 ${
+                  isBulkDeleting ? 'opacity-50 cursor-not-allowed' : ''
+                }`}
+              >
+                {isBulkDeleting
+                  ? 'Deleting...'
+                  : `Delete Selected (${selectedMembers.length})`}
+              </button>
+            </>
+          )}
         </div>
       </div>
 
@@ -228,6 +497,17 @@ export default function MembersPage() {
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <div className="flex items-center">
+                    <input
+                      type="checkbox"
+                      checked={selectAll}
+                      onChange={handleSelectAll}
+                      className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                    />
+                    <span className="ml-2">Select</span>
+                  </div>
+                </th>
                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Name
                 </th>
@@ -251,13 +531,23 @@ export default function MembersPage() {
             <tbody className="bg-white divide-y divide-gray-200">
               {members.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-6 py-4 text-center text-gray-500">
+                  <td colSpan={7} className="px-6 py-4 text-center text-gray-500">
                     No members found. Add members to get started.
                   </td>
                 </tr>
               ) : (
                 members.map((member) => (
                   <tr key={member.id} className="hover:bg-gray-50">
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex items-center">
+                        <input
+                          type="checkbox"
+                          checked={selectedMembers.includes(member.id)}
+                          onChange={() => handleSelectMember(member.id)}
+                          className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                        />
+                      </div>
+                    </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm font-medium text-blue-600">{member.name}</div>
                     </td>
@@ -299,6 +589,132 @@ export default function MembersPage() {
               )}
             </tbody>
           </table>
+
+          {/* Pagination Controls */}
+          <div className="mt-6 flex items-center justify-between border-t border-gray-200 bg-white px-4 py-3 sm:px-6">
+            <div className="flex flex-1 justify-between sm:hidden">
+              <button
+                onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                disabled={currentPage === 1}
+                className={`relative inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium ${
+                  currentPage === 1 ? 'text-gray-300 cursor-not-allowed' : 'text-gray-700 hover:bg-gray-50'
+                }`}
+              >
+                Previous
+              </button>
+              <button
+                onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                disabled={currentPage === totalPages}
+                className={`relative ml-3 inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium ${
+                  currentPage === totalPages ? 'text-gray-300 cursor-not-allowed' : 'text-gray-700 hover:bg-gray-50'
+                }`}
+              >
+                Next
+              </button>
+            </div>
+            <div className="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between">
+              <div className="flex items-center">
+                <p className="text-sm text-gray-700 mr-4">
+                  Showing <span className="font-medium">{members.length > 0 ? (currentPage - 1) * pageSize + 1 : 0}</span> to{' '}
+                  <span className="font-medium">{Math.min(currentPage * pageSize, (currentPage - 1) * pageSize + members.length)}</span> of{' '}
+                  <span className="font-medium">{totalPages * pageSize}</span> results
+                </p>
+                <div className="flex items-center">
+                  <label htmlFor="pageSize" className="text-sm text-gray-700 mr-2">
+                    Show:
+                  </label>
+                  <select
+                    id="pageSize"
+                    value={pageSize}
+                    onChange={(e) => {
+                      setPageSize(Number(e.target.value));
+                      setCurrentPage(1); // Reset to first page when changing page size
+                    }}
+                    className="border border-gray-300 rounded-md text-sm py-1 pl-2 pr-8"
+                  >
+                    <option value="5">5</option>
+                    <option value="10">10</option>
+                    <option value="20">20</option>
+                    <option value="50">50</option>
+                    <option value="100">100</option>
+                  </select>
+                </div>
+              </div>
+              <div>
+                <nav className="isolate inline-flex -space-x-px rounded-md shadow-sm" aria-label="Pagination">
+                  <button
+                    onClick={() => setCurrentPage(1)}
+                    disabled={currentPage === 1}
+                    className={`relative inline-flex items-center rounded-l-md px-2 py-2 ${
+                      currentPage === 1 ? 'text-gray-300 cursor-not-allowed' : 'text-gray-500 hover:bg-gray-50'
+                    }`}
+                  >
+                    <span className="sr-only">First</span>
+                    <span className="text-xs">First</span>
+                  </button>
+                  <button
+                    onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                    disabled={currentPage === 1}
+                    className={`relative inline-flex items-center px-2 py-2 ${
+                      currentPage === 1 ? 'text-gray-300 cursor-not-allowed' : 'text-gray-500 hover:bg-gray-50'
+                    }`}
+                  >
+                    <span className="sr-only">Previous</span>
+                    <span>←</span>
+                  </button>
+
+                  {/* Page numbers */}
+                  {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                    let pageNum;
+                    if (totalPages <= 5) {
+                      pageNum = i + 1;
+                    } else if (currentPage <= 3) {
+                      pageNum = i + 1;
+                    } else if (currentPage >= totalPages - 2) {
+                      pageNum = totalPages - 4 + i;
+                    } else {
+                      pageNum = currentPage - 2 + i;
+                    }
+
+                    return (
+                      <button
+                        key={pageNum}
+                        onClick={() => setCurrentPage(pageNum)}
+                        className={`relative inline-flex items-center px-4 py-2 text-sm font-semibold ${
+                          currentPage === pageNum
+                            ? 'z-10 bg-blue-600 text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600'
+                            : 'text-gray-900 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:outline-offset-0'
+                        }`}
+                      >
+                        {pageNum}
+                      </button>
+                    );
+                  })}
+
+                  <button
+                    onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                    disabled={currentPage === totalPages}
+                    className={`relative inline-flex items-center px-2 py-2 ${
+                      currentPage === totalPages ? 'text-gray-300 cursor-not-allowed' : 'text-gray-500 hover:bg-gray-50'
+                    }`}
+                  >
+                    <span className="sr-only">Next</span>
+                    <span>→</span>
+                  </button>
+                  <button
+                    onClick={() => setCurrentPage(totalPages)}
+                    disabled={currentPage === totalPages}
+                    className={`relative inline-flex items-center rounded-r-md px-2 py-2 ${
+                      currentPage === totalPages ? 'text-gray-300 cursor-not-allowed' : 'text-gray-500 hover:bg-gray-50'
+                    }`}
+                  >
+                    <span className="sr-only">Last</span>
+                    <span className="text-xs">Last</span>
+                  </button>
+                </nav>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -446,6 +862,149 @@ export default function MembersPage() {
                 disabled={isDeleting}
               >
                 {isDeleting ? 'Deleting...' : 'Delete'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Assign to Chit Fund Modal */}
+      {showAssignModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-md">
+            <h2 className="text-xl font-bold text-blue-700 mb-4">
+              Assign {selectedMembers.length} Member{selectedMembers.length > 1 ? 's' : ''} to Chit Fund
+            </h2>
+
+            {assignSuccess && (
+              <div className="mb-4 bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded">
+                <p>{assignSuccess}</p>
+              </div>
+            )}
+
+            {assignError && (
+              <div className="mb-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+                <p>{assignError}</p>
+              </div>
+            )}
+
+            <form onSubmit={handleAssignMembers}>
+              <div className="mb-4">
+                <label htmlFor="chitFund" className="block text-sm font-medium text-gray-700 mb-1">
+                  Select Chit Fund <span className="text-red-500">*</span>
+                </label>
+                <select
+                  id="chitFund"
+                  value={selectedChitFund}
+                  onChange={handleChitFundChange}
+                  className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                    formErrors.chitFund ? 'border-red-500' : 'border-gray-300'
+                  }`}
+                >
+                  <option value="">Select a chit fund</option>
+                  {chitFunds.map((fund) => (
+                    <option key={fund.id} value={fund.id}>
+                      {fund.name} - {new Intl.NumberFormat('en-IN', {
+                        style: 'currency',
+                        currency: 'INR',
+                        maximumFractionDigits: 0,
+                      }).format(fund.monthlyContribution)}
+                    </option>
+                  ))}
+                </select>
+                {formErrors.chitFund && (
+                  <p className="mt-1 text-sm text-red-500">{formErrors.chitFund}</p>
+                )}
+              </div>
+
+              <div className="mb-6">
+                <label htmlFor="contribution" className="block text-sm font-medium text-gray-700 mb-1">
+                  Monthly Contribution <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="number"
+                  id="contribution"
+                  value={contribution}
+                  onChange={(e) => setContribution(e.target.value)}
+                  className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                    formErrors.contribution ? 'border-red-500' : 'border-gray-300'
+                  }`}
+                />
+                {formErrors.contribution && (
+                  <p className="mt-1 text-sm text-red-500">{formErrors.contribution}</p>
+                )}
+              </div>
+
+              <div className="flex justify-end space-x-4">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowAssignModal(false);
+                    setAssignError(null);
+                    setAssignSuccess(null);
+                  }}
+                  className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition duration-300"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isAssigning}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-300 disabled:opacity-50"
+                >
+                  {isAssigning ? 'Assigning...' : 'Assign Members'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Bulk Delete Confirmation Modal */}
+      {showBulkDeleteModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-md">
+            <h2 className="text-xl font-bold text-red-700 mb-4">Confirm Bulk Deletion</h2>
+            <p className="mb-2">Are you sure you want to delete {selectedMembers.length} selected member{selectedMembers.length > 1 ? 's' : ''}? This action cannot be undone.</p>
+            <div className="mb-6 bg-yellow-50 border border-yellow-400 text-yellow-700 p-3 rounded">
+              <p className="font-bold">Warning:</p>
+              <ul className="list-disc pl-5 mt-1">
+                <li>Only members not associated with any chit funds or loans will be deleted</li>
+                <li>Members that are part of active chit funds or loans cannot be deleted</li>
+              </ul>
+            </div>
+
+            {bulkDeleteSuccess && (
+              <div className="mb-4 bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded">
+                <p>{bulkDeleteSuccess}</p>
+              </div>
+            )}
+
+            {bulkDeleteError && (
+              <div className="mb-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+                <p>{bulkDeleteError}</p>
+              </div>
+            )}
+
+            <div className="flex justify-end space-x-4">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowBulkDeleteModal(false);
+                  setBulkDeleteError(null);
+                  setBulkDeleteSuccess(null);
+                }}
+                className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition duration-300"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={confirmBulkDeleteMembers}
+                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition duration-300 disabled:opacity-50"
+                disabled={isBulkDeleting || bulkDeleteSuccess !== null}
+              >
+                {isBulkDeleting ? 'Deleting...' : 'Delete Selected'}
               </button>
             </div>
           </div>

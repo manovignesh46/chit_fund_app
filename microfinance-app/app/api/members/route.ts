@@ -3,9 +3,23 @@ import prisma from '@/lib/prisma';
 
 export const dynamic = 'force-dynamic'; // Ensure the route is not statically optimized
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    // Get all global members
+    const { searchParams } = new URL(request.url);
+    const page = parseInt(searchParams.get('page') || '1');
+    const pageSize = parseInt(searchParams.get('pageSize') || '10');
+
+    // Validate pagination parameters
+    const validPage = page > 0 ? page : 1;
+    const validPageSize = pageSize > 0 ? pageSize : 10;
+
+    // Calculate skip value for pagination
+    const skip = (validPage - 1) * validPageSize;
+
+    // Get total count for pagination
+    const totalCount = await prisma.globalMember.count();
+
+    // Get paginated global members
     const members = await prisma.globalMember.findMany({
       include: {
         _count: {
@@ -16,9 +30,17 @@ export async function GET() {
         }
       },
       orderBy: { name: 'asc' },
+      skip,
+      take: validPageSize,
     });
 
-    return NextResponse.json(members);
+    return NextResponse.json({
+      members,
+      totalCount,
+      page: validPage,
+      pageSize: validPageSize,
+      totalPages: Math.ceil(totalCount / validPageSize)
+    });
   } catch (error) {
     console.error('Error fetching members:', error);
     return NextResponse.json(
