@@ -4,17 +4,42 @@ import prisma from '@/lib/prisma';
 // Use type assertion to handle TypeScript type checking
 const prismaAny = prisma as any;
 
-export async function GET() {
+export async function GET(request: NextRequest) {
     try {
+        const { searchParams } = new URL(request.url);
+        const page = parseInt(searchParams.get('page') || '1');
+        const pageSize = parseInt(searchParams.get('pageSize') || '10');
+
+        // Validate pagination parameters
+        const validPage = page > 0 ? page : 1;
+        const validPageSize = pageSize > 0 ? pageSize : 10;
+
+        // Calculate skip value for pagination
+        const skip = (validPage - 1) * validPageSize;
+
+        // Get total count for pagination
+        const totalCount = await prismaAny.loan.count();
+
+        // Get paginated loans
         const loans = await prismaAny.loan.findMany({
             include: {
                 _count: {
                     select: { repayments: true }
                 },
                 borrower: true
-            }
+            },
+            orderBy: { createdAt: 'desc' },
+            skip,
+            take: validPageSize,
         });
-        return NextResponse.json(loans);
+
+        return NextResponse.json({
+            loans,
+            totalCount,
+            page: validPage,
+            pageSize: validPageSize,
+            totalPages: Math.ceil(totalCount / validPageSize)
+        });
     } catch (error) {
         console.error('Error fetching loans:', error);
         return NextResponse.json(

@@ -5,15 +5,29 @@ export const dynamic = 'force-dynamic'; // Ensure the route is not statically op
 
 export async function GET() {
   try {
-    // Get total cash inflow (sum of all contributions)
+    // Get total cash inflow from chit fund contributions
     const contributionsSum = await prisma.contribution.aggregate({
       _sum: {
         amount: true,
       },
     });
 
-    // Get total cash outflow (sum of all auction amounts)
+    // Get total cash inflow from loan repayments
+    const repaymentsSum = await prisma.repayment.aggregate({
+      _sum: {
+        amount: true,
+      },
+    });
+
+    // Get total cash outflow from auctions
     const auctionsSum = await prisma.auction.aggregate({
+      _sum: {
+        amount: true,
+      },
+    });
+
+    // Get total cash outflow from loan disbursements
+    const loansSum = await prisma.loan.aggregate({
       _sum: {
         amount: true,
       },
@@ -42,9 +56,9 @@ export async function GET() {
     // Get upcoming events
     const upcomingEvents = await getUpcomingEvents();
 
-    // Calculate total profit
-    const totalCashInflow = contributionsSum._sum.amount || 0;
-    const totalCashOutflow = auctionsSum._sum.amount || 0;
+    // Calculate total cash flows including loan transactions
+    const totalCashInflow = (contributionsSum._sum.amount || 0) + (repaymentsSum._sum.amount || 0);
+    const totalCashOutflow = (auctionsSum._sum.amount || 0) + (loansSum._sum.amount || 0);
     const totalProfit = totalCashInflow - totalCashOutflow;
 
     return NextResponse.json({

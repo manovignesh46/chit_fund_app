@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 
 // Define interfaces
@@ -24,48 +24,220 @@ interface Repayment {
   paymentType?: 'full' | 'interestOnly';
 }
 
+interface PaginatedResponse {
+  repayments: Repayment[];
+  totalCount: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+}
+
 const RepaymentsPage = () => {
   const params = useParams();
+  const router = useRouter();
   const id = params.id;
+
+  // State variables
   const [loan, setLoan] = useState<Loan | null>(null);
   const [repayments, setRepayments] = useState<Repayment[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (id) {
-      const fetchData = async () => {
-        try {
-          setLoading(true);
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
 
-          // Fetch loan details
-          const loanResponse = await fetch(`/api/loans/${id}`);
-          if (!loanResponse.ok) {
-            throw new Error('Failed to fetch loan details');
-          }
-          const loanData = await loanResponse.json();
-          setLoan(loanData);
+  // Selection state
+  const [selectedRepayments, setSelectedRepayments] = useState<number[]>([]);
+  const [selectAll, setSelectAll] = useState(false);
 
-          // Fetch repayments
-          const repaymentsResponse = await fetch(`/api/loans/${id}/repayments`);
-          if (!repaymentsResponse.ok) {
-            throw new Error('Failed to fetch repayments');
-          }
-          const repaymentsData = await repaymentsResponse.json();
-          setRepayments(repaymentsData);
+  // Delete modal state
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [repaymentToDelete, setRepaymentToDelete] = useState<number | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [deleteSuccess, setDeleteSuccess] = useState<string | null>(null);
 
-          setError(null);
-        } catch (err) {
-          console.error('Error fetching data:', err);
-          setError(err instanceof Error ? err.message : 'An error occurred');
-        } finally {
-          setLoading(false);
-        }
-      };
+  // Bulk delete modal state
+  const [showBulkDeleteModal, setShowBulkDeleteModal] = useState(false);
+  const [isBulkDeleting, setIsBulkDeleting] = useState(false);
+  const [bulkDeleteError, setBulkDeleteError] = useState<string | null>(null);
+  const [bulkDeleteSuccess, setBulkDeleteSuccess] = useState<string | null>(null);
 
-      fetchData();
+  // Fetch data function
+  const fetchData = async () => {
+    if (!id) return;
+
+    try {
+      setLoading(true);
+
+      // Fetch loan details
+      const loanResponse = await fetch(`/api/loans/${id}`);
+      if (!loanResponse.ok) {
+        throw new Error('Failed to fetch loan details');
+      }
+      const loanData = await loanResponse.json();
+      setLoan(loanData);
+
+      // Fetch paginated repayments
+      const repaymentsResponse = await fetch(`/api/loans/${id}/repayments?page=${currentPage}&pageSize=${pageSize}`);
+      if (!repaymentsResponse.ok) {
+        throw new Error('Failed to fetch repayments');
+      }
+
+      const repaymentsData: PaginatedResponse = await repaymentsResponse.json();
+
+      // Check if the response has pagination metadata
+      if (repaymentsData.repayments && Array.isArray(repaymentsData.repayments)) {
+        setRepayments(repaymentsData.repayments);
+        setTotalCount(repaymentsData.totalCount || 0);
+        setTotalPages(repaymentsData.totalPages || 1);
+      } else {
+        // Fallback for backward compatibility
+        setRepayments(Array.isArray(repaymentsData) ? repaymentsData : []);
+        setTotalPages(1);
+        setTotalCount(Array.isArray(repaymentsData) ? repaymentsData.length : 0);
+      }
+
+      // Clear selected repayments when page changes
+      setSelectedRepayments([]);
+      setSelectAll(false);
+      setError(null);
+    } catch (err) {
+      console.error('Error fetching data:', err);
+      setError(err instanceof Error ? err.message : 'An error occurred');
+    } finally {
+      setLoading(false);
     }
-  }, [id]);
+  };
+
+  // Initial data fetch
+  useEffect(() => {
+    fetchData();
+  }, [id, currentPage, pageSize]);
+
+  // Handle selecting/deselecting a repayment
+  const handleSelectRepayment = (repaymentId: number) => {
+    if (selectedRepayments.includes(repaymentId)) {
+      setSelectedRepayments(selectedRepayments.filter(id => id !== repaymentId));
+      setSelectAll(false);
+    } else {
+      setSelectedRepayments([...selectedRepayments, repaymentId]);
+      if (selectedRepayments.length + 1 === repayments.length) {
+        setSelectAll(true);
+      }
+    }
+  };
+
+  // Handle select all repayments
+  const handleSelectAll = () => {
+    if (selectAll) {
+      setSelectedRepayments([]);
+      setSelectAll(false);
+    } else {
+      setSelectedRepayments(repayments.map(repayment => repayment.id));
+      setSelectAll(true);
+    }
+  };
+
+  // Handle delete repayment
+  const handleDeleteRepayment = (repaymentId: number) => {
+    setRepaymentToDelete(repaymentId);
+    setShowDeleteModal(true);
+    setDeleteError(null);
+    setDeleteSuccess(null);
+  };
+
+  // Confirm delete repayment
+  const confirmDeleteRepayment = async () => {
+    if (!repaymentToDelete) return;
+
+    setIsDeleting(true);
+    setDeleteError(null);
+
+    try {
+      const response = await fetch(`/api/loans/${id}/repayments`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ repaymentId: repaymentToDelete }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to delete repayment');
+      }
+
+      // Show success message
+      setDeleteSuccess('Repayment deleted successfully');
+
+      // Refresh data after a short delay
+      setTimeout(() => {
+        setShowDeleteModal(false);
+        setRepaymentToDelete(null);
+        setDeleteSuccess(null);
+        fetchData();
+      }, 1500);
+    } catch (error) {
+      console.error('Error deleting repayment:', error);
+      setDeleteError(error instanceof Error ? error.message : 'An error occurred');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  // Handle bulk delete repayments
+  const handleBulkDeleteClick = () => {
+    if (selectedRepayments.length === 0) return;
+    setShowBulkDeleteModal(true);
+    setBulkDeleteError(null);
+    setBulkDeleteSuccess(null);
+  };
+
+  // Confirm bulk delete repayments
+  const confirmBulkDeleteRepayments = async () => {
+    if (selectedRepayments.length === 0) return;
+
+    setIsBulkDeleting(true);
+    setBulkDeleteError(null);
+
+    try {
+      const response = await fetch(`/api/loans/${id}/repayments`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ repaymentIds: selectedRepayments }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to delete repayments');
+      }
+
+      const data = await response.json();
+
+      // Show success message
+      setBulkDeleteSuccess(data.message || `${selectedRepayments.length} repayments deleted successfully`);
+
+      // Refresh data after a short delay
+      setTimeout(() => {
+        setShowBulkDeleteModal(false);
+        setSelectedRepayments([]);
+        setSelectAll(false);
+        setBulkDeleteSuccess(null);
+        fetchData();
+      }, 1500);
+    } catch (error) {
+      console.error('Error deleting repayments:', error);
+      setBulkDeleteError(error instanceof Error ? error.message : 'An error occurred');
+    } finally {
+      setIsBulkDeleting(false);
+    }
+  };
 
   // Format currency
   const formatCurrency = (amount: number): string => {
@@ -175,10 +347,41 @@ const RepaymentsPage = () => {
         </div>
       ) : (
         <div className="bg-white rounded-lg shadow-md overflow-hidden">
+          {/* Action buttons */}
+          <div className="p-4 border-b flex justify-between items-center">
+            <div className="flex items-center">
+              <button
+                onClick={handleBulkDeleteClick}
+                disabled={selectedRepayments.length === 0}
+                className={`px-4 py-2 rounded-lg mr-4 ${
+                  selectedRepayments.length === 0
+                    ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                    : 'bg-red-600 text-white hover:bg-red-700'
+                } transition duration-300`}
+              >
+                Delete Selected
+              </button>
+              <span className="text-sm text-gray-600">
+                {selectedRepayments.length > 0 ? `${selectedRepayments.length} selected` : ''}
+              </span>
+            </div>
+          </div>
+
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <div className="flex items-center">
+                      <input
+                        type="checkbox"
+                        checked={selectAll}
+                        onChange={handleSelectAll}
+                        className="h-4 w-4 text-green-600 border-gray-300 rounded focus:ring-green-500"
+                      />
+                      <span className="ml-2">Select</span>
+                    </div>
+                  </th>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Payment Date
                   </th>
@@ -191,11 +394,24 @@ const RepaymentsPage = () => {
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Recorded On
                   </th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Actions
+                  </th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {repayments.map((repayment) => (
                   <tr key={repayment.id} className="hover:bg-gray-50">
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex items-center">
+                        <input
+                          type="checkbox"
+                          checked={selectedRepayments.includes(repayment.id)}
+                          onChange={() => handleSelectRepayment(repayment.id)}
+                          className="h-4 w-4 text-green-600 border-gray-300 rounded focus:ring-green-500"
+                        />
+                      </div>
+                    </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm text-gray-900">{formatDate(repayment.paidDate)}</div>
                     </td>
@@ -223,20 +439,211 @@ const RepaymentsPage = () => {
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm text-gray-900">{formatDate(repayment.createdAt)}</div>
                     </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                      <button
+                        onClick={() => handleDeleteRepayment(repayment.id)}
+                        className="text-red-600 hover:text-red-900"
+                      >
+                        Delete
+                      </button>
+                    </td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
+
+          {/* Pagination and summary */}
           <div className="p-6 border-t">
-            <div className="flex justify-between items-center">
-              <div>
-                <span className="text-sm text-gray-500">Total Paid:</span>
-                <span className="ml-2 text-lg font-semibold">
-                  {formatCurrency(repayments.reduce((sum, item) => sum + item.amount, 0))}
-                </span>
+            <div className="flex flex-col md:flex-row justify-between items-center">
+              <div className="mb-4 md:mb-0 flex items-center">
+                <div className="mr-6">
+                  <span className="text-sm text-gray-500">Total Paid:</span>
+                  <span className="ml-2 text-lg font-semibold">
+                    {formatCurrency(repayments.reduce((sum, item) => sum + item.amount, 0))}
+                  </span>
+                </div>
+                <div className="flex items-center">
+                  <label htmlFor="pageSize" className="text-sm text-gray-600 mr-2">
+                    Show:
+                  </label>
+                  <select
+                    id="pageSize"
+                    value={pageSize}
+                    onChange={(e) => {
+                      setPageSize(Number(e.target.value));
+                      setCurrentPage(1); // Reset to first page when changing page size
+                    }}
+                    className="border border-gray-300 rounded-md text-sm py-1 pl-2 pr-8"
+                  >
+                    <option value="5">5</option>
+                    <option value="10">10</option>
+                    <option value="20">20</option>
+                    <option value="50">50</option>
+                    <option value="100">100</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Pagination controls */}
+              <div className="flex flex-col md:flex-row items-center space-y-4 md:space-y-0">
+                <div>
+                  <nav className="isolate inline-flex -space-x-px rounded-md shadow-sm" aria-label="Pagination">
+                    <button
+                      onClick={() => setCurrentPage(1)}
+                      disabled={currentPage === 1}
+                      className={`relative inline-flex items-center rounded-l-md px-2 py-2 ${
+                        currentPage === 1 ? 'text-gray-300 cursor-not-allowed' : 'text-gray-500 hover:bg-gray-50'
+                      }`}
+                    >
+                      <span className="sr-only">First</span>
+                      <span className="text-xs">First</span>
+                    </button>
+                    <button
+                      onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                      disabled={currentPage === 1}
+                      className={`relative inline-flex items-center px-2 py-2 ${
+                        currentPage === 1 ? 'text-gray-300 cursor-not-allowed' : 'text-gray-500 hover:bg-gray-50'
+                      }`}
+                    >
+                      <span className="sr-only">Previous</span>
+                      <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                        <path fillRule="evenodd" d="M12.79 5.23a.75.75 0 01-.02 1.06L8.832 10l3.938 3.71a.75.75 0 11-1.04 1.08l-4.5-4.25a.75.75 0 010-1.08l4.5-4.25a.75.75 0 011.06.02z" clipRule="evenodd" />
+                      </svg>
+                    </button>
+
+                    {/* Page numbers */}
+                    {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                      let pageNum;
+                      if (totalPages <= 5) {
+                        pageNum = i + 1;
+                      } else if (currentPage <= 3) {
+                        pageNum = i + 1;
+                      } else if (currentPage >= totalPages - 2) {
+                        pageNum = totalPages - 4 + i;
+                      } else {
+                        pageNum = currentPage - 2 + i;
+                      }
+
+                      return (
+                        <button
+                          key={pageNum}
+                          onClick={() => setCurrentPage(pageNum)}
+                          className={`relative inline-flex items-center px-4 py-2 text-sm font-semibold ${
+                            currentPage === pageNum
+                              ? 'z-10 bg-green-600 text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-600'
+                              : 'text-gray-900 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:outline-offset-0'
+                          }`}
+                        >
+                          {pageNum}
+                        </button>
+                      );
+                    })}
+
+                    <button
+                      onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                      disabled={currentPage === totalPages}
+                      className={`relative inline-flex items-center px-2 py-2 ${
+                        currentPage === totalPages ? 'text-gray-300 cursor-not-allowed' : 'text-gray-500 hover:bg-gray-50'
+                      }`}
+                    >
+                      <span className="sr-only">Next</span>
+                      <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                        <path fillRule="evenodd" d="M7.21 14.77a.75.75 0 01.02-1.06L11.168 10 7.23 6.29a.75.75 0 111.04-1.08l4.5 4.25a.75.75 0 010 1.08l-4.5 4.25a.75.75 0 01-1.06-.02z" clipRule="evenodd" />
+                      </svg>
+                    </button>
+                    <button
+                      onClick={() => setCurrentPage(totalPages)}
+                      disabled={currentPage === totalPages}
+                      className={`relative inline-flex items-center rounded-r-md px-2 py-2 ${
+                        currentPage === totalPages ? 'text-gray-300 cursor-not-allowed' : 'text-gray-500 hover:bg-gray-50'
+                      }`}
+                    >
+                      <span className="sr-only">Last</span>
+                      <span className="text-xs">Last</span>
+                    </button>
+                  </nav>
+                </div>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full">
+            <h3 className="text-lg font-semibold mb-4">Confirm Delete</h3>
+            {deleteSuccess ? (
+              <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-4">
+                <p>{deleteSuccess}</p>
+              </div>
+            ) : (
+              <>
+                <p className="mb-4">Are you sure you want to delete this repayment? This action cannot be undone.</p>
+                {deleteError && (
+                  <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+                    <p>{deleteError}</p>
+                  </div>
+                )}
+                <div className="flex justify-end space-x-3">
+                  <button
+                    onClick={() => setShowDeleteModal(false)}
+                    className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition duration-300"
+                    disabled={isDeleting}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={confirmDeleteRepayment}
+                    className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                    disabled={isDeleting}
+                  >
+                    {isDeleting ? 'Deleting...' : 'Delete'}
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Bulk Delete Confirmation Modal */}
+      {showBulkDeleteModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full">
+            <h3 className="text-lg font-semibold mb-4">Confirm Bulk Delete</h3>
+            {bulkDeleteSuccess ? (
+              <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-4">
+                <p>{bulkDeleteSuccess}</p>
+              </div>
+            ) : (
+              <>
+                <p className="mb-4">Are you sure you want to delete {selectedRepayments.length} repayments? This action cannot be undone.</p>
+                {bulkDeleteError && (
+                  <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+                    <p>{bulkDeleteError}</p>
+                  </div>
+                )}
+                <div className="flex justify-end space-x-3">
+                  <button
+                    onClick={() => setShowBulkDeleteModal(false)}
+                    className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition duration-300"
+                    disabled={isBulkDeleting}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={confirmBulkDeleteRepayments}
+                    className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                    disabled={isBulkDeleting}
+                  >
+                    {isBulkDeleting ? 'Deleting...' : 'Delete Selected'}
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}

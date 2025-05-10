@@ -10,12 +10,39 @@ export async function GET(
 ) {
     try {
         const { id } = await params;
+        const { searchParams } = new URL(request.url);
+        const page = parseInt(searchParams.get('page') || '1');
+        const pageSize = parseInt(searchParams.get('pageSize') || '10');
 
+        // Validate pagination parameters
+        const validPage = page > 0 ? page : 1;
+        const validPageSize = pageSize > 0 ? pageSize : 10;
+
+        // Calculate skip value for pagination
+        const skip = (validPage - 1) * validPageSize;
+
+        // Get total count for pagination
+        const totalCount = await prismaAny.repayment.count({
+            where: { loanId: Number(id) }
+        });
+
+        // Get paginated repayments
         const repayments = await prismaAny.repayment.findMany({
             where: { loanId: Number(id) },
+            orderBy: { paidDate: 'desc' },
+            skip,
+            take: validPageSize,
         });
-        return NextResponse.json(repayments);
+
+        return NextResponse.json({
+            repayments,
+            totalCount,
+            page: validPage,
+            pageSize: validPageSize,
+            totalPages: Math.ceil(totalCount / validPageSize)
+        });
     } catch (error) {
+        console.error('Error fetching repayments:', error);
         return NextResponse.json(
             { error: 'Failed to fetch repayments' },
             { status: 500 }
@@ -105,6 +132,139 @@ export async function POST(
         console.error('Error creating repayment:', error);
         return NextResponse.json(
             { error: 'Failed to create repayment' },
+            { status: 500 }
+        );
+    }
+}
+
+export async function DELETE(
+    request: NextRequest,
+    { params }: { params: Promise<{ id: string }> }
+) {
+    try {
+        const { id } = await params;
+        const loanId = Number(id);
+        const body = await request.json();
+
+        // Check if we're deleting a single repayment or multiple
+        if (body.repaymentId) {
+            // Get the repayment to check if it's a full payment
+            const repayment = await prismaAny.repayment.findUnique({
+                where: { id: body.repaymentId }
+            });
+
+            if (!repayment) {
+                return NextResponse.json(
+                    { error: 'Repayment not found' },
+                    { status: 404 }
+                );
+            }
+
+            // Get the loan to update remaining amount
+            const loan = await prismaAny.loan.findUnique({
+                where: { id: loanId }
+            });
+
+            if (!loan) {
+                return NextResponse.json(
+                    { error: 'Loan not found' },
+                    { status: 404 }
+                );
+            }
+
+            // Only adjust remaining amount if it was a full payment
+            const newRemainingAmount = repayment.paymentType === 'full'
+                ? loan.remainingAmount + repayment.amount
+                : loan.remainingAmount;
+
+            // Use a transaction to ensure both operations succeed or fail together
+            await prismaAny.$transaction([
+                // Delete the repayment
+                prismaAny.repayment.delete({
+                    where: { id: body.repaymentId }
+                }),
+
+                // Update the loan's remaining amount if it was a full payment
+                prismaAny.loan.update({
+                    where: { id: loanId },
+                    data: {
+                        remainingAmount: newRemainingAmount,
+                        // Update status back to Active if it was Completed
+                        status: 'Active',
+                    },
+                }),
+            ]);
+
+            return NextResponse.json({ message: 'Repayment deleted successfully' });
+        }
+        else if (body.repaymentIds && Array.isArray(body.repaymentIds)) {
+            // Get all repayments to calculate amount adjustment
+            const repayments = await prismaAny.repayment.findMany({
+                where: {
+                    id: { in: body.repaymentIds },
+                    loanId: loanId
+                }
+            });
+
+            if (repayments.length === 0) {
+                return NextResponse.json(
+                    { error: 'No valid repayments found' },
+                    { status: 404 }
+                );
+            }
+
+            // Get the loan to update remaining amount
+            const loan = await prismaAny.loan.findUnique({
+                where: { id: loanId }
+            });
+
+            if (!loan) {
+                return NextResponse.json(
+                    { error: 'Loan not found' },
+                    { status: 404 }
+                );
+            }
+
+            // Calculate amount to add back to remaining amount (only for full payments)
+            const amountToAddBack = repayments
+                .filter(r => r.paymentType === 'full')
+                .reduce((sum, r) => sum + r.amount, 0);
+
+            // Use a transaction to ensure both operations succeed or fail together
+            await prismaAny.$transaction([
+                // Delete the repayments
+                prismaAny.repayment.deleteMany({
+                    where: {
+                        id: { in: body.repaymentIds },
+                        loanId: loanId
+                    }
+                }),
+
+                // Update the loan's remaining amount
+                prismaAny.loan.update({
+                    where: { id: loanId },
+                    data: {
+                        remainingAmount: loan.remainingAmount + amountToAddBack,
+                        // Update status back to Active if it was Completed
+                        status: 'Active',
+                    },
+                }),
+            ]);
+
+            return NextResponse.json({
+                message: `${repayments.length} repayments deleted successfully`
+            });
+        }
+        else {
+            return NextResponse.json(
+                { error: 'No repayment ID or IDs provided' },
+                { status: 400 }
+            );
+        }
+    } catch (error) {
+        console.error('Error deleting repayment(s):', error);
+        return NextResponse.json(
+            { error: 'Failed to delete repayment(s)' },
             { status: 500 }
         );
     }
