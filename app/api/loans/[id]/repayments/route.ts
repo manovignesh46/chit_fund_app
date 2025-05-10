@@ -1,6 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma'; // Adjust the import based on your project structure
 
+// Define interfaces for type safety
+interface Repayment {
+    id: number;
+    loanId: number;
+    amount: number;
+    paidDate: Date;
+    paymentType: string;
+    createdAt: Date;
+    updatedAt: Date;
+}
+
+interface Loan {
+    id: number;
+    remainingAmount: number;
+    status: string;
+}
+
 // Use type assertion to handle TypeScript type checking
 const prismaAny = prisma as any;
 
@@ -199,7 +216,7 @@ export async function DELETE(
         }
         else if (body.repaymentIds && Array.isArray(body.repaymentIds)) {
             // Get all repayments to calculate amount adjustment
-            const repayments = await prismaAny.repayment.findMany({
+            const repayments: Repayment[] = await prismaAny.repayment.findMany({
                 where: {
                     id: { in: body.repaymentIds },
                     loanId: loanId
@@ -214,7 +231,7 @@ export async function DELETE(
             }
 
             // Get the loan to update remaining amount
-            const loan = await prismaAny.loan.findUnique({
+            const loan: Loan = await prismaAny.loan.findUnique({
                 where: { id: loanId }
             });
 
@@ -227,8 +244,8 @@ export async function DELETE(
 
             // Calculate amount to add back to remaining amount (only for full payments)
             const amountToAddBack = repayments
-                .filter((r: any) => r.paymentType === 'full')
-                .reduce((sum: number, r: any) => sum + r.amount, 0);
+                .filter((r: Repayment) => r.paymentType === 'full')
+                .reduce((sum: number, r: Repayment) => sum + r.amount, 0);
 
             // Use a transaction to ensure both operations succeed or fail together
             await prismaAny.$transaction([

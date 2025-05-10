@@ -23,6 +23,7 @@ interface GlobalMember {
 }
 
 interface Loan {
+  installmentAmount?: number;
   id: ParamValue;
   borrowerId: number;
   borrower: GlobalMember;
@@ -95,10 +96,15 @@ const LoanDetailPage = () => {
         }
         const repaymentsData = await repaymentsResponse.json();
 
+        // Extract repayments from the paginated response
+        const repaymentsList = Array.isArray(repaymentsData)
+          ? repaymentsData
+          : (repaymentsData?.repayments || []);
+
         // Combine the data
         const combinedData = {
           ...loanData,
-          repayments: repaymentsData || [],
+          repayments: repaymentsList,
           // Map remainingAmount to remainingBalance for compatibility
           remainingBalance: loanData.remainingAmount
         };
@@ -311,16 +317,38 @@ const LoanDetailPage = () => {
       // Refresh the page data to ensure we have the latest state
       if (id) {
         try {
+          // Fetch loan details
           const refreshResponse = await fetch(`/api/loans/${id}`);
           if (refreshResponse.ok) {
-            const refreshedData = await refreshResponse.json();
-            setLoan(prev => {
-              if (!prev) return refreshedData;
-              return {
-                ...refreshedData,
-                repayments: prev.repayments || []
-              };
-            });
+            const refreshedLoanData = await refreshResponse.json();
+
+            // Fetch repayments again
+            const refreshRepaymentsResponse = await fetch(`/api/loans/${id}/repayments`);
+            if (refreshRepaymentsResponse.ok) {
+              const refreshedRepaymentsData = await refreshRepaymentsResponse.json();
+
+              // Extract repayments from the paginated response
+              const refreshedRepaymentsList = Array.isArray(refreshedRepaymentsData)
+                ? refreshedRepaymentsData
+                : (refreshedRepaymentsData?.repayments || []);
+
+              // Update the loan state with fresh data
+              setLoan({
+                ...refreshedLoanData,
+                repayments: refreshedRepaymentsList,
+                remainingBalance: refreshedLoanData.remainingAmount
+              });
+            } else {
+              // If we can't get repayments, at least update the loan data
+              setLoan(prev => {
+                if (!prev) return refreshedLoanData;
+                return {
+                  ...refreshedLoanData,
+                  repayments: prev.repayments || [],
+                  remainingBalance: refreshedLoanData.remainingAmount
+                };
+              });
+            }
           }
         } catch (refreshError) {
           console.error('Failed to refresh loan data:', refreshError);

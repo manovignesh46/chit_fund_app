@@ -1,16 +1,41 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 
-export async function GET() {
+export async function GET(request: NextRequest) {
     try {
+        const { searchParams } = new URL(request.url);
+        const page = parseInt(searchParams.get('page') || '1');
+        const pageSize = parseInt(searchParams.get('pageSize') || '10');
+
+        // Validate pagination parameters
+        const validPage = page > 0 ? page : 1;
+        const validPageSize = pageSize > 0 ? pageSize : 10;
+
+        // Calculate skip value for pagination
+        const skip = (validPage - 1) * validPageSize;
+
+        // Get total count for pagination
+        const totalCount = await prisma.chitFund.count();
+
+        // Get paginated chit funds
         const chitFunds = await prisma.chitFund.findMany({
             include: {
                 _count: {
                     select: { members: true }
                 }
-            }
+            },
+            orderBy: { createdAt: 'desc' },
+            skip,
+            take: validPageSize,
         });
-        return NextResponse.json(chitFunds);
+
+        return NextResponse.json({
+            chitFunds,
+            totalCount,
+            page: validPage,
+            pageSize: validPageSize,
+            totalPages: Math.ceil(totalCount / validPageSize)
+        });
     } catch (error) {
         console.error('Error fetching chit funds:', error);
         return NextResponse.json(
