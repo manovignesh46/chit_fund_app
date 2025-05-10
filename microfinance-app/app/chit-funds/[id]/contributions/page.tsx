@@ -116,7 +116,14 @@ export default function ChitFundContributionsPage() {
         }
         const membersData = await membersResponse.json();
         console.log('Members Data:', membersData);
-        setMembers(membersData);
+
+        // Check if the response has pagination metadata
+        if (membersData.members && Array.isArray(membersData.members)) {
+          setMembers(membersData.members);
+        } else {
+          // Fallback for backward compatibility
+          setMembers(Array.isArray(membersData) ? membersData : []);
+        }
 
         // Fetch contributions
         const contributionsResponse = await fetch(`/api/chit-funds/${chitFundId}/contributions`);

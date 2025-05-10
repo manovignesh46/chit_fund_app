@@ -34,6 +34,7 @@ interface ChitFund {
   duration: number;
   membersCount: number;
   status: string;
+  startDate: string;
   nextAuctionDate: string | null;
   currentMonth: number;
   members?: Member[];
@@ -215,6 +216,79 @@ const ChitFundDetails = () => {
     }).format(date);
   };
 
+  // Calculate end date based on start date and duration
+  const calculateEndDate = (startDate: string, durationMonths: number): string => {
+    if (!startDate) return 'N/A';
+    const start = new Date(startDate);
+    const end = new Date(start);
+
+    // For a 10-month chit fund starting on April 1, 2025, the end date should be February 1, 2026
+    // This is because the first month is April, and the 10th month is January (ending February 1)
+    end.setMonth(start.getMonth() + durationMonths);
+
+    return formatDate(end.toISOString());
+  };
+
+  // Calculate the current month based on start date
+  const calculateCurrentMonth = (startDate: string): number => {
+    if (!startDate) return 1;
+
+    const start = new Date(startDate);
+    const now = new Date();
+
+    // If the start date is in the future, return 1
+    if (start > now) {
+      return 1;
+    }
+
+    // Calculate the difference in months
+    const diffYears = now.getFullYear() - start.getFullYear();
+    const diffMonths = now.getMonth() - start.getMonth();
+    let monthDiff = diffYears * 12 + diffMonths + 1; // +1 because we count the first month
+
+    // Adjust if we haven't reached the same day of the month yet
+    if (now.getDate() < start.getDate()) {
+      monthDiff--;
+    }
+
+    // Ensure the month is within the duration range
+    return Math.min(Math.max(1, monthDiff), chitFund?.duration || 1);
+  };
+
+  // Handle update current month
+  const handleUpdateCurrentMonth = async () => {
+    if (!chitFund) return;
+
+    try {
+      const calculatedMonth = calculateCurrentMonth(chitFund.startDate);
+
+      // Only update if the calculated month is different from the current month
+      if (chitFund.currentMonth !== calculatedMonth) {
+        const response = await fetch(`/api/chit-funds/${chitFund.id}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            currentMonth: calculatedMonth
+          }),
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to update current month');
+        }
+
+        // Refresh the page to show updated data
+        window.location.reload();
+      } else {
+        alert('Current month is already up to date!');
+      }
+    } catch (error) {
+      console.error('Error updating current month:', error);
+      alert('Failed to update current month. Please try again.');
+    }
+  };
+
   // Handle delete chit fund
   const handleDeleteChitFund = () => {
     setShowDeleteModal(true);
@@ -327,11 +401,21 @@ const ChitFundDetails = () => {
                 </div>
                 <div>
                   <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-2">Current Month</h3>
-                  <p className="text-xl font-semibold">{chitFund.currentMonth} of {chitFund.duration}</p>
+                  <div className="flex items-center">
+                    <p className="text-xl font-semibold">{calculateCurrentMonth(chitFund.startDate)} of {chitFund.duration}</p>
+                  </div>
                 </div>
                 <div>
                   <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-2">Next Auction Date</h3>
                   <p className="text-xl font-semibold">{formatDate(chitFund.nextAuctionDate)}</p>
+                </div>
+                <div>
+                  <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-2">Start Date</h3>
+                  <p className="text-xl font-semibold">{formatDate(chitFund.startDate)}</p>
+                </div>
+                <div>
+                  <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-2">Expected End Date</h3>
+                  <p className="text-xl font-semibold">{calculateEndDate(chitFund.startDate, chitFund.duration)}</p>
                 </div>
               </div>
             </div>
@@ -508,6 +592,13 @@ const ChitFundDetails = () => {
               Conduct Auction
             </Link>
           )}
+
+          <button
+            onClick={handleUpdateCurrentMonth}
+            className="px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition duration-300"
+          >
+            Update Current Month
+          </button>
           <button
             onClick={handleDeleteChitFund}
             className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition duration-300"
