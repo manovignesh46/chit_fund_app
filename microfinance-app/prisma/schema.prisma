@@ -1,0 +1,111 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model User {
+  id            Int       @id @default(autoincrement())
+  name          String
+  email         String    @unique
+  password      String
+  role          String    @default("user") // admin, user
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+}
+
+model ChitFund {
+  id                  Int           @id @default(autoincrement())
+  name                String
+  totalAmount         Float
+  monthlyContribution Float
+  duration            Int           // in months
+  membersCount        Int
+  status              String        @default("Active") // Active, Completed, Upcoming
+  startDate           DateTime
+  currentMonth        Int           @default(1)
+  nextAuctionDate     DateTime?
+  description         String?
+  createdAt           DateTime      @default(now())
+  updatedAt           DateTime      @updatedAt
+  members             Member[]
+  contributions       Contribution[]
+  auctions            Auction[]
+}
+
+model Member {
+  id              Int           @id @default(autoincrement())
+  name            String
+  contact         String
+  chitFundId      Int
+  joinDate        DateTime      @default(now())
+  auctionWon      Boolean       @default(false)
+  auctionMonth    Int?
+  contribution    Float
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  chitFund        ChitFund      @relation(fields: [chitFundId], references: [id])
+  contributions   Contribution[]
+  auctions        Auction[]
+}
+
+model Contribution {
+  id              Int           @id @default(autoincrement())
+  amount          Float
+  month           Int
+  paidDate        DateTime
+  memberId        Int
+  chitFundId      Int
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  member          Member        @relation(fields: [memberId], references: [id])
+  chitFund        ChitFund      @relation(fields: [chitFundId], references: [id])
+}
+
+model Auction {
+  id              Int           @id @default(autoincrement())
+  chitFundId      Int
+  month           Int
+  date            DateTime
+  winnerId        Int
+  amount          Float
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  chitFund        ChitFund      @relation(fields: [chitFundId], references: [id])
+  winner          Member        @relation(fields: [winnerId], references: [id])
+}
+
+model Loan {
+  id                Int           @id @default(autoincrement())
+  borrowerName      String
+  contact           String
+  loanType          String        // Business, Personal, Education, etc.
+  amount            Float
+  interestRate      Float
+  duration          Int           // in months
+  disbursementDate  DateTime
+  repaymentType     String        // Monthly, Weekly, etc.
+  remainingAmount   Float
+  nextPaymentDate   DateTime?
+  status            String        @default("Active") // Active, Completed, Defaulted
+  purpose           String?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+  repayments        Repayment[]
+}
+
+model Repayment {
+  id              Int           @id @default(autoincrement())
+  amount          Float
+  paidDate        DateTime
+  loanId          Int
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  loan            Loan          @relation(fields: [loanId], references: [id])
+}
