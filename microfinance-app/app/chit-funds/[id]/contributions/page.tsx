@@ -18,6 +18,7 @@ interface Contribution {
   paidDate: string;
   memberId: number;
   member: Member;
+  balance: number;
 }
 
 interface ChitFund {
@@ -56,6 +57,23 @@ export default function ChitFundContributionsPage() {
   // For filtering
   const [selectedMonth, setSelectedMonth] = useState<string>('all');
   const [selectedMember, setSelectedMember] = useState<string>('all');
+
+  // For view mode
+  const [viewMode, setViewMode] = useState<'member' | 'month'>('member');
+
+  // For deletion
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [contributionToDelete, setContributionToDelete] = useState<number | null>(null);
+
+  // For editing
+  const [showEditForm, setShowEditForm] = useState(false);
+  const [contributionToEdit, setContributionToEdit] = useState<Contribution | null>(null);
+  const [editFormData, setEditFormData] = useState({
+    amount: '',
+    paidDate: '',
+  });
+  const [editFormErrors, setEditFormErrors] = useState<{[key: string]: string}>({});
+  const [isEditing, setIsEditing] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -233,6 +251,169 @@ export default function ChitFundContributionsPage() {
   // Generate months array for the filter dropdown
   const months = chitFund ? Array.from({ length: chitFund.duration }, (_, i) => i + 1) : [];
 
+  // Organize contributions by month
+  const getContributionsByMonth = () => {
+    if (!contributions.length) return [];
+
+    const monthlyContributions = [];
+
+    // Create an array of all months up to the chit fund duration
+    for (let month = 1; month <= (chitFund?.duration || 0); month++) {
+      const contributionsForMonth = contributions.filter(c => c.month === month);
+
+      // Calculate totals for this month
+      const totalExpected = chitFund ? chitFund.monthlyContribution * chitFund.membersCount : 0;
+      const totalCollected = contributionsForMonth.reduce((sum, c) => sum + c.amount, 0);
+      const totalBalance = contributionsForMonth.reduce((sum, c) => sum + c.balance, 0);
+      const contributionCount = contributionsForMonth.length;
+
+      monthlyContributions.push({
+        month,
+        contributionsForMonth,
+        totalExpected,
+        totalCollected,
+        totalBalance,
+        contributionCount,
+        memberCount: chitFund?.membersCount || 0
+      });
+    }
+
+    return monthlyContributions;
+  };
+
+  // Get contributions organized by month
+  const contributionsByMonth = getContributionsByMonth();
+
+  // Handle edit contribution
+  const handleEditContribution = (contribution: Contribution) => {
+    setContributionToEdit(contribution);
+    setEditFormData({
+      amount: contribution.amount.toString(),
+      paidDate: new Date(contribution.paidDate).toISOString().split('T')[0],
+    });
+    setEditFormErrors({});
+    setShowEditForm(true);
+  };
+
+  // Handle edit form input change
+  const handleEditFormChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setEditFormData({
+      ...editFormData,
+      [name]: value,
+    });
+  };
+
+  // Handle edit form submission
+  const handleEditFormSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!contributionToEdit) return;
+
+    // Validate form
+    const errors: {[key: string]: string} = {};
+
+    if (!editFormData.amount) {
+      errors.amount = 'Amount is required';
+    } else if (isNaN(Number(editFormData.amount)) || Number(editFormData.amount) <= 0) {
+      errors.amount = 'Amount must be a positive number';
+    }
+
+    if (!editFormData.paidDate) {
+      errors.paidDate = 'Paid date is required';
+    }
+
+    if (Object.keys(errors).length > 0) {
+      setEditFormErrors(errors);
+      return;
+    }
+
+    // Submit form
+    setIsEditing(true);
+
+    try {
+      const response = await fetch(`/api/chit-funds/${chitFundId}/contributions`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          contributionId: contributionToEdit.id,
+          amount: Number(editFormData.amount),
+          paidDate: editFormData.paidDate,
+        }),
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || 'Failed to update contribution');
+      }
+
+      const updatedContribution = await response.json();
+
+      // Update the contributions list
+      setContributions(contributions.map(c =>
+        c.id === updatedContribution.id ? updatedContribution : c
+      ));
+
+      // Close the form
+      setShowEditForm(false);
+      setContributionToEdit(null);
+
+      // Show success message
+      alert('Contribution updated successfully!');
+    } catch (error: any) {
+      console.error('Error updating contribution:', error);
+      setEditFormErrors({
+        submit: error.message || 'Failed to update contribution. Please try again.',
+      });
+    } finally {
+      setIsEditing(false);
+    }
+  };
+
+  // Handle delete contribution
+  const handleDeleteContribution = (id: number) => {
+    setContributionToDelete(id);
+    setShowDeleteModal(true);
+  };
+
+  // Confirm delete contribution
+  const confirmDeleteContribution = async () => {
+    if (!contributionToDelete) return;
+
+    try {
+      const response = await fetch(`/api/chit-funds/${chitFundId}/contributions`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          contributionId: contributionToDelete
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to delete contribution');
+      }
+
+      // Remove the deleted contribution from the state
+      setContributions(contributions.filter(c => c.id !== contributionToDelete));
+
+      // Close the modal
+      setShowDeleteModal(false);
+      setContributionToDelete(null);
+
+      // Show success message
+      alert('Contribution deleted successfully!');
+    } catch (error: any) {
+      console.error('Error deleting contribution:', error);
+      alert(error.message || 'Failed to delete contribution. Please try again.');
+    }
+  };
+
   if (loading) {
     return (
       <div className="container mx-auto px-4 py-8">
@@ -303,8 +484,32 @@ export default function ChitFundContributionsPage() {
         </div>
       </div>
 
-      {/* Filters */}
+      {/* View Mode Toggle */}
       <div className="bg-white rounded-lg shadow-md p-4 mb-6">
+        <div className="flex justify-center space-x-4 mb-4">
+          <button
+            onClick={() => setViewMode('member')}
+            className={`px-4 py-2 rounded-lg transition duration-300 ${
+              viewMode === 'member'
+                ? 'bg-blue-600 text-white'
+                : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+            }`}
+          >
+            Member View
+          </button>
+          <button
+            onClick={() => setViewMode('month')}
+            className={`px-4 py-2 rounded-lg transition duration-300 ${
+              viewMode === 'month'
+                ? 'bg-blue-600 text-white'
+                : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+            }`}
+          >
+            Month View
+          </button>
+        </div>
+
+        {/* Filters */}
         <div className="flex flex-wrap gap-4">
           <div className="flex-1 min-w-[200px]">
             <label htmlFor="monthFilter" className="block text-sm font-medium text-gray-700 mb-1">
@@ -348,54 +553,263 @@ export default function ChitFundContributionsPage() {
       {/* Contributions Table */}
       <div className="bg-white rounded-lg shadow-md overflow-hidden mb-8">
         <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Member
-                </th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Month
-                </th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Amount
-                </th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Paid Date
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {filteredContributions.length === 0 ? (
+          {viewMode === 'member' ? (
+            // Member View
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
                 <tr>
-                  <td colSpan={4} className="px-6 py-4 text-center text-gray-500">
-                    No contributions found. Record contributions for this chit fund.
-                  </td>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Member
+                  </th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Month
+                  </th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Amount
+                  </th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Paid Date
+                  </th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Balance
+                  </th>
+                  <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Actions
+                  </th>
                 </tr>
-              ) : (
-                filteredContributions.map((contribution) => (
-                  <tr key={contribution.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm font-medium text-blue-600">
-                        {contribution.member?.name || `Member ID: ${contribution.memberId}`}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">Month {contribution.month}</div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">{formatCurrency(contribution.amount)}</div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">{formatDate(contribution.paidDate)}</div>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {filteredContributions.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="px-6 py-4 text-center text-gray-500">
+                      No contributions found. Record contributions for this chit fund.
                     </td>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+                ) : (
+                  filteredContributions.map((contribution) => (
+                    <tr key={contribution.id} className="hover:bg-gray-50">
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm font-medium text-blue-600">
+                          {contribution.member?.name || `Member ID: ${contribution.memberId}`}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm text-gray-900">Month {contribution.month}</div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm text-gray-900">{formatCurrency(contribution.amount)}</div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm text-gray-900">{formatDate(contribution.paidDate)}</div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        {contribution.balance > 0 ? (
+                          <div className="text-sm text-red-600 font-semibold">{formatCurrency(contribution.balance)}</div>
+                        ) : (
+                          <div className="text-sm text-green-600 font-semibold">Paid in full</div>
+                        )}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-right">
+                        <div className="flex justify-end space-x-3">
+                          <button
+                            onClick={() => handleEditContribution(contribution)}
+                            className="text-blue-600 hover:text-blue-900"
+                            title="Edit contribution"
+                          >
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                            </svg>
+                          </button>
+                          <button
+                            onClick={() => handleDeleteContribution(contribution.id)}
+                            className="text-red-600 hover:text-red-900"
+                            title="Delete contribution"
+                          >
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          ) : (
+            // Month View
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Month
+                  </th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Contributions
+                  </th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Expected Amount
+                  </th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Collected Amount
+                  </th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Outstanding Balance
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {contributionsByMonth.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="px-6 py-4 text-center text-gray-500">
+                      No contributions found. Record contributions for this chit fund.
+                    </td>
+                  </tr>
+                ) : (
+                  contributionsByMonth
+                    .filter(monthData => selectedMonth === 'all' || monthData.month.toString() === selectedMonth)
+                    .map((monthData) => (
+                      <tr key={monthData.month} className="hover:bg-gray-50">
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm font-medium text-blue-600">Month {monthData.month}</div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm text-gray-900">
+                            {monthData.contributionCount} of {monthData.memberCount} members
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm text-gray-900">{formatCurrency(monthData.totalExpected)}</div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm text-gray-900">{formatCurrency(monthData.totalCollected)}</div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          {monthData.totalBalance > 0 ? (
+                            <div className="text-sm text-red-600 font-semibold">{formatCurrency(monthData.totalBalance)}</div>
+                          ) : (
+                            <div className="text-sm text-green-600 font-semibold">Fully collected</div>
+                          )}
+                        </td>
+                      </tr>
+                    ))
+                )}
+              </tbody>
+            </table>
+          )}
         </div>
       </div>
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-md">
+            <h2 className="text-xl font-bold text-red-700 mb-4">Confirm Deletion</h2>
+            <p className="mb-6">Are you sure you want to delete this contribution? This action cannot be undone.</p>
+            <div className="flex justify-end space-x-4">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowDeleteModal(false);
+                  setContributionToDelete(null);
+                }}
+                className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition duration-300"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={confirmDeleteContribution}
+                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition duration-300"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Contribution Form */}
+      {showEditForm && contributionToEdit && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-md">
+            <h2 className="text-xl font-bold text-blue-700 mb-4">Edit Contribution</h2>
+            <form onSubmit={handleEditFormSubmit}>
+              <div className="mb-4">
+                <label htmlFor="amount" className="block text-sm font-medium text-gray-700 mb-1">
+                  Amount <span className="text-red-500">*</span>
+                </label>
+                <div className="flex items-center">
+                  <input
+                    type="number"
+                    id="amount"
+                    name="amount"
+                    value={editFormData.amount}
+                    onChange={handleEditFormChange}
+                    className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                      editFormErrors.amount ? 'border-red-500' : 'border-gray-300'
+                    }`}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setEditFormData({...editFormData, amount: chitFund.monthlyContribution.toString()})}
+                    className="ml-2 px-3 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition duration-300"
+                  >
+                    Full Amount
+                  </button>
+                </div>
+                {Number(editFormData.amount) < chitFund.monthlyContribution && Number(editFormData.amount) > 0 && (
+                  <p className="mt-1 text-sm text-orange-500">
+                    This is a partial payment. Balance of {formatCurrency(chitFund.monthlyContribution - Number(editFormData.amount))} will be recorded.
+                  </p>
+                )}
+                {editFormErrors.amount && (
+                  <p className="mt-1 text-sm text-red-500">{editFormErrors.amount}</p>
+                )}
+              </div>
+              <div className="mb-4">
+                <label htmlFor="paidDate" className="block text-sm font-medium text-gray-700 mb-1">
+                  Paid Date <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="date"
+                  id="paidDate"
+                  name="paidDate"
+                  value={editFormData.paidDate}
+                  onChange={handleEditFormChange}
+                  className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                    editFormErrors.paidDate ? 'border-red-500' : 'border-gray-300'
+                  }`}
+                />
+                {editFormErrors.paidDate && (
+                  <p className="mt-1 text-sm text-red-500">{editFormErrors.paidDate}</p>
+                )}
+              </div>
+              {editFormErrors.submit && (
+                <div className="mb-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+                  <p>{editFormErrors.submit}</p>
+                </div>
+              )}
+              <div className="flex justify-end space-x-4">
+                <button
+                  type="button"
+                  onClick={() => setShowEditForm(false)}
+                  className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition duration-300"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isEditing}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-300 disabled:opacity-50"
+                >
+                  {isEditing ? 'Updating...' : 'Update Contribution'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* Add Contribution Form */}
       {showAddForm && (
@@ -455,17 +869,31 @@ export default function ChitFundContributionsPage() {
                 <label htmlFor="amount" className="block text-sm font-medium text-gray-700 mb-1">
                   Amount <span className="text-red-500">*</span>
                 </label>
-                <input
-                  type="number"
-                  id="amount"
-                  name="amount"
-                  value={newContribution.amount}
-                  onChange={handleInputChange}
-                  placeholder={chitFund.monthlyContribution.toString()}
-                  className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                    formErrors.amount ? 'border-red-500' : 'border-gray-300'
-                  }`}
-                />
+                <div className="flex items-center">
+                  <input
+                    type="number"
+                    id="amount"
+                    name="amount"
+                    value={newContribution.amount}
+                    onChange={handleInputChange}
+                    placeholder={chitFund.monthlyContribution.toString()}
+                    className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                      formErrors.amount ? 'border-red-500' : 'border-gray-300'
+                    }`}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setNewContribution({...newContribution, amount: chitFund.monthlyContribution.toString()})}
+                    className="ml-2 px-3 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition duration-300"
+                  >
+                    Full Amount
+                  </button>
+                </div>
+                {Number(newContribution.amount) < chitFund.monthlyContribution && Number(newContribution.amount) > 0 && (
+                  <p className="mt-1 text-sm text-orange-500">
+                    This is a partial payment. Balance of {formatCurrency(chitFund.monthlyContribution - Number(newContribution.amount))} will be recorded.
+                  </p>
+                )}
                 {formErrors.amount && (
                   <p className="mt-1 text-sm text-red-500">{formErrors.amount}</p>
                 )}

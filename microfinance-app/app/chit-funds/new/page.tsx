@@ -16,9 +16,9 @@ export default function NewChitFundPage() {
     description: '',
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [errors, setErrors] = useState({});
+  const [errors, setErrors] = useState<Record<string, string>>({});
 
-  const handleChange = (e) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setFormData({
       ...formData,
@@ -45,7 +45,7 @@ export default function NewChitFundPage() {
   };
 
   const validateForm = () => {
-    const newErrors = {};
+    const newErrors: Record<string, string> = {};
 
     if (!formData.name.trim()) {
       newErrors.name = 'Chit fund name is required';
@@ -83,7 +83,7 @@ export default function NewChitFundPage() {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
     if (!validateForm()) {
@@ -161,8 +161,8 @@ export default function NewChitFundPage() {
                 name="totalAmount"
                 value={formData.totalAmount}
                 onChange={handleChange}
-                min="10000"
-                step="10000"
+                min="1"
+                step="1"
                 className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
                   errors.totalAmount ? 'border-red-500' : 'border-gray-300'
                 }`}
@@ -228,8 +228,8 @@ export default function NewChitFundPage() {
                 name="monthlyContribution"
                 value={formData.monthlyContribution}
                 onChange={handleChange}
-                min="1000"
-                step="1000"
+                min="1"
+                step="1"
                 className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
                   errors.monthlyContribution ? 'border-red-500' : 'border-gray-300'
                 }`}

@@ -1,12 +1,13 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 
 export async function GET(
-  request: Request,
-  { params }: { params: { id: string } }
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const chitFundId = parseInt(params.id);
+    const { id } = await params;
+    const chitFundId = parseInt(id);
 
     if (isNaN(chitFundId)) {
       return NextResponse.json(
@@ -71,11 +72,12 @@ export async function GET(
 }
 
 export async function POST(
-  request: Request,
-  { params }: { params: { id: string } }
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const chitFundId = parseInt(params.id);
+    const { id } = await params;
+    const chitFundId = parseInt(id);
 
     if (isNaN(chitFundId)) {
       return NextResponse.json(
@@ -131,11 +133,12 @@ export async function POST(
 }
 
 export async function DELETE(
-  request: Request,
-  { params }: { params: { id: string } }
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const chitFundId = parseInt(params.id);
+    const { id } = await params;
+    const chitFundId = parseInt(id);
 
     if (isNaN(chitFundId)) {
       return NextResponse.json(
@@ -168,28 +171,23 @@ export async function DELETE(
       );
     }
 
-    // Check if the member has contributions
-    const contributionsCount = await prisma.contribution.count({
+    // Delete related contributions first
+    await prisma.contribution.deleteMany({
       where: { memberId: memberId },
     });
 
-    if (contributionsCount > 0) {
-      return NextResponse.json(
-        { error: 'Cannot delete member with contributions. Delete contributions first.' },
-        { status: 400 }
-      );
-    }
-
-    // Check if the member has won an auction
-    const auctionCount = await prisma.auction.count({
+    // Find auctions where this member is the winner
+    const auctions = await prisma.auction.findMany({
       where: { winnerId: memberId },
     });
 
-    if (auctionCount > 0) {
-      return NextResponse.json(
-        { error: 'Cannot delete member who has won an auction.' },
-        { status: 400 }
-      );
+    // If there are auctions, handle them individually
+    if (auctions.length > 0) {
+      // We need to delete the auctions since we can't set winnerId to null
+      // (Prisma schema requires winnerId to be non-null)
+      await prisma.auction.deleteMany({
+        where: { winnerId: memberId },
+      });
     }
 
     // Delete the member

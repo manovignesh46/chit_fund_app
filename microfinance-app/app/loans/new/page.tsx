@@ -1,12 +1,38 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, ChangeEvent, FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 
+// Define interfaces for form data and errors
+interface LoanFormData {
+  borrowerName: string;
+  contact: string;
+  loanType: string;
+  amount: string;
+  interestRate: string;
+  duration: string;
+  purpose: string;
+}
+
+interface LoanFormErrors {
+  borrowerName?: string;
+  contact?: string;
+  loanType?: string;
+  amount?: string;
+  interestRate?: string;
+  duration?: string;
+  purpose?: string;
+}
+
+interface LoanType {
+  value: string;
+  label: string;
+}
+
 export default function NewLoanPage() {
   const router = useRouter();
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<LoanFormData>({
     borrowerName: '',
     contact: '',
     loanType: 'Personal',
@@ -15,10 +41,10 @@ export default function NewLoanPage() {
     duration: '',
     purpose: '',
   });
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [errors, setErrors] = useState({});
+  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+  const [errors, setErrors] = useState<LoanFormErrors>({});
 
-  const loanTypes = [
+  const loanTypes: LoanType[] = [
     { value: 'Personal', label: 'Personal Loan' },
     { value: 'Business', label: 'Business Loan' },
     { value: 'Education', label: 'Education Loan' },
@@ -27,7 +53,7 @@ export default function NewLoanPage() {
     { value: 'Agriculture', label: 'Agriculture Loan' },
   ];
 
-  const handleChange = (e) => {
+  const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setFormData({
       ...formData,
@@ -35,8 +61,8 @@ export default function NewLoanPage() {
     });
   };
 
-  const validateForm = () => {
-    const newErrors = {};
+  const validateForm = (): boolean => {
+    const newErrors: LoanFormErrors = {};
 
     if (!formData.borrowerName.trim()) {
       newErrors.borrowerName = 'Borrower name is required';
@@ -74,7 +100,7 @@ export default function NewLoanPage() {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
     if (!validateForm()) {

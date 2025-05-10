@@ -1,10 +1,20 @@
+"use client"
+
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/router';
+import { useParams } from 'next/navigation';
+
+// Define interface for Repayment type
+interface Repayment {
+  id: number;
+  paidDate: string;
+  amount: number;
+  status: string;
+}
 
 const RepaymentsPage = () => {
-  const router = useRouter();
-  const { id } = router.query;
-  const [repayments, setRepayments] = useState([]);
+  const params = useParams();
+  const id = params.id;
+  const [repayments, setRepayments] = useState<Repayment[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {

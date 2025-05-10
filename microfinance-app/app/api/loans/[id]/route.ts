@@ -1,10 +1,13 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma'; // Adjust the import based on your project structure
 
-export async function GET(request: Request, { params }: { params: { id: string } }) {
-    const { id } = params;
-
+export async function GET(
+    request: NextRequest,
+    { params }: { params: Promise<{ id: string }> }
+) {
     try {
+        const { id } = await params;
+
         const loan = await prisma.loan.findUnique({
             where: { id: Number(id) },
         });
@@ -19,11 +22,14 @@ export async function GET(request: Request, { params }: { params: { id: string }
     }
 }
 
-export async function PUT(request: Request, { params }: { params: { id: string } }) {
-    const { id } = params;
-    const data = await request.json();
-
+export async function PUT(
+    request: NextRequest,
+    { params }: { params: Promise<{ id: string }> }
+) {
     try {
+        const { id } = await params;
+        const data = await request.json();
+
         const updatedLoan = await prisma.loan.update({
             where: { id: Number(id) },
             data,
@@ -35,10 +41,13 @@ export async function PUT(request: Request, { params }: { params: { id: string }
     }
 }
 
-export async function DELETE(request: Request, { params }: { params: { id: string } }) {
-    const { id } = params;
-
+export async function DELETE(
+    request: NextRequest,
+    { params }: { params: Promise<{ id: string }> }
+) {
     try {
+        const { id } = await params;
+
         await prisma.loan.delete({
             where: { id: Number(id) },
         });

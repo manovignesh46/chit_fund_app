@@ -4,10 +4,36 @@ import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 
+// Define interface for Loan type
+interface Repayment {
+  id: number;
+  paidDate: string;
+  amount: number;
+}
+
+// ParamValue type from Next.js is string | string[] | undefined
+type ParamValue = string | string[] | undefined;
+
+interface Loan {
+  id: ParamValue;
+  borrowerName: string;
+  contact: string;
+  amount: number;
+  interestRate: number;
+  loanType: string;
+  disbursementDate: string;
+  duration: number;
+  repaymentType: string;
+  remainingBalance: number;
+  nextPaymentDate: string;
+  status: string;
+  repayments: Repayment[];
+}
+
 const LoanDetailPage = () => {
   const params = useParams();
   const id = params.id;
-  const [loan, setLoan] = useState(null);
+  const [loan, setLoan] = useState<Loan | null>(null);
   const [loading, setLoading] = useState(true);
 
   // Mock data for loan details
@@ -54,7 +80,7 @@ const LoanDetailPage = () => {
   }, [id]);
 
   // Format currency
-  const formatCurrency = (amount) => {
+  const formatCurrency = (amount: number): string => {
     return new Intl.NumberFormat('en-IN', {
       style: 'currency',
       currency: 'INR',
@@ -63,7 +89,7 @@ const LoanDetailPage = () => {
   };
 
   // Format date
-  const formatDate = (dateString) => {
+  const formatDate = (dateString: string | undefined): string => {
     if (!dateString) return 'N/A';
     const date = new Date(dateString);
     return new Intl.DateTimeFormat('en-IN', {

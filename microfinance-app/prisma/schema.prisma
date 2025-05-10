@@ -39,10 +39,22 @@ model ChitFund {
   auctions            Auction[]
 }
 
-model Member {
+model GlobalMember {
   id              Int           @id @default(autoincrement())
   name            String
   contact         String
+  email           String?
+  address         String?
+  notes           String?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  chitFundMembers Member[]
+  loans           Loan[]        @relation("BorrowerToLoan")
+}
+
+model Member {
+  id              Int           @id @default(autoincrement())
+  globalMemberId  Int
   chitFundId      Int
   joinDate        DateTime      @default(now())
   auctionWon      Boolean       @default(false)
@@ -50,6 +62,7 @@ model Member {
   contribution    Float
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
+  globalMember    GlobalMember  @relation(fields: [globalMemberId], references: [id])
   chitFund        ChitFund      @relation(fields: [chitFundId], references: [id])
   contributions   Contribution[]
   auctions        Auction[]
@@ -62,6 +75,7 @@ model Contribution {
   paidDate        DateTime
   memberId        Int
   chitFundId      Int
+  balance         Float         @default(0)  // Track remaining balance if partial payment
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
   member          Member        @relation(fields: [memberId], references: [id])
@@ -75,6 +89,10 @@ model Auction {
   date            DateTime
   winnerId        Int
   amount          Float
+  lowestBid       Float?        // Lowest bid amount in the auction
+  highestBid      Float?        // Highest bid amount in the auction
+  numberOfBidders Int?          // Number of members who participated in bidding
+  notes           String?       // Additional notes about the auction
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
   chitFund        ChitFund      @relation(fields: [chitFundId], references: [id])
@@ -83,8 +101,7 @@ model Auction {
 
 model Loan {
   id                Int           @id @default(autoincrement())
-  borrowerName      String
-  contact           String
+  borrowerId        Int
   loanType          String        // Business, Personal, Education, etc.
   amount            Float
   interestRate      Float
@@ -97,6 +114,7 @@ model Loan {
   purpose           String?
   createdAt         DateTime      @default(now())
   updatedAt         DateTime      @updatedAt
+  borrower          GlobalMember  @relation("BorrowerToLoan", fields: [borrowerId], references: [id])
   repayments        Repayment[]
 }
 

@@ -4,9 +4,9 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 
 export default function ChitFundsPage() {
-  const [chitFunds, setChitFunds] = useState([]);
+  const [chitFunds, setChitFunds] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     // Fetch chit funds from the API
@@ -129,7 +129,7 @@ export default function ChitFundsPage() {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {chitFunds.map((fund) => (
+                {chitFunds.map((fund: any) => (
                   <tr key={fund.id} className="hover:bg-gray-50">
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm font-medium text-blue-600 hover:underline">

@@ -3,10 +3,23 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 
+// Define interface for Loan type
+interface Loan {
+  id: number;
+  borrowerName: string;
+  loanType: string;
+  amount: number;
+  interestRate: number;
+  duration: number;
+  remainingAmount: number;
+  nextPaymentDate: string | null;
+  status: string;
+}
+
 export default function LoansPage() {
-  const [loans, setLoans] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [loans, setLoans] = useState<Loan[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     // Fetch loans from the API

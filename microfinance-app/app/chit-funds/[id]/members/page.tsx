@@ -44,6 +44,12 @@ export default function ChitFundMembersPage() {
   const [formErrors, setFormErrors] = useState<{[key: string]: string}>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // For deleting member
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [memberToDelete, setMemberToDelete] = useState<number | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+
   useEffect(() => {
     const fetchChitFundAndMembers = async () => {
       try {
@@ -170,6 +176,54 @@ export default function ChitFundMembersPage() {
       day: 'numeric'
     };
     return new Date(dateString).toLocaleDateString('en-IN', options);
+  };
+
+  // Handle delete member
+  const handleDeleteMember = (id: number) => {
+    setMemberToDelete(id);
+    setShowDeleteModal(true);
+    setDeleteError(null);
+  };
+
+  // Confirm delete member
+  const confirmDeleteMember = async () => {
+    if (!memberToDelete) return;
+
+    setIsDeleting(true);
+    setDeleteError(null);
+
+    try {
+      const response = await fetch(`/api/chit-funds/${chitFundId}/members`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          memberId: memberToDelete
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to delete member');
+      }
+
+      // Remove the deleted member from the state
+      setMembers(members.filter(m => m.id !== memberToDelete));
+
+      // Close the modal
+      setShowDeleteModal(false);
+      setMemberToDelete(null);
+
+      // Show success message
+      alert('Member deleted successfully!');
+    } catch (error: any) {
+      console.error('Error deleting member:', error);
+      setDeleteError(error.message || 'Failed to delete member. Please try again.');
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   if (loading) {
@@ -302,10 +356,17 @@ export default function ChitFundMembersPage() {
                       )}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                      <div className="flex space-x-2">
+                      <div className="flex space-x-4">
                         <Link href={`/chit-funds/${chitFundId}/members/${member.id}/contributions`} className="text-blue-600 hover:text-blue-900">
                           Contributions
                         </Link>
+                        <button
+                          onClick={() => handleDeleteMember(member.id)}
+                          className="text-red-600 hover:text-red-900"
+                          title="Delete member"
+                        >
+                          Delete
+                        </button>
                       </div>
                     </td>
                   </tr>
@@ -315,6 +376,50 @@ export default function ChitFundMembersPage() {
           </table>
         </div>
       </div>
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-md">
+            <h2 className="text-xl font-bold text-red-700 mb-4">Confirm Deletion</h2>
+            <p className="mb-2">Are you sure you want to delete this member? This action cannot be undone.</p>
+            <div className="mb-6 bg-yellow-50 border border-yellow-400 text-yellow-700 p-3 rounded">
+              <p className="font-bold">Warning:</p>
+              <ul className="list-disc pl-5 mt-1">
+                <li>All contributions made by this member will be deleted</li>
+                <li>Any auctions won by this member will be deleted</li>
+                <li>This may affect the chit fund's financial records</li>
+              </ul>
+            </div>
+            {deleteError && (
+              <div className="mb-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+                <p>{deleteError}</p>
+              </div>
+            )}
+            <div className="flex justify-end space-x-4">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowDeleteModal(false);
+                  setMemberToDelete(null);
+                  setDeleteError(null);
+                }}
+                className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition duration-300"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={confirmDeleteMember}
+                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition duration-300 disabled:opacity-50"
+                disabled={isDeleting}
+              >
+                {isDeleting ? 'Deleting...' : 'Delete'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Add Member Form */}
       {showAddForm && (

@@ -6,7 +6,7 @@ export const metadata = {
   description: 'A full-stack application for managing microfinance and chit funds.',
 };
 
-const RootLayout = ({ children }) => {
+const RootLayout = ({ children }: { children: React.ReactNode }) => {
   return (
     <html lang="en">
       <body>
