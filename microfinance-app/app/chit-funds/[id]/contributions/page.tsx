@@ -206,7 +206,7 @@ export default function ChitFundContributionsPage() {
           month: Number(newContribution.month),
           amount: Number(newContribution.amount),
           balancePaymentDate: newContribution.balancePaymentDate || null,
-          balancePaymentStatus: Number(newContribution.amount) < chitFund.monthlyContribution ? 'Pending' : null,
+          balancePaymentStatus: chitFund && Number(newContribution.amount) < chitFund.monthlyContribution ? 'Pending' : null,
           actualBalancePaymentDate: newContribution.actualBalancePaymentDate || null,
         }),
       });
