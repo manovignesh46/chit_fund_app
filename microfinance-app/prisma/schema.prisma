@@ -108,9 +108,9 @@ model Loan {
   loanType          String        // Business, Personal, Education, etc.
   amount            Float
   interestRate      Float
-  // Temporarily remove these fields to fix the issue
-  // documentCharge    Float         @default(0)  // Document processing charge
-  // currentMonth      Int           @default(0)  // Current month of the loan (0 for future loans, 1+ for active loans)
+  documentCharge    Float         @default(0)  // Document processing charge
+  currentMonth      Int           @default(0)  // Current month of the loan (0 for future loans, 1+ for active loans)
+  installmentAmount   Float      @default(0)  // Payment installment amount
   duration          Int           // in months
   disbursementDate  DateTime
   repaymentType     String        // Monthly, Weekly, etc.

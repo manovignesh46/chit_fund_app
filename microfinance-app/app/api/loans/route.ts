@@ -71,12 +71,14 @@ export async function POST(request: NextRequest) {
         const disbursementDate = new Date(body.disbursementDate);
         console.log('Creating loan with disbursement date:', disbursementDate);
 
-        // Create a loan data object without the problematic fields
+        // Create a loan data object with all fields
         const loanData = {
             borrowerId: globalMember.id,
             loanType: body.loanType,
             amount: parseFloat(body.amount),
             interestRate: parseFloat(body.interestRate),
+            documentCharge: body.documentCharge ? parseFloat(body.documentCharge) : 0,
+            installmentAmount: body.installmentAmount ? parseFloat(body.installmentAmount) : 0,
             duration: parseInt(body.duration),
             disbursementDate: new Date(body.disbursementDate),
             repaymentType: body.repaymentType,
@@ -145,8 +147,11 @@ export async function PUT(request: NextRequest) {
         }
 
         // First, get the current loan to find the borrower
+        // Ensure id is a number
+        const loanId = typeof body.id === 'string' ? parseInt(body.id, 10) : body.id;
+
         const currentLoan = await prismaAny.loan.findUnique({
-            where: { id: body.id },
+            where: { id: loanId },
             include: { borrower: true }
         });
 
@@ -172,12 +177,13 @@ export async function PUT(request: NextRequest) {
 
         // Update the loan
         const loan = await prismaAny.loan.update({
-            where: { id: body.id },
+            where: { id: loanId },
             data: {
                 loanType: body.loanType,
                 amount: body.amount ? parseFloat(body.amount) : undefined,
                 interestRate: body.interestRate ? parseFloat(body.interestRate) : undefined,
                 documentCharge: body.documentCharge !== undefined ? parseFloat(body.documentCharge) : undefined,
+                installmentAmount: body.installmentAmount !== undefined ? parseFloat(body.installmentAmount) : undefined,
                 duration: body.duration ? parseInt(body.duration) : undefined,
                 disbursementDate: body.disbursementDate ? new Date(body.disbursementDate) : undefined,
                 repaymentType: body.repaymentType,
@@ -212,14 +218,17 @@ export async function DELETE(request: NextRequest) {
             );
         }
 
+        // Ensure id is a number
+        const loanId = typeof id === 'string' ? parseInt(id, 10) : id;
+
         // Delete related records first
         await prismaAny.repayment.deleteMany({
-            where: { loanId: id },
+            where: { loanId: loanId },
         });
 
         // Delete the loan
         await prismaAny.loan.delete({
-            where: { id },
+            where: { id: loanId },
         });
 
         return NextResponse.json({ message: 'Loan deleted successfully' });

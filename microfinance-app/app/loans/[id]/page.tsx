@@ -199,58 +199,113 @@ const LoanDetailPage = () => {
     }
   };
 
-  // Update the current month
+  // Update the current month/week
   const updateCurrentMonth = async () => {
     if (!loan || updating) return;
 
     try {
       setUpdating(true);
 
-      // Calculate the current month based on the disbursement date
+      // Calculate the current period (month or week) based on the disbursement date
       const startDate = new Date(loan.disbursementDate);
       const currentDate = new Date();
 
       // Check if disbursement date is in the future
       if (startDate > currentDate) {
-        console.log('Disbursement date is in the future, setting current month to 0');
-        // If disbursement date is in the future, current month should be 0 (not started yet)
-        const newCurrentMonth = 0;
-
+        console.log('Disbursement date is in the future, setting current period to 0');
+        // If disbursement date is in the future, current period should be 0 (not started yet)
         if (loan.currentMonth !== 0) {
           // Only update if it's not already 0
           setUpdating(true);
           return updateLoanCurrentMonth(0);
         } else {
-          // Already at month 0, no need to update
-          console.log('Loan is already at month 0, no update needed');
+          // Already at period 0, no need to update
+          console.log('Loan is already at period 0, no update needed');
           return;
         }
       }
 
-      // Calculate months difference for past or current disbursement dates
-      let monthsDiff = (currentDate.getFullYear() - startDate.getFullYear()) * 12 +
-                      (currentDate.getMonth() - startDate.getMonth());
+      let newCurrentPeriod;
 
-      // Add 1 because first month is month 1
-      monthsDiff = monthsDiff + 1;
+      if (loan.loanType === 'Weekly') {
+        // Calculate weeks difference for weekly loans
+        // Get the start date and current date without time components
+        const startDateClean = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate());
+        const currentDateClean = new Date(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate());
 
-      // Ensure we don't go below 1
-      monthsDiff = Math.max(1, monthsDiff);
+        // Calculate days difference (inclusive of start date)
+        const daysDiff = Math.floor((currentDateClean.getTime() - startDateClean.getTime()) / (24 * 60 * 60 * 1000));
+
+        // For weekly loans, we consider:
+        // Week 1: Days 0-6 (first 7 days including start date)
+        // Week 2: Days 7-13
+        // And so on...
+
+        // Calculate which week we're in (1-indexed)
+        // For weekly loans, we need to be precise about when a week changes
+
+        // Get the day of week for the start date (0 = Sunday, 1 = Monday, ..., 6 = Saturday)
+        const startDayOfWeek = startDateClean.getDay();
+        const currentDayOfWeek = currentDateClean.getDay();
+
+        // Calculate completed weeks
+        const completedWeeks = Math.floor(daysDiff / 7);
+
+        // For weekly loans, if we're on the same day of the week as the start date,
+        // we're still in the current week number. Only after that day passes do we move to the next week.
+        // Example:
+        // - Disbursement Date: April 26, 2025 (Saturday, day 6)
+        // - Current Date: May 10, 2025 (Saturday, day 6) -> Week 2
+        // - Current Date: May 11, 2025 (Sunday, day 0) -> Week 3
+
+        // If current day of week is the same as start day of week, we're exactly at completedWeeks + 1
+        // Otherwise, we need to check if we've passed that day in the current week
+        const currentWeek = completedWeeks + 1;
+
+        console.log('Weekly loan calculation:', {
+          startDate: startDateClean.toISOString(),
+          currentDate: currentDateClean.toISOString(),
+          daysDiff,
+          startDayOfWeek,
+          currentDayOfWeek,
+          completedWeeks,
+          currentWeek,
+          // For debugging specific dates
+          startDay: startDateClean.getDate(),
+          currentDay: currentDateClean.getDate(),
+          startMonth: startDateClean.getMonth() + 1,
+          currentMonth: currentDateClean.getMonth() + 1
+        });
+
+        // Set the current period
+        newCurrentPeriod = currentWeek;
+      } else {
+        // Calculate months difference for monthly loans
+        let monthsDiff = (currentDate.getFullYear() - startDate.getFullYear()) * 12 +
+                        (currentDate.getMonth() - startDate.getMonth());
+
+        // Add 1 because first month is month 1
+        monthsDiff = monthsDiff + 1;
+
+        // Ensure we don't go below 1
+        newCurrentPeriod = Math.max(1, monthsDiff);
+      }
 
       // Ensure we don't exceed the duration
-      const newCurrentMonth = Math.min(monthsDiff, loan.duration);
+      newCurrentPeriod = Math.min(newCurrentPeriod, loan.duration);
 
-      console.log('Calculated current month:', newCurrentMonth, 'from disbursement date:', loan.disbursementDate);
+      console.log(`Calculated current ${loan.loanType === 'Weekly' ? 'week' : 'month'}:`,
+                 newCurrentPeriod, 'from disbursement date:', loan.disbursementDate);
 
-      if (newCurrentMonth === loan.currentMonth) {
+      if (newCurrentPeriod === loan.currentMonth) {
         // Don't show an alert, just silently return
-        console.log('Current month is already up to date');
+        console.log('Current period is already up to date');
         setUpdating(false);
         return;
       }
 
-      // Call the helper function to update the current month
-      await updateLoanCurrentMonth(newCurrentMonth);
+      // Call the helper function to update the current period
+      await updateLoanCurrentMonth(newCurrentPeriod);
 
     } catch (error) {
       console.error('Error in updateCurrentMonth:', error);
@@ -309,9 +364,14 @@ const LoanDetailPage = () => {
     <div className="container mx-auto px-4 py-8">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-3xl font-bold text-green-700">Loan Details</h1>
-        <Link href="/loans" className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition duration-300">
-          Back to Loans
-        </Link>
+        <div className="flex space-x-3">
+          <Link href={`/loans/${id}/edit`} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-300">
+            Edit Loan
+          </Link>
+          <Link href="/loans" className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition duration-300">
+            Back to Loans
+          </Link>
+        </div>
       </div>
 
       <div className="bg-white rounded-lg shadow-md overflow-hidden mb-8">
@@ -323,7 +383,7 @@ const LoanDetailPage = () => {
             </div>
             <div className="flex items-center space-x-3">
               <div className="text-right flex flex-col items-end">
-                <div className="text-sm text-gray-500">Current Month</div>
+                <div className="text-sm text-gray-500">Current {loan.loanType === 'Weekly' ? 'Week' : 'Month'}</div>
                 <div className="flex items-center">
                   <div className="text-xl font-bold text-green-700 mr-2">
                     {loan.currentMonth === 0 ?
@@ -366,6 +426,10 @@ const LoanDetailPage = () => {
               <p className="text-xl font-semibold">{formatCurrency(loan.documentCharge || 0)}</p>
             </div>
             <div>
+              <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-2">Installment Amount</h3>
+              <p className="text-xl font-semibold">{formatCurrency(loan.installmentAmount || 0)}</p>
+            </div>
+            <div>
               <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-2">Loan Type</h3>
               <p className="text-xl font-semibold">{loan.loanType}</p>
             </div>
@@ -375,7 +439,7 @@ const LoanDetailPage = () => {
             </div>
             <div>
               <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-2">Duration</h3>
-              <p className="text-xl font-semibold">{loan.duration} months</p>
+              <p className="text-xl font-semibold">{loan.duration} {loan.loanType === 'Weekly' ? 'weeks' : 'months'}</p>
             </div>
             <div>
               <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-2">Disbursement Date</h3>

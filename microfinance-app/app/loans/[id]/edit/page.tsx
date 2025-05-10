@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useState, ChangeEvent, FormEvent } from 'react';
-import { useRouter } from 'next/navigation';
+import React, { useState, useEffect, ChangeEvent, FormEvent } from 'react';
+import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 
 // Define interfaces for form data and errors
@@ -12,10 +12,11 @@ interface LoanFormData {
   amount: string;
   interestRate: string;
   documentCharge: string;
+  installmentAmount: string;
   duration: string;
   purpose: string;
   disbursementDate: string;
-  installmentAmount: string;
+  status: string;
 }
 
 interface LoanFormErrors {
@@ -25,10 +26,11 @@ interface LoanFormErrors {
   amount?: string;
   interestRate?: string;
   documentCharge?: string;
+  installmentAmount?: string;
   duration?: string;
   purpose?: string;
   disbursementDate?: string;
-  installmentAmount?: string;
+  status?: string;
 }
 
 interface LoanType {
@@ -36,10 +38,18 @@ interface LoanType {
   label: string;
 }
 
-export default function NewLoanPage() {
+interface LoanStatus {
+  value: string;
+  label: string;
+}
+
+export default function EditLoanPage() {
+  const params = useParams();
+  const id = params.id;
   const router = useRouter();
-  // Get today's date in YYYY-MM-DD format for the date input
-  const today = new Date().toISOString().split('T')[0];
+
+  // Convert id to number for Prisma
+  const numericId = typeof id === 'string' ? parseInt(id, 10) : id;
 
   const [formData, setFormData] = useState<LoanFormData>({
     borrowerName: '',
@@ -48,18 +58,73 @@ export default function NewLoanPage() {
     amount: '',
     interestRate: '',
     documentCharge: '0',
+    installmentAmount: '0',
     duration: '',
     purpose: '',
-    disbursementDate: today,
-    installmentAmount: '0',
+    disbursementDate: '',
+    status: 'Active',
   });
+
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+  const [loading, setLoading] = useState<boolean>(true);
   const [errors, setErrors] = useState<LoanFormErrors>({});
 
   const loanTypes: LoanType[] = [
     { value: 'Monthly', label: 'Monthly' },
     { value: 'Weekly', label: 'Weekly' },
   ];
+
+  const loanStatuses: LoanStatus[] = [
+    { value: 'Active', label: 'Active' },
+    { value: 'Completed', label: 'Completed' },
+    { value: 'Defaulted', label: 'Defaulted' },
+  ];
+
+  // Fetch loan data
+  useEffect(() => {
+    const fetchLoanData = async () => {
+      try {
+        setLoading(true);
+        const response = await fetch(`/api/loans/${id}`);
+
+        if (!response.ok) {
+          throw new Error('Failed to fetch loan data');
+        }
+
+        const loanData = await response.json();
+
+        // Format date to YYYY-MM-DD for input
+        const formatDateForInput = (dateString: string) => {
+          if (!dateString) return '';
+          const date = new Date(dateString);
+          return date.toISOString().split('T')[0];
+        };
+
+        setFormData({
+          borrowerName: loanData.borrower?.name || '',
+          contact: loanData.borrower?.contact || '',
+          loanType: loanData.loanType || 'Personal',
+          amount: loanData.amount?.toString() || '',
+          interestRate: loanData.interestRate?.toString() || '',
+          documentCharge: (loanData.documentCharge || 0).toString(),
+          installmentAmount: (loanData.installmentAmount || 0).toString(),
+          duration: loanData.duration?.toString() || '',
+          purpose: loanData.purpose || '',
+          disbursementDate: formatDateForInput(loanData.disbursementDate),
+          status: loanData.status || 'Active',
+        });
+      } catch (error) {
+        console.error('Error fetching loan data:', error);
+        alert('Failed to load loan data. Please try again.');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (id) {
+      fetchLoanData();
+    }
+  }, [id]);
 
   const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -171,95 +236,72 @@ export default function NewLoanPage() {
 
     try {
       // Prepare the data for API submission
-      // Parse the disbursement date from the form
-      const disbursementDate = new Date(formData.disbursementDate);
-      const disbursementDateISOString = disbursementDate.toISOString();
-
-      // Calculate next payment date (30 days from disbursement date)
-      const nextPaymentDate = new Date(disbursementDate);
-      nextPaymentDate.setDate(nextPaymentDate.getDate() + 30);
-      const nextPaymentDateISOString = nextPaymentDate.toISOString();
-
-      // We no longer need to calculate the current month
-      // as we've removed it from the schema temporarily
-      const today = new Date();
-
-      console.log('Preparing loan data with dates:', {
-        disbursementDate,
-        nextPaymentDate: nextPaymentDateISOString
-      });
-
-      // Create loan data with all fields
       const loanData = {
+        id: numericId, // Use the numeric ID for Prisma
         borrowerName: formData.borrowerName,
         contact: formData.contact,
         loanType: formData.loanType,
         amount: formData.amount,
         interestRate: formData.interestRate,
         documentCharge: formData.documentCharge,
-        duration: formData.duration,
         installmentAmount: formData.installmentAmount,
+        duration: formData.duration,
         purpose: formData.purpose,
-        disbursementDate: disbursementDateISOString,
-        repaymentType: 'Monthly',
-        nextPaymentDate: nextPaymentDateISOString,
-        status: 'Active',
+        disbursementDate: new Date(formData.disbursementDate).toISOString(),
+        status: formData.status,
       };
 
-      // Log the data being sent to the API
-      console.log('Sending loan data to API:', JSON.stringify(loanData, null, 2));
-
-      // Make the actual API call to create a loan
+      // Make the API call to update the loan
       const response = await fetch('/api/loans', {
-        method: 'POST',
+        method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(loanData),
       });
 
-      console.log('API response status:', response.status, response.statusText);
-
       if (!response.ok) {
-        let errorMessage = 'Failed to create loan';
+        let errorMessage = 'Failed to update loan';
         try {
           const errorData = await response.json();
-          console.error('API error response:', errorData);
           errorMessage = errorData.error || errorMessage;
         } catch (parseError) {
           console.error('Error parsing error response:', parseError);
-          // Try to get the text content
-          const textContent = await response.text().catch(() => '');
-          console.error('Response text content:', textContent);
         }
         throw new Error(errorMessage);
       }
 
-      const data = await response.json();
-      console.log('Loan created successfully:', data);
-
-      // Redirect to loans page after successful submission
-      router.push('/loans');
+      // Redirect to loan details page after successful update
+      router.push(`/loans/${id}`);
     } catch (error) {
-      console.error('Error creating loan:', error);
-
-      // Get a more user-friendly error message
+      console.error('Error updating loan:', error);
       const errorMessage = error instanceof Error
         ? error.message
         : 'An unknown error occurred';
-
+      alert(`Failed to update loan: ${errorMessage}. Please try again.`);
+    } finally {
       setIsSubmitting(false);
-
-      // Show a more specific error message to the user
-      alert(`Failed to create loan: ${errorMessage}. Please try again.`);
     }
   };
+
+  if (loading) {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <div className="flex justify-center items-center h-64">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-700 mx-auto mb-4"></div>
+            <p className="text-gray-600">Loading loan data...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold text-green-700">Create New Loan</h1>
-        <Link href="/loans" className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition duration-300">
+        <h1 className="text-3xl font-bold text-green-700">Edit Loan</h1>
+        <Link href={`/loans/${id}`} className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition duration-300">
           Cancel
         </Link>
       </div>
@@ -319,6 +361,25 @@ export default function NewLoanPage() {
                 {loanTypes.map((type) => (
                   <option key={type.value} value={type.value}>
                     {type.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label htmlFor="status" className="block text-sm font-medium text-gray-700 mb-1">
+                Loan Status <span className="text-red-500">*</span>
+              </label>
+              <select
+                id="status"
+                name="status"
+                value={formData.status}
+                onChange={handleChange}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+              >
+                {loanStatuses.map((status) => (
+                  <option key={status.value} value={status.value}>
+                    {status.label}
                   </option>
                 ))}
               </select>
@@ -463,7 +524,7 @@ export default function NewLoanPage() {
           </div>
 
           <div className="mt-8 flex justify-end">
-            <Link href="/loans" className="px-6 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition duration-300 mr-4">
+            <Link href={`/loans/${id}`} className="px-6 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition duration-300 mr-4">
               Cancel
             </Link>
             <button
@@ -471,7 +532,7 @@ export default function NewLoanPage() {
               disabled={isSubmitting}
               className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {isSubmitting ? 'Creating...' : 'Create Loan'}
+              {isSubmitting ? 'Updating...' : 'Update Loan'}
             </button>
           </div>
         </form>
