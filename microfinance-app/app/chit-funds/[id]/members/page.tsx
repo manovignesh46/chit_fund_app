@@ -40,6 +40,7 @@ export default function ChitFundMembersPage() {
 
   const [chitFund, setChitFund] = useState<ChitFund | null>(null);
   const [members, setMembers] = useState<Member[]>([]);
+  const [allContributions, setAllContributions] = useState<{memberId: number, month: number}[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -57,6 +58,12 @@ export default function ChitFundMembersPage() {
   const [memberToDelete, setMemberToDelete] = useState<number | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+
+  // For adding current month contribution
+  const [isAddingContribution, setIsAddingContribution] = useState(false);
+  const [contributionMemberId, setContributionMemberId] = useState<number | null>(null);
+  const [contributionSuccess, setContributionSuccess] = useState<string | null>(null);
+  const [contributionError, setContributionError] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchChitFundAndMembers = async () => {
@@ -78,6 +85,20 @@ export default function ChitFundMembersPage() {
         }
         const membersData = await membersResponse.json();
         setMembers(membersData);
+
+        // Fetch all contributions for this chit fund
+        const contributionsResponse = await fetch(`/api/chit-funds/${chitFundId}/contributions`);
+        if (!contributionsResponse.ok) {
+          throw new Error('Failed to fetch contributions');
+        }
+        const contributionsData = await contributionsResponse.json();
+
+        // Create a simplified array of member IDs and months for easy checking
+        const contributionMap = contributionsData.map((contribution: any) => ({
+          memberId: contribution.memberId,
+          month: contribution.month
+        }));
+        setAllContributions(contributionMap);
 
         setError(null);
       } catch (err) {
@@ -234,6 +255,69 @@ export default function ChitFundMembersPage() {
     }
   };
 
+  // Handle adding current month contribution
+  const handleAddCurrentMonthContribution = async (memberId: number) => {
+    if (!chitFund) return;
+
+    // Clear previous messages
+    setContributionSuccess(null);
+    setContributionError(null);
+
+    // Set the current member ID and loading state
+    setContributionMemberId(memberId);
+    setIsAddingContribution(true);
+
+    try {
+      // We're already checking in the UI if a contribution exists, but double-check here as well
+      if (allContributions.some(c => c.memberId === memberId && c.month === chitFund.currentMonth)) {
+        throw new Error(`Contribution for month ${chitFund.currentMonth} already exists for this member`);
+      }
+
+      // Create the contribution
+      const response = await fetch(`/api/chit-funds/${chitFundId}/contributions`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          memberId: memberId,
+          month: chitFund.currentMonth,
+          amount: chitFund.monthlyContribution, // Default to full amount
+          paidDate: new Date().toISOString().split('T')[0], // Today's date
+        }),
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || 'Failed to create contribution');
+      }
+
+      // Show success message
+      const member = members.find(m => m.id === memberId);
+      setContributionSuccess(`Added month ${chitFund.currentMonth} contribution for ${member?.globalMember.name}`);
+
+      // Update the contributions list
+      setAllContributions([...allContributions, { memberId, month: chitFund.currentMonth }]);
+
+      // Auto-hide success message after 3 seconds
+      setTimeout(() => {
+        setContributionSuccess(null);
+      }, 3000);
+
+    } catch (error: any) {
+      console.error('Error adding contribution:', error);
+      setContributionError(error.message || 'Failed to add contribution. Please try again.');
+
+      // Auto-hide error message after 3 seconds
+      setTimeout(() => {
+        setContributionError(null);
+      }, 3000);
+    } finally {
+      setIsAddingContribution(false);
+      setContributionMemberId(null);
+    }
+  };
+
   if (loading) {
     return (
       <div className="container mx-auto px-4 py-8">
@@ -304,6 +388,19 @@ export default function ChitFundMembersPage() {
         </div>
       </div>
 
+      {/* Notification Messages */}
+      {contributionSuccess && (
+        <div className="mb-4 bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded relative">
+          <span className="block sm:inline">{contributionSuccess}</span>
+        </div>
+      )}
+
+      {contributionError && (
+        <div className="mb-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative">
+          <span className="block sm:inline">{contributionError}</span>
+        </div>
+      )}
+
       {/* Members Table */}
       <div className="bg-white rounded-lg shadow-md overflow-hidden mb-8">
         <div className="overflow-x-auto">
@@ -368,6 +465,21 @@ export default function ChitFundMembersPage() {
                         <Link href={`/chit-funds/${chitFundId}/members/${member.id}/contributions`} className="text-blue-600 hover:text-blue-900">
                           Contributions
                         </Link>
+                        {/* Only show the Add Month Due button if no contribution exists for this month */}
+                        {!allContributions.some(c => c.memberId === member.id && c.month === chitFund.currentMonth) && (
+                          <button
+                            onClick={() => handleAddCurrentMonthContribution(member.id)}
+                            className={`${isAddingContribution && contributionMemberId === member.id
+                              ? 'text-gray-400 cursor-not-allowed'
+                              : 'text-green-600 hover:text-green-900'}`}
+                            title="Add current month contribution"
+                            disabled={isAddingContribution && contributionMemberId === member.id}
+                          >
+                            {isAddingContribution && contributionMemberId === member.id
+                              ? 'Adding...'
+                              : `Add Month ${chitFund.currentMonth} Due`}
+                          </button>
+                        )}
                         <button
                           onClick={() => handleDeleteMember(member.id)}
                           className="text-red-600 hover:text-red-900"
