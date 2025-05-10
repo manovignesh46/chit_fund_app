@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 
+export const dynamic = 'force-dynamic'; // Ensure the route is not statically optimized
+
 export async function GET() {
   try {
     // Get total cash inflow (sum of all contributions)
@@ -74,6 +76,7 @@ async function getRecentActivities() {
       },
       include: {
         chitFund: true,
+        globalMember: true,
       },
     });
 
@@ -85,7 +88,11 @@ async function getRecentActivities() {
       },
       include: {
         chitFund: true,
-        winner: true,
+        winner: {
+          include: {
+            globalMember: true
+          }
+        },
       },
     });
 
@@ -94,6 +101,9 @@ async function getRecentActivities() {
       take: 3,
       orderBy: {
         createdAt: 'desc',
+      },
+      include: {
+        borrower: true,
       },
     });
 
@@ -104,40 +114,69 @@ async function getRecentActivities() {
         paidDate: 'desc',
       },
       include: {
-        loan: true,
+        loan: {
+          include: {
+            borrower: true
+          }
+        },
       },
     });
 
     // Combine and format all activities
     const activities = [
-      ...recentMembers.map(member => ({
-        id: `member-${member.id}`,
-        type: 'Chit Fund',
-        action: 'New member joined',
-        details: `${member.name} joined ${member.chitFund.name}`,
-        date: member.joinDate,
-      })),
-      ...recentAuctions.map(auction => ({
-        id: `auction-${auction.id}`,
-        type: 'Chit Fund',
-        action: 'Auction completed',
-        details: `${auction.chitFund.name} auction won by ${auction.winner.name} at ₹${auction.amount}`,
-        date: auction.date,
-      })),
-      ...recentLoans.map(loan => ({
-        id: `loan-${loan.id}`,
-        type: 'Loan',
-        action: 'Loan approved',
-        details: `${loan.loanType} loan of ₹${loan.amount} approved for ${loan.borrowerName}`,
-        date: loan.disbursementDate,
-      })),
-      ...recentRepayments.map(repayment => ({
-        id: `repayment-${repayment.id}`,
-        type: 'Loan',
-        action: 'Repayment received',
-        details: `Loan repayment of ₹${repayment.amount} received from ${repayment.loan.borrowerName}`,
-        date: repayment.paidDate,
-      })),
+      ...recentMembers.map((member: any) => {
+        // Get member name and chit fund name safely
+        const memberName = member.globalMember ? member.globalMember.name : 'Unknown Member';
+        const chitFundName = member.chitFund ? member.chitFund.name : 'Unknown Chit Fund';
+
+        return {
+          id: `member-${member.id}`,
+          type: 'Chit Fund',
+          action: 'New member joined',
+          details: `${memberName} joined ${chitFundName}`,
+          date: member.joinDate,
+        };
+      }),
+      ...recentAuctions.map((auction: any) => {
+        // Get winner name safely, handling potential undefined values
+        const winnerName = auction.winner && auction.winner.globalMember
+          ? auction.winner.globalMember.name
+          : 'Unknown Member';
+
+        return {
+          id: `auction-${auction.id}`,
+          type: 'Chit Fund',
+          action: 'Auction completed',
+          details: `${auction.chitFund.name} auction won by ${winnerName} at ₹${auction.amount}`,
+          date: auction.date,
+        };
+      }),
+      ...recentLoans.map((loan: any) => {
+        // Get borrower name safely
+        const borrowerName = loan.borrower ? loan.borrower.name : 'Unknown Borrower';
+
+        return {
+          id: `loan-${loan.id}`,
+          type: 'Loan',
+          action: 'Loan approved',
+          details: `${loan.loanType} loan of ₹${loan.amount} approved for ${borrowerName}`,
+          date: loan.disbursementDate,
+        };
+      }),
+      ...recentRepayments.map((repayment: any) => {
+        // Get borrower name safely with nested null checks
+        const borrowerName = repayment.loan && repayment.loan.borrower
+          ? repayment.loan.borrower.name
+          : 'Unknown Borrower';
+
+        return {
+          id: `repayment-${repayment.id}`,
+          type: 'Loan',
+          action: 'Repayment received',
+          details: `Loan repayment of ₹${repayment.amount} received from ${borrowerName}`,
+          date: repayment.paidDate,
+        };
+      }),
     ];
 
     // Sort by date (newest first) and take top 5
@@ -191,8 +230,12 @@ async function getUpcomingEvents() {
       },
       select: {
         id: true,
-        borrowerName: true,
         nextPaymentDate: true,
+        borrower: {
+          select: {
+            name: true
+          }
+        }
       },
       take: 3,
       orderBy: {
@@ -208,12 +251,17 @@ async function getUpcomingEvents() {
         date: auction.nextAuctionDate ? formatDate(auction.nextAuctionDate) : 'Date not set',
         type: 'Chit Fund',
       })),
-      ...upcomingPayments.map(payment => ({
-        id: `payment-${payment.id}`,
-        title: `${payment.borrowerName} Loan Payment`,
-        date: payment.nextPaymentDate ? formatDate(payment.nextPaymentDate) : 'Date not set',
-        type: 'Loan',
-      })),
+      ...upcomingPayments.map((payment: any) => {
+        // Get borrower name safely
+        const borrowerName = payment.borrower ? payment.borrower.name : 'Unknown Borrower';
+
+        return {
+          id: `payment-${payment.id}`,
+          title: `${borrowerName} Loan Payment`,
+          date: payment.nextPaymentDate ? formatDate(payment.nextPaymentDate) : 'Date not set',
+          type: 'Loan',
+        };
+      }),
     ];
 
     // Sort by date (soonest first) and take top 3

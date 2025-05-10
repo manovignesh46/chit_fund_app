@@ -4,10 +4,18 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 
-interface Member {
+interface GlobalMember {
   id: number;
   name: string;
   contact: string;
+  email: string | null;
+  address: string | null;
+}
+
+interface Member {
+  id: number;
+  globalMemberId: number;
+  globalMember: GlobalMember;
   joinDate: string;
   auctionWon: boolean;
   auctionMonth: number | null;
@@ -333,10 +341,10 @@ export default function ChitFundMembersPage() {
                 members.map((member) => (
                   <tr key={member.id} className="hover:bg-gray-50">
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm font-medium text-blue-600">{member.name}</div>
+                      <div className="text-sm font-medium text-blue-600">{member.globalMember.name}</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">{member.contact}</div>
+                      <div className="text-sm text-gray-900">{member.globalMember.contact}</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm text-gray-900">{formatDate(member.joinDate)}</div>
@@ -425,7 +433,21 @@ export default function ChitFundMembersPage() {
       {showAddForm && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-md">
-            <h2 className="text-xl font-bold text-blue-700 mb-4">Add New Member</h2>
+            <h2 className="text-xl font-bold text-blue-700 mb-4">Add Member to Chit Fund</h2>
+
+            <div className="mb-6">
+              <Link href={`/chit-funds/${chitFundId}/assign-member`} className="w-full px-4 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition duration-300 flex items-center justify-center">
+                <span className="mr-2">📋</span> Select from Global Members
+              </Link>
+
+              <div className="text-center my-4 relative">
+                <hr className="my-4" />
+                <span className="px-3 bg-white text-gray-500 text-sm absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">OR</span>
+              </div>
+
+              <p className="text-sm text-gray-600 mb-4">Create a new member and add them to this chit fund:</p>
+            </div>
+
             <form onSubmit={handleAddMember}>
               <div className="mb-4">
                 <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">

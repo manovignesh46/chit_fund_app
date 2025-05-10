@@ -4,10 +4,17 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 
-interface Member {
+interface GlobalMember {
   id: number;
   name: string;
   contact: string;
+  email: string | null;
+  address: string | null;
+}
+
+interface Member {
+  id: number;
+  globalMember: GlobalMember;
 }
 
 interface Auction {
@@ -103,7 +110,7 @@ export default function ChitFundAuctionsPage() {
     }
   }, [chitFundId]);
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setNewAuction({
       ...newAuction,
@@ -341,7 +348,7 @@ export default function ChitFundAuctionsPage() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm font-medium text-blue-600">
-                        {auction.winner?.name || `Member ID: ${auction.winnerId}`}
+                        {auction.winner?.globalMember?.name || `Member ID: ${auction.winnerId}`}
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
@@ -406,7 +413,7 @@ export default function ChitFundAuctionsPage() {
                   <option value="">Select a winner</option>
                   {eligibleMembers.map((member) => (
                     <option key={member.id} value={member.id}>
-                      {member.name}
+                      {member.globalMember.name}
                     </option>
                   ))}
                 </select>

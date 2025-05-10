@@ -4,10 +4,17 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 
-interface Member {
+interface GlobalMember {
   id: number;
   name: string;
   contact: string;
+  email: string | null;
+  address: string | null;
+}
+
+interface Member {
+  id: number;
+  globalMember: GlobalMember;
   contribution: number;
 }
 
@@ -542,7 +549,7 @@ export default function ChitFundContributionsPage() {
               <option value="all">All Members</option>
               {members.map((member) => (
                 <option key={member.id} value={member.id}>
-                  {member.name}
+                  {member.globalMember.name}
                 </option>
               ))}
             </select>
@@ -590,7 +597,7 @@ export default function ChitFundContributionsPage() {
                     <tr key={contribution.id} className="hover:bg-gray-50">
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="text-sm font-medium text-blue-600">
-                          {contribution.member?.name || `Member ID: ${contribution.memberId}`}
+                          {contribution.member?.globalMember?.name || `Member ID: ${contribution.memberId}`}
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
@@ -833,7 +840,7 @@ export default function ChitFundContributionsPage() {
                   <option value="">Select a member</option>
                   {members.map((member) => (
                     <option key={member.id} value={member.id}>
-                      {member.name}
+                      {member.globalMember.name}
                     </option>
                   ))}
                 </select>

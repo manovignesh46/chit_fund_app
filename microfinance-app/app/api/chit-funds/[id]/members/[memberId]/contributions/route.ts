@@ -53,9 +53,13 @@ export async function GET(
         member: {
           select: {
             id: true,
-            name: true,
-            contact: true,
             contribution: true,
+            globalMember: {
+              select: {
+                name: true,
+                contact: true,
+              }
+            }
           },
         },
       },

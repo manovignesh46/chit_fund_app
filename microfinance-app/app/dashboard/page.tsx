@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { dashboardAPI } from '@/lib/api';
 
 export default function DashboardPage() {
   interface Activity {
@@ -48,19 +49,16 @@ export default function DashboardPage() {
     const fetchDashboardData = async () => {
       try {
         setLoading(true);
-        const response = await fetch('/api/dashboard');
+        console.log('Fetching dashboard data...');
 
-        if (!response.ok) {
-          throw new Error('Failed to fetch dashboard data');
-        }
+        const data = await dashboardAPI.getSummary();
 
-        const data = await response.json();
         console.log('Fetched dashboard data:', data);
         setDashboardData(data);
         setError(null);
-      } catch (err) {
+      } catch (err: any) {
         console.error('Error fetching dashboard data:', err);
-        setError('Failed to load dashboard data. Please try again later.');
+        setError(err.message || 'Failed to load dashboard data. Please try again later.');
       } finally {
         setLoading(false);
       }
@@ -90,6 +88,9 @@ export default function DashboardPage() {
       <div className="flex justify-between items-center mb-8">
         <h1 className="text-3xl font-bold text-blue-700">Dashboard</h1>
         <div className="flex space-x-4">
+          <Link href="/members" className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition duration-300">
+            Manage Members
+          </Link>
           <Link href="/chit-funds/new" className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-300">
             New Chit Fund
           </Link>

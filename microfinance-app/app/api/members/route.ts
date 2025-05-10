@@ -1,13 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 
+export const dynamic = 'force-dynamic'; // Ensure the route is not statically optimized
+
 export async function GET() {
   try {
     // Get all global members
     const members = await prisma.globalMember.findMany({
       include: {
         _count: {
-          select: { 
+          select: {
             chitFundMembers: true,
             loans: true
           }

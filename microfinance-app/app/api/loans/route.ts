@@ -1,13 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 
+// Use type assertion to handle TypeScript type checking
+const prismaAny = prisma as any;
+
 export async function GET() {
     try {
-        const loans = await prisma.loan.findMany({
+        const loans = await prismaAny.loan.findMany({
             include: {
                 _count: {
                     select: { repayments: true }
-                }
+                },
+                borrower: true
             }
         });
         return NextResponse.json(loans);
@@ -35,11 +39,38 @@ export async function POST(request: NextRequest) {
             }
         }
 
+        // First, find or create a global member
+        let globalMember;
+
+        if (body.globalMemberId) {
+            // Use existing global member
+            globalMember = await prismaAny.globalMember.findUnique({
+                where: { id: body.globalMemberId }
+            });
+
+            if (!globalMember) {
+                return NextResponse.json(
+                    { error: 'Global member not found' },
+                    { status: 404 }
+                );
+            }
+        } else {
+            // Create a new global member
+            globalMember = await prismaAny.globalMember.create({
+                data: {
+                    name: body.borrowerName,
+                    contact: body.contact,
+                    email: body.email || null,
+                    address: body.address || null,
+                    notes: body.notes || null,
+                }
+            });
+        }
+
         // Create the loan
-        const loan = await prisma.loan.create({
+        const loan = await prismaAny.loan.create({
             data: {
-                borrowerName: body.borrowerName,
-                contact: body.contact,
+                borrowerId: globalMember.id,
                 loanType: body.loanType,
                 amount: parseFloat(body.amount),
                 interestRate: parseFloat(body.interestRate),
@@ -50,6 +81,9 @@ export async function POST(request: NextRequest) {
                 nextPaymentDate: body.nextPaymentDate ? new Date(body.nextPaymentDate) : null,
                 status: body.status || 'Active',
                 purpose: body.purpose || null,
+            },
+            include: {
+                borrower: true
             }
         });
 
@@ -74,11 +108,36 @@ export async function PUT(request: NextRequest) {
             );
         }
 
-        const loan = await prisma.loan.update({
+        // First, get the current loan to find the borrower
+        const currentLoan = await prismaAny.loan.findUnique({
+            where: { id: body.id },
+            include: { borrower: true }
+        });
+
+        if (!currentLoan) {
+            return NextResponse.json(
+                { error: 'Loan not found' },
+                { status: 404 }
+            );
+        }
+
+        // Update the global member if needed
+        if (body.borrowerName || body.contact) {
+            await prismaAny.globalMember.update({
+                where: { id: currentLoan.borrowerId },
+                data: {
+                    name: body.borrowerName || currentLoan.borrower.name,
+                    contact: body.contact || currentLoan.borrower.contact,
+                    email: body.email !== undefined ? body.email : currentLoan.borrower.email,
+                    address: body.address !== undefined ? body.address : currentLoan.borrower.address,
+                }
+            });
+        }
+
+        // Update the loan
+        const loan = await prismaAny.loan.update({
             where: { id: body.id },
             data: {
-                borrowerName: body.borrowerName,
-                contact: body.contact,
                 loanType: body.loanType,
                 amount: body.amount ? parseFloat(body.amount) : undefined,
                 interestRate: body.interestRate ? parseFloat(body.interestRate) : undefined,
@@ -90,6 +149,9 @@ export async function PUT(request: NextRequest) {
                 status: body.status,
                 purpose: body.purpose,
             },
+            include: {
+                borrower: true
+            }
         });
 
         return NextResponse.json(loan);
@@ -114,12 +176,12 @@ export async function DELETE(request: NextRequest) {
         }
 
         // Delete related records first
-        await prisma.repayment.deleteMany({
+        await prismaAny.repayment.deleteMany({
             where: { loanId: id },
         });
 
         // Delete the loan
-        await prisma.loan.delete({
+        await prismaAny.loan.delete({
             where: { id },
         });
 

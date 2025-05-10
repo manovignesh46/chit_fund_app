@@ -39,9 +39,14 @@ export async function GET(
         member: {
           select: {
             id: true,
-            name: true,
-            contact: true,
             contribution: true,
+            globalMember: {
+              select: {
+                name: true,
+                contact: true,
+                email: true,
+              }
+            }
           },
         },
       },
@@ -159,9 +164,14 @@ export async function POST(
         member: {
           select: {
             id: true,
-            name: true,
-            contact: true,
             contribution: true,
+            globalMember: {
+              select: {
+                name: true,
+                contact: true,
+                email: true,
+              }
+            }
           },
         },
       },
@@ -252,9 +262,14 @@ export async function PUT(
         member: {
           select: {
             id: true,
-            name: true,
-            contact: true,
             contribution: true,
+            globalMember: {
+              select: {
+                name: true,
+                contact: true,
+                email: true,
+              }
+            }
           },
         },
       },

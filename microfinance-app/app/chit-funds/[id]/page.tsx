@@ -50,7 +50,15 @@ const ChitFundDetails = () => {
   const [auctions, setAuctions] = useState<Auction[]>([]);
   const [contributions, setContributions] = useState<any[]>([]);
   const [totalBalance, setTotalBalance] = useState<number>(0);
-  const [membersWithBalance, setMembersWithBalance] = useState<any[]>([]);
+  // Define the type for member balance data
+  interface MemberBalanceData {
+    id: number;
+    name: string;
+    totalBalance: number;
+    months: Array<{month: number; balance: number}>;
+  }
+
+  const [membersWithBalance, setMembersWithBalance] = useState<MemberBalanceData[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -100,10 +108,11 @@ const ChitFundDetails = () => {
 
         // Calculate total balance and members with balance
         let totalBalanceAmount = 0;
-        const membersWithBalanceData = [];
+
+        const membersWithBalanceData: MemberBalanceData[] = [];
 
         // Create a map to track balances by member
-        const memberBalances = new Map();
+        const memberBalances = new Map<number, MemberBalanceData>();
 
         // Process all contributions to calculate balances
         for (const contribution of contributionsData) {
@@ -117,7 +126,7 @@ const ChitFundDetails = () => {
               id: memberId,
               name: memberName,
               totalBalance: 0,
-              months: []
+              months: [] as Array<{month: number; balance: number}>
             };
 
             currentBalance.totalBalance += contribution.balance;
@@ -141,7 +150,7 @@ const ChitFundDetails = () => {
         // Calculate next payout details if there are auctions
         if (auctionsData.length > 0 && chitFundData.currentMonth < chitFundData.duration) {
           // Find members who haven't won an auction yet
-          const eligibleMembers = membersData.filter(member => !member.auctionWon);
+          const eligibleMembers = membersData.filter((member: Member) => !member.auctionWon);
 
           if (eligibleMembers.length > 0) {
             // For simplicity, we'll just pick the first eligible member as the next receiver
@@ -150,7 +159,7 @@ const ChitFundDetails = () => {
 
             // Calculate final payout based on previous auctions average or total amount
             if (auctionsData.length > 0) {
-              const avgAmount = auctionsData.reduce((sum, auction) => sum + auction.amount, 0) / auctionsData.length;
+              const avgAmount = auctionsData.reduce((sum: number, auction: Auction) => sum + auction.amount, 0) / auctionsData.length;
               chitFundData.finalPayout = Math.round(avgAmount);
             } else {
               chitFundData.finalPayout = chitFundData.totalAmount;

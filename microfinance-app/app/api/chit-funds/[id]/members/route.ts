@@ -32,6 +32,7 @@ export async function GET(
     const members = await prisma.member.findMany({
       where: { chitFundId: chitFundId },
       include: {
+        globalMember: true,
         _count: {
           select: { contributions: true },
         },
@@ -51,8 +52,10 @@ export async function GET(
       const wonAuction = member.auctions && member.auctions.length > 0 ? member.auctions[0] : null;
       return {
         id: member.id,
-        name: member.name,
-        contact: member.contact,
+        globalMemberId: member.globalMemberId,
+        globalMember: member.globalMember,
+        name: member.globalMember.name,
+        contact: member.globalMember.contact,
         joinDate: member.joinDate,
         contribution: member.contribution,
         contributionsCount: member._count.contributions,
@@ -88,41 +91,115 @@ export async function POST(
 
     const body = await request.json();
 
-    // Validate required fields
-    const requiredFields = ['name', 'contact'];
-    for (const field of requiredFields) {
-      if (!body[field]) {
+    // Check if we're using a global member or creating a new one
+    if (body.globalMemberId) {
+      // Using existing global member
+
+      // Check if the global member exists
+      const globalMember = await prisma.globalMember.findUnique({
+        where: { id: body.globalMemberId },
+      });
+
+      if (!globalMember) {
         return NextResponse.json(
-          { error: `${field} is required` },
+          { error: 'Global member not found' },
+          { status: 404 }
+        );
+      }
+
+      // Check if the chit fund exists
+      const chitFund = await prisma.chitFund.findUnique({
+        where: { id: chitFundId },
+      });
+
+      if (!chitFund) {
+        return NextResponse.json(
+          { error: 'Chit fund not found' },
+          { status: 404 }
+        );
+      }
+
+      // Check if the member is already in this chit fund
+      const existingMembership = await prisma.member.findFirst({
+        where: {
+          globalMemberId: body.globalMemberId,
+          chitFundId: chitFundId,
+        },
+      });
+
+      if (existingMembership) {
+        return NextResponse.json(
+          { error: 'This member is already part of this chit fund' },
           { status: 400 }
         );
       }
+
+      // Create the member
+      const member = await prisma.member.create({
+        data: {
+          globalMemberId: body.globalMemberId,
+          chitFundId: chitFundId,
+          joinDate: new Date(),
+          contribution: body.contribution || chitFund.monthlyContribution,
+        },
+        include: {
+          globalMember: true,
+        },
+      });
+
+      return NextResponse.json(member, { status: 201 });
+    } else {
+      // Creating a new member from scratch
+
+      // Validate required fields
+      const requiredFields = ['name', 'contact'];
+      for (const field of requiredFields) {
+        if (!body[field]) {
+          return NextResponse.json(
+            { error: `${field} is required` },
+            { status: 400 }
+          );
+        }
+      }
+
+      // Check if the chit fund exists
+      const chitFund = await prisma.chitFund.findUnique({
+        where: { id: chitFundId },
+      });
+
+      if (!chitFund) {
+        return NextResponse.json(
+          { error: 'Chit fund not found' },
+          { status: 404 }
+        );
+      }
+
+      // First create a global member
+      const globalMember = await prisma.globalMember.create({
+        data: {
+          name: body.name,
+          contact: body.contact,
+          email: body.email || null,
+          address: body.address || null,
+          notes: body.notes || null,
+        },
+      });
+
+      // Then create the chit fund member
+      const member = await prisma.member.create({
+        data: {
+          globalMemberId: globalMember.id,
+          chitFundId: chitFundId,
+          joinDate: new Date(),
+          contribution: body.contribution || chitFund.monthlyContribution,
+        },
+        include: {
+          globalMember: true,
+        },
+      });
+
+      return NextResponse.json(member, { status: 201 });
     }
-
-    // Check if the chit fund exists
-    const chitFund = await prisma.chitFund.findUnique({
-      where: { id: chitFundId },
-    });
-
-    if (!chitFund) {
-      return NextResponse.json(
-        { error: 'Chit fund not found' },
-        { status: 404 }
-      );
-    }
-
-    // Create the member
-    const member = await prisma.member.create({
-      data: {
-        name: body.name,
-        contact: body.contact,
-        chitFundId: chitFundId,
-        joinDate: new Date(),
-        contribution: body.contribution || chitFund.monthlyContribution,
-      },
-    });
-
-    return NextResponse.json(member, { status: 201 });
   } catch (error) {
     console.error('Error creating member:', error);
     return NextResponse.json(

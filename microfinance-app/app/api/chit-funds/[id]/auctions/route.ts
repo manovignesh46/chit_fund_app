@@ -28,8 +28,12 @@ export async function GET(
         winner: {
           select: {
             id: true,
-            name: true,
-            contact: true,
+            globalMember: {
+              select: {
+                name: true,
+                contact: true,
+              }
+            }
           },
         },
       },
@@ -155,8 +159,12 @@ export async function POST(
         winner: {
           select: {
             id: true,
-            name: true,
-            contact: true,
+            globalMember: {
+              select: {
+                name: true,
+                contact: true,
+              }
+            }
           },
         },
       },
