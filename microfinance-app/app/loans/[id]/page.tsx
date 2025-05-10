@@ -14,15 +14,25 @@ interface Repayment {
 // ParamValue type from Next.js is string | string[] | undefined
 type ParamValue = string | string[] | undefined;
 
+interface GlobalMember {
+  id: number;
+  name: string;
+  contact: string;
+  email?: string | null;
+  address?: string | null;
+}
+
 interface Loan {
   id: ParamValue;
-  borrowerName: string;
-  contact: string;
+  borrowerId: number;
+  borrower: GlobalMember;
   amount: number;
   interestRate: number;
+  documentCharge?: number;
   loanType: string;
   disbursementDate: string;
   duration: number;
+  currentMonth: number;
   repaymentType: string;
   remainingBalance: number;
   nextPaymentDate: string;
@@ -35,17 +45,26 @@ const LoanDetailPage = () => {
   const id = params.id;
   const [loan, setLoan] = useState<Loan | null>(null);
   const [loading, setLoading] = useState(true);
+  const [updating, setUpdating] = useState(false);
 
   // Mock data for loan details
   const mockLoan = {
     id: id,
-    borrowerName: 'Rahul Sharma',
-    contact: '+91 9876543210',
+    borrowerId: 1,
+    borrower: {
+      id: 1,
+      name: 'Rahul Sharma',
+      contact: '+91 9876543210',
+      email: 'rahul@example.com',
+      address: 'Delhi, India'
+    },
     amount: 50000,
-    interestRate: 12,
+    interestRate: 12000, // Now as amount instead of percentage
+    documentCharge: 1000,
     loanType: 'Business',
     disbursementDate: '2023-01-15',
     duration: 12,
+    currentMonth: 5,
     repaymentType: 'Monthly',
     remainingBalance: 35000,
     nextPaymentDate: '2023-05-15',
@@ -58,25 +77,43 @@ const LoanDetailPage = () => {
   };
 
   useEffect(() => {
-    // Simulate API call
     const fetchLoanDetails = async () => {
       try {
-        // In a real app, this would be an API call:
-        // const response = await fetch(`/api/loans/${id}`);
-        // const data = await response.json();
+        setLoading(true);
 
-        // Using mock data for now
-        setTimeout(() => {
-          setLoan(mockLoan);
-          setLoading(false);
-        }, 500);
+        // Fetch loan details
+        const loanResponse = await fetch(`/api/loans/${id}`);
+        if (!loanResponse.ok) {
+          throw new Error('Failed to fetch loan details');
+        }
+        const loanData = await loanResponse.json();
+
+        // Fetch repayments for this loan
+        const repaymentsResponse = await fetch(`/api/loans/${id}/repayments`);
+        if (!repaymentsResponse.ok) {
+          throw new Error('Failed to fetch repayments');
+        }
+        const repaymentsData = await repaymentsResponse.json();
+
+        // Combine the data
+        const combinedData = {
+          ...loanData,
+          repayments: repaymentsData || [],
+          // Map remainingAmount to remainingBalance for compatibility
+          remainingBalance: loanData.remainingAmount
+        };
+
+        setLoan(combinedData);
       } catch (error) {
         console.error('Error fetching loan details:', error);
+      } finally {
         setLoading(false);
       }
     };
 
-    fetchLoanDetails();
+    if (id) {
+      fetchLoanDetails();
+    }
   }, [id]);
 
   // Format currency
@@ -97,6 +134,148 @@ const LoanDetailPage = () => {
       month: 'long',
       day: 'numeric',
     }).format(date);
+  };
+
+  // Calculate end date based on disbursement date and duration
+  const calculateEndDate = (disbursementDate: string, durationMonths: number): string => {
+    if (!disbursementDate) return '';
+
+    const startDate = new Date(disbursementDate);
+    const endDate = new Date(startDate);
+    endDate.setMonth(startDate.getMonth() + durationMonths);
+
+    return endDate.toISOString();
+  };
+
+  // Helper function to update the loan's current month
+  const updateLoanCurrentMonth = async (monthValue: number) => {
+    console.log(`Updating loan ID ${id} to month ${monthValue}`);
+    try {
+      const response = await fetch(`/api/loans/${id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          currentMonth: monthValue,
+        }),
+      });
+
+      if (!response.ok) {
+        // Try to get more detailed error information
+        let errorDetails = response.statusText;
+        try {
+          const errorResponse = await response.json();
+          console.error('API error response:', errorResponse);
+          if (errorResponse.message) {
+            errorDetails = `${errorResponse.message}${errorResponse.details ? ': ' + errorResponse.details : ''}`;
+          }
+        } catch (e) {
+          console.error('Could not parse error response as JSON');
+        }
+
+        throw new Error(`Failed to update current month: ${errorDetails}`);
+      }
+
+      // Parse the response
+      const updatedLoan = await response.json();
+      console.log('Updated loan data:', updatedLoan);
+
+      // Update the local state
+      setLoan(prev => {
+        if (!prev) return null;
+        return {
+          ...prev,
+          currentMonth: updatedLoan.currentMonth || monthValue
+        };
+      });
+
+      return true;
+    } catch (error) {
+      console.error('Error updating loan month:', error);
+      return false;
+    } finally {
+      setUpdating(false);
+    }
+  };
+
+  // Update the current month
+  const updateCurrentMonth = async () => {
+    if (!loan || updating) return;
+
+    try {
+      setUpdating(true);
+
+      // Calculate the current month based on the disbursement date
+      const startDate = new Date(loan.disbursementDate);
+      const currentDate = new Date();
+
+      // Check if disbursement date is in the future
+      if (startDate > currentDate) {
+        console.log('Disbursement date is in the future, setting current month to 0');
+        // If disbursement date is in the future, current month should be 0 (not started yet)
+        const newCurrentMonth = 0;
+
+        if (loan.currentMonth !== 0) {
+          // Only update if it's not already 0
+          setUpdating(true);
+          return updateLoanCurrentMonth(0);
+        } else {
+          // Already at month 0, no need to update
+          console.log('Loan is already at month 0, no update needed');
+          return;
+        }
+      }
+
+      // Calculate months difference for past or current disbursement dates
+      let monthsDiff = (currentDate.getFullYear() - startDate.getFullYear()) * 12 +
+                      (currentDate.getMonth() - startDate.getMonth());
+
+      // Add 1 because first month is month 1
+      monthsDiff = monthsDiff + 1;
+
+      // Ensure we don't go below 1
+      monthsDiff = Math.max(1, monthsDiff);
+
+      // Ensure we don't exceed the duration
+      const newCurrentMonth = Math.min(monthsDiff, loan.duration);
+
+      console.log('Calculated current month:', newCurrentMonth, 'from disbursement date:', loan.disbursementDate);
+
+      if (newCurrentMonth === loan.currentMonth) {
+        // Don't show an alert, just silently return
+        console.log('Current month is already up to date');
+        setUpdating(false);
+        return;
+      }
+
+      // Call the helper function to update the current month
+      await updateLoanCurrentMonth(newCurrentMonth);
+
+    } catch (error) {
+      console.error('Error in updateCurrentMonth:', error);
+
+      // Refresh the page data to ensure we have the latest state
+      if (id) {
+        try {
+          const refreshResponse = await fetch(`/api/loans/${id}`);
+          if (refreshResponse.ok) {
+            const refreshedData = await refreshResponse.json();
+            setLoan(prev => {
+              if (!prev) return refreshedData;
+              return {
+                ...refreshedData,
+                repayments: prev.repayments || []
+              };
+            });
+          }
+        } catch (refreshError) {
+          console.error('Failed to refresh loan data:', refreshError);
+        }
+      }
+    } finally {
+      setUpdating(false);
+    }
   };
 
   if (loading) {
@@ -139,12 +318,32 @@ const LoanDetailPage = () => {
         <div className="p-6 border-b">
           <div className="flex justify-between items-start">
             <div>
-              <h2 className="text-2xl font-semibold">{loan.borrowerName}</h2>
-              <p className="text-gray-600">{loan.contact}</p>
+              <h2 className="text-2xl font-semibold">{loan.borrower?.name || 'Unknown'}</h2>
+              <p className="text-gray-600">{loan.borrower?.contact || 'No contact'}</p>
             </div>
-            <span className="px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm font-semibold">
-              {loan.status}
-            </span>
+            <div className="flex items-center space-x-3">
+              <div className="text-right flex flex-col items-end">
+                <div className="text-sm text-gray-500">Current Month</div>
+                <div className="flex items-center">
+                  <div className="text-xl font-bold text-green-700 mr-2">
+                    {loan.currentMonth === 0 ?
+                      <span className="text-yellow-600">Not Started</span> :
+                      <>{loan.currentMonth} <span className="text-sm text-gray-500">/ {loan.duration}</span></>
+                    }
+                  </div>
+                  <button
+                    onClick={updateCurrentMonth}
+                    disabled={updating}
+                    className="text-xs px-2 py-1 bg-green-100 text-green-800 rounded hover:bg-green-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {updating ? 'Updating...' : 'Update'}
+                  </button>
+                </div>
+              </div>
+              <span className="px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm font-semibold">
+                {loan.status}
+              </span>
+            </div>
           </div>
         </div>
 
@@ -159,8 +358,12 @@ const LoanDetailPage = () => {
               <p className="text-xl font-semibold">{formatCurrency(loan.remainingBalance)}</p>
             </div>
             <div>
-              <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-2">Interest Rate</h3>
-              <p className="text-xl font-semibold">{loan.interestRate}%</p>
+              <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-2">Interest Amount</h3>
+              <p className="text-xl font-semibold">{formatCurrency(loan.interestRate)}</p>
+            </div>
+            <div>
+              <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-2">Document Charge</h3>
+              <p className="text-xl font-semibold">{formatCurrency(loan.documentCharge || 0)}</p>
             </div>
             <div>
               <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-2">Loan Type</h3>
@@ -181,6 +384,12 @@ const LoanDetailPage = () => {
             <div>
               <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-2">Next Payment Date</h3>
               <p className="text-xl font-semibold">{formatDate(loan.nextPaymentDate)}</p>
+            </div>
+            <div>
+              <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-2">End Date</h3>
+              <p className="text-xl font-semibold">
+                {formatDate(calculateEndDate(loan.disbursementDate, loan.duration))}
+              </p>
             </div>
           </div>
         </div>

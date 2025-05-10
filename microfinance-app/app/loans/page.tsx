@@ -3,10 +3,19 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 
-// Define interface for Loan type
+// Define interfaces for Loan type
+interface GlobalMember {
+  id: number;
+  name: string;
+  contact: string;
+  email?: string | null;
+  address?: string | null;
+}
+
 interface Loan {
   id: number;
-  borrowerName: string;
+  borrowerId: number;
+  borrower: GlobalMember;
   loanType: string;
   amount: number;
   interestRate: number;
@@ -127,7 +136,7 @@ export default function LoansPage() {
                     Amount
                   </th>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Interest Rate
+                    Interest Amount
                   </th>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Duration
@@ -151,7 +160,7 @@ export default function LoansPage() {
                   <tr key={loan.id} className="hover:bg-gray-50">
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm font-medium text-green-600 hover:underline">
-                        <Link href={`/loans/${loan.id}`}>{loan.borrowerName}</Link>
+                        <Link href={`/loans/${loan.id}`}>{loan.borrower?.name || 'Unknown'}</Link>
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
@@ -161,7 +170,7 @@ export default function LoansPage() {
                       <div className="text-sm text-gray-900">{formatCurrency(loan.amount)}</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">{loan.interestRate}%</div>
+                      <div className="text-sm text-gray-900">{formatCurrency(loan.interestRate)}</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm text-gray-900">{loan.duration} months</div>

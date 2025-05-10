@@ -11,8 +11,10 @@ interface LoanFormData {
   loanType: string;
   amount: string;
   interestRate: string;
+  documentCharge: string;
   duration: string;
   purpose: string;
+  disbursementDate: string;
 }
 
 interface LoanFormErrors {
@@ -21,8 +23,10 @@ interface LoanFormErrors {
   loanType?: string;
   amount?: string;
   interestRate?: string;
+  documentCharge?: string;
   duration?: string;
   purpose?: string;
+  disbursementDate?: string;
 }
 
 interface LoanType {
@@ -32,14 +36,19 @@ interface LoanType {
 
 export default function NewLoanPage() {
   const router = useRouter();
+  // Get today's date in YYYY-MM-DD format for the date input
+  const today = new Date().toISOString().split('T')[0];
+
   const [formData, setFormData] = useState<LoanFormData>({
     borrowerName: '',
     contact: '',
     loanType: 'Personal',
     amount: '',
     interestRate: '',
+    documentCharge: '0',
     duration: '',
     purpose: '',
+    disbursementDate: today,
   });
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [errors, setErrors] = useState<LoanFormErrors>({});
@@ -81,9 +90,13 @@ export default function NewLoanPage() {
     }
 
     if (!formData.interestRate) {
-      newErrors.interestRate = 'Interest rate is required';
-    } else if (isNaN(Number(formData.interestRate)) || Number(formData.interestRate) <= 0 || Number(formData.interestRate) > 30) {
-      newErrors.interestRate = 'Please enter a valid interest rate (0-30%)';
+      newErrors.interestRate = 'Interest amount is required';
+    } else if (isNaN(Number(formData.interestRate)) || Number(formData.interestRate) < 0) {
+      newErrors.interestRate = 'Please enter a valid interest amount';
+    }
+
+    if (formData.documentCharge && (isNaN(Number(formData.documentCharge)) || Number(formData.documentCharge) < 0)) {
+      newErrors.documentCharge = 'Please enter a valid document charge amount';
     }
 
     if (!formData.duration) {
@@ -94,6 +107,10 @@ export default function NewLoanPage() {
 
     if (!formData.purpose.trim()) {
       newErrors.purpose = 'Loan purpose is required';
+    }
+
+    if (!formData.disbursementDate) {
+      newErrors.disbursementDate = 'Disbursement date is required';
     }
 
     setErrors(newErrors);
@@ -111,19 +128,42 @@ export default function NewLoanPage() {
 
     try {
       // Prepare the data for API submission
-      const today = new Date().toISOString().split('T')[0]; // Current date in YYYY-MM-DD format
+      // Parse the disbursement date from the form
+      const disbursementDate = new Date(formData.disbursementDate);
+      const disbursementDateISOString = disbursementDate.toISOString();
 
-      // Calculate next payment date (30 days from today)
-      const nextPaymentDate = new Date();
+      // Calculate next payment date (30 days from disbursement date)
+      const nextPaymentDate = new Date(disbursementDate);
       nextPaymentDate.setDate(nextPaymentDate.getDate() + 30);
+      const nextPaymentDateISOString = nextPaymentDate.toISOString();
 
+      // We no longer need to calculate the current month
+      // as we've removed it from the schema temporarily
+      const today = new Date();
+
+      console.log('Preparing loan data with dates:', {
+        disbursementDate,
+        nextPaymentDate: nextPaymentDateISOString
+      });
+
+      // Create loan data without the problematic fields
       const loanData = {
-        ...formData,
-        disbursementDate: today,
+        borrowerName: formData.borrowerName,
+        contact: formData.contact,
+        loanType: formData.loanType,
+        amount: formData.amount,
+        interestRate: formData.interestRate,
+        // Removed documentCharge and currentMonth as they're causing issues
+        duration: formData.duration,
+        purpose: formData.purpose,
+        disbursementDate: disbursementDateISOString,
         repaymentType: 'Monthly',
-        nextPaymentDate: nextPaymentDate.toISOString(),
+        nextPaymentDate: nextPaymentDateISOString,
         status: 'Active',
       };
+
+      // Log the data being sent to the API
+      console.log('Sending loan data to API:', JSON.stringify(loanData, null, 2));
 
       // Make the actual API call to create a loan
       const response = await fetch('/api/loans', {
@@ -134,9 +174,21 @@ export default function NewLoanPage() {
         body: JSON.stringify(loanData),
       });
 
+      console.log('API response status:', response.status, response.statusText);
+
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to create loan');
+        let errorMessage = 'Failed to create loan';
+        try {
+          const errorData = await response.json();
+          console.error('API error response:', errorData);
+          errorMessage = errorData.error || errorMessage;
+        } catch (parseError) {
+          console.error('Error parsing error response:', parseError);
+          // Try to get the text content
+          const textContent = await response.text().catch(() => '');
+          console.error('Response text content:', textContent);
+        }
+        throw new Error(errorMessage);
       }
 
       const data = await response.json();
@@ -146,8 +198,16 @@ export default function NewLoanPage() {
       router.push('/loans');
     } catch (error) {
       console.error('Error creating loan:', error);
+
+      // Get a more user-friendly error message
+      const errorMessage = error instanceof Error
+        ? error.message
+        : 'An unknown error occurred';
+
       setIsSubmitting(false);
-      alert('Failed to create loan. Please try again.');
+
+      // Show a more specific error message to the user
+      alert(`Failed to create loan: ${errorMessage}. Please try again.`);
     }
   };
 
@@ -243,7 +303,7 @@ export default function NewLoanPage() {
 
             <div>
               <label htmlFor="interestRate" className="block text-sm font-medium text-gray-700 mb-1">
-                Interest Rate (% per annum) <span className="text-red-500">*</span>
+                Interest Amount (₹) <span className="text-red-500">*</span>
               </label>
               <input
                 type="number"
@@ -251,15 +311,35 @@ export default function NewLoanPage() {
                 name="interestRate"
                 value={formData.interestRate}
                 onChange={handleChange}
-                min="1"
-                max="30"
-                step="0.5"
+                min="0"
+                step="100"
                 className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent ${
                   errors.interestRate ? 'border-red-500' : 'border-gray-300'
                 }`}
               />
               {errors.interestRate && (
                 <p className="mt-1 text-sm text-red-500">{errors.interestRate}</p>
+              )}
+            </div>
+
+            <div>
+              <label htmlFor="documentCharge" className="block text-sm font-medium text-gray-700 mb-1">
+                Document Charge (₹)
+              </label>
+              <input
+                type="number"
+                id="documentCharge"
+                name="documentCharge"
+                value={formData.documentCharge}
+                onChange={handleChange}
+                min="0"
+                step="100"
+                className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent ${
+                  errors.documentCharge ? 'border-red-500' : 'border-gray-300'
+                }`}
+              />
+              {errors.documentCharge && (
+                <p className="mt-1 text-sm text-red-500">{errors.documentCharge}</p>
               )}
             </div>
 
@@ -281,6 +361,25 @@ export default function NewLoanPage() {
               />
               {errors.duration && (
                 <p className="mt-1 text-sm text-red-500">{errors.duration}</p>
+              )}
+            </div>
+
+            <div>
+              <label htmlFor="disbursementDate" className="block text-sm font-medium text-gray-700 mb-1">
+                Disbursement Date <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="date"
+                id="disbursementDate"
+                name="disbursementDate"
+                value={formData.disbursementDate}
+                onChange={handleChange}
+                className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent ${
+                  errors.disbursementDate ? 'border-red-500' : 'border-gray-300'
+                }`}
+              />
+              {errors.disbursementDate && (
+                <p className="mt-1 text-sm text-red-500">{errors.disbursementDate}</p>
               )}
             </div>
 

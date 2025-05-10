@@ -67,21 +67,30 @@ export async function POST(request: NextRequest) {
             });
         }
 
+        // Parse the disbursement date
+        const disbursementDate = new Date(body.disbursementDate);
+        console.log('Creating loan with disbursement date:', disbursementDate);
+
+        // Create a loan data object without the problematic fields
+        const loanData = {
+            borrowerId: globalMember.id,
+            loanType: body.loanType,
+            amount: parseFloat(body.amount),
+            interestRate: parseFloat(body.interestRate),
+            duration: parseInt(body.duration),
+            disbursementDate: new Date(body.disbursementDate),
+            repaymentType: body.repaymentType,
+            remainingAmount: parseFloat(body.amount), // Initially, remaining amount is the full loan amount
+            nextPaymentDate: body.nextPaymentDate ? new Date(body.nextPaymentDate) : null,
+            status: body.status || 'Active',
+            purpose: body.purpose || null,
+        };
+
+        console.log('Creating loan with data:', loanData);
+
         // Create the loan
         const loan = await prismaAny.loan.create({
-            data: {
-                borrowerId: globalMember.id,
-                loanType: body.loanType,
-                amount: parseFloat(body.amount),
-                interestRate: parseFloat(body.interestRate),
-                duration: parseInt(body.duration),
-                disbursementDate: new Date(body.disbursementDate),
-                repaymentType: body.repaymentType,
-                remainingAmount: parseFloat(body.amount), // Initially, remaining amount is the full loan amount
-                nextPaymentDate: body.nextPaymentDate ? new Date(body.nextPaymentDate) : null,
-                status: body.status || 'Active',
-                purpose: body.purpose || null,
-            },
+            data: loanData,
             include: {
                 borrower: true
             }
@@ -90,8 +99,35 @@ export async function POST(request: NextRequest) {
         return NextResponse.json(loan, { status: 201 });
     } catch (error) {
         console.error('Error creating loan:', error);
+
+        // Provide more detailed error information
+        let errorMessage = 'Failed to create loan';
+        let errorDetails = '';
+
+        if (error instanceof Error) {
+            errorMessage = error.message;
+            errorDetails = error.stack || '';
+            console.error('Full error object:', error);
+        }
+
+        // Check for specific Prisma errors
+        if (errorMessage.includes('Prisma')) {
+            if (errorMessage.includes('Foreign key constraint failed')) {
+                errorMessage = 'Invalid relationship reference';
+            } else if (errorMessage.includes('Unique constraint failed')) {
+                errorMessage = 'Duplicate record found';
+            } else if (errorMessage.includes('Unknown arg')) {
+                errorMessage = 'Schema mismatch - please contact support';
+                // This is likely due to a mismatch between the schema and the generated client
+                console.error('Schema mismatch detected. The Prisma client may need to be regenerated.');
+            }
+        }
+
         return NextResponse.json(
-            { error: 'Failed to create loan' },
+            {
+                error: errorMessage,
+                details: errorDetails
+            },
             { status: 500 }
         );
     }
@@ -141,6 +177,7 @@ export async function PUT(request: NextRequest) {
                 loanType: body.loanType,
                 amount: body.amount ? parseFloat(body.amount) : undefined,
                 interestRate: body.interestRate ? parseFloat(body.interestRate) : undefined,
+                documentCharge: body.documentCharge !== undefined ? parseFloat(body.documentCharge) : undefined,
                 duration: body.duration ? parseInt(body.duration) : undefined,
                 disbursementDate: body.disbursementDate ? new Date(body.disbursementDate) : undefined,
                 repaymentType: body.repaymentType,
