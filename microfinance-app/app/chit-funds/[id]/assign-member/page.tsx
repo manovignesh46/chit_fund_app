@@ -30,12 +30,12 @@ export default function AssignMemberPage() {
   const params = useParams();
   const router = useRouter();
   const chitFundId = params.id;
-  
+
   const [chitFund, setChitFund] = useState<ChitFund | null>(null);
   const [members, setMembers] = useState<GlobalMember[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  
+
   const [selectedMember, setSelectedMember] = useState<string>('');
   const [contribution, setContribution] = useState<string>('');
   const [formErrors, setFormErrors] = useState<{[key: string]: string}>({});
@@ -45,7 +45,7 @@ export default function AssignMemberPage() {
     const fetchData = async () => {
       try {
         setLoading(true);
-        
+
         // Fetch chit fund details
         const chitFundResponse = await fetch(`/api/chit-funds/${chitFundId}`);
         if (!chitFundResponse.ok) {
@@ -54,11 +54,23 @@ export default function AssignMemberPage() {
         const chitFundData = await chitFundResponse.json();
         setChitFund(chitFundData);
         setContribution(chitFundData.monthlyContribution.toString());
-        
+
         // Fetch all global members
         const membersData = await memberAPI.getAll();
-        setMembers(membersData);
-        
+
+        // Check if the response is paginated or a direct array
+        if (membersData && membersData.members && Array.isArray(membersData.members)) {
+          // Handle paginated response
+          setMembers(membersData.members);
+        } else if (Array.isArray(membersData)) {
+          // Handle direct array response (for backward compatibility)
+          setMembers(membersData);
+        } else {
+          // Handle unexpected response format
+          console.error('Unexpected members data format:', membersData);
+          setMembers([]);
+        }
+
         setError(null);
       } catch (err: any) {
         console.error('Error fetching data:', err);
@@ -75,30 +87,30 @@ export default function AssignMemberPage() {
 
   const validateForm = () => {
     const errors: {[key: string]: string} = {};
-    
+
     if (!selectedMember) {
       errors.member = 'Please select a member';
     }
-    
+
     if (!contribution) {
       errors.contribution = 'Contribution amount is required';
     } else if (isNaN(Number(contribution)) || Number(contribution) <= 0) {
       errors.contribution = 'Contribution must be a positive number';
     }
-    
+
     setFormErrors(errors);
     return Object.keys(errors).length === 0;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!validateForm()) {
       return;
     }
-    
+
     setIsSubmitting(true);
-    
+
     try {
       // Add member to chit fund
       const response = await fetch(`/api/chit-funds/${chitFundId}/members`, {
@@ -116,7 +128,7 @@ export default function AssignMemberPage() {
         const errorData = await response.json();
         throw new Error(errorData.error || 'Failed to add member to chit fund');
       }
-      
+
       // Redirect back to members page
       router.push(`/chit-funds/${chitFundId}/members`);
     } catch (error: any) {
@@ -185,7 +197,7 @@ export default function AssignMemberPage() {
         <div>
           <h1 className="text-3xl font-bold text-blue-700">Assign Member to {chitFund.name}</h1>
           <p className="text-gray-600">
-            Monthly Contribution: {formatCurrency(chitFund.monthlyContribution)} | 
+            Monthly Contribution: {formatCurrency(chitFund.monthlyContribution)} |
             Total Amount: {formatCurrency(chitFund.totalAmount)}
           </p>
         </div>

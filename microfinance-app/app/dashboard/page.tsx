@@ -24,6 +24,8 @@ export default function DashboardPage() {
     totalCashInflow: number;
     totalCashOutflow: number;
     totalProfit: number;
+    loanProfit: number;
+    chitFundProfit: number;
     activeChitFunds: number;
     totalMembers: number;
     activeLoans: number;
@@ -35,6 +37,8 @@ export default function DashboardPage() {
     totalCashInflow: 0,
     totalCashOutflow: 0,
     totalProfit: 0,
+    loanProfit: 0,
+    chitFundProfit: 0,
     activeChitFunds: 0,
     totalMembers: 0,
     activeLoans: 0,
@@ -43,6 +47,7 @@ export default function DashboardPage() {
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [showProfit, setShowProfit] = useState(false);
 
   useEffect(() => {
     // Fetch dashboard data from the API
@@ -125,10 +130,38 @@ export default function DashboardPage() {
               <p className="text-2xl font-bold text-red-700">{formatCurrency(dashboardData.totalCashOutflow)}</p>
             </div>
             <div className="bg-white shadow-md rounded-lg p-6 border-t-4 border-green-500">
-              <h2 className="text-lg font-semibold text-gray-600">Total Profit</h2>
-              <p className="text-2xl font-bold text-green-700">{formatCurrency(dashboardData.totalProfit)}</p>
+              <h2
+                className="text-lg font-semibold text-gray-600 flex items-center cursor-pointer"
+                onClick={() => setShowProfit(!showProfit)}
+              >
+                Total Profit
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </h2>
+              {showProfit ? (
+                <p className="text-2xl font-bold text-green-700">{formatCurrency(dashboardData.totalProfit)}</p>
+              ) : (
+                <p className="text-2xl font-bold text-gray-400">***</p>
+              )}
             </div>
           </div>
+
+          {/* Profit Breakdown - Only show if showProfit is true */}
+          {showProfit && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+              <div className="bg-white shadow-md rounded-lg p-6 border-t-4 border-purple-500">
+                <h2 className="text-lg font-semibold text-gray-600">Loan Profit</h2>
+                <p className="text-2xl font-bold text-purple-700">{formatCurrency(dashboardData.loanProfit)}</p>
+                <p className="text-sm text-gray-500 mt-2">From interest and document charges</p>
+              </div>
+              <div className="bg-white shadow-md rounded-lg p-6 border-t-4 border-blue-500">
+                <h2 className="text-lg font-semibold text-gray-600">Chit Fund Profit</h2>
+                <p className="text-2xl font-bold text-blue-700">{formatCurrency(dashboardData.chitFundProfit)}</p>
+                <p className="text-sm text-gray-500 mt-2">From auction commissions</p>
+              </div>
+            </div>
+          )}
 
           {/* Stats Overview */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">

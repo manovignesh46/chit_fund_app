@@ -452,6 +452,25 @@ const LoanDetailPage = () => {
               <p className="text-xl font-semibold">{formatCurrency(loan.documentCharge || 0)}</p>
             </div>
             <div>
+              <h3
+                className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-2 flex items-center cursor-pointer"
+                onClick={() => {
+                  const profitElement = document.getElementById('loan-profit');
+                  if (profitElement) {
+                    profitElement.classList.toggle('hidden');
+                  }
+                }}
+              >
+                Total Profit
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </h3>
+              <p id="loan-profit" className="text-xl font-semibold text-green-600 hidden">
+                {formatCurrency((loan.interestRate || 0) + (loan.documentCharge || 0))}
+              </p>
+            </div>
+            <div>
               <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-2">Installment Amount</h3>
               <p className="text-xl font-semibold">{formatCurrency(loan.installmentAmount || 0)}</p>
             </div>

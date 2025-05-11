@@ -62,6 +62,9 @@ const ChitFundDetails = () => {
   const [membersWithBalance, setMembersWithBalance] = useState<MemberBalanceData[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [totalProfit, setTotalProfit] = useState<number>(0);
+  const [cashInflow, setCashInflow] = useState<number>(0);
+  const [cashOutflow, setCashOutflow] = useState<number>(0);
 
   // For deletion
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -156,6 +159,34 @@ const ChitFundDetails = () => {
 
         setTotalBalance(totalBalanceAmount);
         setMembersWithBalance(membersWithBalanceData);
+
+        // Calculate cash inflow, outflow, and profit
+        let profitAmount = 0;
+        let totalInflow = 0;
+        let totalOutflow = 0;
+
+        // Calculate cash inflow from contributions
+        if (contributionsData && contributionsData.length > 0) {
+          contributionsData.forEach((contribution: any) => {
+            totalInflow += contribution.amount;
+          });
+        }
+
+        // Calculate cash outflow from auctions (payouts to winners)
+        if (auctionsData && auctionsData.length > 0) {
+          auctionsData.forEach((auction: Auction) => {
+            totalOutflow += auction.amount;
+
+            // Each auction's profit is the difference between the total monthly contribution and the auction amount
+            const monthlyTotal = chitFundData.monthlyContribution * membersData.length;
+            const auctionProfit = monthlyTotal - auction.amount;
+            profitAmount += auctionProfit > 0 ? auctionProfit : 0;
+          });
+        }
+
+        setCashInflow(totalInflow);
+        setCashOutflow(totalOutflow);
+        setTotalProfit(profitAmount);
 
         // Calculate next payout details if there are auctions
         if (auctionsData.length > 0 && chitFundData.currentMonth < chitFundData.duration) {
@@ -391,6 +422,63 @@ const ChitFundDetails = () => {
                 <div>
                   <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-2">Duration</h3>
                   <p className="text-xl font-semibold">{chitFund.duration} months</p>
+                </div>
+                <div>
+                  <h3
+                    className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-2 flex items-center cursor-pointer"
+                    onClick={() => {
+                      const profitElement = document.getElementById('chitfund-profit');
+                      if (profitElement) {
+                        profitElement.classList.toggle('hidden');
+                      }
+                    }}
+                  >
+                    Total Profit
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  </h3>
+                  <p id="chitfund-profit" className="text-xl font-semibold text-green-600 hidden">
+                    {formatCurrency(totalProfit)}
+                  </p>
+                </div>
+                <div>
+                  <h3
+                    className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-2 flex items-center cursor-pointer"
+                    onClick={() => {
+                      const inflowElement = document.getElementById('chitfund-inflow');
+                      if (inflowElement) {
+                        inflowElement.classList.toggle('hidden');
+                      }
+                    }}
+                  >
+                    Cash Inflow
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  </h3>
+                  <p id="chitfund-inflow" className="text-xl font-semibold text-blue-600 hidden">
+                    {formatCurrency(cashInflow)}
+                  </p>
+                </div>
+                <div>
+                  <h3
+                    className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-2 flex items-center cursor-pointer"
+                    onClick={() => {
+                      const outflowElement = document.getElementById('chitfund-outflow');
+                      if (outflowElement) {
+                        outflowElement.classList.toggle('hidden');
+                      }
+                    }}
+                  >
+                    Cash Outflow
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  </h3>
+                  <p id="chitfund-outflow" className="text-xl font-semibold text-red-600 hidden">
+                    {formatCurrency(cashOutflow)}
+                  </p>
                 </div>
                 <div>
                   <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-2">Members</h3>

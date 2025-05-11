@@ -56,15 +56,51 @@ export async function GET() {
     // Get upcoming events
     const upcomingEvents = await getUpcomingEvents();
 
+    // Get total interest and document charges from loans
+    const loansWithInterest = await prisma.loan.findMany({
+      select: {
+        interestRate: true,
+        documentCharge: true,
+      },
+    });
+
+    // Calculate loan profit (interest + document charges)
+    const loanProfit = loansWithInterest.reduce((sum, loan) => {
+      return sum + (loan.interestRate || 0) + (loan.documentCharge || 0);
+    }, 0);
+
+    // Get all chit funds with members and auctions to calculate chit fund profit
+    const chitFundsWithAuctions = await prisma.chitFund.findMany({
+      include: {
+        members: true,
+        auctions: true,
+      },
+    });
+
+    // Calculate chit fund profit (commission from auctions)
+    let chitFundProfit = 0;
+    chitFundsWithAuctions.forEach(fund => {
+      if (fund.auctions && fund.auctions.length > 0 && fund.members && fund.members.length > 0) {
+        fund.auctions.forEach(auction => {
+          // Each auction's profit is the difference between the total monthly contribution and the auction amount
+          const monthlyTotal = fund.monthlyContribution * fund.members.length;
+          const auctionProfit = monthlyTotal - auction.amount;
+          chitFundProfit += auctionProfit > 0 ? auctionProfit : 0;
+        });
+      }
+    });
+
     // Calculate total cash flows including loan transactions
     const totalCashInflow = (contributionsSum._sum.amount || 0) + (repaymentsSum._sum.amount || 0);
     const totalCashOutflow = (auctionsSum._sum.amount || 0) + (loansSum._sum.amount || 0);
-    const totalProfit = totalCashInflow - totalCashOutflow;
+    const totalProfit = loanProfit + chitFundProfit;
 
     return NextResponse.json({
       totalCashInflow,
       totalCashOutflow,
       totalProfit,
+      loanProfit,
+      chitFundProfit,
       activeChitFunds,
       totalMembers,
       activeLoans,

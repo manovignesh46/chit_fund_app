@@ -88,7 +88,19 @@ export default function ChitFundAuctionsPage() {
           throw new Error('Failed to fetch members');
         }
         const membersData = await membersResponse.json();
-        setMembers(membersData);
+
+        // Check if the response is paginated or a direct array
+        if (membersData && membersData.members && Array.isArray(membersData.members)) {
+          // Handle paginated response
+          setMembers(membersData.members);
+        } else if (Array.isArray(membersData)) {
+          // Handle direct array response (for backward compatibility)
+          setMembers(membersData);
+        } else {
+          // Handle unexpected response format
+          console.error('Unexpected members data format:', membersData);
+          setMembers([]);
+        }
 
         // Fetch auctions
         const auctionsResponse = await fetch(`/api/chit-funds/${chitFundId}/auctions`);
