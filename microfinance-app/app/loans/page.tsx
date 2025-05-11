@@ -61,6 +61,9 @@ export default function LoansPage() {
   const [bulkDeleteError, setBulkDeleteError] = useState<string | null>(null);
   const [bulkDeleteSuccess, setBulkDeleteSuccess] = useState<string | null>(null);
 
+  // Export state
+  const [isExporting, setIsExporting] = useState(false);
+
   // Fetch loans function
   const fetchLoans = async () => {
     try {
@@ -182,6 +185,57 @@ export default function LoansPage() {
     setBulkDeleteSuccess(null);
   };
 
+  // Handle export selected loans
+  const handleExportSelected = async () => {
+    if (selectedLoans.length === 0 || isExporting) return;
+
+    try {
+      setIsExporting(true);
+
+      // Call the export API endpoint with selected loan IDs
+      const response = await fetch('/api/loans/export', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ loanIds: selectedLoans }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to export loans');
+      }
+
+      // Get the blob from the response
+      const blob = await response.blob();
+
+      // Generate filename with current date
+      const today = new Date();
+      const dateStr = today.toISOString().split('T')[0]; // YYYY-MM-DD format
+      const filename = `Loan_Details_${dateStr}.xlsx`;
+
+      // Create a URL for the blob
+      const url = window.URL.createObjectURL(blob);
+
+      // Create a temporary link element
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+
+      // Append to the document and trigger a click
+      document.body.appendChild(a);
+      a.click();
+
+      // Clean up
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (error) {
+      console.error('Error exporting loans:', error);
+      alert('Failed to export loans. Please try again.');
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   // Confirm bulk delete loans
   const confirmBulkDeleteLoans = async () => {
     if (selectedLoans.length === 0) return;
@@ -268,6 +322,32 @@ export default function LoansPage() {
       <div className="flex justify-between items-center mb-8">
         <h1 className="text-3xl font-bold text-green-700">Loans</h1>
         <div className="flex space-x-4">
+          <button
+            onClick={handleExportSelected}
+            disabled={selectedLoans.length === 0 || isExporting}
+            className={`px-4 py-2 rounded-lg ${
+              selectedLoans.length === 0
+                ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                : 'bg-blue-600 text-white hover:bg-blue-700'
+            } transition duration-300 flex items-center`}
+          >
+            {isExporting ? (
+              <>
+                <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                Exporting...
+              </>
+            ) : (
+              <>
+                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+                </svg>
+                Export Selected
+              </>
+            )}
+          </button>
           <button
             onClick={handleBulkDeleteClick}
             disabled={selectedLoans.length === 0}

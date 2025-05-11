@@ -18,6 +18,33 @@ export async function GET(
             }
         });
 
+        // If installmentAmount is 0 or null, calculate it based on loan details
+        if (loan && (!loan.installmentAmount || loan.installmentAmount === 0)) {
+            // Calculate installment amount
+            let installmentAmount = 0;
+
+            if (loan.repaymentType === 'Monthly') {
+                // For monthly loans: Principal/Duration + Interest
+                const principalPerMonth = loan.amount / loan.duration;
+                installmentAmount = principalPerMonth + loan.interestRate;
+            } else {
+                // For weekly loans: Principal/(Duration-1)
+                const effectiveDuration = Math.max(1, loan.duration - 1);
+                installmentAmount = loan.amount / effectiveDuration;
+            }
+
+            // Update the loan with the calculated installment amount
+            await prismaAny.loan.update({
+                where: { id: Number(id) },
+                data: {
+                    installmentAmount: installmentAmount
+                }
+            });
+
+            // Update the loan object with the calculated value
+            loan.installmentAmount = installmentAmount;
+        }
+
         if (!loan) {
             return NextResponse.json({ message: 'Loan not found' }, { status: 404 });
         }

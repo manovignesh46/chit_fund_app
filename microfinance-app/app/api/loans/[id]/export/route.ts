@@ -42,7 +42,7 @@ export async function GET(
             'Loan Amount': loan.amount,
             'Interest Rate': loan.interestRate,
             'Document Charge': loan.documentCharge || 0,
-            'Installment Amount': loan.installmentAmount || 0,
+            'Installment Amount': loan.installmentAmount || calculateInstallmentAmount(loan),
             'Duration (months)': loan.duration,
             'Disbursement Date': formatDate(loan.disbursementDate),
             'Repayment Type': loan.repaymentType,
@@ -222,4 +222,21 @@ function formatDate(date: Date | string): string {
         month: 'long',
         day: 'numeric'
     });
+}
+
+// Helper function to calculate installment amount if it's not set
+function calculateInstallmentAmount(loan: any): number {
+    let installmentAmount = 0;
+
+    if (loan.repaymentType === 'Monthly') {
+        // For monthly loans: Principal/Duration + Interest
+        const principalPerMonth = loan.amount / loan.duration;
+        installmentAmount = principalPerMonth + loan.interestRate;
+    } else {
+        // For weekly loans: Principal/(Duration-1)
+        const effectiveDuration = Math.max(1, loan.duration - 1);
+        installmentAmount = loan.amount / effectiveDuration;
+    }
+
+    return installmentAmount;
 }
