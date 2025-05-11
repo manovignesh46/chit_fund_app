@@ -18,6 +18,11 @@ model User {
   role          String    @default("user") // admin, user
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
+
+  // Relations for data ownership
+  chitFunds     ChitFund[]
+  globalMembers GlobalMember[]
+  loans         Loan[]
 }
 
 model ChitFund {
@@ -34,6 +39,12 @@ model ChitFund {
   description         String?
   createdAt           DateTime      @default(now())
   updatedAt           DateTime      @updatedAt
+
+  // Data ownership
+  createdById         Int
+  createdBy           User          @relation(fields: [createdById], references: [id])
+
+  // Relations
   members             Member[]
   contributions       Contribution[]
   auctions            Auction[]
@@ -48,6 +59,12 @@ model GlobalMember {
   notes           String?
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
+
+  // Data ownership
+  createdById     Int
+  createdBy       User          @relation(fields: [createdById], references: [id])
+
+  // Relations
   chitFundMembers Member[]
   loans           Loan[]        @relation("BorrowerToLoan")
 }
@@ -120,6 +137,12 @@ model Loan {
   purpose           String?
   createdAt         DateTime      @default(now())
   updatedAt         DateTime      @updatedAt
+
+  // Data ownership
+  createdById       Int
+  createdBy         User          @relation(fields: [createdById], references: [id])
+
+  // Relations
   borrower          GlobalMember  @relation("BorrowerToLoan", fields: [borrowerId], references: [id])
   repayments        Repayment[]
 }

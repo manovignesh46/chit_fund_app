@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
+import { getCurrentUserId, isResourceOwner } from '@/lib/auth';
 
 // Use type assertion to handle TypeScript type checking
 const prismaAny = prisma as any;
@@ -18,8 +19,21 @@ export async function GET(request: NextRequest) {
         // Calculate skip value for pagination
         const skip = (validPage - 1) * validPageSize;
 
+        // Get the current user ID
+        const currentUserId = getCurrentUserId(request);
+        if (!currentUserId) {
+            return NextResponse.json(
+                { error: 'Authentication required' },
+                { status: 401 }
+            );
+        }
+
         // Build where clause for filtering
-        const where: any = {};
+        const where: any = {
+            // Only show loans created by the current user
+            createdById: currentUserId
+        };
+
         if (status) {
             where.status = status;
         }
@@ -90,6 +104,15 @@ export async function POST(request: NextRequest) {
                 );
             }
         } else {
+            // Get the current user ID for the global member creation
+            const currentUserId = getCurrentUserId(request);
+            if (!currentUserId) {
+                return NextResponse.json(
+                    { error: 'Authentication required' },
+                    { status: 401 }
+                );
+            }
+
             // Create a new global member
             globalMember = await prismaAny.globalMember.create({
                 data: {
@@ -98,6 +121,7 @@ export async function POST(request: NextRequest) {
                     email: body.email || null,
                     address: body.address || null,
                     notes: body.notes || null,
+                    createdById: currentUserId,
                 }
             });
         }
@@ -105,6 +129,15 @@ export async function POST(request: NextRequest) {
         // Parse the disbursement date
         const disbursementDate = new Date(body.disbursementDate);
         console.log('Creating loan with disbursement date:', disbursementDate);
+
+        // Get the current user ID
+        const currentUserId = getCurrentUserId(request);
+        if (!currentUserId) {
+            return NextResponse.json(
+                { error: 'Authentication required' },
+                { status: 401 }
+            );
+        }
 
         // Create a loan data object with all fields
         const loanData = {
@@ -121,6 +154,8 @@ export async function POST(request: NextRequest) {
             nextPaymentDate: body.nextPaymentDate ? new Date(body.nextPaymentDate) : null,
             status: body.status || 'Active',
             purpose: body.purpose || null,
+            // Set the creator
+            createdById: currentUserId,
         };
 
         console.log('Creating loan with data:', loanData);
@@ -181,6 +216,15 @@ export async function PUT(request: NextRequest) {
             );
         }
 
+        // Get the current user ID
+        const currentUserId = getCurrentUserId(request);
+        if (!currentUserId) {
+            return NextResponse.json(
+                { error: 'Authentication required' },
+                { status: 401 }
+            );
+        }
+
         // First, get the current loan to find the borrower
         // Ensure id is a number
         const loanId = typeof body.id === 'string' ? parseInt(body.id, 10) : body.id;
@@ -194,6 +238,14 @@ export async function PUT(request: NextRequest) {
             return NextResponse.json(
                 { error: 'Loan not found' },
                 { status: 404 }
+            );
+        }
+
+        // Check if the current user is the owner
+        if (currentLoan.createdById !== currentUserId) {
+            return NextResponse.json(
+                { error: 'You do not have permission to update this loan' },
+                { status: 403 }
             );
         }
 
@@ -253,8 +305,38 @@ export async function DELETE(request: NextRequest) {
             );
         }
 
+        // Get the current user ID
+        const currentUserId = getCurrentUserId(request);
+        if (!currentUserId) {
+            return NextResponse.json(
+                { error: 'Authentication required' },
+                { status: 401 }
+            );
+        }
+
         // Ensure id is a number
         const loanId = typeof id === 'string' ? parseInt(id, 10) : id;
+
+        // Check if the loan exists and belongs to the current user
+        const existingLoan = await prismaAny.loan.findUnique({
+            where: { id: loanId },
+            select: { createdById: true }
+        });
+
+        if (!existingLoan) {
+            return NextResponse.json(
+                { error: 'Loan not found' },
+                { status: 404 }
+            );
+        }
+
+        // Check if the current user is the owner
+        if (existingLoan.createdById !== currentUserId) {
+            return NextResponse.json(
+                { error: 'You do not have permission to delete this loan' },
+                { status: 403 }
+            );
+        }
 
         // Delete related records first
         await prismaAny.repayment.deleteMany({

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
+import { getCurrentUserId, isResourceOwner } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic'; // Ensure the route is not statically optimized
 
@@ -16,11 +17,28 @@ export async function GET(request: NextRequest) {
     // Calculate skip value for pagination
     const skip = (validPage - 1) * validPageSize;
 
+    // Get the current user ID
+    const currentUserId = getCurrentUserId(request);
+    if (!currentUserId) {
+      return NextResponse.json(
+        { error: 'Authentication required' },
+        { status: 401 }
+      );
+    }
+
+    // Filter by the current user
+    const where = {
+      createdById: currentUserId
+    };
+
     // Get total count for pagination
-    const totalCount = await prisma.globalMember.count();
+    const totalCount = await prisma.globalMember.count({
+      where
+    });
 
     // Get paginated global members
     const members = await prisma.globalMember.findMany({
+      where,
       include: {
         _count: {
           select: {
@@ -65,6 +83,15 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // Get the current user ID
+    const currentUserId = getCurrentUserId(request);
+    if (!currentUserId) {
+      return NextResponse.json(
+        { error: 'Authentication required' },
+        { status: 401 }
+      );
+    }
+
     // Create the global member
     const member = await prisma.globalMember.create({
       data: {
@@ -73,6 +100,7 @@ export async function POST(request: NextRequest) {
         email: body.email || null,
         address: body.address || null,
         notes: body.notes || null,
+        createdById: currentUserId,
       },
     });
 
@@ -95,6 +123,36 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json(
         { error: 'Member ID is required' },
         { status: 400 }
+      );
+    }
+
+    // Get the current user ID
+    const currentUserId = getCurrentUserId(request);
+    if (!currentUserId) {
+      return NextResponse.json(
+        { error: 'Authentication required' },
+        { status: 401 }
+      );
+    }
+
+    // Check if the member exists and belongs to the current user
+    const existingMember = await prisma.globalMember.findUnique({
+      where: { id },
+      select: { createdById: true }
+    });
+
+    if (!existingMember) {
+      return NextResponse.json(
+        { error: 'Member not found' },
+        { status: 404 }
+      );
+    }
+
+    // Check if the current user is the owner
+    if (existingMember.createdById !== currentUserId) {
+      return NextResponse.json(
+        { error: 'You do not have permission to update this member' },
+        { status: 403 }
       );
     }
 
@@ -139,6 +197,36 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json(
         { error: 'Member ID is required' },
         { status: 400 }
+      );
+    }
+
+    // Get the current user ID
+    const currentUserId = getCurrentUserId(request);
+    if (!currentUserId) {
+      return NextResponse.json(
+        { error: 'Authentication required' },
+        { status: 401 }
+      );
+    }
+
+    // Check if the member exists and belongs to the current user
+    const existingMember = await prisma.globalMember.findUnique({
+      where: { id },
+      select: { createdById: true }
+    });
+
+    if (!existingMember) {
+      return NextResponse.json(
+        { error: 'Member not found' },
+        { status: 404 }
+      );
+    }
+
+    // Check if the current user is the owner
+    if (existingMember.createdById !== currentUserId) {
+      return NextResponse.json(
+        { error: 'You do not have permission to delete this member' },
+        { status: 403 }
       );
     }
 

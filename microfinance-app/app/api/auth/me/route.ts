@@ -14,8 +14,14 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    // Get JWT secret from environment variable
+    const jwtSecret = process.env.JWT_SECRET;
+    if (!jwtSecret) {
+      throw new Error('JWT_SECRET must be set in the .env file');
+    }
+
     // Verify the token
-    const decoded = verify(token, process.env.JWT_SECRET || 'your-secret-key') as {
+    const decoded = verify(token, jwtSecret) as {
       id: number;
       email: string;
       role: string;

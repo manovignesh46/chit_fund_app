@@ -91,11 +91,27 @@ export default function Header() {
           <div className="relative">
             <button
               onClick={() => setShowDropdown(!showDropdown)}
-              className="flex items-center space-x-2 bg-blue-700 hover:bg-blue-800 px-4 py-2 rounded-lg transition duration-300"
+              className="flex items-center space-x-1 bg-blue-700 hover:bg-blue-800 px-3 py-1.5 rounded-lg transition duration-300 text-sm"
+              aria-label="Account menu"
+              title="Account menu"
             >
-              <span>{user.name}</span>
+              {/* User icon instead of name */}
               <svg
-                className={`w-4 h-4 transition-transform ${showDropdown ? 'rotate-180' : ''}`}
+                className="w-4 h-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth="2"
+                  d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
+                ></path>
+              </svg>
+              <svg
+                className={`w-3 h-3 transition-transform ${showDropdown ? 'rotate-180' : ''}`}
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -106,18 +122,32 @@ export default function Header() {
             </button>
 
             {showDropdown && (
-              <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg z-10">
-                <div className="p-4 border-b border-gray-200">
-                  <p className="text-gray-800 font-medium">{user.name}</p>
-                  <p className="text-gray-600 text-sm">{user.email}</p>
-                  <p className="text-gray-500 text-xs mt-1 uppercase">{user.role}</p>
+              <div className="absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-xl z-10 border border-gray-200 overflow-hidden">
+                <div className="p-4 bg-blue-50 border-b border-gray-200">
+                  <div className="flex items-center space-x-3">
+                    <div className="bg-blue-600 text-white rounded-full w-10 h-10 flex items-center justify-center">
+                      <span className="text-lg font-semibold">{user.name.charAt(0)}</span>
+                    </div>
+                    <div>
+                      <p className="text-gray-800 font-medium">{user.name}</p>
+                      <p className="text-gray-600 text-xs">{user.email}</p>
+                    </div>
+                  </div>
+                  <div className="mt-2">
+                    <span className="text-xs font-medium px-2 py-1 bg-blue-100 text-blue-800 rounded-full uppercase">{user.role}</span>
+                  </div>
                 </div>
-                <button
-                  onClick={handleLogout}
-                  className="w-full text-left px-4 py-2 text-red-600 hover:bg-gray-100 rounded-b-lg transition duration-300"
-                >
-                  Logout
-                </button>
+                <div className="py-1">
+                  <button
+                    onClick={handleLogout}
+                    className="w-full text-left px-4 py-2 text-red-600 hover:bg-gray-100 transition duration-300 flex items-center space-x-2"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path>
+                    </svg>
+                    <span>Logout</span>
+                  </button>
+                </div>
               </div>
             )}
           </div>

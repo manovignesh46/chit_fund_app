@@ -33,8 +33,14 @@ export async function middleware(request: NextRequest) {
   }
 
   try {
+    // Get JWT secret from environment variable
+    const jwtSecret = process.env.JWT_SECRET;
+    if (!jwtSecret) {
+      throw new Error('JWT_SECRET must be set in the .env file');
+    }
+
     // Verify the token using jose (Edge compatible)
-    const secret = new TextEncoder().encode(process.env.JWT_SECRET || 'your-secret-key');
+    const secret = new TextEncoder().encode(jwtSecret);
     const { payload } = await jwtVerify(token, secret);
 
     // Check if the user is an admin

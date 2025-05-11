@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
+import { getCurrentUserId, isResourceOwner } from '@/lib/auth';
 
 export async function GET(request: NextRequest) {
     try {
@@ -15,8 +16,21 @@ export async function GET(request: NextRequest) {
         // Calculate skip value for pagination
         const skip = (validPage - 1) * validPageSize;
 
+        // Get the current user ID
+        const currentUserId = getCurrentUserId(request);
+        if (!currentUserId) {
+            return NextResponse.json(
+                { error: 'Authentication required' },
+                { status: 401 }
+            );
+        }
+
         // Build where clause for filtering
-        const where: any = {};
+        const where: any = {
+            // Only show chit funds created by the current user
+            createdById: currentUserId
+        };
+
         if (status) {
             where.status = status;
         }
@@ -70,6 +84,15 @@ export async function POST(request: NextRequest) {
             }
         }
 
+        // Get the current user ID
+        const currentUserId = getCurrentUserId(request);
+        if (!currentUserId) {
+            return NextResponse.json(
+                { error: 'Authentication required' },
+                { status: 401 }
+            );
+        }
+
         // Create the chit fund
         const chitFund = await prisma.chitFund.create({
             data: {
@@ -82,6 +105,8 @@ export async function POST(request: NextRequest) {
                 startDate: new Date(body.startDate),
                 nextAuctionDate: body.nextAuctionDate ? new Date(body.nextAuctionDate) : null,
                 description: body.description || null,
+                // Set the creator
+                createdById: currentUserId,
             }
         });
 
@@ -103,6 +128,36 @@ export async function PUT(request: NextRequest) {
             return NextResponse.json(
                 { error: 'ID is required' },
                 { status: 400 }
+            );
+        }
+
+        // Get the current user ID
+        const currentUserId = getCurrentUserId(request);
+        if (!currentUserId) {
+            return NextResponse.json(
+                { error: 'Authentication required' },
+                { status: 401 }
+            );
+        }
+
+        // Check if the chit fund exists and belongs to the current user
+        const existingChitFund = await prisma.chitFund.findUnique({
+            where: { id: body.id },
+            select: { createdById: true }
+        });
+
+        if (!existingChitFund) {
+            return NextResponse.json(
+                { error: 'Chit fund not found' },
+                { status: 404 }
+            );
+        }
+
+        // Check if the current user is the owner
+        if (existingChitFund.createdById !== currentUserId) {
+            return NextResponse.json(
+                { error: 'You do not have permission to update this chit fund' },
+                { status: 403 }
             );
         }
 
@@ -140,6 +195,36 @@ export async function DELETE(request: NextRequest) {
             return NextResponse.json(
                 { error: 'ID is required' },
                 { status: 400 }
+            );
+        }
+
+        // Get the current user ID
+        const currentUserId = getCurrentUserId(request);
+        if (!currentUserId) {
+            return NextResponse.json(
+                { error: 'Authentication required' },
+                { status: 401 }
+            );
+        }
+
+        // Check if the chit fund exists and belongs to the current user
+        const existingChitFund = await prisma.chitFund.findUnique({
+            where: { id },
+            select: { createdById: true }
+        });
+
+        if (!existingChitFund) {
+            return NextResponse.json(
+                { error: 'Chit fund not found' },
+                { status: 404 }
+            );
+        }
+
+        // Check if the current user is the owner
+        if (existingChitFund.createdById !== currentUserId) {
+            return NextResponse.json(
+                { error: 'You do not have permission to delete this chit fund' },
+                { status: 403 }
             );
         }
 

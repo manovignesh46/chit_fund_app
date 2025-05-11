@@ -1,13 +1,23 @@
 import { PrismaClient } from '@prisma/client';
 import { hash } from 'bcrypt';
+import * as dotenv from 'dotenv';
+
+// Load environment variables
+dotenv.config();
 
 const prisma = new PrismaClient();
 
 async function main() {
   try {
-    // Define the new admin credentials
-    const adminEmail = 'amfincorp1@gmail.com';
-    const adminPassword = 'AMFadmin2020';
+    // Get admin credentials from environment variables (required)
+    const adminEmail = process.env.ADMIN_EMAIL;
+    const adminPassword = process.env.ADMIN_PASSWORD;
+
+    // Check if environment variables are set
+    if (!adminEmail || !adminPassword) {
+      throw new Error('ADMIN_EMAIL and ADMIN_PASSWORD must be set in the .env file');
+    }
+
     const hashedPassword = await hash(adminPassword, 10);
 
     // Check if admin user already exists with the old email

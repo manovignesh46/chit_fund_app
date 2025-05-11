@@ -46,6 +46,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Get JWT secret from environment variable
+    const jwtSecret = process.env.JWT_SECRET;
+    if (!jwtSecret) {
+      throw new Error('JWT_SECRET must be set in the .env file');
+    }
+
     // Create JWT token
     const token = sign(
       {
@@ -53,7 +59,7 @@ export async function POST(request: NextRequest) {
         email: user.email,
         role: user.role,
       },
-      process.env.JWT_SECRET || 'your-secret-key',
+      jwtSecret,
       { expiresIn: '1d' }
     );
 
