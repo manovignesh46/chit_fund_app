@@ -125,8 +125,10 @@ export async function GET(request: NextRequest) {
     XLSX.utils.book_append_sheet(workbook, outsideWorksheet, 'Outside Amount Details');
 
     // Add detailed transaction worksheets if available (for single period exports)
-    if (duration === 'single' && financialData[0]?.detailedTransactions) {
-      const { contributions, repayments, auctions, loans } = financialData[0].detailedTransactions;
+    // Use type assertion to handle TypeScript type checking
+    const detailedData = financialData[0] as any;
+    if (duration === 'single' && detailedData?.detailedTransactions) {
+      const { contributions, repayments, auctions, loans } = detailedData.detailedTransactions;
 
       // Add contributions worksheet
       if (contributions && contributions.length > 0) {

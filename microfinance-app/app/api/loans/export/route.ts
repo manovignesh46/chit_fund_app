@@ -114,8 +114,22 @@ export async function POST(request: NextRequest) {
             // Calculate profit
             let profit = 0;
             if (loan.repaymentType === 'Monthly') {
+                // For monthly loans: document charge + interest
+                // For interest, we either count interest-only payments OR monthly interest, not both
+                const hasInterestOnlyPayments = repayments.some((r: any) => r.paymentType === 'interestOnly');
                 const completedMonths = loan.currentMonth || 0;
-                profit = (loan.interestRate * completedMonths) + (loan.documentCharge || 0) + interestOnlyPayments;
+
+                // Document charge is always counted
+                profit = (loan.documentCharge || 0);
+
+                // For interest, avoid double counting
+                if (hasInterestOnlyPayments) {
+                    // If there are interest-only payments, use those
+                    profit += interestOnlyPayments;
+                } else if (repayments.length > 0) {
+                    // Otherwise, if there are any payments, use the monthly interest calculation
+                    profit += loan.interestRate * completedMonths;
+                }
             } else if (loan.repaymentType === 'Weekly') {
                 profit = totalPaid - loan.amount + (loan.documentCharge || 0);
             }

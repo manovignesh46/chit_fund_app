@@ -53,6 +53,29 @@ export default function DashboardPage() {
       loanRemainingAmount: number;
       chitFundOutsideAmount: number;
     };
+    cashFlowDetails: {
+      contributionInflow: number;
+      repaymentInflow: number;
+      auctionOutflow: number;
+      loanOutflow: number;
+      netCashFlow: number;
+    };
+    profitDetails: {
+      interestPayments: number;
+      documentCharges: number;
+      auctionCommissions: number;
+    };
+    transactionCounts: {
+      loanDisbursements: number;
+      loanRepayments: number;
+      chitFundContributions: number;
+      chitFundAuctions: number;
+      totalTransactions: number;
+    };
+    periodRange: {
+      startDate: string;
+      endDate: string;
+    };
   }
 
   const [dashboardData, setDashboardData] = useState<DashboardData>({

@@ -132,6 +132,8 @@ model Loan {
   disbursementDate  DateTime
   repaymentType     String        // Monthly, Weekly, etc.
   remainingAmount   Float
+  overdueAmount     Float         @default(0)  // Amount that is overdue
+  missedPayments    Int           @default(0)  // Number of missed payments
   nextPaymentDate   DateTime?
   status            String        @default("Active") // Active, Completed, Defaulted
   purpose           String?

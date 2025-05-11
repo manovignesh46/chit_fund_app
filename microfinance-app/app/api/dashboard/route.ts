@@ -77,18 +77,20 @@ export async function GET() {
         // 1. Document charge is a one-time profit
         loanProfit += loan.documentCharge || 0;
 
-        // 2. Interest accumulates monthly based on current month
-        // If current month is 0 (future loan), no interest profit yet
-        if (loan.currentMonth > 0) {
+        // 2. For interest, we either count interest-only payments OR monthly interest, not both
+        const hasInterestOnlyPayments = loan.repayments.some(payment => payment.paymentType === 'interestOnly');
+
+        if (hasInterestOnlyPayments) {
+          // If there are interest-only payments, use those
+          const interestOnlyPayments = loan.repayments
+            .filter(payment => payment.paymentType === 'interestOnly')
+            .reduce((total, payment) => total + payment.amount, 0);
+
+          loanProfit += interestOnlyPayments;
+        } else if (loan.currentMonth > 0 && loan.repayments.length > 0) {
+          // Otherwise, if there are any payments, use the monthly interest calculation
           loanProfit += (loan.interestRate || 0) * loan.currentMonth;
         }
-
-        // 3. Add interest-only payments as additional profit
-        const interestOnlyPayments = loan.repayments
-          .filter(payment => payment.paymentType === 'interestOnly')
-          .reduce((total, payment) => total + payment.amount, 0);
-
-        loanProfit += interestOnlyPayments;
       } else if (loan.repaymentType === 'Weekly') {
         // For weekly loans:
         // Profit is calculated based on the difference between total amount to be repaid and principal

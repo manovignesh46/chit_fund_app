@@ -680,12 +680,15 @@ const LoanDetailPage = () => {
                     formatCurrency(
                       // Document charge (one-time)
                       (loan.documentCharge || 0) +
-                      // Interest accumulated based on current month
-                      (loan.currentMonth > 0 ? (loan.interestRate || 0) * loan.currentMonth : 0) +
-                      // Interest-only payments
-                      loan.repayments
-                        .filter(repayment => repayment.paymentType === 'interestOnly')
-                        .reduce((sum, repayment) => sum + repayment.amount, 0)
+                      // For interest, we either count the interest-only payments OR the monthly interest,
+                      // but not both (to avoid double counting)
+                      (loan.repayments.filter(r => r.paymentType === 'interestOnly').length > 0
+                        // If there are interest-only payments, use those
+                        ? loan.repayments
+                            .filter(repayment => repayment.paymentType === 'interestOnly')
+                            .reduce((sum, repayment) => sum + repayment.amount, 0)
+                        // Otherwise, if there are any payments at all, use the monthly interest calculation
+                        : (loan.repayments.length > 0 ? (loan.interestRate || 0) * loan.currentMonth : 0))
                     )
                   ) : (
                     // For weekly loans, profit is 10% of principal
@@ -695,7 +698,12 @@ const LoanDetailPage = () => {
                 <p id="loan-profit-explanation" className="text-xs text-gray-500 mt-1 hidden">
                   {loan.repaymentType === 'Monthly' ? (
                     <>
-                      Document charge + (Interest × {loan.currentMonth} months) + Interest-only payments
+                      {loan.repayments.length > 0 ?
+                        (loan.repayments.filter(r => r.paymentType === 'interestOnly').length > 0
+                          ? 'Document charge + Interest-only payments'
+                          : `Document charge + (Interest × ${loan.currentMonth} months)`) :
+                        'No profit yet - no payments have been made'
+                      }
                     </>
                   ) : (
                     <>
