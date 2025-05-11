@@ -55,8 +55,19 @@ export async function GET(
             'Updated At': formatDate(loan.updatedAt)
         };
 
+        // Define a type for repayment to avoid TypeScript errors
+        interface Repayment {
+            id: number;
+            amount: number;
+            paidDate: string | Date;
+            loanId: number;
+            paymentType?: string;
+            createdAt: string | Date;
+            updatedAt: string | Date;
+        }
+
         // Format repayments data for export
-        const formattedRepayments = repayments.map((repayment: any, index: number) => {
+        const formattedRepayments = repayments.map((repayment: Repayment, index: number) => {
             // Determine payment description based on type
             let paymentDescription = 'Regular Payment';
             if (repayment.paymentType === 'interestOnly') {
@@ -65,8 +76,8 @@ export async function GET(
 
             // Calculate running balance (this is an approximation since we don't store balance history)
             const previousPayments = repayments.slice(0, index)
-                .filter(r => r.paymentType !== 'interestOnly')
-                .reduce((sum, r) => sum + r.amount, 0);
+                .filter((r: Repayment) => r.paymentType !== 'interestOnly')
+                .reduce((sum: number, r: Repayment) => sum + r.amount, 0);
             const runningBalance = loan.amount - previousPayments;
 
             return {
@@ -82,7 +93,7 @@ export async function GET(
         });
 
         // Calculate loan summary
-        const totalPaid = repayments.reduce((sum: number, repayment: any) => {
+        const totalPaid = repayments.reduce((sum: number, repayment: Repayment) => {
             // Only count non-interest-only payments toward principal reduction
             if (repayment.paymentType !== 'interestOnly') {
                 return sum + repayment.amount;
@@ -91,8 +102,8 @@ export async function GET(
         }, 0);
 
         const interestOnlyPayments = repayments
-            .filter((repayment: any) => repayment.paymentType === 'interestOnly')
-            .reduce((sum: number, repayment: any) => sum + repayment.amount, 0);
+            .filter((repayment: Repayment) => repayment.paymentType === 'interestOnly')
+            .reduce((sum: number, repayment: Repayment) => sum + repayment.amount, 0);
 
         // Calculate profit based on loan type
         let profit = 0;
@@ -118,10 +129,14 @@ export async function GET(
             ? Math.round((totalPaid + interestOnlyPayments) / totalPayments)
             : 0;
 
+        // Calculate total of ALL payments (including interest-only payments)
+        const allPaymentsTotal = repayments.reduce((sum: number, repayment: Repayment) => sum + repayment.amount, 0);
+
         const summary = {
             'Total Loan Amount': loan.amount,
-            'Total Paid': totalPaid,
+            'Total Paid (Principal)': totalPaid,
             'Interest-Only Payments': interestOnlyPayments,
+            'Total All Payments': allPaymentsTotal,
             'Remaining Balance': loan.remainingAmount,
             'Percentage Complete': `${percentComplete}%`,
             'Total Number of Payments': totalPayments,
@@ -143,7 +158,7 @@ export async function GET(
         // Add a summary row if there are any repayments
         if (formattedRepayments.length > 0) {
             // Calculate total of ALL payments (including interest-only payments)
-            const allPaymentsTotal = repayments.reduce((sum, repayment) => sum + repayment.amount, 0);
+            const allPaymentsTotal = repayments.reduce((sum: number, repayment: Repayment) => sum + repayment.amount, 0);
 
             repaymentsData.push({
                 'No.': '',
