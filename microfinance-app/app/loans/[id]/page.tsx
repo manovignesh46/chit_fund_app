@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 
 // Define interface for Loan type
@@ -10,6 +10,22 @@ interface Repayment {
   paidDate: string;
   amount: number;
   paymentType?: string; // "full" or "interestOnly"
+}
+
+interface PaymentSchedule {
+  id: number;
+  period: number;
+  dueDate: string;
+  amount: number;
+  status: string;
+  actualPaymentDate?: string;
+  notes?: string;
+  repayment?: {
+    id: number;
+    amount: number;
+    paidDate: string;
+    paymentType: string;
+  };
 }
 
 // ParamValue type from Next.js is string | string[] | undefined
@@ -37,6 +53,8 @@ interface Loan {
   currentMonth: number;
   repaymentType: string;
   remainingBalance: number;
+  overdueAmount: number;
+  missedPayments: number;
   nextPaymentDate: string;
   status: string;
   repayments: Repayment[];
@@ -54,6 +72,12 @@ const LoanDetailPage = () => {
   const [pageSize, setPageSize] = useState(10);
   const [totalPages, setTotalPages] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
+
+  // Payment schedule state
+  const [paymentSchedules, setPaymentSchedules] = useState<PaymentSchedule[]>([]);
+  const [loadingSchedules, setLoadingSchedules] = useState(false);
+  const [updatingSchedule, setUpdatingSchedule] = useState<number | null>(null);
+  const [scheduleError, setScheduleError] = useState<string | null>(null);
 
   // Delete modal state
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -94,6 +118,103 @@ const LoanDetailPage = () => {
     ]
   };
 
+  // Fetch payment schedules
+  const fetchPaymentSchedules = async () => {
+    if (!id) return;
+
+    try {
+      setLoadingSchedules(true);
+      setScheduleError(null);
+
+      // Build the URL with query parameters
+      const url = `/api/loans/${id}/payment-schedules?page=${currentPage}&pageSize=${pageSize}`;
+
+      const response = await fetch(url);
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch payment schedules');
+      }
+
+      const data = await response.json();
+
+      if (data.schedules && Array.isArray(data.schedules)) {
+        // Schedules are already sorted in descending order by the API
+        setPaymentSchedules(data.schedules);
+        setTotalCount(data.totalCount || 0);
+        setTotalPages(data.totalPages || 1);
+      } else {
+        setPaymentSchedules([]);
+        setTotalCount(0);
+        setTotalPages(1);
+      }
+    } catch (error) {
+      console.error('Error fetching payment schedules:', error);
+      setScheduleError('Failed to load payment schedules');
+    } finally {
+      setLoadingSchedules(false);
+    }
+  };
+
+  // Record a payment for a specific period
+  const handleRecordPayment = async (period: number, paymentType: string) => {
+    try {
+      setUpdatingSchedule(period);
+      setScheduleError(null);
+
+      // Get the amount from the loan's installment amount
+      const amount = loan?.installmentAmount || 0;
+
+      console.log(`Recording payment for period ${period}, amount ${amount}, type ${paymentType}`);
+
+      const response = await fetch(`/api/loans/${id}/payment-schedules`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          action: 'recordPayment',
+          period,
+          amount,
+          paidDate: new Date().toISOString().split('T')[0],
+          paymentType: paymentType === 'InterestOnly' ? 'interestOnly' : 'full'
+        }),
+      });
+
+      // Log the response status
+      console.log(`Payment API response status: ${response.status}`);
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error('Error response data:', errorData);
+        throw new Error(errorData.error || 'Failed to record payment');
+      }
+
+      // Parse the response to get the repayment data
+      const responseData = await response.json();
+      console.log('Payment recorded successfully:', responseData);
+
+      // Add a small delay before refreshing data
+      console.log('Waiting before refreshing data...');
+      await new Promise(resolve => setTimeout(resolve, 500));
+
+      // Refresh loan details to get updated overdue amount and missed payments
+      console.log('Refreshing loan details...');
+      await fetchLoanDetails();
+
+      // Explicitly refresh payment schedules after recording a payment
+      console.log('Refreshing payment schedules...');
+      await fetchPaymentSchedules();
+
+      console.log('Data refresh complete');
+
+    } catch (error) {
+      console.error('Error recording payment:', error);
+      setScheduleError(error instanceof Error ? error.message : 'Failed to record payment');
+    } finally {
+      setUpdatingSchedule(null);
+    }
+  };
+
   const fetchLoanDetails = async () => {
     try {
       setLoading(true);
@@ -116,13 +237,9 @@ const LoanDetailPage = () => {
       let repaymentsList = [];
       if (repaymentsData.repayments && Array.isArray(repaymentsData.repayments)) {
         repaymentsList = repaymentsData.repayments;
-        setTotalCount(repaymentsData.totalCount || 0);
-        setTotalPages(repaymentsData.totalPages || 1);
       } else {
         // Fallback for backward compatibility
         repaymentsList = Array.isArray(repaymentsData) ? repaymentsData : [];
-        setTotalCount(repaymentsList.length);
-        setTotalPages(1);
       }
 
       // Combine the data
@@ -134,6 +251,9 @@ const LoanDetailPage = () => {
       };
 
       setLoan(combinedData);
+
+      // Fetch payment schedules
+      await fetchPaymentSchedules();
     } catch (error) {
       console.error('Error fetching loan details:', error);
     } finally {
@@ -144,6 +264,13 @@ const LoanDetailPage = () => {
   useEffect(() => {
     if (id) {
       fetchLoanDetails();
+    }
+  }, [id]);
+
+  // Fetch payment schedules when page or page size changes
+  useEffect(() => {
+    if (id && !loading) {
+      fetchPaymentSchedules();
     }
   }, [id, currentPage, pageSize]);
 
@@ -165,6 +292,17 @@ const LoanDetailPage = () => {
       month: 'long',
       day: 'numeric',
     }).format(date);
+  };
+
+  // Format period to show month and year
+  const formatPeriod = (period: number, dueDate: string, repaymentType: string): string => {
+    const date = new Date(dueDate);
+
+    if (repaymentType === 'Weekly') {
+      return `Week ${period} (${date.toLocaleDateString('en-IN', { month: 'short', year: 'numeric' })})`;
+    } else {
+      return date.toLocaleDateString('en-IN', { month: 'long', year: 'numeric' });
+    }
   };
 
   // Calculate end date based on disbursement date and duration
@@ -643,6 +781,25 @@ const LoanDetailPage = () => {
               <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-2">Remaining Balance</h3>
               <p className="text-xl font-semibold">{formatCurrency(loan.remainingBalance)}</p>
             </div>
+            <div>
+              <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-2 flex items-center">
+                Overdue Amount
+                {loan.overdueAmount > 0 && (
+                  <span className="ml-2 px-2 py-0.5 text-xs font-semibold rounded-full bg-red-100 text-red-800">
+                    {loan.missedPayments} {loan.missedPayments === 1 ? 'payment' : 'payments'} missed
+                  </span>
+                )}
+                <Link
+                  href={`/api/loans/${loan.id}/update-overdue?redirect=true`}
+                  className="ml-2 text-xs text-blue-600 hover:text-blue-800"
+                >
+                  Refresh
+                </Link>
+              </h3>
+              <p className={`text-xl font-semibold ${loan.overdueAmount > 0 ? 'text-red-600' : 'text-gray-500'}`}>
+                {formatCurrency(loan.overdueAmount)}
+              </p>
+            </div>
             {loan.repaymentType === 'Monthly' && (
               <div>
                 <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-2">Interest Amount</h3>
@@ -748,8 +905,15 @@ const LoanDetailPage = () => {
       </div>
 
       <div className="bg-white rounded-lg shadow-md overflow-hidden">
-        <div className="p-6 border-b flex justify-between items-center">
-          <h2 className="text-xl font-semibold">Repayment History</h2>
+        <div className="p-6 border-b flex flex-col md:flex-row justify-between items-start md:items-center space-y-4 md:space-y-0">
+          <div className="flex items-center">
+            <h2 className="text-xl font-semibold">Payment Schedule</h2>
+            <div className="ml-4">
+              <span className="text-sm text-gray-600">
+                Showing all due, overdue, and upcoming payment schedules
+              </span>
+            </div>
+          </div>
           <div className="flex items-center space-x-4">
             <Link href={`/loans/${id}/repayments`} className="text-blue-600 hover:text-blue-800">
               View All Repayments
@@ -757,18 +921,30 @@ const LoanDetailPage = () => {
           </div>
         </div>
 
+        {scheduleError && (
+          <div className="p-4 bg-red-100 border-l-4 border-red-500 text-red-700">
+            <p>{scheduleError}</p>
+          </div>
+        )}
+
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Payment Date
+                  Period
+                </th>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Due Date
                 </th>
                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Amount
                 </th>
                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Type
+                  Status
+                </th>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Payment Date
                 </th>
                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Actions
@@ -776,45 +952,89 @@ const LoanDetailPage = () => {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {loan.repayments.length === 0 ? (
+              {loadingSchedules ? (
                 <tr>
-                  <td colSpan={4} className="px-6 py-4 text-center text-gray-500">
-                    No repayments recorded yet.
+                  <td colSpan={6} className="px-6 py-4 text-center">
+                    <div className="flex justify-center items-center">
+                      <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-green-700 mr-2"></div>
+                      <p>Loading payment schedules...</p>
+                    </div>
+                  </td>
+                </tr>
+              ) : paymentSchedules.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="px-6 py-4 text-center text-gray-500">
+                    <p className="mb-4">
+                      No payment schedules are due, overdue, or upcoming.
+                    </p>
+                    <p className="mb-4 text-sm">
+                      Payment schedules appear automatically when they are due within the next 7 days, when overdue, or when payments have been made. The next upcoming payment is always shown.
+                    </p>
                   </td>
                 </tr>
               ) : (
-                loan.repayments.map((repayment) => (
-                  <tr key={repayment.id} className="hover:bg-gray-50">
+                paymentSchedules.map((schedule) => (
+                  <tr key={schedule.id} className={`hover:bg-gray-50 ${
+                    new Date(schedule.dueDate) <= new Date() && schedule.status === 'Pending' ? 'bg-red-50' : ''
+                  }`}>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">{formatDate(repayment.paidDate)}</div>
+                      <div className="text-sm text-gray-900">
+                        {formatPeriod(schedule.period, schedule.dueDate, loan.repaymentType)}
+                      </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">{formatCurrency(repayment.amount)}</div>
+                      <div className="text-sm text-gray-900">{formatDate(schedule.dueDate)}</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      {loan.repaymentType === 'Monthly' ? (
-                        repayment.paymentType === 'interestOnly' ? (
-                          <span className="px-2 py-1 text-xs font-semibold rounded-full bg-yellow-100 text-yellow-800">
-                            Interest Only
-                          </span>
-                        ) : (
-                          <span className="px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">
-                            Principal + Interest
-                          </span>
-                        )
-                      ) : (
-                        <span className="px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800">
-                          Regular Payment
-                        </span>
-                      )}
+                      <div className="text-sm text-gray-900">{formatCurrency(schedule.amount)}</div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                      <button
-                        onClick={() => handleDeleteRepayment(repayment.id)}
-                        className="text-red-600 hover:text-red-900"
-                      >
-                        Delete
-                      </button>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
+                        schedule.status === 'Paid' ? 'bg-green-100 text-green-800' :
+                        schedule.status === 'Pending' ? 'bg-yellow-100 text-yellow-800' :
+                        schedule.status === 'Missed' ? 'bg-red-100 text-red-800' :
+                        schedule.status === 'InterestOnly' ? 'bg-blue-100 text-blue-800' :
+                        'bg-gray-100 text-gray-800'
+                      }`}>
+                        {schedule.status}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm text-gray-900">
+                        {schedule.actualPaymentDate ? formatDate(schedule.actualPaymentDate) : '-'}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex space-x-2">
+                        {(schedule.status === 'Pending' || schedule.status === 'Missed') && (
+                          <>
+                            <button
+                              onClick={() => handleRecordPayment(schedule.period, 'Paid')}
+                              disabled={updatingSchedule === schedule.period}
+                              className="text-xs px-2 py-1 bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50"
+                            >
+                              {updatingSchedule === schedule.period ? 'Processing...' : 'Mark Paid'}
+                            </button>
+                            {loan.repaymentType === 'Monthly' && (
+                              <button
+                                onClick={() => handleRecordPayment(schedule.period, 'InterestOnly')}
+                                disabled={updatingSchedule === schedule.period}
+                                className="text-xs px-2 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
+                              >
+                                {updatingSchedule === schedule.period ? 'Processing...' : 'Interest Only'}
+                              </button>
+                            )}
+                          </>
+                        )}
+                        {schedule.repayment && (
+                          <Link
+                            href={`/loans/${id}/repayments`}
+                            className="text-xs px-2 py-1 bg-gray-200 text-gray-700 rounded hover:bg-gray-300"
+                          >
+                            View Payment
+                          </Link>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))
@@ -824,95 +1044,97 @@ const LoanDetailPage = () => {
         </div>
 
         {/* Pagination controls */}
-        <div className="p-6 border-t">
-          <div className="flex flex-col md:flex-row justify-between items-center">
-            <div className="mb-4 md:mb-0">
-              <span className="text-sm text-gray-500">Total Paid:</span>
-              <span className="ml-2 text-lg font-semibold">{formatCurrency(loan.repayments.reduce((sum, item) => sum + item.amount, 0))}</span>
-            </div>
-
-            <div className="flex flex-col md:flex-row items-center justify-between w-full md:w-auto space-y-4 md:space-y-0">
-              <div className="flex items-center space-x-4">
-                <div className="flex items-center mr-4">
-                  <label htmlFor="pageSize" className="text-sm text-gray-600 mr-2">
-                    Show:
-                  </label>
-                  <select
-                    id="pageSize"
-                    value={pageSize}
-                    onChange={(e) => {
-                      setPageSize(Number(e.target.value));
-                      setCurrentPage(1); // Reset to first page when changing page size
-                    }}
-                    className="border border-gray-300 rounded-md text-sm py-1 pl-2 pr-8"
-                  >
-                    <option value="5">5</option>
-                    <option value="10">10</option>
-                    <option value="20">20</option>
-                    <option value="50">50</option>
-                    <option value="100">100</option>
-                  </select>
-                </div>
-
-                <nav className="isolate inline-flex -space-x-px rounded-md shadow-sm" aria-label="Pagination">
-                  <button
-                    onClick={() => setCurrentPage(1)}
-                    disabled={currentPage === 1}
-                    className={`relative inline-flex items-center rounded-l-md px-2 py-2 ${
-                      currentPage === 1 ? 'text-gray-300 cursor-not-allowed' : 'text-gray-500 hover:bg-gray-50'
-                    }`}
-                  >
-                    <span className="sr-only">First</span>
-                    <span className="text-xs">First</span>
-                  </button>
-                  <button
-                    onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-                    disabled={currentPage === 1}
-                    className={`relative inline-flex items-center px-2 py-2 ${
-                      currentPage === 1 ? 'text-gray-300 cursor-not-allowed' : 'text-gray-500 hover:bg-gray-50'
-                    }`}
-                  >
-                    <span className="sr-only">Previous</span>
-                    <svg className="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                      <path fillRule="evenodd" d="M12.79 5.23a.75.75 0 01-.02 1.06L8.832 10l3.938 3.71a.75.75 0 11-1.04 1.08l-4.5-4.25a.75.75 0 010-1.08l4.5-4.25a.75.75 0 011.06.02z" clipRule="evenodd" />
-                    </svg>
-                  </button>
-                  <span className="relative inline-flex items-center px-4 py-2 text-sm font-semibold text-gray-700 bg-white">
-                    Page {currentPage} of {totalPages}
-                  </span>
-                  <button
-                    onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-                    disabled={currentPage === totalPages}
-                    className={`relative inline-flex items-center px-2 py-2 ${
-                      currentPage === totalPages ? 'text-gray-300 cursor-not-allowed' : 'text-gray-500 hover:bg-gray-50'
-                    }`}
-                  >
-                    <span className="sr-only">Next</span>
-                    <svg className="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                      <path fillRule="evenodd" d="M7.21 14.77a.75.75 0 01.02-1.06L11.168 10 7.23 6.29a.75.75 0 111.04-1.08l4.5 4.25a.75.75 0 010 1.08l-4.5 4.25a.75.75 0 01-1.06-.02z" clipRule="evenodd" />
-                    </svg>
-                  </button>
-                  <button
-                    onClick={() => setCurrentPage(totalPages)}
-                    disabled={currentPage === totalPages}
-                    className={`relative inline-flex items-center rounded-r-md px-2 py-2 ${
-                      currentPage === totalPages ? 'text-gray-300 cursor-not-allowed' : 'text-gray-500 hover:bg-gray-50'
-                    }`}
-                  >
-                    <span className="sr-only">Last</span>
-                    <span className="text-xs">Last</span>
-                  </button>
-                </nav>
+        {paymentSchedules.length > 0 && (
+          <div className="p-6 border-t">
+            <div className="flex flex-col md:flex-row justify-between items-center">
+              <div className="mb-4 md:mb-0">
+                <span className="text-sm text-gray-500">Total Schedules:</span>
+                <span className="ml-2 text-lg font-semibold">{totalCount}</span>
               </div>
 
-              {loan.status === 'Active' && (
-                <Link href={`/loans/${loan.id}/repayments/new`} className="ml-4 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition duration-300">
-                  Record New Payment
-                </Link>
-              )}
+              <div className="flex flex-col md:flex-row items-center justify-between w-full md:w-auto space-y-4 md:space-y-0">
+                <div className="flex items-center space-x-4">
+                  <div className="flex items-center mr-4">
+                    <label htmlFor="pageSize" className="text-sm text-gray-600 mr-2">
+                      Show:
+                    </label>
+                    <select
+                      id="pageSize"
+                      value={pageSize}
+                      onChange={(e) => {
+                        setPageSize(Number(e.target.value));
+                        setCurrentPage(1); // Reset to first page when changing page size
+                      }}
+                      className="border border-gray-300 rounded-md text-sm py-1 pl-2 pr-8"
+                    >
+                      <option value="5">5</option>
+                      <option value="10">10</option>
+                      <option value="20">20</option>
+                      <option value="50">50</option>
+                      <option value="100">100</option>
+                    </select>
+                  </div>
+
+                  <nav className="isolate inline-flex -space-x-px rounded-md shadow-sm" aria-label="Pagination">
+                    <button
+                      onClick={() => setCurrentPage(1)}
+                      disabled={currentPage === 1}
+                      className={`relative inline-flex items-center rounded-l-md px-2 py-2 ${
+                        currentPage === 1 ? 'text-gray-300 cursor-not-allowed' : 'text-gray-500 hover:bg-gray-50'
+                      }`}
+                    >
+                      <span className="sr-only">First</span>
+                      <span className="text-xs">First</span>
+                    </button>
+                    <button
+                      onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                      disabled={currentPage === 1}
+                      className={`relative inline-flex items-center px-2 py-2 ${
+                        currentPage === 1 ? 'text-gray-300 cursor-not-allowed' : 'text-gray-500 hover:bg-gray-50'
+                      }`}
+                    >
+                      <span className="sr-only">Previous</span>
+                      <svg className="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                        <path fillRule="evenodd" d="M12.79 5.23a.75.75 0 01-.02 1.06L8.832 10l3.938 3.71a.75.75 0 11-1.04 1.08l-4.5-4.25a.75.75 0 010-1.08l4.5-4.25a.75.75 0 011.06.02z" clipRule="evenodd" />
+                      </svg>
+                    </button>
+                    <span className="relative inline-flex items-center px-4 py-2 text-sm font-semibold text-gray-700 bg-white">
+                      Page {currentPage} of {totalPages}
+                    </span>
+                    <button
+                      onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                      disabled={currentPage === totalPages}
+                      className={`relative inline-flex items-center px-2 py-2 ${
+                        currentPage === totalPages ? 'text-gray-300 cursor-not-allowed' : 'text-gray-500 hover:bg-gray-50'
+                      }`}
+                    >
+                      <span className="sr-only">Next</span>
+                      <svg className="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                        <path fillRule="evenodd" d="M7.21 14.77a.75.75 0 01.02-1.06L11.168 10 7.23 6.29a.75.75 0 111.04-1.08l4.5 4.25a.75.75 0 010 1.08l-4.5 4.25a.75.75 0 01-1.06-.02z" clipRule="evenodd" />
+                      </svg>
+                    </button>
+                    <button
+                      onClick={() => setCurrentPage(totalPages)}
+                      disabled={currentPage === totalPages}
+                      className={`relative inline-flex items-center rounded-r-md px-2 py-2 ${
+                        currentPage === totalPages ? 'text-gray-300 cursor-not-allowed' : 'text-gray-500 hover:bg-gray-50'
+                      }`}
+                    >
+                      <span className="sr-only">Last</span>
+                      <span className="text-xs">Last</span>
+                    </button>
+                  </nav>
+                </div>
+
+                {loan.status === 'Active' && (
+                  <Link href={`/loans/${loan.id}/repayments/new`} className="ml-4 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition duration-300">
+                    Record New Payment
+                  </Link>
+                )}
+              </div>
             </div>
           </div>
-        </div>
+        )}
       </div>
     </div>
   );

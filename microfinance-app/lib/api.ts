@@ -135,11 +135,28 @@ export const loanAPI = {
     body: JSON.stringify({ id }),
   }),
 
-  getRepayments: (id: number) => fetchAPI<any[]>(`/loans/${id}/repayments`),
+  getRepayments: (id: number, page = 1, pageSize = 10) =>
+    fetchAPI<any>(`/loans/${id}/repayments?page=${page}&pageSize=${pageSize}`),
 
   addRepayment: (id: number, data: any) => fetchAPI<any>(`/loans/${id}/repayments`, {
     method: 'POST',
     body: JSON.stringify(data),
+  }),
+
+  getPaymentSchedules: (id: number, page = 1, pageSize = 10, status?: string, includeAll = false) => {
+    let url = `/loans/${id}/payment-schedules?page=${page}&pageSize=${pageSize}&includeAll=${includeAll}`;
+    if (status) url += `&status=${status}`;
+    return fetchAPI<any>(url);
+  },
+
+  recordPayment: (id: number, data: any) => fetchAPI<any>(`/loans/${id}/payment-schedules`, {
+    method: 'POST',
+    body: JSON.stringify(data),
+  }),
+
+  updateOverdueAmount: (id: number) => fetchAPI<any>(`/loans/${id}/payment-schedules`, {
+    method: 'POST',
+    body: JSON.stringify({ action: 'updateOverdue' }),
   }),
 };
 

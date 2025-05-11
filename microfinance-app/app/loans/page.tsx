@@ -23,6 +23,7 @@ interface Loan {
   remainingAmount: number;
   nextPaymentDate: string | null;
   status: string;
+  overdueAmount: number;
 }
 
 interface PaginatedResponse {
@@ -478,6 +479,9 @@ export default function LoansPage() {
                     Remaining
                   </th>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Overdue
+                  </th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Next Payment
                   </th>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -520,6 +524,11 @@ export default function LoansPage() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm text-gray-900">{formatCurrency(loan.remainingAmount)}</div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className={`text-sm ${loan.overdueAmount > 0 ? 'text-red-600 font-medium' : 'text-green-600'}`}>
+                        {loan.overdueAmount > 0 ? formatCurrency(loan.overdueAmount) : 'No Dues'}
+                      </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm text-gray-900">{formatDate(loan.nextPaymentDate)}</div>

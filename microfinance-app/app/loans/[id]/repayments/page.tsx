@@ -16,12 +16,20 @@ interface Loan {
   status: string;
 }
 
+interface PaymentSchedule {
+  id: number;
+  period: number;
+  dueDate: string;
+  status: string;
+}
+
 interface Repayment {
   id: number;
   paidDate: string;
   amount: number;
   createdAt: string;
   paymentType?: 'full' | 'interestOnly';
+  period?: number;
 }
 
 interface PaginatedResponse {
@@ -392,7 +400,10 @@ const RepaymentsPage = () => {
                     Type
                   </th>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Recorded On
+                    Period
+                  </th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Source
                   </th>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Actions
@@ -437,7 +448,16 @@ const RepaymentsPage = () => {
                       )}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">{formatDate(repayment.createdAt)}</div>
+                      <div className="text-sm text-gray-900">
+                        {repayment.period ? `Period ${repayment.period}` : '-'}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm text-gray-900">
+                        <span className="px-2 py-1 text-xs font-medium rounded-full bg-gray-100 text-gray-800">
+                          Manual Entry
+                        </span>
+                      </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                       <button
@@ -446,6 +466,12 @@ const RepaymentsPage = () => {
                       >
                         Delete
                       </button>
+                      <Link
+                        href={`/loans/${id}/payment-schedules`}
+                        className="ml-3 text-blue-600 hover:text-blue-900"
+                      >
+                        View Schedule
+                      </Link>
                     </td>
                   </tr>
                 ))}

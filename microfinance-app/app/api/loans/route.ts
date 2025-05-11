@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { getCurrentUserId, isResourceOwner } from '@/lib/auth';
+import { generatePaymentSchedule, calculateNextPaymentDate } from '@/lib/paymentSchedule';
 
 // Use type assertion to handle TypeScript type checking
 const prismaAny = prisma as any;
@@ -139,6 +140,18 @@ export async function POST(request: NextRequest) {
             );
         }
 
+        // Parse the disbursement date once
+        const parsedDisbursementDate = new Date(body.disbursementDate);
+
+        // Calculate initial next payment date based on disbursement date and repayment type
+        const initialNextPaymentDate = new Date(parsedDisbursementDate);
+
+        if (body.repaymentType === 'Monthly') {
+            initialNextPaymentDate.setMonth(parsedDisbursementDate.getMonth() + 1);
+        } else if (body.repaymentType === 'Weekly') {
+            initialNextPaymentDate.setDate(parsedDisbursementDate.getDate() + 7);
+        }
+
         // Create a loan data object with all fields
         const loanData = {
             borrowerId: globalMember.id,
@@ -148,14 +161,15 @@ export async function POST(request: NextRequest) {
             documentCharge: body.documentCharge ? parseFloat(body.documentCharge) : 0,
             installmentAmount: body.installmentAmount ? parseFloat(body.installmentAmount) : 0,
             duration: parseInt(body.duration),
-            disbursementDate: new Date(body.disbursementDate),
+            disbursementDate: parsedDisbursementDate,
             repaymentType: body.repaymentType,
             remainingAmount: parseFloat(body.amount), // Initially, remaining amount is the full loan amount
-            nextPaymentDate: body.nextPaymentDate ? new Date(body.nextPaymentDate) : null,
             status: body.status || 'Active',
             purpose: body.purpose || null,
             // Set the creator
             createdById: currentUserId,
+            // Add the next payment date
+            nextPaymentDate: initialNextPaymentDate
         };
 
         console.log('Creating loan with data:', loanData);
@@ -167,6 +181,15 @@ export async function POST(request: NextRequest) {
                 borrower: true
             }
         });
+
+        // Generate payment schedule for the loan
+        try {
+            await generatePaymentSchedule(loan.id, loan);
+            console.log('Payment schedule generated successfully for loan ID:', loan.id);
+        } catch (scheduleError) {
+            console.error('Error generating payment schedule:', scheduleError);
+            // Continue even if schedule generation fails - we don't want to roll back the loan creation
+        }
 
         return NextResponse.json(loan, { status: 201 });
     } catch (error) {
@@ -275,7 +298,6 @@ export async function PUT(request: NextRequest) {
                 disbursementDate: body.disbursementDate ? new Date(body.disbursementDate) : undefined,
                 repaymentType: body.repaymentType,
                 remainingAmount: body.remainingAmount ? parseFloat(body.remainingAmount) : undefined,
-                nextPaymentDate: body.nextPaymentDate ? new Date(body.nextPaymentDate) : null,
                 status: body.status,
                 purpose: body.purpose,
             },
@@ -283,6 +305,25 @@ export async function PUT(request: NextRequest) {
                 borrower: true
             }
         });
+
+        // Recalculate the next payment date based on the updated loan details
+        try {
+            const nextPaymentDate = await calculateNextPaymentDate(loanId);
+
+            // Update the loan with the new next payment date
+            await prismaAny.loan.update({
+                where: { id: loanId },
+                data: {
+                    nextPaymentDate
+                }
+            });
+
+            // Add the calculated next payment date to the response
+            loan.nextPaymentDate = nextPaymentDate;
+        } catch (error) {
+            console.error('Error calculating next payment date:', error);
+            // Continue even if next payment date calculation fails
+        }
 
         return NextResponse.json(loan);
     } catch (error) {
@@ -340,6 +381,11 @@ export async function DELETE(request: NextRequest) {
 
         // Delete related records first
         await prismaAny.repayment.deleteMany({
+            where: { loanId: loanId },
+        });
+
+        // Delete payment schedules
+        await prismaAny.paymentSchedule.deleteMany({
             where: { loanId: loanId },
         });
 

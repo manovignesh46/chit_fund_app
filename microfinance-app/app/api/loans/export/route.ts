@@ -47,6 +47,7 @@ export async function POST(request: NextRequest) {
             'Disbursement Date': formatDate(loan.disbursementDate),
             'Repayment Type': loan.repaymentType,
             'Remaining Amount': loan.remainingAmount,
+            'Overdue Amount': loan.overdueAmount || 0,
             'Current Month/Week': loan.currentMonth || 0,
             'Next Payment Date': loan.nextPaymentDate ? formatDate(loan.nextPaymentDate) : 'N/A',
             'Status': loan.status,
@@ -80,6 +81,7 @@ export async function POST(request: NextRequest) {
                 'Disbursement Date': formatDate(loan.disbursementDate),
                 'Repayment Type': loan.repaymentType,
                 'Remaining Amount': loan.remainingAmount,
+                'Overdue Amount': loan.overdueAmount || 0,
                 'Current Month/Week': loan.currentMonth || 0,
                 'Next Payment Date': loan.nextPaymentDate ? formatDate(loan.nextPaymentDate) : 'N/A',
                 'Status': loan.status,
@@ -169,6 +171,10 @@ export async function POST(request: NextRequest) {
                 {
                     'Loan ID': 'Remaining Balance',
                     'Loan Type': loan.remainingAmount
+                },
+                {
+                    'Loan ID': 'Overdue Amount',
+                    'Loan Type': loan.overdueAmount || 0
                 },
                 {
                     'Loan ID': 'Profit',

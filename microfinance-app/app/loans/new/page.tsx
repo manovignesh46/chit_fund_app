@@ -190,18 +190,15 @@ export default function NewLoanPage() {
       const disbursementDate = new Date(formData.disbursementDate);
       const disbursementDateISOString = disbursementDate.toISOString();
 
-      // Calculate next payment date (30 days from disbursement date)
-      const nextPaymentDate = new Date(disbursementDate);
-      nextPaymentDate.setDate(nextPaymentDate.getDate() + 30);
-      const nextPaymentDateISOString = nextPaymentDate.toISOString();
+      // We no longer need to calculate the next payment date here
+      // It will be calculated on the server based on the loan details
 
       // We no longer need to calculate the current month
       // as we've removed it from the schema temporarily
       const today = new Date();
 
       console.log('Preparing loan data with dates:', {
-        disbursementDate,
-        nextPaymentDate: nextPaymentDateISOString
+        disbursementDate
       });
 
       // Create loan data with all fields
@@ -217,7 +214,6 @@ export default function NewLoanPage() {
         purpose: formData.purpose,
         disbursementDate: disbursementDateISOString,
         repaymentType: formData.loanType, // Set repaymentType to match loanType
-        nextPaymentDate: nextPaymentDateISOString,
         status: 'Active',
       };
 

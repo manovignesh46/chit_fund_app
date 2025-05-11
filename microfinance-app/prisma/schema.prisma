@@ -155,7 +155,9 @@ model Repayment {
   paidDate        DateTime
   loanId          Int
   paymentType     String?       @default("full") // "full" or "interestOnly"
+  period          Int?          // Month or week number in the loan term (optional)
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
   loan            Loan          @relation(fields: [loanId], references: [id])
 }
+
