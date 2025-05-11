@@ -13,6 +13,9 @@ interface Loan {
   amount: number;
   remainingAmount: number;
   loanType: string;
+  installmentAmount?: number;
+  interestRate?: number;
+  repaymentType?: string;
 }
 
 interface FormData {
@@ -55,6 +58,14 @@ export default function NewRepaymentPage() {
 
         const data = await response.json();
         setLoan(data);
+
+        // Prepopulate the payment amount with the loan's installment amount if available
+        if (data.installmentAmount) {
+          setFormData(prev => ({
+            ...prev,
+            amount: data.installmentAmount.toString()
+          }));
+        }
       } catch (error) {
         console.error('Error fetching loan details:', error);
       } finally {
@@ -178,6 +189,18 @@ export default function NewRepaymentPage() {
             currency: 'INR',
             maximumFractionDigits: 0,
           }).format(loan.remainingAmount)}</p>
+          <p className="text-gray-600">Installment Amount: {new Intl.NumberFormat('en-IN', {
+            style: 'currency',
+            currency: 'INR',
+            maximumFractionDigits: 0,
+          }).format(loan.installmentAmount || 0)}</p>
+          {loan.repaymentType === 'Monthly' && loan.interestRate && (
+            <p className="text-gray-600">Interest Amount: {new Intl.NumberFormat('en-IN', {
+              style: 'currency',
+              currency: 'INR',
+              maximumFractionDigits: 0,
+            }).format(loan.interestRate)}</p>
+          )}
         </div>
       </div>
 
@@ -189,47 +212,9 @@ export default function NewRepaymentPage() {
             </div>
           )}
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <label htmlFor="amount" className="block text-sm font-medium text-gray-700 mb-1">
-                Payment Amount (₹) <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="number"
-                id="amount"
-                name="amount"
-                value={formData.amount}
-                onChange={handleChange}
-                min="1"
-                className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent ${
-                  errors.amount ? 'border-red-500' : 'border-gray-300'
-                }`}
-              />
-              {errors.amount && (
-                <p className="mt-1 text-sm text-red-500">{errors.amount}</p>
-              )}
-            </div>
-
-            <div>
-              <label htmlFor="paidDate" className="block text-sm font-medium text-gray-700 mb-1">
-                Payment Date <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="date"
-                id="paidDate"
-                name="paidDate"
-                value={formData.paidDate}
-                onChange={handleChange}
-                className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent ${
-                  errors.paidDate ? 'border-red-500' : 'border-gray-300'
-                }`}
-              />
-              {errors.paidDate && (
-                <p className="mt-1 text-sm text-red-500">{errors.paidDate}</p>
-              )}
-            </div>
-
-            <div className="md:col-span-2 mt-4">
+          {/* Interest Only Payment Toggle - Moved to the top */}
+          {loan.repaymentType === 'Monthly' && (
+            <div className="mb-6">
               <div className="flex items-center justify-between p-5 bg-blue-50 rounded-lg border border-blue-200 shadow-sm">
                 <div>
                   <h3 className="font-semibold text-lg text-blue-900">Interest Only Payment</h3>
@@ -244,9 +229,24 @@ export default function NewRepaymentPage() {
                       formData.paymentType === 'interestOnly' ? 'bg-blue-600' : 'bg-gray-300'
                     }`}
                     onClick={() => {
+                      const newPaymentType = formData.paymentType === 'interestOnly' ? 'full' : 'interestOnly';
+
+                      // Update payment amount based on payment type
+                      let newAmount = formData.amount;
+                      if (loan.repaymentType === 'Monthly') {
+                        if (newPaymentType === 'interestOnly' && loan.interestRate) {
+                          // Set to interest amount for interest-only payments
+                          newAmount = loan.interestRate.toString();
+                        } else if (newPaymentType === 'full' && loan.installmentAmount) {
+                          // Set back to installment amount for full payments
+                          newAmount = loan.installmentAmount.toString();
+                        }
+                      }
+
                       setFormData(prev => ({
                         ...prev,
-                        paymentType: prev.paymentType === 'interestOnly' ? 'full' : 'interestOnly'
+                        paymentType: newPaymentType,
+                        amount: newAmount
                       }));
                     }}
                   >
@@ -284,8 +284,54 @@ export default function NewRepaymentPage() {
                 </div>
               )}
             </div>
-          </div>
+          )}
 
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <label htmlFor="amount" className="block text-sm font-medium text-gray-700 mb-1">
+                Payment Amount (₹) <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="number"
+                id="amount"
+                name="amount"
+                value={formData.amount}
+                onChange={handleChange}
+                min="1"
+                className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent ${
+                  errors.amount ? 'border-red-500' : 'border-gray-300'
+                }`}
+              />
+              {errors.amount ? (
+                <p className="mt-1 text-sm text-red-500">{errors.amount}</p>
+              ) : (
+                <p className="mt-1 text-xs text-gray-500">
+                  {formData.paymentType === 'interestOnly' && loan.repaymentType === 'Monthly'
+                    ? 'Set to the loan\'s interest amount for interest-only payment'
+                    : 'Pre-populated with the loan\'s installment amount'}
+                </p>
+              )}
+            </div>
+
+            <div>
+              <label htmlFor="paidDate" className="block text-sm font-medium text-gray-700 mb-1">
+                Payment Date <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="date"
+                id="paidDate"
+                name="paidDate"
+                value={formData.paidDate}
+                onChange={handleChange}
+                className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent ${
+                  errors.paidDate ? 'border-red-500' : 'border-gray-300'
+                }`}
+              />
+              {errors.paidDate && (
+                <p className="mt-1 text-sm text-red-500">{errors.paidDate}</p>
+              )}
+            </div>
+          </div>
           <div className="mt-8 flex justify-end">
             <Link href={`/loans/${id}`} className="px-6 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition duration-300 mr-4">
               Cancel

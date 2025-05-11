@@ -79,6 +79,10 @@ export default function NewLoanPage() {
         } else {
           updatedFormData.duration = '4'; // Default to 4 weeks if no valid duration
         }
+
+        // For Weekly loans, set interest rate and document charge to 0
+        updatedFormData.interestRate = '0';
+        updatedFormData.documentCharge = '0';
       } else {
         // If switching to monthly, divide current duration by ~4.3
         const currentDuration = parseInt(updatedFormData.duration) || 0;
@@ -95,12 +99,20 @@ export default function NewLoanPage() {
       const amount = parseFloat(updatedFormData.amount) || 0;
       const interestAmount = parseFloat(updatedFormData.interestRate) || 0;
       const duration = parseInt(updatedFormData.duration) || 1;
+      let installmentAmount = 0;
 
-      // Calculate total amount to be repaid (principal + interest)
-      const totalAmount = amount + interestAmount;
-
-      // Calculate installment amount
-      const installmentAmount = totalAmount / duration;
+      if (updatedFormData.loanType === 'Monthly') {
+        // For monthly loans: Principal/Duration + Interest
+        // Example: 10000/10 = 1000 + 200 = 1200
+        const principalPerMonth = amount / duration;
+        installmentAmount = principalPerMonth + interestAmount;
+      } else {
+        // For weekly loans: Principal/(Duration-1)
+        // Example: 5000/(11-1) = 500
+        // Ensure we don't divide by zero
+        const effectiveDuration = Math.max(1, duration - 1);
+        installmentAmount = amount / effectiveDuration;
+      }
 
       // Update the installment amount field
       updatedFormData.installmentAmount = installmentAmount.toFixed(2);
@@ -128,10 +140,13 @@ export default function NewLoanPage() {
       newErrors.amount = 'Please enter a valid amount';
     }
 
-    if (!formData.interestRate) {
-      newErrors.interestRate = 'Interest amount is required';
-    } else if (isNaN(Number(formData.interestRate)) || Number(formData.interestRate) < 0) {
-      newErrors.interestRate = 'Please enter a valid interest amount';
+    // Only validate interest rate for Monthly loans
+    if (formData.loanType === 'Monthly') {
+      if (!formData.interestRate) {
+        newErrors.interestRate = 'Interest amount is required';
+      } else if (isNaN(Number(formData.interestRate)) || Number(formData.interestRate) < 0) {
+        newErrors.interestRate = 'Please enter a valid interest amount';
+      }
     }
 
     if (formData.documentCharge && (isNaN(Number(formData.documentCharge)) || Number(formData.documentCharge) < 0)) {
@@ -201,7 +216,7 @@ export default function NewLoanPage() {
         installmentAmount: formData.installmentAmount,
         purpose: formData.purpose,
         disbursementDate: disbursementDateISOString,
-        repaymentType: 'Monthly',
+        repaymentType: formData.loanType, // Set repaymentType to match loanType
         nextPaymentDate: nextPaymentDateISOString,
         status: 'Active',
       };
@@ -345,47 +360,51 @@ export default function NewLoanPage() {
               )}
             </div>
 
-            <div>
-              <label htmlFor="interestRate" className="block text-sm font-medium text-gray-700 mb-1">
-                Interest Amount (₹) <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="number"
-                id="interestRate"
-                name="interestRate"
-                value={formData.interestRate}
-                onChange={handleChange}
-                min="0"
-                step="100"
-                className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent ${
-                  errors.interestRate ? 'border-red-500' : 'border-gray-300'
-                }`}
-              />
-              {errors.interestRate && (
-                <p className="mt-1 text-sm text-red-500">{errors.interestRate}</p>
-              )}
-            </div>
+            {formData.loanType === 'Monthly' && (
+              <div>
+                <label htmlFor="interestRate" className="block text-sm font-medium text-gray-700 mb-1">
+                  Interest Amount (₹) <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="number"
+                  id="interestRate"
+                  name="interestRate"
+                  value={formData.interestRate}
+                  onChange={handleChange}
+                  min="0"
+                  step="100"
+                  className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent ${
+                    errors.interestRate ? 'border-red-500' : 'border-gray-300'
+                  }`}
+                />
+                {errors.interestRate && (
+                  <p className="mt-1 text-sm text-red-500">{errors.interestRate}</p>
+                )}
+              </div>
+            )}
 
-            <div>
-              <label htmlFor="documentCharge" className="block text-sm font-medium text-gray-700 mb-1">
-                Document Charge (₹)
-              </label>
-              <input
-                type="number"
-                id="documentCharge"
-                name="documentCharge"
-                value={formData.documentCharge}
-                onChange={handleChange}
-                min="0"
-                step="100"
-                className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent ${
-                  errors.documentCharge ? 'border-red-500' : 'border-gray-300'
-                }`}
-              />
-              {errors.documentCharge && (
-                <p className="mt-1 text-sm text-red-500">{errors.documentCharge}</p>
-              )}
-            </div>
+            {formData.loanType === 'Monthly' && (
+              <div>
+                <label htmlFor="documentCharge" className="block text-sm font-medium text-gray-700 mb-1">
+                  Document Charge (₹)
+                </label>
+                <input
+                  type="number"
+                  id="documentCharge"
+                  name="documentCharge"
+                  value={formData.documentCharge}
+                  onChange={handleChange}
+                  min="0"
+                  step="100"
+                  className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent ${
+                    errors.documentCharge ? 'border-red-500' : 'border-gray-300'
+                  }`}
+                />
+                {errors.documentCharge && (
+                  <p className="mt-1 text-sm text-red-500">{errors.documentCharge}</p>
+                )}
+              </div>
+            )}
 
             <div>
               <label htmlFor="duration" className="block text-sm font-medium text-gray-700 mb-1">
@@ -417,10 +436,10 @@ export default function NewLoanPage() {
                 id="installmentAmount"
                 name="installmentAmount"
                 value={formData.installmentAmount}
-                readOnly
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-50"
+                onChange={handleChange}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
               />
-              <p className="mt-1 text-xs text-gray-500">Automatically calculated based on loan amount, interest, and duration</p>
+              <p className="mt-1 text-xs text-gray-500">Auto-calculated but can be manually adjusted if needed</p>
             </div>
 
             <div>

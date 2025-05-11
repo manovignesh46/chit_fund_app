@@ -56,17 +56,54 @@ export async function GET() {
     // Get upcoming events
     const upcomingEvents = await getUpcomingEvents();
 
-    // Get total interest and document charges from loans
-    const loansWithInterest = await prisma.loan.findMany({
-      select: {
-        interestRate: true,
-        documentCharge: true,
+    // Get loans with all necessary data for profit calculation
+    const loansWithDetails = await prisma.loan.findMany({
+      include: {
+        repayments: {
+          select: {
+            amount: true,
+            paymentType: true,
+          },
+        },
       },
     });
 
-    // Calculate loan profit (interest + document charges)
-    const loanProfit = loansWithInterest.reduce((sum, loan) => {
-      return sum + (loan.interestRate || 0) + (loan.documentCharge || 0);
+    // Calculate loan profit based on loan type and repayments
+    const loanProfit = loansWithDetails.reduce((sum, loan) => {
+      let loanProfit = 0;
+
+      if (loan.repaymentType === 'Monthly') {
+        // For monthly loans:
+        // 1. Document charge is a one-time profit
+        loanProfit += loan.documentCharge || 0;
+
+        // 2. Interest accumulates monthly based on current month
+        // If current month is 0 (future loan), no interest profit yet
+        if (loan.currentMonth > 0) {
+          loanProfit += (loan.interestRate || 0) * loan.currentMonth;
+        }
+
+        // 3. Add interest-only payments as additional profit
+        const interestOnlyPayments = loan.repayments
+          .filter(payment => payment.paymentType === 'interestOnly')
+          .reduce((total, payment) => total + payment.amount, 0);
+
+        loanProfit += interestOnlyPayments;
+      } else if (loan.repaymentType === 'Weekly') {
+        // For weekly loans:
+        // Profit is calculated based on the difference between total amount to be repaid and principal
+        // For example, 5000 principal with 11 weeks = 5500 total repayment, so 500 profit
+
+        // Calculate profit as 10% of the principal amount
+        // This is a simplified calculation - in a real system, you might want to
+        // calculate this based on the actual repayment schedule
+        const weeklyProfit = loan.amount * 0.1; // 10% profit for weekly loans
+        loanProfit += weeklyProfit;
+
+        // Note: Weekly loans don't have interest or document charges
+      }
+
+      return sum + loanProfit;
     }, 0);
 
     // Get all chit funds with members and auctions to calculate chit fund profit

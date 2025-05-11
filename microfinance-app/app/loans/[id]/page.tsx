@@ -9,6 +9,7 @@ interface Repayment {
   id: number;
   paidDate: string;
   amount: number;
+  paymentType?: string; // "full" or "interestOnly"
 }
 
 // ParamValue type from Next.js is string | string[] | undefined
@@ -48,6 +49,19 @@ const LoanDetailPage = () => {
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
 
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
+
+  // Delete modal state
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [repaymentToDelete, setRepaymentToDelete] = useState<number | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [deleteSuccess, setDeleteSuccess] = useState<string | null>(null);
+
   // Mock data for loan details
   const mockLoan = {
     id: id,
@@ -77,50 +91,58 @@ const LoanDetailPage = () => {
     ]
   };
 
-  useEffect(() => {
-    const fetchLoanDetails = async () => {
-      try {
-        setLoading(true);
+  const fetchLoanDetails = async () => {
+    try {
+      setLoading(true);
 
-        // Fetch loan details
-        const loanResponse = await fetch(`/api/loans/${id}`);
-        if (!loanResponse.ok) {
-          throw new Error('Failed to fetch loan details');
-        }
-        const loanData = await loanResponse.json();
-
-        // Fetch repayments for this loan
-        const repaymentsResponse = await fetch(`/api/loans/${id}/repayments`);
-        if (!repaymentsResponse.ok) {
-          throw new Error('Failed to fetch repayments');
-        }
-        const repaymentsData = await repaymentsResponse.json();
-
-        // Extract repayments from the paginated response
-        const repaymentsList = Array.isArray(repaymentsData)
-          ? repaymentsData
-          : (repaymentsData?.repayments || []);
-
-        // Combine the data
-        const combinedData = {
-          ...loanData,
-          repayments: repaymentsList,
-          // Map remainingAmount to remainingBalance for compatibility
-          remainingBalance: loanData.remainingAmount
-        };
-
-        setLoan(combinedData);
-      } catch (error) {
-        console.error('Error fetching loan details:', error);
-      } finally {
-        setLoading(false);
+      // Fetch loan details
+      const loanResponse = await fetch(`/api/loans/${id}`);
+      if (!loanResponse.ok) {
+        throw new Error('Failed to fetch loan details');
       }
-    };
+      const loanData = await loanResponse.json();
 
+      // Fetch paginated repayments for this loan
+      const repaymentsResponse = await fetch(`/api/loans/${id}/repayments?page=${currentPage}&pageSize=${pageSize}`);
+      if (!repaymentsResponse.ok) {
+        throw new Error('Failed to fetch repayments');
+      }
+      const repaymentsData = await repaymentsResponse.json();
+
+      // Extract repayments and pagination data
+      let repaymentsList = [];
+      if (repaymentsData.repayments && Array.isArray(repaymentsData.repayments)) {
+        repaymentsList = repaymentsData.repayments;
+        setTotalCount(repaymentsData.totalCount || 0);
+        setTotalPages(repaymentsData.totalPages || 1);
+      } else {
+        // Fallback for backward compatibility
+        repaymentsList = Array.isArray(repaymentsData) ? repaymentsData : [];
+        setTotalCount(repaymentsList.length);
+        setTotalPages(1);
+      }
+
+      // Combine the data
+      const combinedData = {
+        ...loanData,
+        repayments: repaymentsList,
+        // Map remainingAmount to remainingBalance for compatibility
+        remainingBalance: loanData.remainingAmount
+      };
+
+      setLoan(combinedData);
+    } catch (error) {
+      console.error('Error fetching loan details:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
     if (id) {
       fetchLoanDetails();
     }
-  }, [id]);
+  }, [id, currentPage, pageSize]);
 
   // Format currency
   const formatCurrency = (amount: number): string => {
@@ -151,6 +173,53 @@ const LoanDetailPage = () => {
     endDate.setMonth(startDate.getMonth() + durationMonths);
 
     return endDate.toISOString();
+  };
+
+  // Handle delete repayment
+  const handleDeleteRepayment = (repaymentId: number) => {
+    setRepaymentToDelete(repaymentId);
+    setShowDeleteModal(true);
+    setDeleteError(null);
+    setDeleteSuccess(null);
+  };
+
+  // Confirm delete repayment
+  const confirmDeleteRepayment = async () => {
+    if (!repaymentToDelete) return;
+
+    setIsDeleting(true);
+    setDeleteError(null);
+
+    try {
+      const response = await fetch(`/api/loans/${id}/repayments`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ repaymentId: repaymentToDelete }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to delete repayment');
+      }
+
+      // Show success message
+      setDeleteSuccess('Repayment deleted successfully');
+
+      // Refresh data after a short delay
+      setTimeout(() => {
+        setShowDeleteModal(false);
+        setRepaymentToDelete(null);
+        setDeleteSuccess(null);
+        fetchLoanDetails();
+      }, 1500);
+    } catch (error) {
+      console.error('Error deleting repayment:', error);
+      setDeleteError(error instanceof Error ? error.message : 'An error occurred');
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   // Helper function to update the loan's current month
@@ -291,6 +360,23 @@ const LoanDetailPage = () => {
         // Add 1 because first month is month 1
         monthsDiff = monthsDiff + 1;
 
+        // Adjust if we haven't reached the same day of the month yet
+        if (currentDate.getDate() < startDate.getDate()) {
+          monthsDiff--;
+        }
+
+        console.log('Monthly loan calculation:', {
+          startDate: startDate.toISOString(),
+          currentDate: currentDate.toISOString(),
+          startDay: startDate.getDate(),
+          currentDay: currentDate.getDate(),
+          startMonth: startDate.getMonth() + 1,
+          currentMonth: currentDate.getMonth() + 1,
+          monthsDiffBeforeAdjustment: (currentDate.getFullYear() - startDate.getFullYear()) * 12 +
+                        (currentDate.getMonth() - startDate.getMonth()) + 1,
+          monthsDiffAfterAdjustment: monthsDiff
+        });
+
         // Ensure we don't go below 1
         newCurrentPeriod = Math.max(1, monthsDiff);
       }
@@ -388,6 +474,45 @@ const LoanDetailPage = () => {
 
   return (
     <div className="container mx-auto px-4 py-8">
+      {/* Delete Confirmation Modal */}
+      {showDeleteModal && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl p-6 max-w-md w-full">
+            <h3 className="text-lg font-semibold mb-4">Confirm Delete</h3>
+            <p className="mb-6">Are you sure you want to delete this repayment? This action cannot be undone.</p>
+
+            {deleteError && (
+              <div className="mb-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+                <p>{deleteError}</p>
+              </div>
+            )}
+
+            {deleteSuccess && (
+              <div className="mb-4 bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded">
+                <p>{deleteSuccess}</p>
+              </div>
+            )}
+
+            <div className="flex justify-end space-x-3">
+              <button
+                onClick={() => setShowDeleteModal(false)}
+                disabled={isDeleting}
+                className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition duration-300"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmDeleteRepayment}
+                disabled={isDeleting}
+                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isDeleting ? 'Deleting...' : 'Delete'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-3xl font-bold text-green-700">Loan Details</h1>
         <div className="flex space-x-3">
@@ -443,21 +568,29 @@ const LoanDetailPage = () => {
               <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-2">Remaining Balance</h3>
               <p className="text-xl font-semibold">{formatCurrency(loan.remainingBalance)}</p>
             </div>
-            <div>
-              <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-2">Interest Amount</h3>
-              <p className="text-xl font-semibold">{formatCurrency(loan.interestRate)}</p>
-            </div>
-            <div>
-              <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-2">Document Charge</h3>
-              <p className="text-xl font-semibold">{formatCurrency(loan.documentCharge || 0)}</p>
-            </div>
+            {loan.repaymentType === 'Monthly' && (
+              <div>
+                <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-2">Interest Amount</h3>
+                <p className="text-xl font-semibold">{formatCurrency(loan.interestRate)}</p>
+              </div>
+            )}
+            {loan.repaymentType === 'Monthly' && (
+              <div>
+                <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-2">Document Charge</h3>
+                <p className="text-xl font-semibold">{formatCurrency(loan.documentCharge || 0)}</p>
+              </div>
+            )}
             <div>
               <h3
                 className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-2 flex items-center cursor-pointer"
                 onClick={() => {
                   const profitElement = document.getElementById('loan-profit');
+                  const profitExplanation = document.getElementById('loan-profit-explanation');
                   if (profitElement) {
                     profitElement.classList.toggle('hidden');
+                  }
+                  if (profitExplanation) {
+                    profitExplanation.classList.toggle('hidden');
                   }
                 }}
               >
@@ -466,9 +599,36 @@ const LoanDetailPage = () => {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
               </h3>
-              <p id="loan-profit" className="text-xl font-semibold text-green-600 hidden">
-                {formatCurrency((loan.interestRate || 0) + (loan.documentCharge || 0))}
-              </p>
+              <div>
+                <p id="loan-profit" className="text-xl font-semibold text-green-600 hidden">
+                  {loan.repaymentType === 'Monthly' ? (
+                    formatCurrency(
+                      // Document charge (one-time)
+                      (loan.documentCharge || 0) +
+                      // Interest accumulated based on current month
+                      (loan.currentMonth > 0 ? (loan.interestRate || 0) * loan.currentMonth : 0) +
+                      // Interest-only payments
+                      loan.repayments
+                        .filter(repayment => repayment.paymentType === 'interestOnly')
+                        .reduce((sum, repayment) => sum + repayment.amount, 0)
+                    )
+                  ) : (
+                    // For weekly loans, profit is 10% of principal
+                    formatCurrency(loan.amount * 0.1)
+                  )}
+                </p>
+                <p id="loan-profit-explanation" className="text-xs text-gray-500 mt-1 hidden">
+                  {loan.repaymentType === 'Monthly' ? (
+                    <>
+                      Document charge + (Interest × {loan.currentMonth} months) + Interest-only payments
+                    </>
+                  ) : (
+                    <>
+                      Fixed profit for {loan.duration} weeks payment schedule
+                    </>
+                  )}
+                </p>
+              </div>
             </div>
             <div>
               <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-2">Installment Amount</h3>
@@ -505,9 +665,15 @@ const LoanDetailPage = () => {
       </div>
 
       <div className="bg-white rounded-lg shadow-md overflow-hidden">
-        <div className="p-6 border-b">
+        <div className="p-6 border-b flex justify-between items-center">
           <h2 className="text-xl font-semibold">Repayment History</h2>
+          <div className="flex items-center space-x-4">
+            <Link href={`/loans/${id}/repayments`} className="text-blue-600 hover:text-blue-800">
+              View All Repayments
+            </Link>
+          </div>
         </div>
+
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
@@ -518,33 +684,150 @@ const LoanDetailPage = () => {
                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Amount
                 </th>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Type
+                </th>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Actions
+                </th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {loan.repayments.map((repayment) => (
-                <tr key={repayment.id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-900">{formatDate(repayment.paidDate)}</div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-900">{formatCurrency(repayment.amount)}</div>
+              {loan.repayments.length === 0 ? (
+                <tr>
+                  <td colSpan={4} className="px-6 py-4 text-center text-gray-500">
+                    No repayments recorded yet.
                   </td>
                 </tr>
-              ))}
+              ) : (
+                loan.repayments.map((repayment) => (
+                  <tr key={repayment.id} className="hover:bg-gray-50">
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm text-gray-900">{formatDate(repayment.paidDate)}</div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm text-gray-900">{formatCurrency(repayment.amount)}</div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      {loan.repaymentType === 'Monthly' ? (
+                        repayment.paymentType === 'interestOnly' ? (
+                          <span className="px-2 py-1 text-xs font-semibold rounded-full bg-yellow-100 text-yellow-800">
+                            Interest Only
+                          </span>
+                        ) : (
+                          <span className="px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">
+                            Principal + Interest
+                          </span>
+                        )
+                      ) : (
+                        <span className="px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800">
+                          Regular Payment
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                      <button
+                        onClick={() => handleDeleteRepayment(repayment.id)}
+                        className="text-red-600 hover:text-red-900"
+                      >
+                        Delete
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>
+
+        {/* Pagination controls */}
         <div className="p-6 border-t">
-          <div className="flex justify-between items-center">
-            <div>
+          <div className="flex flex-col md:flex-row justify-between items-center">
+            <div className="mb-4 md:mb-0">
               <span className="text-sm text-gray-500">Total Paid:</span>
               <span className="ml-2 text-lg font-semibold">{formatCurrency(loan.repayments.reduce((sum, item) => sum + item.amount, 0))}</span>
             </div>
-            {loan.status === 'Active' && (
-              <Link href={`/loans/${loan.id}/repayments/new`} className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition duration-300">
-                Record New Payment
-              </Link>
-            )}
+
+            <div className="flex flex-col md:flex-row items-center justify-between w-full md:w-auto space-y-4 md:space-y-0">
+              <div className="flex items-center space-x-4">
+                <div className="flex items-center mr-4">
+                  <label htmlFor="pageSize" className="text-sm text-gray-600 mr-2">
+                    Show:
+                  </label>
+                  <select
+                    id="pageSize"
+                    value={pageSize}
+                    onChange={(e) => {
+                      setPageSize(Number(e.target.value));
+                      setCurrentPage(1); // Reset to first page when changing page size
+                    }}
+                    className="border border-gray-300 rounded-md text-sm py-1 pl-2 pr-8"
+                  >
+                    <option value="5">5</option>
+                    <option value="10">10</option>
+                    <option value="20">20</option>
+                    <option value="50">50</option>
+                    <option value="100">100</option>
+                  </select>
+                </div>
+
+                <nav className="isolate inline-flex -space-x-px rounded-md shadow-sm" aria-label="Pagination">
+                  <button
+                    onClick={() => setCurrentPage(1)}
+                    disabled={currentPage === 1}
+                    className={`relative inline-flex items-center rounded-l-md px-2 py-2 ${
+                      currentPage === 1 ? 'text-gray-300 cursor-not-allowed' : 'text-gray-500 hover:bg-gray-50'
+                    }`}
+                  >
+                    <span className="sr-only">First</span>
+                    <span className="text-xs">First</span>
+                  </button>
+                  <button
+                    onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                    disabled={currentPage === 1}
+                    className={`relative inline-flex items-center px-2 py-2 ${
+                      currentPage === 1 ? 'text-gray-300 cursor-not-allowed' : 'text-gray-500 hover:bg-gray-50'
+                    }`}
+                  >
+                    <span className="sr-only">Previous</span>
+                    <svg className="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                      <path fillRule="evenodd" d="M12.79 5.23a.75.75 0 01-.02 1.06L8.832 10l3.938 3.71a.75.75 0 11-1.04 1.08l-4.5-4.25a.75.75 0 010-1.08l4.5-4.25a.75.75 0 011.06.02z" clipRule="evenodd" />
+                    </svg>
+                  </button>
+                  <span className="relative inline-flex items-center px-4 py-2 text-sm font-semibold text-gray-700 bg-white">
+                    Page {currentPage} of {totalPages}
+                  </span>
+                  <button
+                    onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                    disabled={currentPage === totalPages}
+                    className={`relative inline-flex items-center px-2 py-2 ${
+                      currentPage === totalPages ? 'text-gray-300 cursor-not-allowed' : 'text-gray-500 hover:bg-gray-50'
+                    }`}
+                  >
+                    <span className="sr-only">Next</span>
+                    <svg className="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                      <path fillRule="evenodd" d="M7.21 14.77a.75.75 0 01.02-1.06L11.168 10 7.23 6.29a.75.75 0 111.04-1.08l4.5 4.25a.75.75 0 010 1.08l-4.5 4.25a.75.75 0 01-1.06-.02z" clipRule="evenodd" />
+                    </svg>
+                  </button>
+                  <button
+                    onClick={() => setCurrentPage(totalPages)}
+                    disabled={currentPage === totalPages}
+                    className={`relative inline-flex items-center rounded-r-md px-2 py-2 ${
+                      currentPage === totalPages ? 'text-gray-300 cursor-not-allowed' : 'text-gray-500 hover:bg-gray-50'
+                    }`}
+                  >
+                    <span className="sr-only">Last</span>
+                    <span className="text-xs">Last</span>
+                  </button>
+                </nav>
+              </div>
+
+              {loan.status === 'Active' && (
+                <Link href={`/loans/${loan.id}/repayments/new`} className="ml-4 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition duration-300">
+                  Record New Payment
+                </Link>
+              )}
+            </div>
           </div>
         </div>
       </div>
