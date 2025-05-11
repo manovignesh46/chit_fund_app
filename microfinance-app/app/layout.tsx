@@ -1,5 +1,6 @@
 import React from 'react';
 import '../styles/globals.css';
+import Header from './components/Header';
 
 export const metadata = {
   title: 'Microfinance and Chit Fund Management',
@@ -10,16 +11,7 @@ const RootLayout = ({ children }: { children: React.ReactNode }) => {
   return (
     <html lang="en">
       <body>
-        <header className="bg-blue-600 text-white p-4">
-          <h1 className="text-2xl">Microfinance & Chit Fund Management</h1>
-          <nav>
-            <ul className="flex space-x-4">
-              <li><a href="/chit-funds" className="hover:underline">Chit Funds</a></li>
-              <li><a href="/loans" className="hover:underline">Loans</a></li>
-              <li><a href="/dashboard" className="hover:underline">Dashboard</a></li>
-            </ul>
-          </nav>
-        </header>
+        <Header />
         <main className="p-4">{children}</main>
       </body>
     </html>

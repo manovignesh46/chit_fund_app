@@ -143,24 +143,18 @@ export const loanAPI = {
   }),
 };
 
-// User API functions
-export const userAPI = {
+// Auth API functions
+export const authAPI = {
   login: (email: string, password: string) => fetchAPI<any>('/auth/login', {
     method: 'POST',
     body: JSON.stringify({ email, password }),
   }),
 
-  register: (data: any) => fetchAPI<any>('/auth/register', {
+  logout: () => fetchAPI<any>('/auth/logout', {
     method: 'POST',
-    body: JSON.stringify(data),
   }),
 
-  getProfile: () => fetchAPI<any>('/users/profile'),
-
-  updateProfile: (data: any) => fetchAPI<any>('/users/profile', {
-    method: 'PUT',
-    body: JSON.stringify(data),
-  }),
+  getCurrentUser: () => fetchAPI<any>('/auth/me'),
 };
 
 // Dashboard API functions
