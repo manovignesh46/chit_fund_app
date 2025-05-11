@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { dashboardAPI } from '@/lib/api';
+import FinancialGraph from '../components/FinancialGraph';
 
 export default function DashboardPage() {
   interface Activity {
@@ -40,6 +41,20 @@ export default function DashboardPage() {
     upcomingEvents: Event[];
   }
 
+  interface FinancialDataPoint {
+    period: string;
+    cashInflow: number;
+    cashOutflow: number;
+    profit: number;
+    loanProfit: number;
+    chitFundProfit: number;
+    outsideAmount: number;
+    outsideAmountBreakdown: {
+      loanRemainingAmount: number;
+      chitFundOutsideAmount: number;
+    };
+  }
+
   const [dashboardData, setDashboardData] = useState<DashboardData>({
     totalCashInflow: 0,
     totalCashOutflow: 0,
@@ -63,6 +78,12 @@ export default function DashboardPage() {
   const [showOutsideBreakdown, setShowOutsideBreakdown] = useState(false);
   const outsideBreakdownRef = useRef<HTMLDivElement>(null);
 
+  // Financial graph data and controls
+  const [financialData, setFinancialData] = useState<FinancialDataPoint[]>([]);
+  const [financialDataLoading, setFinancialDataLoading] = useState(true);
+  const [financialDataError, setFinancialDataError] = useState<string | null>(null);
+  const [selectedDuration, setSelectedDuration] = useState<'weekly' | 'monthly' | 'yearly'>('monthly');
+
   useEffect(() => {
     // Fetch dashboard data from the API
     const fetchDashboardData = async () => {
@@ -85,6 +106,33 @@ export default function DashboardPage() {
 
     fetchDashboardData();
   }, []);
+
+  // Fetch financial data for the graph based on selected duration
+  useEffect(() => {
+    const fetchFinancialData = async () => {
+      try {
+        setFinancialDataLoading(true);
+        console.log(`Fetching financial data with duration: ${selectedDuration}`);
+
+        // Determine limit based on duration
+        const limit = selectedDuration === 'weekly' ? 8 : selectedDuration === 'monthly' ? 12 : 5;
+
+        // Fetch data using the API client
+        const data = await dashboardAPI.getFinancialData(selectedDuration, limit);
+        console.log('Fetched financial data:', data);
+
+        setFinancialData(data);
+        setFinancialDataError(null);
+      } catch (err: any) {
+        console.error('Error fetching financial data:', err);
+        setFinancialDataError(err.message || 'Failed to load financial data. Please try again later.');
+      } finally {
+        setFinancialDataLoading(false);
+      }
+    };
+
+    fetchFinancialData();
+  }, [selectedDuration]);
 
   // Handle click outside to close the outside amount breakdown popup
   useEffect(() => {
@@ -244,6 +292,65 @@ export default function DashboardPage() {
               )}
             </div>
           )}
+
+          {/* Financial Graph */}
+          <div className="mb-8">
+            <div className="bg-white rounded-lg shadow-md p-4 mb-4">
+              <div className="flex flex-wrap justify-between items-center">
+                <h2 className="text-xl font-bold text-blue-700">Financial Trends</h2>
+                <div className="flex flex-wrap items-center gap-4 mt-2 sm:mt-0">
+                  <div className="flex space-x-2">
+                    <button
+                      onClick={() => setSelectedDuration('weekly')}
+                      className={`px-3 py-1 text-sm rounded-md ${
+                        selectedDuration === 'weekly'
+                          ? 'bg-blue-600 text-white'
+                          : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                      }`}
+                    >
+                      Weekly
+                    </button>
+                    <button
+                      onClick={() => setSelectedDuration('monthly')}
+                      className={`px-3 py-1 text-sm rounded-md ${
+                        selectedDuration === 'monthly'
+                          ? 'bg-blue-600 text-white'
+                          : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                      }`}
+                    >
+                      Monthly
+                    </button>
+                    <button
+                      onClick={() => setSelectedDuration('yearly')}
+                      className={`px-3 py-1 text-sm rounded-md ${
+                        selectedDuration === 'yearly'
+                          ? 'bg-blue-600 text-white'
+                          : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                      }`}
+                    >
+                      Yearly
+                    </button>
+                  </div>
+                  <a
+                    href={`/api/dashboard/financial-data/export?duration=${selectedDuration}&limit=${selectedDuration === 'weekly' ? 8 : selectedDuration === 'monthly' ? 12 : 5}`}
+                    download={`financial_data_${selectedDuration}_${new Date().toISOString().split('T')[0]}.xlsx`}
+                    className="flex items-center px-3 py-1 text-sm bg-green-600 text-white rounded-md hover:bg-green-700 transition duration-300"
+                    title={`Export ${selectedDuration} financial data to Excel`}
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                    </svg>
+                    Export
+                  </a>
+                </div>
+              </div>
+            </div>
+            <FinancialGraph
+              data={financialData}
+              loading={financialDataLoading}
+              error={financialDataError}
+            />
+          </div>
 
           {/* Stats Overview */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">

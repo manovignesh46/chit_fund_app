@@ -164,6 +164,9 @@ export const dashboardAPI = {
   getActivities: () => fetchAPI<any[]>('/dashboard/activities'),
 
   getUpcomingEvents: () => fetchAPI<any[]>('/dashboard/events'),
+
+  getFinancialData: (duration: string = 'monthly', limit: number = 12) =>
+    fetchAPI<any[]>(`/dashboard/financial-data?duration=${duration}&limit=${limit}`),
 };
 
 // Global Members API functions
