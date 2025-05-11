@@ -25,19 +25,16 @@ export default function NewChitFundPage() {
       [name]: value,
     });
 
-    // Auto-calculate related fields
-    if (name === 'totalAmount' || name === 'duration') {
-      if (formData.totalAmount && formData.duration) {
-        const totalAmount = parseFloat(formData.totalAmount);
+    // Auto-calculate members count only (removed monthly contribution auto-calculation)
+    if (name === 'duration') {
+      if (formData.duration) {
         const duration = parseInt(formData.duration);
-        if (!isNaN(totalAmount) && !isNaN(duration) && duration > 0) {
+        if (!isNaN(duration) && duration > 0) {
           const membersCount = duration;
-          const monthlyContribution = Math.round(totalAmount / membersCount);
 
           setFormData(prev => ({
             ...prev,
             membersCount: membersCount.toString(),
-            monthlyContribution: monthlyContribution.toString(),
           }));
         }
       }
@@ -183,12 +180,12 @@ export default function NewChitFundPage() {
                 name="duration"
                 value={formData.duration}
                 onChange={handleChange}
-                min="6"
+                min="1"
                 max="60"
                 className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
                   errors.duration ? 'border-red-500' : 'border-gray-300'
                 }`}
-                placeholder="e.g., 20"
+                placeholder="e.g., 1-60"
               />
               {errors.duration && (
                 <p className="mt-1 text-sm text-red-500">{errors.duration}</p>
@@ -205,7 +202,7 @@ export default function NewChitFundPage() {
                 name="membersCount"
                 value={formData.membersCount}
                 onChange={handleChange}
-                min="5"
+                min="1"
                 max="50"
                 className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
                   errors.membersCount ? 'border-red-500' : 'border-gray-300'
@@ -238,7 +235,7 @@ export default function NewChitFundPage() {
               {errors.monthlyContribution && (
                 <p className="mt-1 text-sm text-red-500">{errors.monthlyContribution}</p>
               )}
-              <p className="mt-1 text-xs text-gray-500">Auto-calculated based on total amount and members</p>
+              <p className="mt-1 text-xs text-gray-500">Enter the monthly contribution amount</p>
             </div>
 
             <div>

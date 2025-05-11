@@ -53,6 +53,12 @@ export default function ChitFundMembersPage() {
   const [formErrors, setFormErrors] = useState<{[key: string]: string}>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // For selecting global members
+  const [globalMembers, setGlobalMembers] = useState<GlobalMember[]>([]);
+  const [selectedGlobalMembers, setSelectedGlobalMembers] = useState<number[]>([]);
+  const [selectAllGlobal, setSelectAllGlobal] = useState(false);
+  const [loadingGlobalMembers, setLoadingGlobalMembers] = useState(false);
+
   // For deleting member
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [memberToDelete, setMemberToDelete] = useState<number | null>(null);
@@ -79,6 +85,34 @@ export default function ChitFundMembersPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [pageSize, setPageSize] = useState(10);
+
+  // Fetch global members
+  const fetchGlobalMembers = async () => {
+    try {
+      setLoadingGlobalMembers(true);
+
+      const response = await fetch('/api/members');
+      if (!response.ok) {
+        throw new Error('Failed to fetch global members');
+      }
+
+      const data = await response.json();
+
+      // Filter out members that are already in this chit fund
+      const existingMemberIds = members.map(member => member.globalMemberId);
+      const filteredGlobalMembers = data.members.filter((member: GlobalMember) =>
+        !existingMemberIds.includes(member.id)
+      );
+
+      setGlobalMembers(filteredGlobalMembers);
+      setError(null);
+    } catch (err) {
+      console.error('Error fetching global members:', err);
+      setError('Failed to load global members. Please try again later.');
+    } finally {
+      setLoadingGlobalMembers(false);
+    }
+  };
 
   useEffect(() => {
     const fetchChitFundAndMembers = async () => {
@@ -373,6 +407,92 @@ export default function ChitFundMembersPage() {
     } else {
       setSelectedMembers(members.map(member => member.id));
       setSelectAll(true);
+    }
+  };
+
+  // Handle selecting/deselecting a global member
+  const handleSelectGlobalMember = (memberId: number) => {
+    if (selectedGlobalMembers.includes(memberId)) {
+      setSelectedGlobalMembers(selectedGlobalMembers.filter(id => id !== memberId));
+      setSelectAllGlobal(false);
+    } else {
+      setSelectedGlobalMembers([...selectedGlobalMembers, memberId]);
+      if (selectedGlobalMembers.length + 1 === globalMembers.length) {
+        setSelectAllGlobal(true);
+      }
+    }
+  };
+
+  // Handle select all global members
+  const handleSelectAllGlobalMembers = () => {
+    if (selectAllGlobal) {
+      setSelectedGlobalMembers([]);
+      setSelectAllGlobal(false);
+    } else {
+      setSelectedGlobalMembers(globalMembers.map(member => member.id));
+      setSelectAllGlobal(true);
+    }
+  };
+
+  // Handle assigning multiple global members to the chit fund
+  const handleAssignGlobalMembers = async () => {
+    if (selectedGlobalMembers.length === 0) {
+      setFormErrors({ submit: 'Please select at least one member to assign' });
+      return;
+    }
+
+    setIsSubmitting(true);
+    setFormErrors({});
+
+    try {
+      let successCount = 0;
+      let errorCount = 0;
+
+      // Process each selected member
+      for (const memberId of selectedGlobalMembers) {
+        try {
+          const response = await fetch(`/api/chit-funds/${chitFundId}/members`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              globalMemberId: memberId,
+              // No need to specify contribution as it will use the chit fund's monthlyContribution
+            }),
+          });
+
+          if (response.ok) {
+            successCount++;
+          } else {
+            const errorData = await response.json();
+            console.error('Error assigning member:', errorData);
+            errorCount++;
+          }
+        } catch (error) {
+          console.error(`Error assigning member ${memberId}:`, error);
+          errorCount++;
+        }
+      }
+
+      // Show appropriate message
+      if (successCount > 0) {
+        // Reset selection
+        setSelectedGlobalMembers([]);
+        setSelectAllGlobal(false);
+
+        // Refresh the page to get updated data
+        window.location.reload();
+      }
+
+      if (errorCount > 0) {
+        setFormErrors({ submit: `Failed to assign ${errorCount} member${errorCount > 1 ? 's' : ''}. They may already be part of this chit fund.` });
+      }
+    } catch (error: any) {
+      console.error('Error assigning members:', error);
+      setFormErrors({ submit: error.message || 'Failed to assign members. Please try again.' });
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -973,9 +1093,83 @@ export default function ChitFundMembersPage() {
             <h2 className="text-xl font-bold text-blue-700 mb-4">Add Member to Chit Fund</h2>
 
             <div className="mb-6">
-              <Link href={`/chit-funds/${chitFundId}/assign-member`} className="w-full px-4 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition duration-300 flex items-center justify-center">
+              <button
+                type="button"
+                onClick={fetchGlobalMembers}
+                className="w-full px-4 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition duration-300 flex items-center justify-center"
+              >
                 <span className="mr-2">📋</span> Select from Global Members
-              </Link>
+              </button>
+
+              {loadingGlobalMembers ? (
+                <div className="text-center py-4">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-700 mx-auto"></div>
+                  <p className="mt-2 text-sm text-gray-600">Loading global members...</p>
+                </div>
+              ) : globalMembers.length > 0 ? (
+                <div className="border rounded-lg overflow-hidden mt-4">
+                  <div className="bg-gray-50 p-3 border-b">
+                    <div className="flex items-center">
+                      <input
+                        type="checkbox"
+                        checked={selectAllGlobal}
+                        onChange={handleSelectAllGlobalMembers}
+                        className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                      />
+                      <span className="ml-2 font-medium">Select All</span>
+
+                      {selectedGlobalMembers.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={handleAssignGlobalMembers}
+                          disabled={isSubmitting}
+                          className={`ml-auto px-3 py-1 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-300 ${
+                            isSubmitting ? 'opacity-50 cursor-not-allowed' : ''
+                          }`}
+                        >
+                          {isSubmitting ? 'Assigning...' : `Assign Selected (${selectedGlobalMembers.length})`}
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="max-h-60 overflow-y-auto">
+                    <table className="min-w-full divide-y divide-gray-200">
+                      <thead className="bg-gray-50">
+                        <tr>
+                          <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Select
+                          </th>
+                          <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Name
+                          </th>
+                          <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Contact
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody className="bg-white divide-y divide-gray-200">
+                        {globalMembers.map((member) => (
+                          <tr key={member.id} className="hover:bg-gray-50">
+                            <td className="px-3 py-2 whitespace-nowrap">
+                              <input
+                                type="checkbox"
+                                checked={selectedGlobalMembers.includes(member.id)}
+                                onChange={() => handleSelectGlobalMember(member.id)}
+                                className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                              />
+                            </td>
+                            <td className="px-3 py-2 whitespace-nowrap">{member.name}</td>
+                            <td className="px-3 py-2 whitespace-nowrap">{member.contact}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              ) : (
+                <p className="text-sm text-gray-600 mt-2">Click to load global members that are not yet part of this chit fund.</p>
+              )}
 
               <div className="text-center my-4 relative">
                 <hr className="my-4" />

@@ -35,7 +35,7 @@ export async function POST(request: NextRequest) {
         const wb = XLSX.utils.book_new();
 
         // Add a summary sheet with all loans
-        const summaryData = loans.map(loan => ({
+        const summaryData = loans.map((loan: any) => ({
             'Loan ID': loan.id,
             'Borrower Name': loan.borrower.name,
             'Loan Type': loan.loanType,
@@ -88,7 +88,7 @@ export async function POST(request: NextRequest) {
             };
 
             // Format repayments
-            const formattedRepayments = repayments.map((repayment, index) => ({
+            const formattedRepayments = repayments.map((repayment: any, index: number) => ({
                 'No.': index + 1,
                 'Payment ID': repayment.id,
                 'Paid Date': formatDate(repayment.paidDate),
@@ -98,7 +98,7 @@ export async function POST(request: NextRequest) {
             }));
 
             // Calculate totals
-            const totalPaid = repayments.reduce((sum, repayment) => {
+            const totalPaid = repayments.reduce((sum: number, repayment: any) => {
                 if (repayment.paymentType !== 'interestOnly') {
                     return sum + repayment.amount;
                 }
@@ -106,10 +106,10 @@ export async function POST(request: NextRequest) {
             }, 0);
 
             const interestOnlyPayments = repayments
-                .filter(repayment => repayment.paymentType === 'interestOnly')
-                .reduce((sum, repayment) => sum + repayment.amount, 0);
+                .filter((repayment: any) => repayment.paymentType === 'interestOnly')
+                .reduce((sum: number, repayment: any) => sum + repayment.amount, 0);
 
-            const allPaymentsTotal = repayments.reduce((sum, repayment) => sum + repayment.amount, 0);
+            const allPaymentsTotal = repayments.reduce((sum: number, repayment: any) => sum + repayment.amount, 0);
 
             // Calculate profit
             let profit = 0;

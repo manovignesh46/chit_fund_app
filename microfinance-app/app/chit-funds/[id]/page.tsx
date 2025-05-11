@@ -65,6 +65,8 @@ const ChitFundDetails = () => {
   const [totalProfit, setTotalProfit] = useState<number>(0);
   const [cashInflow, setCashInflow] = useState<number>(0);
   const [cashOutflow, setCashOutflow] = useState<number>(0);
+  const [outsideAmount, setOutsideAmount] = useState<number>(0);
+  const [isExporting, setIsExporting] = useState(false);
 
   // For deletion
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -184,9 +186,22 @@ const ChitFundDetails = () => {
           });
         }
 
+        // If there are no auctions or the calculated profit is 0, but there's a difference between inflow and outflow,
+        // use that difference as the profit (especially for completed chit funds)
+        if ((auctionsData.length === 0 || profitAmount === 0) && totalInflow > totalOutflow) {
+          profitAmount = totalInflow - totalOutflow;
+        }
+
+        // Calculate outside amount (when outflow exceeds inflow)
+        let outsideAmountValue = 0;
+        if (totalOutflow > totalInflow) {
+          outsideAmountValue = totalOutflow - totalInflow;
+        }
+
         setCashInflow(totalInflow);
         setCashOutflow(totalOutflow);
         setTotalProfit(profitAmount);
+        setOutsideAmount(outsideAmountValue);
 
         // Calculate next payout details if there are auctions
         if (auctionsData.length > 0 && chitFundData.currentMonth < chitFundData.duration) {
@@ -317,6 +332,54 @@ const ChitFundDetails = () => {
     }
   };
 
+  // Handle export chit fund
+  const handleExportChitFund = async () => {
+    if (!chitFund || isExporting) return;
+
+    try {
+      setIsExporting(true);
+
+      // Generate filename directly from chit fund data
+      const chitFundName = chitFund.name.replace(/[^a-zA-Z0-9]/g, '_');
+      const today = new Date();
+      const dateStr = today.toISOString().split('T')[0]; // YYYY-MM-DD format
+      const filename = `${chitFundName}_${dateStr}.xlsx`;
+
+      console.log('Generated filename:', filename);
+
+      // Call the export API endpoint
+      const response = await fetch(`/api/chit-funds/${id}/export`);
+
+      if (!response.ok) {
+        throw new Error('Failed to export chit fund details');
+      }
+
+      // Get the blob from the response
+      const blob = await response.blob();
+
+      // Create a URL for the blob
+      const url = window.URL.createObjectURL(blob);
+
+      // Create a temporary link element
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+
+      // Append to the document and trigger a click
+      document.body.appendChild(a);
+      a.click();
+
+      // Clean up
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (error) {
+      console.error('Error exporting chit fund details:', error);
+      alert('Failed to export chit fund details. Please try again.');
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   // Handle delete chit fund
   const handleDeleteChitFund = () => {
     setShowDeleteModal(true);
@@ -393,9 +456,35 @@ const ChitFundDetails = () => {
     <div className="container mx-auto px-4 py-8">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-3xl font-bold text-blue-700">{chitFund.name}</h1>
-        <Link href="/chit-funds" className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition duration-300">
-          Back to Chit Funds
-        </Link>
+        <div className="flex space-x-3">
+          <button
+            onClick={handleExportChitFund}
+            disabled={isExporting}
+            className={`px-4 py-2 rounded-lg transition duration-300 flex items-center ${
+              isExporting ? 'bg-gray-400 cursor-not-allowed' : 'bg-blue-500 hover:bg-blue-600'
+            } text-white`}
+          >
+            {isExporting ? (
+              <>
+                <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                Exporting...
+              </>
+            ) : (
+              <>
+                <svg className="-ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                Export as Excel
+              </>
+            )}
+          </button>
+          <Link href="/chit-funds" className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition duration-300">
+            Back to Chit Funds
+          </Link>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
@@ -480,6 +569,27 @@ const ChitFundDetails = () => {
                     {formatCurrency(cashOutflow)}
                   </p>
                 </div>
+                {outsideAmount > 0 && (
+                  <div>
+                    <h3
+                      className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-2 flex items-center cursor-pointer"
+                      onClick={() => {
+                        const outsideElement = document.getElementById('chitfund-outside');
+                        if (outsideElement) {
+                          outsideElement.classList.toggle('hidden');
+                        }
+                      }}
+                    >
+                      Outside Amount
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                    </h3>
+                    <p id="chitfund-outside" className="text-xl font-semibold text-orange-600 hidden">
+                      {formatCurrency(outsideAmount)}
+                    </p>
+                  </div>
+                )}
                 <div>
                   <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-2">Members</h3>
                   <p className="text-xl font-semibold">{chitFund.membersCount}</p>
@@ -686,7 +796,6 @@ const ChitFundDetails = () => {
               Conduct Auction
             </Link>
           )}
-
 
           <button
             onClick={handleDeleteChitFund}

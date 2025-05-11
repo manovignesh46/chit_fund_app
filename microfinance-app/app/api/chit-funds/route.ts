@@ -6,6 +6,7 @@ export async function GET(request: NextRequest) {
         const { searchParams } = new URL(request.url);
         const page = parseInt(searchParams.get('page') || '1');
         const pageSize = parseInt(searchParams.get('pageSize') || '10');
+        const status = searchParams.get('status') || null;
 
         // Validate pagination parameters
         const validPage = page > 0 ? page : 1;
@@ -14,11 +15,20 @@ export async function GET(request: NextRequest) {
         // Calculate skip value for pagination
         const skip = (validPage - 1) * validPageSize;
 
-        // Get total count for pagination
-        const totalCount = await prisma.chitFund.count();
+        // Build where clause for filtering
+        const where: any = {};
+        if (status) {
+            where.status = status;
+        }
 
-        // Get paginated chit funds
+        // Get total count for pagination with filter
+        const totalCount = await prisma.chitFund.count({
+            where
+        });
+
+        // Get paginated chit funds with filter
         const chitFunds = await prisma.chitFund.findMany({
+            where,
             include: {
                 _count: {
                     select: { members: true }

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { dashboardAPI } from '@/lib/api';
 
@@ -20,12 +20,19 @@ export default function DashboardPage() {
     type: string;
   }
 
+  interface OutsideAmountBreakdown {
+    loanRemainingAmount: number;
+    chitFundOutsideAmount: number;
+  }
+
   interface DashboardData {
     totalCashInflow: number;
     totalCashOutflow: number;
     totalProfit: number;
     loanProfit: number;
     chitFundProfit: number;
+    totalOutsideAmount: number;
+    outsideAmountBreakdown: OutsideAmountBreakdown;
     activeChitFunds: number;
     totalMembers: number;
     activeLoans: number;
@@ -39,6 +46,11 @@ export default function DashboardPage() {
     totalProfit: 0,
     loanProfit: 0,
     chitFundProfit: 0,
+    totalOutsideAmount: 0,
+    outsideAmountBreakdown: {
+      loanRemainingAmount: 0,
+      chitFundOutsideAmount: 0
+    },
     activeChitFunds: 0,
     totalMembers: 0,
     activeLoans: 0,
@@ -48,6 +60,8 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showProfit, setShowProfit] = useState(false);
+  const [showOutsideBreakdown, setShowOutsideBreakdown] = useState(false);
+  const outsideBreakdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     // Fetch dashboard data from the API
@@ -71,6 +85,25 @@ export default function DashboardPage() {
 
     fetchDashboardData();
   }, []);
+
+  // Handle click outside to close the outside amount breakdown popup
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (outsideBreakdownRef.current && !outsideBreakdownRef.current.contains(event.target as Node)) {
+        setShowOutsideBreakdown(false);
+      }
+    }
+
+    // Add event listener when popup is shown
+    if (showOutsideBreakdown) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    // Clean up the event listener
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showOutsideBreakdown]);
 
   // Create stats array from dashboard data
   const stats = [
@@ -149,7 +182,7 @@ export default function DashboardPage() {
 
           {/* Profit Breakdown - Only show if showProfit is true */}
           {showProfit && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
               <div className="bg-white shadow-md rounded-lg p-6 border-t-4 border-purple-500">
                 <h2 className="text-lg font-semibold text-gray-600">Loan Profit</h2>
                 <p className="text-2xl font-bold text-purple-700">{formatCurrency(dashboardData.loanProfit)}</p>
@@ -160,6 +193,55 @@ export default function DashboardPage() {
                 <p className="text-2xl font-bold text-blue-700">{formatCurrency(dashboardData.chitFundProfit)}</p>
                 <p className="text-sm text-gray-500 mt-2">From auction commissions</p>
               </div>
+              {dashboardData.totalOutsideAmount > 0 && (
+                <div className="bg-white shadow-md rounded-lg p-6 border-t-4 border-orange-500 relative">
+                  <h2 className="text-lg font-semibold text-gray-600">Outside Amount</h2>
+                  <p
+                    className="text-2xl font-bold text-orange-700 cursor-pointer"
+                    onClick={() => setShowOutsideBreakdown(!showOutsideBreakdown)}
+                  >
+                    {formatCurrency(dashboardData.totalOutsideAmount)}
+                  </p>
+                  <p className="text-sm text-gray-500 mt-2">
+                    Includes remaining loan balances and chit fund outflows exceeding inflows
+                    <span className="ml-1 text-blue-500 cursor-pointer" onClick={() => setShowOutsideBreakdown(!showOutsideBreakdown)}>
+                      (Tap to see breakdown)
+                    </span>
+                  </p>
+
+                  {/* Breakdown Popup */}
+                  {showOutsideBreakdown && (
+                    <div
+                      ref={outsideBreakdownRef}
+                      className="absolute z-10 top-full left-0 mt-2 w-full bg-white rounded-lg shadow-lg p-4 border border-gray-200"
+                    >
+                      <div className="flex justify-between items-center mb-2">
+                        <h3 className="font-semibold text-gray-700">Outside Amount Breakdown</h3>
+                        <button
+                          onClick={() => setShowOutsideBreakdown(false)}
+                          className="text-gray-500 hover:text-gray-700"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                      <div className="space-y-2">
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">Remaining Loan Balances:</span>
+                          <span className="font-medium text-purple-600">{formatCurrency(dashboardData.outsideAmountBreakdown.loanRemainingAmount)}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">Chit Fund Outside Amount:</span>
+                          <span className="font-medium text-blue-600">{formatCurrency(dashboardData.outsideAmountBreakdown.chitFundOutsideAmount)}</span>
+                        </div>
+                        <div className="border-t pt-2 mt-2 flex justify-between">
+                          <span className="font-semibold text-gray-700">Total Outside Amount:</span>
+                          <span className="font-semibold text-orange-700">{formatCurrency(dashboardData.totalOutsideAmount)}</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           )}
 

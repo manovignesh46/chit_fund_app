@@ -64,11 +64,21 @@ export default function LoansPage() {
   // Export state
   const [isExporting, setIsExporting] = useState(false);
 
+  // Status filter state
+  const [statusFilter, setStatusFilter] = useState<string>('');
+
   // Fetch loans function
   const fetchLoans = async () => {
     try {
       setLoading(true);
-      const response = await fetch(`/api/loans?page=${currentPage}&pageSize=${pageSize}`);
+      let url = `/api/loans?page=${currentPage}&pageSize=${pageSize}`;
+
+      // Add status filter if selected
+      if (statusFilter) {
+        url += `&status=${statusFilter}`;
+      }
+
+      const response = await fetch(url);
 
       if (!response.ok) {
         throw new Error('Failed to fetch loans');
@@ -101,10 +111,16 @@ export default function LoansPage() {
     }
   };
 
+  // Handle status filter change
+  const handleStatusFilterChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    setStatusFilter(e.target.value);
+    setCurrentPage(1); // Reset to first page when changing filter
+  };
+
   // Initial data fetch
   useEffect(() => {
     fetchLoans();
-  }, [currentPage, pageSize]);
+  }, [currentPage, pageSize, statusFilter]);
 
   // Handle selecting/deselecting a loan
   const handleSelectLoan = (loanId: number) => {
@@ -365,6 +381,36 @@ export default function LoansPage() {
         </div>
       </div>
 
+      {/* Status filter - always visible */}
+      <div className="bg-white rounded-lg shadow-md overflow-hidden mb-4">
+        <div className="p-4 flex items-center">
+          <label htmlFor="statusFilter" className="text-sm text-gray-600 mr-2">
+            Filter by Status:
+          </label>
+          <select
+            id="statusFilter"
+            value={statusFilter}
+            onChange={handleStatusFilterChange}
+            className="border border-gray-300 rounded-md text-sm py-1 pl-2 pr-8"
+          >
+            <option value="">All Statuses</option>
+            <option value="Active">Active</option>
+            <option value="Pending">Pending</option>
+            <option value="Completed">Completed</option>
+            <option value="Defaulted">Defaulted</option>
+          </select>
+
+          {statusFilter && (
+            <button
+              onClick={() => setStatusFilter('')}
+              className="ml-2 text-sm text-gray-500 hover:text-gray-700"
+            >
+              Clear Filter
+            </button>
+          )}
+        </div>
+      </div>
+
       {loading ? (
         <div className="flex justify-center items-center h-64">
           <div className="text-center">
@@ -379,10 +425,14 @@ export default function LoansPage() {
         </div>
       ) : loans.length === 0 ? (
         <div className="bg-white rounded-lg shadow-md p-6 text-center">
-          <p className="text-gray-600 mb-4">No loans found.</p>
-          <Link href="/loans/new" className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition duration-300">
-            Create Your First Loan
-          </Link>
+          <p className="text-gray-600 mb-4">
+            {statusFilter ? `No loans found with status "${statusFilter}".` : "No loans found."}
+          </p>
+          {!statusFilter && (
+            <Link href="/loans/new" className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition duration-300">
+              Create Your First Loan
+            </Link>
+          )}
         </div>
       ) : (
         <div className="bg-white rounded-lg shadow-md overflow-hidden">

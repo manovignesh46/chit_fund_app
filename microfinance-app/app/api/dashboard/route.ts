@@ -106,26 +106,86 @@ export async function GET() {
       return sum + loanProfit;
     }, 0);
 
-    // Get all chit funds with members and auctions to calculate chit fund profit
-    const chitFundsWithAuctions = await prisma.chitFund.findMany({
+    // Get all chit funds with members, auctions, and contributions to calculate chit fund profit
+    const chitFundsWithDetails = await prisma.chitFund.findMany({
       include: {
         members: true,
         auctions: true,
+        contributions: true,
       },
     });
 
     // Calculate chit fund profit (commission from auctions)
     let chitFundProfit = 0;
-    chitFundsWithAuctions.forEach(fund => {
+    let totalOutsideAmount = 0;
+
+    // Calculate outside amount from chit funds
+    chitFundsWithDetails.forEach(fund => {
+      let fundProfit = 0;
+      let fundInflow = 0;
+      let fundOutflow = 0;
+
+      // Calculate inflow from contributions
+      if (fund.contributions && fund.contributions.length > 0) {
+        fundInflow = fund.contributions.reduce((sum, contribution) => sum + contribution.amount, 0);
+      }
+
+      // Calculate outflow and profit from auctions
       if (fund.auctions && fund.auctions.length > 0 && fund.members && fund.members.length > 0) {
         fund.auctions.forEach(auction => {
+          fundOutflow += auction.amount;
+
           // Each auction's profit is the difference between the total monthly contribution and the auction amount
           const monthlyTotal = fund.monthlyContribution * fund.members.length;
           const auctionProfit = monthlyTotal - auction.amount;
-          chitFundProfit += auctionProfit > 0 ? auctionProfit : 0;
+          fundProfit += auctionProfit > 0 ? auctionProfit : 0;
         });
       }
+
+      // If there are no auctions or the calculated profit is 0, but there's a difference between inflow and outflow,
+      // use that difference as the profit (especially for completed chit funds)
+      if ((fund.auctions.length === 0 || fundProfit === 0) && fundInflow > fundOutflow) {
+        fundProfit = fundInflow - fundOutflow;
+      }
+
+      // Calculate outside amount (when outflow exceeds inflow)
+      if (fundOutflow > fundInflow) {
+        totalOutsideAmount += (fundOutflow - fundInflow);
+      }
+
+      chitFundProfit += fundProfit;
     });
+
+    // Add remaining loan amounts to the outside amount
+    // This represents money that has been disbursed but not yet repaid
+    const totalLoanAmount = loansWithDetails.reduce((sum, loan) => sum + loan.amount, 0);
+    const totalRepaymentAmount = loansWithDetails.reduce((sum, loan) => {
+      const loanRepayments = loan.repayments || [];
+      return sum + loanRepayments.reduce((repaymentSum, repayment) => {
+        // Only count full payments toward reducing the principal
+        if (repayment.paymentType !== 'interestOnly') {
+          return repaymentSum + repayment.amount;
+        }
+        return repaymentSum;
+      }, 0);
+    }, 0);
+
+    // Calculate the remaining loan amount
+    const remainingLoanAmount = totalLoanAmount - totalRepaymentAmount;
+
+    // Calculate the chit fund outside amount (already calculated above)
+    const chitFundOutsideAmount = totalOutsideAmount;
+
+    // Add the remaining loan amount to the total outside amount
+    if (remainingLoanAmount > 0) {
+      totalOutsideAmount += remainingLoanAmount;
+    }
+
+    // Create an object to store the breakdown of outside amount
+    const outsideAmountBreakdown = {
+      loanRemainingAmount: remainingLoanAmount > 0 ? remainingLoanAmount : 0,
+      chitFundOutsideAmount: chitFundOutsideAmount
+    };
 
     // Calculate total cash flows including loan transactions
     const totalCashInflow = (contributionsSum._sum.amount || 0) + (repaymentsSum._sum.amount || 0);
@@ -138,6 +198,8 @@ export async function GET() {
       totalProfit,
       loanProfit,
       chitFundProfit,
+      totalOutsideAmount,
+      outsideAmountBreakdown,
       activeChitFunds,
       totalMembers,
       activeLoans,

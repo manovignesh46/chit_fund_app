@@ -55,11 +55,24 @@ export default function ChitFundsPage() {
   const [bulkDeleteError, setBulkDeleteError] = useState<string | null>(null);
   const [bulkDeleteSuccess, setBulkDeleteSuccess] = useState<string | null>(null);
 
+  // Export state
+  const [isExporting, setIsExporting] = useState(false);
+
+  // Status filter state
+  const [statusFilter, setStatusFilter] = useState<string>('');
+
   // Fetch chit funds function
   const fetchChitFunds = async () => {
     try {
       setLoading(true);
-      const response = await fetch(`/api/chit-funds?page=${currentPage}&pageSize=${pageSize}`);
+      let url = `/api/chit-funds?page=${currentPage}&pageSize=${pageSize}`;
+
+      // Add status filter if selected
+      if (statusFilter) {
+        url += `&status=${statusFilter}`;
+      }
+
+      const response = await fetch(url);
 
       if (!response.ok) {
         throw new Error('Failed to fetch chit funds');
@@ -92,10 +105,16 @@ export default function ChitFundsPage() {
     }
   };
 
+  // Handle status filter change
+  const handleStatusFilterChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    setStatusFilter(e.target.value);
+    setCurrentPage(1); // Reset to first page when changing filter
+  };
+
   // Initial data fetch
   useEffect(() => {
     fetchChitFunds();
-  }, [currentPage, pageSize]);
+  }, [currentPage, pageSize, statusFilter]);
 
   // Handle selecting/deselecting a chit fund
   const handleSelectChitFund = (chitFundId: number) => {
@@ -221,6 +240,57 @@ export default function ChitFundsPage() {
     }
   };
 
+  // Handle export selected chit funds
+  const handleExportSelected = async () => {
+    if (selectedChitFunds.length === 0 || isExporting) return;
+
+    try {
+      setIsExporting(true);
+
+      // Call the export API endpoint with selected chit fund IDs
+      const response = await fetch('/api/chit-funds/export', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ chitFundIds: selectedChitFunds }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to export chit funds');
+      }
+
+      // Get the blob from the response
+      const blob = await response.blob();
+
+      // Generate filename with current date
+      const today = new Date();
+      const dateStr = today.toISOString().split('T')[0]; // YYYY-MM-DD format
+      const filename = `ChitFund_Details_${dateStr}.xlsx`;
+
+      // Create a URL for the blob
+      const url = window.URL.createObjectURL(blob);
+
+      // Create a temporary link element
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+
+      // Append to the document and trigger a click
+      document.body.appendChild(a);
+      a.click();
+
+      // Clean up
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (error) {
+      console.error('Error exporting chit funds:', error);
+      alert('Failed to export chit funds. Please try again.');
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   // Format currency
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-IN', {
@@ -261,6 +331,32 @@ export default function ChitFundsPage() {
         <h1 className="text-3xl font-bold text-blue-700">Chit Funds</h1>
         <div className="flex space-x-4">
           <button
+            onClick={handleExportSelected}
+            disabled={selectedChitFunds.length === 0 || isExporting}
+            className={`px-4 py-2 rounded-lg transition duration-300 flex items-center ${
+              selectedChitFunds.length === 0
+                ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                : 'bg-blue-600 text-white hover:bg-blue-700'
+            }`}
+          >
+            {isExporting ? (
+              <>
+                <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                Exporting...
+              </>
+            ) : (
+              <>
+                <svg className="-ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                Export Selected
+              </>
+            )}
+          </button>
+          <button
             onClick={handleBulkDeleteClick}
             disabled={selectedChitFunds.length === 0}
             className={`px-4 py-2 rounded-lg ${
@@ -274,6 +370,35 @@ export default function ChitFundsPage() {
           <Link href="/chit-funds/new" className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-300">
             Create New Chit Fund
           </Link>
+        </div>
+      </div>
+
+      {/* Status filter - always visible */}
+      <div className="bg-white rounded-lg shadow-md overflow-hidden mb-4">
+        <div className="p-4 flex items-center">
+          <label htmlFor="statusFilter" className="text-sm text-gray-600 mr-2">
+            Filter by Status:
+          </label>
+          <select
+            id="statusFilter"
+            value={statusFilter}
+            onChange={handleStatusFilterChange}
+            className="border border-gray-300 rounded-md text-sm py-1 pl-2 pr-8"
+          >
+            <option value="">All Statuses</option>
+            <option value="Active">Active</option>
+            <option value="Upcoming">Upcoming</option>
+            <option value="Completed">Completed</option>
+          </select>
+
+          {statusFilter && (
+            <button
+              onClick={() => setStatusFilter('')}
+              className="ml-2 text-sm text-gray-500 hover:text-gray-700"
+            >
+              Clear Filter
+            </button>
+          )}
         </div>
       </div>
 
@@ -291,10 +416,14 @@ export default function ChitFundsPage() {
         </div>
       ) : chitFunds.length === 0 ? (
         <div className="bg-white rounded-lg shadow-md p-6 text-center">
-          <p className="text-gray-600 mb-4">No chit funds found.</p>
-          <Link href="/chit-funds/new" className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-300">
-            Create Your First Chit Fund
-          </Link>
+          <p className="text-gray-600 mb-4">
+            {statusFilter ? `No chit funds found with status "${statusFilter}".` : "No chit funds found."}
+          </p>
+          {!statusFilter && (
+            <Link href="/chit-funds/new" className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-300">
+              Create Your First Chit Fund
+            </Link>
+          )}
         </div>
       ) : (
         <div className="bg-white rounded-lg shadow-md overflow-hidden">
