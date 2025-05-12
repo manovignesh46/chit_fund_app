@@ -71,7 +71,7 @@ export async function getDynamicPaymentSchedule(
     const startDate = new Date(disbursementDate);
 
     // Generate all possible periods and their due dates
-    const allPeriods = [];
+    const allPeriods: { period: number; dueDate: Date }[] = [];
     for (let i = 1; i <= duration; i++) {
       const dueDate = new Date(startDate);
 
@@ -85,7 +85,7 @@ export async function getDynamicPaymentSchedule(
     }
 
     // Match repayments to periods
-    repayments.forEach(repayment => {
+    repayments.forEach((repayment: any) => {
       const repaymentDate = new Date(repayment.paidDate);
       let periodToUse;
 
@@ -141,7 +141,7 @@ export async function getDynamicPaymentSchedule(
     nextWeek.setHours(23, 59, 59, 999);
 
     // Generate dynamic payment schedules
-    const dynamicSchedules = [];
+    const dynamicSchedules: any[] = [];
 
     // Track the next upcoming payment date to ensure it's always shown
     let nextUpcomingPaymentDate = null;
@@ -297,7 +297,7 @@ export async function updateOverdueAmountFromRepayments(loanId: number) {
     const repaymentsByPeriod = new Map();
 
     // Group repayments by period, keeping the most recent one for each period
-    repayments.forEach(repayment => {
+    repayments.forEach((repayment: any) => {
       let periodToUse;
 
       // If the repayment has a period field, always use it
@@ -405,7 +405,7 @@ export async function calculateNextPaymentDate(loanId: number) {
     const { duration, repaymentType } = loan;
 
     // Generate all possible due dates
-    const dueDates = [];
+    const dueDates: { period: number; dueDate: Date }[] = [];
     for (let i = 1; i <= duration; i++) {
       const dueDate = new Date(disbursementDate);
 
@@ -424,8 +424,8 @@ export async function calculateNextPaymentDate(loanId: number) {
     // Create a map of periods that have been paid with full payments
     const paidPeriods = new Set();
     loan.repayments
-      .filter(r => r.paymentType !== 'interestOnly')
-      .forEach(repayment => {
+      .filter((r: any) => r.paymentType !== 'interestOnly')
+      .forEach((repayment: any) => {
         let periodToUse;
         const repaymentDate = new Date(repayment.paidDate);
 
@@ -616,12 +616,12 @@ export async function generatePaymentSchedule(loanId: number, loan?: any) {
     });
 
     // Create a map of existing schedules by period for quick lookup
-    const existingSchedulesByPeriod = {};
+    const existingSchedulesByPeriod: Record<number, any> = {};
     for (const schedule of existingSchedules) {
       existingSchedulesByPeriod[schedule.period] = schedule;
     }
 
-    const schedules = [];
+    const schedules: any[] = [];
     const { disbursementDate, duration, repaymentType, installmentAmount, interestRate } = loan;
     const startDate = new Date(disbursementDate);
 
@@ -684,7 +684,7 @@ export async function generatePaymentSchedule(loanId: number, loan?: any) {
     // Delete any schedules that are no longer needed (e.g., if loan duration was reduced)
     const validPeriods = Array.from({ length: duration }, (_, i) => i + 1);
     const schedulesToDelete = existingSchedules.filter(
-      schedule => !validPeriods.includes(schedule.period) &&
+      (schedule: any) => !validPeriods.includes(schedule.period) &&
                  schedule.status !== 'Paid' &&
                  schedule.status !== 'InterestOnly'
     );
@@ -692,7 +692,7 @@ export async function generatePaymentSchedule(loanId: number, loan?: any) {
     if (schedulesToDelete.length > 0) {
       await prismaAny.paymentSchedule.deleteMany({
         where: {
-          id: { in: schedulesToDelete.map(s => s.id) }
+          id: { in: schedulesToDelete.map((s: any) => s.id) }
         }
       });
     }
@@ -898,7 +898,7 @@ async function updateOverdueAmount(loanId: number) {
     const repaymentsByPeriod = new Map();
 
     // Group repayments by period, keeping the most recent one for each period
-    repayments.forEach(repayment => {
+    repayments.forEach((repayment: any) => {
       let periodToUse;
 
       // If the repayment has a period field, always use it

@@ -3,6 +3,57 @@ import prisma from '@/lib/prisma';
 import { getCurrentUserId } from '@/lib/auth';
 import * as XLSX from 'xlsx';
 
+// Use type assertion to handle TypeScript type checking
+const prismaAny = prisma as any;
+
+// Define interfaces for financial data
+interface FinancialDataPoint {
+  period: string;
+  cashInflow: number;
+  cashOutflow: number;
+  profit: number;
+  loanProfit: number;
+  chitFundProfit: number;
+  outsideAmount: number;
+  outsideAmountBreakdown: {
+    loanRemainingAmount: number;
+    chitFundOutsideAmount: number;
+  };
+  overdueDetails: {
+    totalOverdueAmount: number;
+    totalMissedPayments: number;
+  };
+  cashFlowDetails: {
+    contributionInflow: number;
+    repaymentInflow: number;
+    auctionOutflow: number;
+    loanOutflow: number;
+    netCashFlow: number;
+  };
+  profitDetails: {
+    interestPayments: number;
+    documentCharges: number;
+    auctionCommissions: number;
+  };
+  transactionCounts: {
+    loanDisbursements: number;
+    loanRepayments: number;
+    chitFundContributions: number;
+    chitFundAuctions: number;
+    totalTransactions: number;
+  };
+  periodRange: {
+    startDate: string;
+    endDate: string;
+  };
+  detailedTransactions?: {
+    contributions: any[];
+    repayments: any[];
+    auctions: any[];
+    loans: any[];
+  };
+}
+
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
@@ -53,22 +104,26 @@ export async function GET(request: NextRequest) {
     const workbook = XLSX.utils.book_new();
 
     // Create main summary worksheet
-    const summaryData = financialData.map(period => ({
-      'Period': period.period,
-      'Date Range': `${new Date(period.periodRange.startDate).toLocaleDateString()} - ${new Date(period.periodRange.endDate).toLocaleDateString()}`,
-      'Cash Inflow': period.cashInflow,
-      'Cash Outflow': period.cashOutflow,
-      'Net Cash Flow': period.cashFlowDetails.netCashFlow,
-      'Total Profit': period.profit,
-      'Loan Profit': period.loanProfit,
-      'Chit Fund Profit': period.chitFundProfit,
-      'Outside Amount': period.outsideAmount,
-      'Loan Remaining Amount': period.outsideAmountBreakdown.loanRemainingAmount,
-      'Chit Fund Outside Amount': period.outsideAmountBreakdown.chitFundOutsideAmount,
-      'Overdue Amount': period.overdueDetails?.totalOverdueAmount || 0,
-      'Missed Payments': period.overdueDetails?.totalMissedPayments || 0,
-      'Total Transactions': period.transactionCounts.totalTransactions
-    }));
+    const summaryData = financialData.map(period => {
+      // Cast period to any to avoid TypeScript errors
+      const periodAny = period as any;
+      return {
+        'Period': periodAny.period,
+        'Date Range': `${new Date(periodAny.periodRange.startDate).toLocaleDateString()} - ${new Date(periodAny.periodRange.endDate).toLocaleDateString()}`,
+        'Cash Inflow': periodAny.cashInflow,
+        'Cash Outflow': periodAny.cashOutflow,
+        'Net Cash Flow': periodAny.cashFlowDetails.netCashFlow,
+        'Total Profit': periodAny.profit,
+        'Loan Profit': periodAny.loanProfit,
+        'Chit Fund Profit': periodAny.chitFundProfit,
+        'Outside Amount': periodAny.outsideAmount,
+        'Loan Remaining Amount': periodAny.outsideAmountBreakdown.loanRemainingAmount,
+        'Chit Fund Outside Amount': periodAny.outsideAmountBreakdown.chitFundOutsideAmount,
+        'Overdue Amount': periodAny.overdueDetails?.totalOverdueAmount || 0,
+        'Missed Payments': periodAny.overdueDetails?.totalMissedPayments || 0,
+        'Total Transactions': periodAny.transactionCounts.totalTransactions
+      };
+    });
 
     const summaryWorksheet = XLSX.utils.json_to_sheet(summaryData);
     XLSX.utils.book_append_sheet(workbook, summaryWorksheet, 'Financial Summary');
@@ -127,18 +182,22 @@ export async function GET(request: NextRequest) {
     XLSX.utils.book_append_sheet(workbook, outsideWorksheet, 'Outside Amount Details');
 
     // Create overdue details worksheet
-    const overdueData = financialData.map(period => ({
-      'Period': period.period,
-      'Overdue Amount': period.overdueDetails?.totalOverdueAmount || 0,
-      'Missed Payments Count': period.overdueDetails?.totalMissedPayments || 0
-    }));
+    const overdueData = financialData.map(period => {
+      // Cast period to any to avoid TypeScript errors
+      const periodAny = period as any;
+      return {
+        'Period': periodAny.period,
+        'Overdue Amount': periodAny.overdueDetails?.totalOverdueAmount || 0,
+        'Missed Payments Count': periodAny.overdueDetails?.totalMissedPayments || 0
+      };
+    });
 
     const overdueWorksheet = XLSX.utils.json_to_sheet(overdueData);
     XLSX.utils.book_append_sheet(workbook, overdueWorksheet, 'Overdue Details');
 
     // Add detailed transaction worksheets if available (for single period exports)
-    if (duration === 'single' && financialData[0]?.detailedTransactions) {
-      const { contributions, repayments, auctions, loans } = financialData[0].detailedTransactions;
+    if (duration === 'single' && (financialData[0] as any)?.detailedTransactions) {
+      const { contributions, repayments, auctions, loans } = (financialData[0] as any).detailedTransactions;
 
       // Add contributions worksheet
       if (contributions && contributions.length > 0) {
@@ -190,6 +249,9 @@ async function getFinancialDataByDuration(duration: string, limit: number, userI
   const now = new Date();
   const periods: { label: string; startDate: Date; endDate: Date }[] = [];
 
+  // Use type assertion to handle TypeScript type checking
+  const prismaAny = prisma as any;
+
   // Generate time periods based on duration
   if (duration === 'weekly') {
     // Generate last N weeks
@@ -239,7 +301,7 @@ async function getFinancialDataByDuration(duration: string, limit: number, userI
   const result = await Promise.all(
     periods.map(async (period) => {
       // Get contributions within this period
-      const contributions = await prisma.contribution.findMany({
+      const contributions = await prismaAny.contribution.findMany({
         where: {
           paidDate: {
             gte: period.startDate,
@@ -252,7 +314,7 @@ async function getFinancialDataByDuration(duration: string, limit: number, userI
       });
 
       // Get repayments within this period
-      const repayments = await prisma.repayment.findMany({
+      const repayments = await prismaAny.repayment.findMany({
         where: {
           paidDate: {
             gte: period.startDate,
@@ -268,7 +330,7 @@ async function getFinancialDataByDuration(duration: string, limit: number, userI
       });
 
       // Get auctions within this period
-      const auctions = await prisma.auction.findMany({
+      const auctions = await prismaAny.auction.findMany({
         where: {
           date: {
             gte: period.startDate,
@@ -284,7 +346,7 @@ async function getFinancialDataByDuration(duration: string, limit: number, userI
       });
 
       // Get loans disbursed within this period
-      const loans = await prisma.loan.findMany({
+      const loans = await prismaAny.loan.findMany({
         where: {
           disbursementDate: {
             gte: period.startDate,
@@ -295,13 +357,13 @@ async function getFinancialDataByDuration(duration: string, limit: number, userI
       });
 
       // Calculate cash inflow (contributions + repayments)
-      const contributionInflow = contributions.reduce((sum, contribution) => sum + contribution.amount, 0);
-      const repaymentInflow = repayments.reduce((sum, repayment) => sum + repayment.amount, 0);
+      const contributionInflow = contributions.reduce((sum: number, contribution: any) => sum + contribution.amount, 0);
+      const repaymentInflow = repayments.reduce((sum: number, repayment: any) => sum + repayment.amount, 0);
       const cashInflow = contributionInflow + repaymentInflow;
 
       // Calculate cash outflow (auctions + loans)
-      const auctionOutflow = auctions.reduce((sum, auction) => sum + auction.amount, 0);
-      const loanOutflow = loans.reduce((sum, loan) => sum + loan.amount, 0);
+      const auctionOutflow = auctions.reduce((sum: number, auction: any) => sum + auction.amount, 0);
+      const loanOutflow = loans.reduce((sum: number, loan: any) => sum + loan.amount, 0);
       const cashOutflow = auctionOutflow + loanOutflow;
 
       // Calculate profit
@@ -312,17 +374,17 @@ async function getFinancialDataByDuration(duration: string, limit: number, userI
 
       // For interest-only payments, they are pure profit
       const interestOnlyPayments = repayments
-        .filter(repayment => repayment.paymentType === 'interestOnly')
-        .reduce((sum, repayment) => sum + repayment.amount, 0);
+        .filter((repayment: any) => repayment.paymentType === 'interestOnly')
+        .reduce((sum: number, repayment: any) => sum + repayment.amount, 0);
 
       loanProfit += interestOnlyPayments;
       interestPayments += interestOnlyPayments;
 
       // For regular payments, calculate the interest portion
       // Group repayments by loan to calculate interest correctly
-      const repaymentsByLoan = {};
+      const repaymentsByLoan: Record<number, { loan: any; repayments: any[] }> = {};
 
-      repayments.forEach(repayment => {
+      repayments.forEach((repayment: any) => {
         if (repayment.paymentType !== 'interestOnly' && repayment.loan) {
           const loanId = repayment.loan.id;
           if (!repaymentsByLoan[loanId]) {
@@ -351,14 +413,14 @@ async function getFinancialDataByDuration(duration: string, limit: number, userI
       });
 
       // Add document charges for loans disbursed in this period
-      documentCharges = loans.reduce((sum, loan) => sum + loan.documentCharge, 0);
+      documentCharges = loans.reduce((sum: number, loan: any) => sum + loan.documentCharge, 0);
       loanProfit += documentCharges;
 
       // For chit funds: auction profit (commission)
       let chitFundProfit = 0;
       let auctionCommissions = 0;
 
-      auctions.forEach(auction => {
+      auctions.forEach((auction: any) => {
         if (auction.chitFund) {
           const monthlyTotal = auction.chitFund.monthlyContribution * auction.chitFund.membersCount;
           const auctionProfit = monthlyTotal - auction.amount;
@@ -379,7 +441,7 @@ async function getFinancialDataByDuration(duration: string, limit: number, userI
 
       // Calculate outside amount and get loan details including missed payments
       // For loans: remaining balances, overdue amounts, and missed payments
-      const activeLoans = await prisma.loan.findMany({
+      const activeLoans = await prismaAny.loan.findMany({
         where: {
           createdById: userId,
           status: 'Active',
@@ -395,12 +457,12 @@ async function getFinancialDataByDuration(duration: string, limit: number, userI
       });
 
       // Calculate total remaining amount, overdue amount, and missed payments
-      const loanRemainingAmount = activeLoans.reduce((sum, loan) => sum + loan.remainingAmount, 0);
-      const totalOverdueAmount = activeLoans.reduce((sum, loan) => sum + (loan.overdueAmount || 0), 0);
-      const totalMissedPayments = activeLoans.reduce((sum, loan) => sum + (loan.missedPayments || 0), 0);
+      const loanRemainingAmount = activeLoans.reduce((sum: number, loan: any) => sum + loan.remainingAmount, 0);
+      const totalOverdueAmount = activeLoans.reduce((sum: number, loan: any) => sum + (loan.overdueAmount || 0), 0);
+      const totalMissedPayments = activeLoans.reduce((sum: number, loan: any) => sum + (loan.missedPayments || 0), 0);
 
       // For chit funds: outflow exceeding inflow
-      const chitFundsWithDetails = await prisma.chitFund.findMany({
+      const chitFundsWithDetails = await prismaAny.chitFund.findMany({
         where: {
           createdById: userId,
           createdAt: {
@@ -426,9 +488,9 @@ async function getFinancialDataByDuration(duration: string, limit: number, userI
       });
 
       let chitFundOutsideAmount = 0;
-      chitFundsWithDetails.forEach(fund => {
-        const fundInflow = fund.contributions.reduce((sum, contribution) => sum + contribution.amount, 0);
-        const fundOutflow = fund.auctions.reduce((sum, auction) => sum + auction.amount, 0);
+      chitFundsWithDetails.forEach((fund: any) => {
+        const fundInflow = fund.contributions.reduce((sum: number, contribution: any) => sum + contribution.amount, 0);
+        const fundOutflow = fund.auctions.reduce((sum: number, auction: any) => sum + auction.amount, 0);
 
         if (fundOutflow > fundInflow) {
           chitFundOutsideAmount += (fundOutflow - fundInflow);
@@ -489,8 +551,11 @@ async function getSinglePeriodData(periodLabel: string, startDate: Date, endDate
   // This function is similar to the period data fetching in getFinancialDataByDuration
   // but for a single specific period with known start and end dates
 
+  // Use type assertion to handle TypeScript type checking
+  const prismaAny = prisma as any;
+
   // Get contributions within this period with detailed information
-  const contributions = await prisma.contribution.findMany({
+  const contributions = await prismaAny.contribution.findMany({
     where: {
       paidDate: {
         gte: startDate,
@@ -520,7 +585,7 @@ async function getSinglePeriodData(periodLabel: string, startDate: Date, endDate
   });
 
   // Get repayments within this period with detailed information
-  const repayments = await prisma.repayment.findMany({
+  const repayments = await prismaAny.repayment.findMany({
     where: {
       paidDate: {
         gte: startDate,
@@ -543,7 +608,7 @@ async function getSinglePeriodData(periodLabel: string, startDate: Date, endDate
   });
 
   // Get auctions within this period with detailed information
-  const auctions = await prisma.auction.findMany({
+  const auctions = await prismaAny.auction.findMany({
     where: {
       date: {
         gte: startDate,
@@ -567,7 +632,7 @@ async function getSinglePeriodData(periodLabel: string, startDate: Date, endDate
   });
 
   // Get loans disbursed within this period with detailed information
-  const loans = await prisma.loan.findMany({
+  const loans = await prismaAny.loan.findMany({
     where: {
       disbursementDate: {
         gte: startDate,
@@ -584,13 +649,13 @@ async function getSinglePeriodData(periodLabel: string, startDate: Date, endDate
   });
 
   // Calculate cash inflow (contributions + repayments)
-  const contributionInflow = contributions.reduce((sum, contribution) => sum + contribution.amount, 0);
-  const repaymentInflow = repayments.reduce((sum, repayment) => sum + repayment.amount, 0);
+  const contributionInflow = contributions.reduce((sum: number, contribution: any) => sum + contribution.amount, 0);
+  const repaymentInflow = repayments.reduce((sum: number, repayment: any) => sum + repayment.amount, 0);
   const cashInflow = contributionInflow + repaymentInflow;
 
   // Calculate cash outflow (auctions + loans)
-  const auctionOutflow = auctions.reduce((sum, auction) => sum + auction.amount, 0);
-  const loanOutflow = loans.reduce((sum, loan) => sum + loan.amount, 0);
+  const auctionOutflow = auctions.reduce((sum: number, auction: any) => sum + auction.amount, 0);
+  const loanOutflow = loans.reduce((sum: number, loan: any) => sum + loan.amount, 0);
   const cashOutflow = auctionOutflow + loanOutflow;
 
   // Calculate profit
@@ -601,17 +666,17 @@ async function getSinglePeriodData(periodLabel: string, startDate: Date, endDate
 
   // For interest-only payments, they are pure profit
   const interestOnlyPayments = repayments
-    .filter(repayment => repayment.paymentType === 'interestOnly')
-    .reduce((sum, repayment) => sum + repayment.amount, 0);
+    .filter((repayment: any) => repayment.paymentType === 'interestOnly')
+    .reduce((sum: number, repayment: any) => sum + repayment.amount, 0);
 
   loanProfit += interestOnlyPayments;
   interestPayments += interestOnlyPayments;
 
   // For regular payments, calculate the interest portion
   // Group repayments by loan to calculate interest correctly
-  const repaymentsByLoan = {};
+  const repaymentsByLoan: Record<number, { loan: any; repayments: any[] }> = {};
 
-  repayments.forEach(repayment => {
+  repayments.forEach((repayment: any) => {
     if (repayment.paymentType !== 'interestOnly' && repayment.loan) {
       const loanId = repayment.loan.id;
       if (!repaymentsByLoan[loanId]) {
@@ -640,14 +705,14 @@ async function getSinglePeriodData(periodLabel: string, startDate: Date, endDate
   });
 
   // Add document charges for loans disbursed in this period
-  documentCharges = loans.reduce((sum, loan) => sum + loan.documentCharge, 0);
+  documentCharges = loans.reduce((sum: number, loan: any) => sum + loan.documentCharge, 0);
   loanProfit += documentCharges;
 
   // For chit funds: auction profit (commission)
   let chitFundProfit = 0;
   let auctionCommissions = 0;
 
-  auctions.forEach(auction => {
+  auctions.forEach((auction: any) => {
     if (auction.chitFund) {
       const monthlyTotal = auction.chitFund.monthlyContribution * auction.chitFund.membersCount;
       const auctionProfit = monthlyTotal - auction.amount;
@@ -668,7 +733,7 @@ async function getSinglePeriodData(periodLabel: string, startDate: Date, endDate
 
   // Calculate outside amount
   // For loans: remaining balances
-  const loanRemainingAmount = await prisma.loan.aggregate({
+  const loanRemainingAmount = await prismaAny.loan.aggregate({
     where: {
       createdById: userId,
       status: 'Active',
@@ -682,7 +747,7 @@ async function getSinglePeriodData(periodLabel: string, startDate: Date, endDate
   });
 
   // For chit funds: outflow exceeding inflow
-  const chitFundsWithDetails = await prisma.chitFund.findMany({
+  const chitFundsWithDetails = await prismaAny.chitFund.findMany({
     where: {
       createdById: userId,
       createdAt: {
@@ -708,9 +773,9 @@ async function getSinglePeriodData(periodLabel: string, startDate: Date, endDate
   });
 
   let chitFundOutsideAmount = 0;
-  chitFundsWithDetails.forEach(fund => {
-    const fundInflow = fund.contributions.reduce((sum, contribution) => sum + contribution.amount, 0);
-    const fundOutflow = fund.auctions.reduce((sum, auction) => sum + auction.amount, 0);
+  chitFundsWithDetails.forEach((fund: any) => {
+    const fundInflow = fund.contributions.reduce((sum: number, contribution: any) => sum + contribution.amount, 0);
+    const fundOutflow = fund.auctions.reduce((sum: number, auction: any) => sum + auction.amount, 0);
 
     if (fundOutflow > fundInflow) {
       chitFundOutsideAmount += (fundOutflow - fundInflow);
@@ -729,7 +794,7 @@ async function getSinglePeriodData(periodLabel: string, startDate: Date, endDate
   };
 
   // Prepare detailed transaction data for export
-  const detailedContributions = contributions.map(contribution => ({
+  const detailedContributions = contributions.map((contribution: any) => ({
     'Chit Fund Name': contribution.chitFund?.name || 'Unknown',
     'Member Name': contribution.member?.globalMember?.name || 'Unknown',
     'Month': contribution.month,
@@ -741,7 +806,7 @@ async function getSinglePeriodData(periodLabel: string, startDate: Date, endDate
     'Contact': contribution.member?.globalMember?.contact || 'N/A'
   }));
 
-  const detailedRepayments = repayments.map(repayment => ({
+  const detailedRepayments = repayments.map((repayment: any) => ({
     'Borrower Name': repayment.loan?.borrower?.name || 'Unknown',
     'Loan Amount': repayment.loan?.amount || 0,
     'Payment Amount': repayment.amount,
@@ -751,7 +816,7 @@ async function getSinglePeriodData(periodLabel: string, startDate: Date, endDate
     'Contact': repayment.loan?.borrower?.contact || 'N/A'
   }));
 
-  const detailedAuctions = auctions.map(auction => ({
+  const detailedAuctions = auctions.map((auction: any) => ({
     'Chit Fund Name': auction.chitFund?.name || 'Unknown',
     'Winner Name': auction.winner?.globalMember?.name || 'Unknown',
     'Month': auction.month,
@@ -764,7 +829,7 @@ async function getSinglePeriodData(periodLabel: string, startDate: Date, endDate
     'Contact': auction.winner?.globalMember?.contact || 'N/A'
   }));
 
-  const detailedLoans = loans.map(loan => ({
+  const detailedLoans = loans.map((loan: any) => ({
     'Borrower Name': loan.borrower?.name || 'Unknown',
     'Loan Type': loan.loanType,
     'Amount': loan.amount,
@@ -778,6 +843,26 @@ async function getSinglePeriodData(periodLabel: string, startDate: Date, endDate
     'Contact': loan.borrower?.contact || 'N/A'
   }));
 
+  // Get active loans to calculate overdue amounts
+  const activeLoans = await prismaAny.loan.findMany({
+    where: {
+      createdById: userId,
+      status: 'Active',
+      createdAt: {
+        lte: endDate,
+      },
+    },
+    select: {
+      remainingAmount: true,
+      overdueAmount: true,
+      missedPayments: true
+    }
+  });
+
+  // Calculate total overdue amount and missed payments
+  const totalOverdueAmount = activeLoans.reduce((sum: number, loan: any) => sum + (loan.overdueAmount || 0), 0);
+  const totalMissedPayments = activeLoans.reduce((sum: number, loan: any) => sum + (loan.missedPayments || 0), 0);
+
   // Return a single-item array to maintain compatibility with the existing export code
   return [{
     period: periodLabel,
@@ -788,8 +873,12 @@ async function getSinglePeriodData(periodLabel: string, startDate: Date, endDate
     chitFundProfit,
     outsideAmount: totalOutsideAmount,
     outsideAmountBreakdown: {
-      loanRemainingAmount: loanRemainingAmount._sum.remainingAmount || 0,
+      loanRemainingAmount: loanRemainingAmount._sum?.remainingAmount || 0,
       chitFundOutsideAmount,
+    },
+    overdueDetails: {
+      totalOverdueAmount,
+      totalMissedPayments,
     },
     // Additional detailed information
     cashFlowDetails: {

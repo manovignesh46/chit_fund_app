@@ -112,9 +112,8 @@ const PaymentSchedulesPage = () => {
       // Determine payment type based on status
       const paymentType = status === 'InterestOnly' ? 'interestOnly' : 'full';
 
-      // Get the amount from the loan's installment amount or from the schedule
-      const amount = loan?.installmentAmount ||
-                    schedules.find(s => s.period === period)?.amount || 0;
+      // Get the amount from the schedule
+      const amount = schedules.find(s => s.period === period)?.amount || 0;
 
       console.log(`Recording payment for period ${period}, amount ${amount}, type ${paymentType}`);
 

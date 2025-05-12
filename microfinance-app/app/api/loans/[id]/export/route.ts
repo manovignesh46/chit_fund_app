@@ -113,7 +113,7 @@ export async function GET(
             // SPECIAL CASE: For loans with only interest-only payments
             const onlyHasInterestOnlyPayments =
                 repayments.length > 0 &&
-                repayments.every(r => r.paymentType === 'interestOnly');
+                repayments.every((r: any) => r.paymentType === 'interestOnly');
 
             if (onlyHasInterestOnlyPayments) {
                 // For loans with only interest-only payments, the profit is the interest rate
@@ -125,7 +125,7 @@ export async function GET(
                 // For interest, we only count actual interest payments collected
 
                 // Count regular payments (non-interest-only)
-                const regularPayments = repayments.filter(r => r.paymentType !== 'interestOnly');
+                const regularPayments = repayments.filter((r: any) => r.paymentType !== 'interestOnly');
                 const regularPaymentsCount = regularPayments.length;
 
                 // Document charge is always counted
@@ -227,7 +227,7 @@ export async function GET(
 
         // Encode the filename for Content-Disposition header
         // This ensures special characters are properly handled
-        const encodedFilename = encodeURIComponent(fileName).replace(/['()]/g, escape);
+        const encodedFilename = encodeURIComponent(fileName).replace(/['()]/g, (char) => '%' + char.charCodeAt(0).toString(16));
 
         // Set response headers for file download
         const headers = new Headers();
