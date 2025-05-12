@@ -92,14 +92,21 @@ export async function POST(request: NextRequest) {
             };
 
             // Format repayments
-            const formattedRepayments = repayments.map((repayment: any, index: number) => ({
-                'No.': index + 1,
-                'Payment ID': repayment.id,
-                'Paid Date': formatDate(repayment.paidDate),
-                'Amount': repayment.amount,
-                'Payment Type': repayment.paymentType || 'full',
-                'Created At': formatDate(repayment.createdAt)
-            }));
+            const formattedRepayments = repayments.map((repayment: any, index: number) => {
+                // For interest-only payments, show the interest rate instead of the full payment amount
+                const displayAmount = repayment.paymentType === 'interestOnly'
+                    ? loan.interestRate
+                    : repayment.amount;
+
+                return {
+                    'No.': index + 1,
+                    'Payment ID': repayment.id,
+                    'Paid Date': formatDate(repayment.paidDate),
+                    'Amount': displayAmount,
+                    'Payment Type': repayment.paymentType || 'full',
+                    'Created At': formatDate(repayment.createdAt)
+                };
+            });
 
             // Calculate totals
             const totalPaid = repayments.reduce((sum: number, repayment: any) => {
@@ -155,11 +162,16 @@ export async function POST(request: NextRequest) {
 
             // Add summary row to repayments if there are any
             if (formattedRepayments.length > 0) {
+                // Calculate total of displayed amounts (interest rate for interest-only payments)
+                const totalDisplayAmount = formattedRepayments.reduce((sum: number, repayment: any) => {
+                    return sum + repayment['Amount'];
+                }, 0);
+
                 formattedRepayments.push({
                     'No.': '',
                     'Payment ID': '',
                     'Paid Date': '',
-                    'Amount': allPaymentsTotal,
+                    'Amount': totalDisplayAmount, // Use total of displayed amounts
                     'Payment Type': '',
                     'Created At': 'TOTAL PAYMENTS'
                 });

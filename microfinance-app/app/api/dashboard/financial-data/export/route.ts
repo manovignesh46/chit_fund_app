@@ -828,15 +828,23 @@ async function getSinglePeriodData(periodLabel: string, startDate: Date, endDate
     'Contact': contribution.member?.globalMember?.contact || 'N/A'
   }));
 
-  const detailedRepayments = repayments.map((repayment: any) => ({
-    'Borrower Name': repayment.loan?.borrower?.name || 'Unknown',
-    'Loan Amount': repayment.loan?.amount || 0,
-    'Payment Amount': repayment.amount,
-    'Payment Type': repayment.paymentType === 'interestOnly' ? 'Interest Only' : 'Full Payment',
-    'Paid Date': formatDate(new Date(repayment.paidDate)),
-    'Remaining Amount': repayment.loan?.remainingAmount || 0,
-    'Contact': repayment.loan?.borrower?.contact || 'N/A'
-  }));
+  const detailedRepayments = repayments.map((repayment: any) => {
+    // For interest-only payments, show the interest rate instead of the full payment amount
+    const paymentAmount = repayment.paymentType === 'interestOnly'
+      ? (repayment.loan?.interestRate || repayment.amount)
+      : repayment.amount;
+
+    return {
+      'Borrower Name': repayment.loan?.borrower?.name || 'Unknown',
+      'Loan Amount': repayment.loan?.amount || 0,
+      'Payment Amount': paymentAmount,
+      'Actual Payment': repayment.amount,
+      'Payment Type': repayment.paymentType === 'interestOnly' ? 'Interest Only' : 'Full Payment',
+      'Paid Date': formatDate(new Date(repayment.paidDate)),
+      'Remaining Amount': repayment.loan?.remainingAmount || 0,
+      'Contact': repayment.loan?.borrower?.contact || 'N/A'
+    };
+  });
 
   const detailedAuctions = auctions.map((auction: any) => ({
     'Chit Fund Name': auction.chitFund?.name || 'Unknown',

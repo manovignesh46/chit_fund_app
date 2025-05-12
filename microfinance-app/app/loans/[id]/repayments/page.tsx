@@ -427,7 +427,16 @@ const RepaymentsPage = () => {
                       <div className="text-sm text-gray-900">{formatDate(repayment.paidDate)}</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">{formatCurrency(repayment.amount)}</div>
+                      <div className="text-sm text-gray-900">
+                        {repayment.paymentType === 'interestOnly' ? (
+                          <div>
+                            <div>{formatCurrency((loan as any).interestRate || repayment.amount)}</div>
+                            <div className="text-xs text-gray-500">(Actual: {formatCurrency(repayment.amount)})</div>
+                          </div>
+                        ) : (
+                          formatCurrency(repayment.amount)
+                        )}
+                      </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       {repayment.paymentType === 'interestOnly' ? (
@@ -488,6 +497,17 @@ const RepaymentsPage = () => {
                   <span className="ml-2 text-lg font-semibold">
                     {formatCurrency(repayments.reduce((sum, item) => sum + item.amount, 0))}
                   </span>
+                  <div className="text-xs text-gray-500 mt-1">
+                    (Profit: {formatCurrency(repayments.reduce((sum, item) => {
+                      // Use type assertion to access interestRate
+                      const interestRate = (loan as any).interestRate || 0;
+                      if (item.paymentType === 'interestOnly') {
+                        return sum + interestRate;
+                      } else {
+                        return sum + interestRate;
+                      }
+                    }, 0))})
+                  </div>
                 </div>
                 <div className="flex items-center">
                   <label htmlFor="pageSize" className="text-sm text-gray-600 mr-2">
