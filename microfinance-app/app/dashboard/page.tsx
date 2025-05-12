@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { dashboardAPI } from '@/lib/api';
 import FinancialGraph from '../components/FinancialGraph';
+import { DashboardSkeleton } from '../components/skeletons/DashboardSkeletons';
 
 export default function DashboardPage() {
   interface Activity {
@@ -210,12 +211,7 @@ export default function DashboardPage() {
       </div>
 
       {loading ? (
-        <div className="flex justify-center items-center h-64">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-700 mx-auto mb-4"></div>
-            <p className="text-gray-600">Loading dashboard data...</p>
-          </div>
-        </div>
+        <DashboardSkeleton />
       ) : error ? (
         <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
           <p className="font-bold">Error</p>

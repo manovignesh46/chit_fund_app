@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { LoansListSkeleton } from '../components/skeletons/ListSkeletons';
 
 // Define interfaces for Loan type
 interface GlobalMember {
@@ -413,12 +414,7 @@ export default function LoansPage() {
       </div>
 
       {loading ? (
-        <div className="flex justify-center items-center h-64">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-700 mx-auto mb-4"></div>
-            <p className="text-gray-600">Loading loans...</p>
-          </div>
-        </div>
+        <LoansListSkeleton />
       ) : error ? (
         <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
           <p className="font-bold">Error</p>

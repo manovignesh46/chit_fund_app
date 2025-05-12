@@ -9,6 +9,7 @@ import ChitFundCard from '@/components/chit-funds/ChitFundCard';
 import ChitFundMembersList from '@/components/chit-funds/ChitFundMembersList';
 import ChitFundFinancialSummary from '@/components/chit-funds/ChitFundFinancialSummary';
 import dynamic from 'next/dynamic';
+import { ChitFundDetailSkeleton } from '../../components/skeletons/DetailSkeletons';
 
 // Define Member type
 type Member = ChitFundMember;
@@ -354,16 +355,7 @@ const ChitFundDetails = () => {
   };
 
   if (loading) {
-    return (
-      <div className="container mx-auto px-4 py-8">
-        <div className="flex justify-center items-center h-64">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-700 mx-auto mb-4"></div>
-            <p className="text-gray-600">Loading chit fund details...</p>
-          </div>
-        </div>
-      </div>
-    );
+    return <ChitFundDetailSkeleton />;
   }
 
   if (error) {
