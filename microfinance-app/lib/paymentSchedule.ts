@@ -4,6 +4,29 @@ import prisma from '@/lib/prisma';
 const prismaAny = prisma as any;
 
 /**
+ * Calculate the correct period (week number) for a repayment date based on the loan's disbursement date
+ * @param disbursementDate The loan's disbursement date
+ * @param repaymentDate The date of the repayment
+ * @returns The calculated period (week number)
+ */
+export function getRepaymentWeek(disbursementDate: Date | string, repaymentDate: Date | string): number {
+  // Convert string dates to Date objects if needed
+  const startDate = new Date(disbursementDate);
+  const paymentDate = new Date(repaymentDate);
+
+  // Calculate days difference between disbursement date and repayment date
+  const daysDiff = Math.floor((paymentDate.getTime() - startDate.getTime()) / (24 * 60 * 60 * 1000));
+
+  // Calculate week number (1-based)
+  // Week 1 = 0-6 days after disbursement
+  // Week 2 = 7-13 days after disbursement
+  // And so on...
+  const weekNumber = Math.floor(daysDiff / 7) + 1;
+
+  return Math.max(1, weekNumber); // Ensure we never return a period less than 1
+}
+
+/**
  * Generate dynamic payment schedule for a loan without storing in the database
  * @param loanId The ID of the loan
  * @param options Optional parameters for filtering schedules
@@ -61,29 +84,46 @@ export async function getDynamicPaymentSchedule(
       allPeriods.push({ period: i, dueDate });
     }
 
-    // Match repayments to periods based on date proximity
+    // Match repayments to periods
     repayments.forEach(repayment => {
       const repaymentDate = new Date(repayment.paidDate);
+      let periodToUse;
 
-      // Find the closest period by date
-      let closestPeriod = null;
-      let minDiff = Infinity;
+      // If the repayment has a period field, always use it
+      // This is the most reliable way to ensure payments are assigned to the correct period
+      if (repayment.period) {
+        periodToUse = repayment.period;
+      }
+      // For weekly loans without a period field, calculate the period based on the payment date
+      else if (loan.repaymentType === 'Weekly') {
+        periodToUse = getRepaymentWeek(disbursementDate, repaymentDate);
+      }
+      // For monthly loans or fallback, find the closest period by date
+      else {
+        let closestPeriod = null;
+        let minDiff = Infinity;
 
-      for (const { period, dueDate } of allPeriods) {
-        const diff = Math.abs(repaymentDate.getTime() - dueDate.getTime());
-        if (diff < minDiff) {
-          minDiff = diff;
-          closestPeriod = period;
+        for (const { period, dueDate } of allPeriods) {
+          const diff = Math.abs(repaymentDate.getTime() - dueDate.getTime());
+          if (diff < minDiff) {
+            minDiff = diff;
+            closestPeriod = period;
+          }
+        }
+
+        // Only use the closest period if it's within 14 days of the due date
+        if (closestPeriod !== null && minDiff <= 14 * 24 * 60 * 60 * 1000) {
+          periodToUse = closestPeriod;
+        } else {
+          // If no close match found, skip this repayment
+          return;
         }
       }
 
-      // If we found a period and it's within 14 days of the due date, associate the repayment
-      if (closestPeriod !== null && minDiff <= 14 * 24 * 60 * 60 * 1000) {
-        // If multiple repayments match the same period, use the most recent one
-        if (!repaymentsByPeriod.has(closestPeriod) ||
-            new Date(repaymentsByPeriod.get(closestPeriod).paidDate) < repaymentDate) {
-          repaymentsByPeriod.set(closestPeriod, repayment);
-        }
+      // If multiple repayments match the same period, use the most recent one
+      if (!repaymentsByPeriod.has(periodToUse) ||
+          new Date(repaymentsByPeriod.get(periodToUse).paidDate) < repaymentDate) {
+        repaymentsByPeriod.set(periodToUse, repayment);
       }
     });
 
@@ -254,12 +294,26 @@ export async function updateOverdueAmountFromRepayments(loanId: number) {
 
     // Group repayments by period, keeping the most recent one for each period
     repayments.forEach(repayment => {
-      const period = repayment.period || 0;
+      let periodToUse;
+
+      // If the repayment has a period field, always use it
+      // This is the most reliable way to ensure payments are assigned to the correct period
+      if (repayment.period) {
+        periodToUse = repayment.period;
+      }
+      // For weekly loans without a period field, calculate the period based on the payment date
+      else if (loan.repaymentType === 'Weekly') {
+        periodToUse = getRepaymentWeek(loan.disbursementDate, repayment.paidDate);
+      }
+      // For monthly loans or fallback, use 0 (will be handled differently)
+      else {
+        periodToUse = 0;
+      }
 
       // If we don't have this period yet, or this is a newer payment for the same period
-      if (!repaymentsByPeriod.has(period) ||
-          new Date(repaymentsByPeriod.get(period).paidDate) < new Date(repayment.paidDate)) {
-        repaymentsByPeriod.set(period, repayment);
+      if (!repaymentsByPeriod.has(periodToUse) ||
+          new Date(repaymentsByPeriod.get(periodToUse).paidDate) < new Date(repayment.paidDate)) {
+        repaymentsByPeriod.set(periodToUse, repayment);
       }
     });
 
@@ -365,21 +419,36 @@ export async function calculateNextPaymentDate(loanId: number) {
     loan.repayments
       .filter(r => r.paymentType !== 'interestOnly')
       .forEach(repayment => {
-        // Find the closest period to this repayment date
+        let periodToUse;
         const repaymentDate = new Date(repayment.paidDate);
-        let closestPeriod = null;
-        let minDiff = Infinity;
 
-        for (const { period, dueDate } of dueDates) {
-          const diff = Math.abs(repaymentDate.getTime() - dueDate.getTime());
-          if (diff < minDiff) {
-            minDiff = diff;
-            closestPeriod = period;
+        // If the repayment has a period field, always use it
+        // This is the most reliable way to ensure payments are assigned to the correct period
+        if (repayment.period) {
+          periodToUse = repayment.period;
+        }
+        // For weekly loans without a period field, calculate the period based on the payment date
+        else if (repaymentType === 'Weekly') {
+          periodToUse = getRepaymentWeek(disbursementDate, repaymentDate);
+        }
+        // For monthly loans or fallback, find the closest period by date
+        else {
+          let closestPeriod = null;
+          let minDiff = Infinity;
+
+          for (const { period, dueDate } of dueDates) {
+            const diff = Math.abs(repaymentDate.getTime() - dueDate.getTime());
+            if (diff < minDiff) {
+              minDiff = diff;
+              closestPeriod = period;
+            }
           }
+
+          periodToUse = closestPeriod;
         }
 
-        if (closestPeriod !== null) {
-          paidPeriods.add(closestPeriod);
+        if (periodToUse !== null) {
+          paidPeriods.add(periodToUse);
         }
       });
 
@@ -458,6 +527,16 @@ export async function recordPaymentForPeriod(
       dueDate.setDate(disbursementDate.getDate() + (period * 7));
     }
 
+    // Always use the exact period specified by the user
+    // This ensures the payment is assigned to the period the user selected
+    let finalPeriod = period;
+
+    // Only calculate period if none was provided
+    if (!period && loan.repaymentType === 'Weekly') {
+      finalPeriod = getRepaymentWeek(loan.disbursementDate, paidDate);
+      console.log(`Weekly loan: Calculated period ${finalPeriod} based on payment date (no period was specified)`);
+    }
+
     // Create the repayment record with basic required fields
     const repaymentData: any = {
       loanId,
@@ -468,7 +547,7 @@ export async function recordPaymentForPeriod(
 
     // Add period field if it's supported by the schema
     try {
-      repaymentData.period = period;
+      repaymentData.period = finalPeriod;
     } catch (error) {
       console.warn('Period field not supported in Repayment model, skipping it');
     }
@@ -819,12 +898,26 @@ async function updateOverdueAmount(loanId: number) {
 
     // Group repayments by period, keeping the most recent one for each period
     repayments.forEach(repayment => {
-      const period = repayment.period || 0;
+      let periodToUse;
+
+      // If the repayment has a period field, always use it
+      // This is the most reliable way to ensure payments are assigned to the correct period
+      if (repayment.period) {
+        periodToUse = repayment.period;
+      }
+      // For weekly loans without a period field, calculate the period based on the payment date
+      else if (loan.repaymentType === 'Weekly') {
+        periodToUse = getRepaymentWeek(loan.disbursementDate, repayment.paidDate);
+      }
+      // For monthly loans or fallback, use 0 (will be handled differently)
+      else {
+        periodToUse = 0;
+      }
 
       // If we don't have this period yet, or this is a newer payment for the same period
-      if (!repaymentsByPeriod.has(period) ||
-          new Date(repaymentsByPeriod.get(period).paidDate) < new Date(repayment.paidDate)) {
-        repaymentsByPeriod.set(period, repayment);
+      if (!repaymentsByPeriod.has(periodToUse) ||
+          new Date(repaymentsByPeriod.get(periodToUse).paidDate) < new Date(repayment.paidDate)) {
+        repaymentsByPeriod.set(periodToUse, repayment);
       }
     });
 

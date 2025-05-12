@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma'; // Adjust the import based on your project structure
-import { calculateNextPaymentDate } from '@/lib/paymentSchedule';
+import { calculateNextPaymentDate, getRepaymentWeek } from '@/lib/paymentSchedule';
 
 // Use type assertion to handle TypeScript type checking
 const prismaAny = prisma as any;
@@ -139,12 +139,26 @@ async function calculateOverdueAmount(loanId: number) {
 
         // Group repayments by period, keeping the most recent one for each period
         loan.repayments.forEach((repayment: any) => {
-            const period = repayment.period || 0;
+            let periodToUse;
+
+            // If the repayment has a period field, always use it
+            // This is the most reliable way to ensure payments are assigned to the correct period
+            if (repayment.period) {
+                periodToUse = repayment.period;
+            }
+            // For weekly loans without a period field, calculate the period based on the payment date
+            else if (loan.repaymentType === 'Weekly') {
+                periodToUse = getRepaymentWeek(loan.disbursementDate, repayment.paidDate);
+            }
+            // For monthly loans or fallback, use 0 (will be handled differently)
+            else {
+                periodToUse = 0;
+            }
 
             // If we don't have this period yet, or this is a newer payment for the same period
-            if (!repaymentsByPeriod.has(period) ||
-                new Date(repaymentsByPeriod.get(period).paidDate) < new Date(repayment.paidDate)) {
-                repaymentsByPeriod.set(period, repayment);
+            if (!repaymentsByPeriod.has(periodToUse) ||
+                new Date(repaymentsByPeriod.get(periodToUse).paidDate) < new Date(repayment.paidDate)) {
+                repaymentsByPeriod.set(periodToUse, repayment);
             }
         });
 
@@ -279,6 +293,14 @@ export async function POST(
         // Calculate overdue amount after this payment
         const { overdueAmount, missedPayments } = await calculateOverdueAmount(loanId);
 
+        // Always use the exact period specified by the user
+        // Only calculate period if none was provided
+        let finalPeriod = period;
+        if (!period && loan.repaymentType === 'Weekly' && paidDate) {
+            finalPeriod = getRepaymentWeek(loan.disbursementDate, paidDate);
+            console.log(`Weekly loan: Calculated period ${finalPeriod} for payment on ${paidDate} (no period was specified)`);
+        }
+
         // Use a transaction to ensure both operations succeed or fail together
         const result = await prismaAny.$transaction([
             // Create the repayment record
@@ -288,8 +310,8 @@ export async function POST(
                     amount: paymentAmount,
                     paidDate: new Date(paidDate),
                     paymentType: isInterestOnly ? 'interestOnly' : 'full',
-                    // Store the period if provided
-                    period: period ? Number(period) : null
+                    // Store the period if provided or calculated
+                    period: finalPeriod ? Number(finalPeriod) : null
                 },
             }),
 

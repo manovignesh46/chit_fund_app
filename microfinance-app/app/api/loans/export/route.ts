@@ -48,6 +48,7 @@ export async function POST(request: NextRequest) {
             'Repayment Type': loan.repaymentType,
             'Remaining Amount': loan.remainingAmount,
             'Overdue Amount': loan.overdueAmount || 0,
+            'Missed Payments': loan.missedPayments || 0,
             'Current Month/Week': loan.currentMonth || 0,
             'Next Payment Date': loan.nextPaymentDate ? formatDate(loan.nextPaymentDate) : 'N/A',
             'Status': loan.status,
@@ -82,6 +83,7 @@ export async function POST(request: NextRequest) {
                 'Repayment Type': loan.repaymentType,
                 'Remaining Amount': loan.remainingAmount,
                 'Overdue Amount': loan.overdueAmount || 0,
+                'Missed Payments': loan.missedPayments || 0,
                 'Current Month/Week': loan.currentMonth || 0,
                 'Next Payment Date': loan.nextPaymentDate ? formatDate(loan.nextPaymentDate) : 'N/A',
                 'Status': loan.status,
@@ -175,6 +177,10 @@ export async function POST(request: NextRequest) {
                 {
                     'Loan ID': 'Overdue Amount',
                     'Loan Type': loan.overdueAmount || 0
+                },
+                {
+                    'Loan ID': 'Missed Payments',
+                    'Loan Type': loan.missedPayments || 0
                 },
                 {
                     'Loan ID': 'Profit',

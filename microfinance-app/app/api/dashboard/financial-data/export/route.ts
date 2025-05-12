@@ -65,6 +65,8 @@ export async function GET(request: NextRequest) {
       'Outside Amount': period.outsideAmount,
       'Loan Remaining Amount': period.outsideAmountBreakdown.loanRemainingAmount,
       'Chit Fund Outside Amount': period.outsideAmountBreakdown.chitFundOutsideAmount,
+      'Overdue Amount': period.overdueDetails?.totalOverdueAmount || 0,
+      'Missed Payments': period.overdueDetails?.totalMissedPayments || 0,
       'Total Transactions': period.transactionCounts.totalTransactions
     }));
 
@@ -124,11 +126,19 @@ export async function GET(request: NextRequest) {
     const outsideWorksheet = XLSX.utils.json_to_sheet(outsideData);
     XLSX.utils.book_append_sheet(workbook, outsideWorksheet, 'Outside Amount Details');
 
+    // Create overdue details worksheet
+    const overdueData = financialData.map(period => ({
+      'Period': period.period,
+      'Overdue Amount': period.overdueDetails?.totalOverdueAmount || 0,
+      'Missed Payments Count': period.overdueDetails?.totalMissedPayments || 0
+    }));
+
+    const overdueWorksheet = XLSX.utils.json_to_sheet(overdueData);
+    XLSX.utils.book_append_sheet(workbook, overdueWorksheet, 'Overdue Details');
+
     // Add detailed transaction worksheets if available (for single period exports)
-    // Use type assertion to handle TypeScript type checking
-    const detailedData = financialData[0] as any;
-    if (duration === 'single' && detailedData?.detailedTransactions) {
-      const { contributions, repayments, auctions, loans } = detailedData.detailedTransactions;
+    if (duration === 'single' && financialData[0]?.detailedTransactions) {
+      const { contributions, repayments, auctions, loans } = financialData[0].detailedTransactions;
 
       // Add contributions worksheet
       if (contributions && contributions.length > 0) {
@@ -342,9 +352,9 @@ async function getFinancialDataByDuration(duration: string, limit: number, userI
       const chitFundContributions = contributions.length;
       const chitFundAuctions = auctions.length;
 
-      // Calculate outside amount
-      // For loans: remaining balances
-      const loanRemainingAmount = await prisma.loan.aggregate({
+      // Calculate outside amount and get loan details including missed payments
+      // For loans: remaining balances, overdue amounts, and missed payments
+      const activeLoans = await prisma.loan.findMany({
         where: {
           createdById: userId,
           status: 'Active',
@@ -352,10 +362,17 @@ async function getFinancialDataByDuration(duration: string, limit: number, userI
             lte: period.endDate,
           },
         },
-        _sum: {
+        select: {
           remainingAmount: true,
-        },
+          overdueAmount: true,
+          missedPayments: true
+        }
       });
+
+      // Calculate total remaining amount, overdue amount, and missed payments
+      const loanRemainingAmount = activeLoans.reduce((sum, loan) => sum + loan.remainingAmount, 0);
+      const totalOverdueAmount = activeLoans.reduce((sum, loan) => sum + (loan.overdueAmount || 0), 0);
+      const totalMissedPayments = activeLoans.reduce((sum, loan) => sum + (loan.missedPayments || 0), 0);
 
       // For chit funds: outflow exceeding inflow
       const chitFundsWithDetails = await prisma.chitFund.findMany({
@@ -393,7 +410,7 @@ async function getFinancialDataByDuration(duration: string, limit: number, userI
         }
       });
 
-      const totalOutsideAmount = (loanRemainingAmount._sum.remainingAmount || 0) + chitFundOutsideAmount;
+      const totalOutsideAmount = loanRemainingAmount + chitFundOutsideAmount;
 
       return {
         period: period.label,
@@ -404,8 +421,12 @@ async function getFinancialDataByDuration(duration: string, limit: number, userI
         chitFundProfit,
         outsideAmount: totalOutsideAmount,
         outsideAmountBreakdown: {
-          loanRemainingAmount: loanRemainingAmount._sum.remainingAmount || 0,
+          loanRemainingAmount: loanRemainingAmount,
           chitFundOutsideAmount,
+        },
+        overdueDetails: {
+          totalOverdueAmount,
+          totalMissedPayments,
         },
         // Additional detailed information
         cashFlowDetails: {
