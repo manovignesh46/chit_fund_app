@@ -41,5 +41,8 @@
   },
   "engines": {
     "node": ">=14.0.0"
+  },
+  "prisma": {
+    "seed": "ts-node --compiler-options {\\\"module\\\":\\\"CommonJS\\\"} prisma/seed.ts"
   }
 }

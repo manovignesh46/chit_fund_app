@@ -3,7 +3,7 @@ const fs = require('fs');
 const path = require('path');
 
 // Paths
-const appDir = path.join(__dirname, '..');
+const appDir = process.cwd();
 const apiDir = path.join(appDir, 'app', 'api');
 const dashboardApiPath = path.join(apiDir, 'dashboard', 'route.ts');
 const financialDataApiPath = path.join(apiDir, 'dashboard', 'financial-data', 'route.ts');

@@ -8,13 +8,13 @@ console.log('Checking application status...');
 // 1. Check if the Prisma client is properly configured
 console.log('\n=== Checking Prisma Client ===\n');
 try {
-  const prismaClientPath = path.join(__dirname, '..', 'lib', 'prisma.ts');
+  const prismaClientPath = path.join(process.cwd(), 'lib', 'prisma.ts');
   const prismaClient = fs.readFileSync(prismaClientPath, 'utf8');
-  
+
   // Check for syntax errors
   if (prismaClient.includes('};};')) {
     console.error('Syntax error in Prisma client: Extra closing brace');
-    
+
     // Fix the syntax error
     const fixedPrismaClient = prismaClient.replace('};};', '};');
     fs.writeFileSync(prismaClientPath, fixedPrismaClient);
@@ -38,15 +38,15 @@ try {
 console.log('\n=== Checking API Routes ===\n');
 try {
   // Check dashboard API route
-  const dashboardApiPath = path.join(__dirname, '..', 'app', 'api', 'dashboard', 'route.ts');
+  const dashboardApiPath = path.join(process.cwd(), 'app', 'api', 'dashboard', 'route.ts');
   if (fs.existsSync(dashboardApiPath)) {
     console.log('Dashboard API route exists');
   } else {
     console.error('Dashboard API route not found');
   }
-  
+
   // Check health API route
-  const healthApiPath = path.join(__dirname, '..', 'app', 'api', 'health', 'route.ts');
+  const healthApiPath = path.join(process.cwd(), 'app', 'api', 'health', 'route.ts');
   if (fs.existsSync(healthApiPath)) {
     console.log('Health API route exists');
   } else {
@@ -66,9 +66,9 @@ try {
     'optimize-app.js',
     'analyze-performance.js',
   ];
-  
+
   for (const script of scripts) {
-    const scriptPath = path.join(__dirname, script);
+    const scriptPath = path.join(process.cwd(), 'scripts', script);
     if (fs.existsSync(scriptPath)) {
       console.log(`${script} exists`);
     } else {

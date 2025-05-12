@@ -3,30 +3,30 @@ const fs = require('fs');
 const path = require('path');
 
 // Configuration
-const appDir = path.join(__dirname, '..');
+const appDir = process.cwd();
 const apiDir = path.join(appDir, 'app/api');
 
 // Function to add caching to API routes
 function addCachingToApiRoutes() {
   console.log('Adding caching to API routes...');
-  
+
   // Get all API route files
   const apiRoutes = findApiRoutes(apiDir);
   let updatedCount = 0;
-  
+
   for (const routePath of apiRoutes) {
     try {
       let content = fs.readFileSync(routePath, 'utf8');
-      
+
       // Skip if already has caching
       if (content.includes('revalidate') || content.includes('apiCache.getOrFetch')) {
         continue;
       }
-      
+
       // Import the cache utility if not already imported
       if (!content.includes('import { apiCache }')) {
         const importStatement = "import { apiCache } from '@/lib/cache';\n";
-        
+
         // Find the last import statement
         const lastImportIndex = content.lastIndexOf('import');
         if (lastImportIndex !== -1) {
@@ -36,18 +36,18 @@ function addCachingToApiRoutes() {
           content = importStatement + content;
         }
       }
-      
+
       // Add revalidation period
       if (!content.includes('export const revalidate')) {
         const revalidateStatement = '\n// Use ISR with a 5-minute revalidation period\nexport const revalidate = 300; // 5 minutes\n';
-        
+
         // Find the position to insert the revalidate statement
         const exportIndex = content.indexOf('export async function');
         if (exportIndex !== -1) {
           content = content.slice(0, exportIndex) + revalidateStatement + content.slice(exportIndex);
         }
       }
-      
+
       // Write the updated content back to the file
       fs.writeFileSync(routePath, content);
       updatedCount++;
@@ -56,21 +56,21 @@ function addCachingToApiRoutes() {
       console.error(`Error updating API route ${routePath}:`, error.message);
     }
   }
-  
+
   console.log(`Added caching to ${updatedCount} API routes`);
 }
 
 // Function to find all API route files
 function findApiRoutes(dir) {
   const routes = [];
-  
+
   function scanDir(currentDir) {
     const files = fs.readdirSync(currentDir);
-    
+
     for (const file of files) {
       const filePath = path.join(currentDir, file);
       const stats = fs.statSync(filePath);
-      
+
       if (stats.isDirectory()) {
         scanDir(filePath);
       } else if (file === 'route.ts' || file === 'route.js') {
@@ -78,7 +78,7 @@ function findApiRoutes(dir) {
       }
     }
   }
-  
+
   scanDir(dir);
   return routes;
 }
@@ -86,7 +86,7 @@ function findApiRoutes(dir) {
 // Function to optimize large components
 function optimizeLargeComponents() {
   console.log('Optimizing large components...');
-  
+
   const largeComponents = [
     '/app/chit-funds/[id]/contributions/page.tsx',
     '/app/loans/[id]/page.tsx',
@@ -94,7 +94,7 @@ function optimizeLargeComponents() {
     '/app/members/page.tsx',
     '/app/chit-funds/[id]/page.tsx'
   ];
-  
+
   for (const componentPath of largeComponents) {
     try {
       const fullPath = path.join(appDir, componentPath);
@@ -102,14 +102,14 @@ function optimizeLargeComponents() {
         console.log(`Component not found: ${componentPath}`);
         continue;
       }
-      
+
       let content = fs.readFileSync(fullPath, 'utf8');
-      
+
       // Add dynamic imports for large components
       if (!content.includes('dynamic(') && !content.includes('next/dynamic')) {
         // Add dynamic import
         const importStatement = "import dynamic from 'next/dynamic';\n";
-        
+
         // Find the last import statement
         const lastImportIndex = content.lastIndexOf('import');
         if (lastImportIndex !== -1) {
@@ -118,14 +118,14 @@ function optimizeLargeComponents() {
         } else {
           content = importStatement + content;
         }
-        
+
         // Add a comment about optimization
         content = content.replace(
           /export default function/,
           '// This component has been optimized for performance\nexport default function'
         );
       }
-      
+
       // Write the updated content back to the file
       fs.writeFileSync(fullPath, content);
       console.log(`Optimized large component: ${componentPath}`);
@@ -138,7 +138,7 @@ function optimizeLargeComponents() {
 // Main function
 function main() {
   console.log('Starting application optimization...');
-  
+
   // Check if the cache utility exists, create it if not
   const cacheUtilPath = path.join(appDir, 'lib/cache.ts');
   if (!fs.existsSync(cacheUtilPath)) {
@@ -148,7 +148,7 @@ function main() {
     if (!fs.existsSync(cacheUtilDir)) {
       fs.mkdirSync(cacheUtilDir, { recursive: true });
     }
-    
+
     // Create the cache utility file
     const cacheUtilContent = `// Simple in-memory cache utility for API routes
 
@@ -217,17 +217,17 @@ class APICache {
 
 // Create a singleton instance
 export const apiCache = new APICache();`;
-    
+
     fs.writeFileSync(cacheUtilPath, cacheUtilContent);
     console.log('Created cache utility at lib/cache.ts');
   }
-  
+
   // Add caching to API routes
   addCachingToApiRoutes();
-  
+
   // Optimize large components
   optimizeLargeComponents();
-  
+
   console.log('Application optimization completed!');
 }
 

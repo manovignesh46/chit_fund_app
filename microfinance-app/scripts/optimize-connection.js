@@ -4,7 +4,7 @@ const path = require('path');
 const { execSync } = require('child_process');
 
 // Paths
-const appDir = path.join(__dirname, '..');
+const appDir = process.cwd();
 const prismaSchemaPath = path.join(appDir, 'prisma', 'schema.prisma');
 const prismaClientPath = path.join(appDir, 'lib', 'prisma.ts');
 const envPath = path.join(appDir, '.env');
@@ -15,7 +15,7 @@ console.log('Starting database connection optimization...');
 console.log('Updating Prisma schema...');
 try {
   let prismaSchema = fs.readFileSync(prismaSchemaPath, 'utf8');
-  
+
   // Ensure SQLite provider is used
   prismaSchema = prismaSchema.replace(
     /datasource db {[^}]*}/s,
@@ -24,7 +24,7 @@ try {
   url      = "file:./dev.db"
 }`
   );
-  
+
   fs.writeFileSync(prismaSchemaPath, prismaSchema);
   console.log('Prisma schema updated successfully.');
 } catch (error) {
@@ -36,7 +36,7 @@ try {
 console.log('Updating Prisma client...');
 try {
   let prismaClient = fs.readFileSync(prismaClientPath, 'utf8');
-  
+
   // Simplify Prisma client initialization
   prismaClient = prismaClient.replace(
     /const prismaClientSingleton[^;]*;/s,
@@ -46,7 +46,7 @@ try {
   });
 };`
   );
-  
+
   fs.writeFileSync(prismaClientPath, prismaClient);
   console.log('Prisma client updated successfully.');
 } catch (error) {
@@ -75,15 +75,15 @@ const prisma = new PrismaClient();
 async function main() {
   try {
     console.log('Testing database connection...');
-    
+
     // Try to query the database
     const userCount = await prisma.user.count();
     console.log(\`Database connection successful! Found \${userCount} users.\`);
-    
+
     // Get the first user
     const user = await prisma.user.findFirst();
     console.log('First user:', user ? user.email : 'No users found');
-    
+
   } catch (error) {
     console.error('Database connection error:', error);
   } finally {
