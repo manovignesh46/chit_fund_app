@@ -252,7 +252,7 @@ export async function POST(
 ) {
     try {
         const { id } = await params;
-        const { amount, paidDate, paymentType = 'full', period = null } = await request.json();
+        const { amount, paidDate, paymentType = 'full', scheduleId } = await request.json();
         const loanId = Number(id);
         const paymentAmount = parseFloat(amount);
         const isInterestOnly = paymentType === 'interestOnly';
@@ -285,6 +285,14 @@ export async function POST(
             );
         }
 
+        // Validate scheduleId is provided
+        if (!scheduleId) {
+            return NextResponse.json(
+                { error: 'Payment schedule selection is required' },
+                { status: 400 }
+            );
+        }
+
         // Calculate new remaining amount - only reduce for full payments
         const newRemainingAmount = isInterestOnly
             ? loan.remainingAmount // No change for interest-only payments
@@ -293,13 +301,9 @@ export async function POST(
         // Calculate overdue amount after this payment
         const { overdueAmount, missedPayments } = await calculateOverdueAmount(loanId);
 
-        // Always use the exact period specified by the user
-        // Only calculate period if none was provided
-        let finalPeriod = period;
-        if (!period && loan.repaymentType === 'Weekly' && paidDate) {
-            finalPeriod = getRepaymentWeek(loan.disbursementDate, paidDate);
-            console.log(`Weekly loan: Calculated period ${finalPeriod} for payment on ${paidDate} (no period was specified)`);
-        }
+        // Get the period from the selected schedule
+        // For dynamic schedules, the ID is the period
+        const finalPeriod = Number(scheduleId);
 
         // Use a transaction to ensure both operations succeed or fail together
         const result = await prismaAny.$transaction([

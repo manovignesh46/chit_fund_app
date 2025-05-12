@@ -22,7 +22,7 @@ interface FormData {
   amount: string;
   paidDate: string;
   paymentType: 'full' | 'interestOnly';
-  scheduleId?: string;
+  scheduleId: string;
 }
 
 interface PaymentSchedule {
@@ -37,6 +37,7 @@ interface FormErrors {
   amount?: string;
   paidDate?: string;
   paymentType?: string;
+  scheduleId?: string;
   general?: string;
 }
 
@@ -54,17 +55,18 @@ export default function NewRepaymentPage() {
     amount: '',
     paidDate: new Date().toISOString().split('T')[0], // Default to today's date
     paymentType: 'full', // Default to full payment (principal + interest)
-    scheduleId: '',
+    scheduleId: '', // Will be required in form validation
   });
   const [errors, setErrors] = useState<FormErrors>({});
 
-  // Fetch pending payment schedules
+  // Fetch payment schedules
   const fetchPendingSchedules = async () => {
     if (!id) return;
 
     try {
       setLoadingSchedules(true);
-      const response = await fetch(`/api/loans/${id}/payment-schedules?status=Pending`);
+      // Include all schedules, not just pending ones, and set includeAll to true to get all periods
+      const response = await fetch(`/api/loans/${id}/payment-schedules?includeAll=true`);
 
       if (!response.ok) {
         throw new Error('Failed to fetch payment schedules');
@@ -72,7 +74,9 @@ export default function NewRepaymentPage() {
 
       const data = await response.json();
       if (data.schedules && Array.isArray(data.schedules)) {
-        setPendingSchedules(data.schedules);
+        // Sort schedules by period to ensure they appear in chronological order
+        const sortedSchedules = [...data.schedules].sort((a, b) => a.period - b.period);
+        setPendingSchedules(sortedSchedules);
       }
     } catch (error) {
       console.error('Error fetching payment schedules:', error);
@@ -139,6 +143,10 @@ export default function NewRepaymentPage() {
       newErrors.paidDate = 'Payment date is required';
     }
 
+    if (!formData.scheduleId) {
+      newErrors.scheduleId = 'Please select the payment schedule this repayment is for';
+    }
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -162,7 +170,7 @@ export default function NewRepaymentPage() {
           amount: formData.amount,
           paidDate: formData.paidDate,
           paymentType: formData.paymentType,
-          scheduleId: formData.scheduleId || undefined,
+          scheduleId: formData.scheduleId, // Now required
         }),
       });
 
@@ -374,7 +382,7 @@ export default function NewRepaymentPage() {
             {/* Payment Schedule Dropdown */}
             <div className="md:col-span-2">
               <label htmlFor="scheduleId" className="block text-sm font-medium text-gray-700 mb-1">
-                Payment Schedule
+                Payment Schedule <span className="text-red-500">*</span>
               </label>
               <div className="relative">
                 <select
@@ -382,9 +390,11 @@ export default function NewRepaymentPage() {
                   name="scheduleId"
                   value={formData.scheduleId}
                   onChange={handleChange}
-                  className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent border-gray-300 appearance-none"
+                  className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent ${
+                    errors.scheduleId ? 'border-red-500' : 'border-gray-300'
+                  } appearance-none`}
                 >
-                  <option value="">-- Select a payment schedule (optional) --</option>
+                  <option value="">-- Select a payment schedule --</option>
                   {pendingSchedules.map((schedule) => (
                     <option key={schedule.id} value={schedule.id}>
                       {loan?.repaymentType === 'Weekly' ? `Week ${schedule.period}` : `Month ${schedule.period}`} -
@@ -403,12 +413,16 @@ export default function NewRepaymentPage() {
                   </svg>
                 </div>
               </div>
-              <p className="mt-1 text-xs text-gray-500">
-                {loadingSchedules ? 'Loading schedules...' :
-                  pendingSchedules.length > 0 ?
-                    'Select a payment schedule to link this payment to a specific due date' :
-                    'No pending payment schedules available'}
-              </p>
+              {errors.scheduleId ? (
+                <p className="mt-1 text-sm text-red-500">{errors.scheduleId}</p>
+              ) : (
+                <p className="mt-1 text-xs text-gray-500">
+                  {loadingSchedules ? 'Loading schedules...' :
+                    pendingSchedules.length > 0 ?
+                      'Select a payment schedule to link this payment to a specific due date' :
+                      'No pending payment schedules available'}
+                </p>
+              )}
               {formData.scheduleId && (
                 <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-lg">
                   <p className="text-sm text-blue-800">

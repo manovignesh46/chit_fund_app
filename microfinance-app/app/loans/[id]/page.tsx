@@ -258,6 +258,18 @@ const LoanDetailPage = () => {
 
       console.log('Combined data for loan state:', combinedData);
 
+      // Log specific details about the loan for debugging profit calculation
+      console.log('Loan details for profit calculation:', {
+        interestRate: combinedData.interestRate,
+        documentCharge: combinedData.documentCharge,
+        repayments: combinedData.repayments.map((r: Repayment) => ({
+          id: r.id,
+          amount: r.amount,
+          paymentType: r.paymentType,
+          paidDate: r.paidDate
+        }))
+      });
+
       setLoan(combinedData);
 
       // Fetch payment schedules
@@ -878,31 +890,124 @@ const LoanDetailPage = () => {
                       const documentCharge = (loan.documentCharge || 0);
 
                       // Sum of all interest-only payments
+                      // For interest-only payments, the entire payment amount is interest (profit)
                       const interestOnlyPayments = loan.repayments
                         .filter(repayment => repayment.paymentType === 'interestOnly')
                         .reduce((sum, repayment) => sum + repayment.amount, 0);
 
+                      // Log the interest-only payments for debugging
+                      console.log('Interest-only payments:', loan.repayments
+                        .filter(r => r.paymentType === 'interestOnly')
+                        .map(r => ({
+                          id: r.id,
+                          amount: r.amount,
+                          paymentType: r.paymentType,
+                          paidDate: r.paidDate
+                        })));
+
                       // Interest from regular payments (if any)
+                      // Regular payments are those that are NOT interest-only payments
+                      // These include full payments (principal + interest)
                       const regularPayments = loan.repayments.filter(r => r.paymentType !== 'interestOnly');
                       const regularPaymentsCount = regularPayments.length;
+
+                      // Log the regular payments for debugging
+                      console.log('Regular payments:', regularPayments.map(r => ({
+                        id: r.id,
+                        amount: r.amount,
+                        paymentType: r.paymentType,
+                        paidDate: r.paidDate
+                      })));
 
                       // Count the number of regular payments that have been made
                       // For each regular payment, we count ONLY the interest portion (interestRate)
                       // NOT the full installment amount
+
+                      // For monthly loans, each regular payment includes the interest amount
+                      // So we need to extract just the interest portion from each payment
+
+                      // Calculate interest from regular payments
+                      // For monthly loans, each regular payment includes both principal and interest
+                      // We need to extract ONLY the interest portion from each payment
+                      const interestRate = loan.interestRate || 0;
+
+                      // The interest portion of each payment is exactly equal to the interest rate
+                      // For example, if interest rate is ₹800, then each regular payment includes ₹800 of interest
+                      // This is the correct calculation for monthly loans
                       const interestFromRegularPayments = regularPaymentsCount > 0
-                        ? (loan.interestRate || 0) * regularPaymentsCount
+                        ? interestRate * regularPaymentsCount
                         : 0;
 
+                      console.log('Interest calculation details:', {
+                        interestRate,
+                        regularPaymentsCount,
+                        calculatedInterest: interestRate * regularPaymentsCount,
+                        interestFromRegularPayments
+                      });
+
                       // Total profit
-                      const totalProfit = documentCharge + interestOnlyPayments + interestFromRegularPayments;
+                      // This should be the sum of:
+                      // 1. Document charge
+                      // 2. Interest-only payments
+                      // 3. Interest portion of regular payments
+
+                      // IMPORTANT: For monthly loans, the profit is:
+                      // - Document charge (one-time fee)
+                      // - Interest from interest-only payments (the full payment amount)
+                      // - Interest portion of regular payments (interest rate * number of regular payments)
+
+                      // SIMPLE DIRECT FIX: Just multiply interest rate by number of dues paid
+                      // Total Profit = (Interest Amount × Number of Dues Paid) + Document Charge
+
+                      // Count total number of payments (both interest-only and regular)
+                      const totalPaymentsMade = loan.repayments.length;
+
+                      // Calculate profit using the simple formula
+                      const totalProfit = (loan.interestRate * totalPaymentsMade) + documentCharge;
+
+                      console.log('Simple direct profit calculation:', {
+                        interestRate: loan.interestRate,
+                        totalPaymentsMade,
+                        documentCharge,
+                        totalProfit,
+                        formula: `(${loan.interestRate} × ${totalPaymentsMade}) + ${documentCharge} = ${totalProfit}`
+                      });
+
+                      // Double-check the calculation
+                      console.log('Final profit calculation check:', {
+                        documentCharge,
+                        interestRate: loan.interestRate,
+                        totalPaymentsMade,
+                        totalProfit,
+                        // For the example in the bug report:
+                        // - Loan Amount: ₹40,000
+                        // - Interest Amount: ₹800/month
+                        // - Document Charge: ₹0
+                        // - Repayment History:
+                        //   - April 2025 – InterestOnly → Profit = ₹800
+                        //   - May 2025 – Full Payment → Profit = ₹800
+                        // Expected Profit: ₹1,600
+                        expectedProfit: (loan.interestRate * totalPaymentsMade) + documentCharge
+                      });
+
+                      // Log for debugging
+                      console.log('Profit calculation details:', {
+                        documentCharge,
+                        interestRate: loan.interestRate,
+                        totalPaymentsMade,
+                        totalProfit,
+                        loanAmount: loan.amount,
+                        interestOnlyCount: loan.repayments.filter(r => r.paymentType === 'interestOnly').length,
+                        regularCount: regularPaymentsCount
+                      });
 
                       // Log for debugging
                       console.log('Profit calculation:', {
                         documentCharge,
-                        interestOnlyPayments,
-                        regularPaymentsCount,
-                        interestFromRegularPayments,
+                        interestRate: loan.interestRate,
+                        totalPaymentsMade,
                         totalProfit,
+                        formula: `(${loan.interestRate} × ${totalPaymentsMade}) + ${documentCharge} = ${totalProfit}`,
                         repayments: loan.repayments.map(r => ({
                           amount: r.amount,
                           paymentType: r.paymentType,
