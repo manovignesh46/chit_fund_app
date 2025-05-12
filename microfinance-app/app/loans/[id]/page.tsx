@@ -226,12 +226,16 @@ const LoanDetailPage = () => {
       }
       const loanData = await loanResponse.json();
 
+      console.log('Loan data from API:', loanData);
+
       // Fetch paginated repayments for this loan
       const repaymentsResponse = await fetch(`/api/loans/${id}/repayments?page=${currentPage}&pageSize=${pageSize}`);
       if (!repaymentsResponse.ok) {
         throw new Error('Failed to fetch repayments');
       }
       const repaymentsData = await repaymentsResponse.json();
+
+      console.log('Repayments data from API:', repaymentsData);
 
       // Extract repayments and pagination data
       let repaymentsList = [];
@@ -242,6 +246,8 @@ const LoanDetailPage = () => {
         repaymentsList = Array.isArray(repaymentsData) ? repaymentsData : [];
       }
 
+      console.log('Extracted repayments list:', repaymentsList);
+
       // Combine the data
       const combinedData = {
         ...loanData,
@@ -249,6 +255,8 @@ const LoanDetailPage = () => {
         // Map remainingAmount to remainingBalance for compatibility
         remainingBalance: loanData.remainingAmount
       };
+
+      console.log('Combined data for loan state:', combinedData);
 
       setLoan(combinedData);
 
@@ -273,6 +281,23 @@ const LoanDetailPage = () => {
       fetchPaymentSchedules();
     }
   }, [id, currentPage, pageSize]);
+
+  // Effect to show profit elements
+  useEffect(() => {
+    if (!loading && loan) {
+      // Show profit elements
+      const profitElement = document.getElementById('loan-profit');
+      const profitExplanationElement = document.getElementById('loan-profit-explanation');
+
+      if (profitElement) {
+        profitElement.classList.remove('hidden');
+      }
+
+      if (profitExplanationElement) {
+        profitExplanationElement.classList.remove('hidden');
+      }
+    }
+  }, [loading, loan]);
 
   // Format currency
   const formatCurrency = (amount: number): string => {
@@ -834,19 +859,59 @@ const LoanDetailPage = () => {
               <div>
                 <p id="loan-profit" className="text-xl font-semibold text-green-600 hidden">
                   {loan.repaymentType === 'Monthly' ? (
-                    formatCurrency(
+                    (() => {
+                      // SPECIAL CASE: For loans with only interest-only payments
+                      const onlyHasInterestOnlyPayments =
+                        loan.repayments.length > 0 &&
+                        loan.repayments.every(r => r.paymentType === 'interestOnly');
+
+                      if (onlyHasInterestOnlyPayments) {
+                        // For loans with only interest-only payments, the profit is the interest rate
+                        // multiplied by the number of interest-only payments made
+                        const interestOnlyPaymentsCount = loan.repayments.length;
+                        const profit = (loan.interestRate || 0) * interestOnlyPaymentsCount;
+                        console.log('Detected interest-only payments only case - profit:', profit, 'from', interestOnlyPaymentsCount, 'payments');
+                        return formatCurrency(profit);
+                      }
+
                       // Document charge (one-time)
-                      (loan.documentCharge || 0) +
-                      // For interest, we either count the interest-only payments OR the monthly interest,
-                      // but not both (to avoid double counting)
-                      (loan.repayments.filter(r => r.paymentType === 'interestOnly').length > 0
-                        // If there are interest-only payments, use those
-                        ? loan.repayments
-                            .filter(repayment => repayment.paymentType === 'interestOnly')
-                            .reduce((sum, repayment) => sum + repayment.amount, 0)
-                        // Otherwise, if there are any payments at all, use the monthly interest calculation
-                        : (loan.repayments.length > 0 ? (loan.interestRate || 0) * loan.currentMonth : 0))
-                    )
+                      const documentCharge = (loan.documentCharge || 0);
+
+                      // Sum of all interest-only payments
+                      const interestOnlyPayments = loan.repayments
+                        .filter(repayment => repayment.paymentType === 'interestOnly')
+                        .reduce((sum, repayment) => sum + repayment.amount, 0);
+
+                      // Interest from regular payments (if any)
+                      const regularPayments = loan.repayments.filter(r => r.paymentType !== 'interestOnly');
+                      const regularPaymentsCount = regularPayments.length;
+
+                      // Count the number of regular payments that have been made
+                      // For each regular payment, we count ONLY the interest portion (interestRate)
+                      // NOT the full installment amount
+                      const interestFromRegularPayments = regularPaymentsCount > 0
+                        ? (loan.interestRate || 0) * regularPaymentsCount
+                        : 0;
+
+                      // Total profit
+                      const totalProfit = documentCharge + interestOnlyPayments + interestFromRegularPayments;
+
+                      // Log for debugging
+                      console.log('Profit calculation:', {
+                        documentCharge,
+                        interestOnlyPayments,
+                        regularPaymentsCount,
+                        interestFromRegularPayments,
+                        totalProfit,
+                        repayments: loan.repayments.map(r => ({
+                          amount: r.amount,
+                          paymentType: r.paymentType,
+                          paidDate: r.paidDate
+                        }))
+                      });
+
+                      return formatCurrency(totalProfit);
+                    })()
                   ) : (
                     // For weekly loans, profit is 10% of principal
                     formatCurrency(loan.amount * 0.1)
@@ -854,14 +919,51 @@ const LoanDetailPage = () => {
                 </p>
                 <p id="loan-profit-explanation" className="text-xs text-gray-500 mt-1 hidden">
                   {loan.repaymentType === 'Monthly' ? (
-                    <>
-                      {loan.repayments.length > 0 ?
-                        (loan.repayments.filter(r => r.paymentType === 'interestOnly').length > 0
-                          ? 'Document charge + Interest-only payments'
-                          : `Document charge + (Interest × ${loan.currentMonth} months)`) :
-                        'No profit yet - no payments have been made'
+                    (() => {
+                      // SPECIAL CASE: For loans with only interest-only payments
+                      const onlyHasInterestOnlyPayments =
+                        loan.repayments.length > 0 &&
+                        loan.repayments.every(r => r.paymentType === 'interestOnly');
+
+                      if (onlyHasInterestOnlyPayments) {
+                        const interestOnlyPaymentsCount = loan.repayments.length;
+                        return `Interest from ${interestOnlyPaymentsCount} payment${interestOnlyPaymentsCount !== 1 ? 's' : ''}`;
                       }
-                    </>
+
+                      // Check if there are any repayments
+                      if (loan.repayments.length === 0) {
+                        return 'No profit yet - no payments have been made';
+                      }
+
+                      // Check for document charge
+                      const hasDocumentCharge = loan.documentCharge && loan.documentCharge > 0;
+
+                      // Check for interest-only payments
+                      const hasInterestOnlyPayments = loan.repayments.filter(r => r.paymentType === 'interestOnly').length > 0;
+
+                      // Check for regular payments
+                      const hasRegularPayments = loan.repayments.filter(r => r.paymentType !== 'interestOnly').length > 0;
+
+                      // Build explanation text
+                      let explanation = '';
+
+                      if (hasDocumentCharge) {
+                        explanation += 'Document charge';
+                      }
+
+                      if (hasInterestOnlyPayments) {
+                        if (explanation) explanation += ' + ';
+                        explanation += 'Interest-only payments';
+                      }
+
+                      if (hasRegularPayments) {
+                        if (explanation) explanation += ' + ';
+                        const months = Math.min(loan.repayments.filter(r => r.paymentType !== 'interestOnly').length, loan.currentMonth);
+                        explanation += `Interest from ${months} regular payment${months !== 1 ? 's' : ''}`;
+                      }
+
+                      return explanation;
+                    })()
                   ) : (
                     <>
                       Fixed profit for {loan.duration} weeks payment schedule

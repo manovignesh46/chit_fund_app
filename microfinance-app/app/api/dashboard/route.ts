@@ -80,16 +80,33 @@ export async function GET() {
         // 2. For interest, we either count interest-only payments OR monthly interest, not both
         const hasInterestOnlyPayments = loan.repayments.some(payment => payment.paymentType === 'interestOnly');
 
-        if (hasInterestOnlyPayments) {
-          // If there are interest-only payments, use those
+        // SPECIAL CASE: For loans with only interest-only payments
+        const onlyHasInterestOnlyPayments =
+          loan.repayments.length > 0 &&
+          loan.repayments.every(payment => payment.paymentType === 'interestOnly');
+
+        if (onlyHasInterestOnlyPayments) {
+          // For loans with only interest-only payments, the profit is the interest rate
+          // multiplied by the number of interest-only payments made
+          const interestOnlyPaymentsCount = loan.repayments.length;
+          loanProfit += (loan.interestRate || 0) * interestOnlyPaymentsCount;
+        } else {
+          // Add all interest-only payments
           const interestOnlyPayments = loan.repayments
             .filter(payment => payment.paymentType === 'interestOnly')
             .reduce((total, payment) => total + payment.amount, 0);
 
           loanProfit += interestOnlyPayments;
-        } else if (loan.currentMonth > 0 && loan.repayments.length > 0) {
-          // Otherwise, if there are any payments, use the monthly interest calculation
-          loanProfit += (loan.interestRate || 0) * loan.currentMonth;
+
+          // Add interest from regular payments
+          const regularPayments = loan.repayments.filter(payment => payment.paymentType !== 'interestOnly');
+          const regularPaymentsCount = regularPayments.length;
+
+          if (regularPaymentsCount > 0) {
+            // Count ONLY the interest portion for each regular payment made
+            // NOT the full installment amount
+            loanProfit += (loan.interestRate || 0) * regularPaymentsCount;
+          }
         }
       } else if (loan.repaymentType === 'Weekly') {
         // For weekly loans:
