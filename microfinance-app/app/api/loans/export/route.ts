@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import * as XLSX from 'xlsx';
+import { formatCurrency, formatDate, calculateInstallmentAmount, calculateLoanProfit } from '@/lib/formatUtils';
 
 // Use type assertion to handle TypeScript type checking
 const prismaAny = prisma as any;
@@ -122,43 +123,8 @@ export async function POST(request: NextRequest) {
 
             const allPaymentsTotal = repayments.reduce((sum: number, repayment: any) => sum + repayment.amount, 0);
 
-            // Calculate profit
-            let profit = 0;
-            if (loan.repaymentType === 'Monthly') {
-                // SPECIAL CASE: For loans with only interest-only payments
-                const onlyHasInterestOnlyPayments =
-                    repayments.length > 0 &&
-                    repayments.every((r: any) => r.paymentType === 'interestOnly');
-
-                if (onlyHasInterestOnlyPayments) {
-                    // For loans with only interest-only payments, the profit is the interest rate
-                    // multiplied by the number of interest-only payments made
-                    const interestOnlyPaymentsCount = repayments.length;
-                    profit = (loan.interestRate || 0) * interestOnlyPaymentsCount;
-                } else {
-                    // For monthly loans: document charge + interest
-                    // For interest, we only count actual interest payments collected
-
-                    // Count regular payments (non-interest-only)
-                    const regularPayments = repayments.filter((r: any) => r.paymentType !== 'interestOnly');
-                    const regularPaymentsCount = regularPayments.length;
-
-                    // Document charge is always counted
-                    profit = (loan.documentCharge || 0);
-
-                    // Add all interest-only payments
-                    profit += interestOnlyPayments;
-
-                    // Add interest from regular payments
-                    if (regularPaymentsCount > 0) {
-                        // Count ONLY the interest portion for each regular payment made
-                        // NOT the full installment amount
-                        profit += loan.interestRate * regularPaymentsCount;
-                    }
-                }
-            } else if (loan.repaymentType === 'Weekly') {
-                profit = totalPaid - loan.amount + (loan.documentCharge || 0);
-            }
+            // Calculate profit using the centralized utility function
+            const profit = calculateLoanProfit(loan, repayments);
 
             // Add summary row to repayments if there are any
             if (formattedRepayments.length > 0) {
@@ -242,30 +208,4 @@ export async function POST(request: NextRequest) {
     }
 }
 
-// Helper function to format date
-function formatDate(date: Date | string): string {
-    if (!date) return 'N/A';
-    const d = new Date(date);
-    return d.toLocaleDateString('en-IN', {
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric'
-    });
-}
-
-// Helper function to calculate installment amount if it's not set
-function calculateInstallmentAmount(loan: any): number {
-    let installmentAmount = 0;
-
-    if (loan.repaymentType === 'Monthly') {
-        // For monthly loans: Principal/Duration + Interest
-        const principalPerMonth = loan.amount / loan.duration;
-        installmentAmount = principalPerMonth + loan.interestRate;
-    } else {
-        // For weekly loans: Principal/(Duration-1)
-        const effectiveDuration = Math.max(1, loan.duration - 1);
-        installmentAmount = loan.amount / effectiveDuration;
-    }
-
-    return installmentAmount;
-}
+// Helper functions moved to /lib/formatUtils.ts

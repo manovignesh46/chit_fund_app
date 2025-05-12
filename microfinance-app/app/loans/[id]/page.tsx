@@ -1,64 +1,10 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams } from 'next/navigation';
 import Link from 'next/link';
-
-// Define interface for Loan type
-interface Repayment {
-  id: number;
-  paidDate: string;
-  amount: number;
-  paymentType?: string; // "full" or "interestOnly"
-}
-
-interface PaymentSchedule {
-  id: number;
-  period: number;
-  dueDate: string;
-  amount: number;
-  status: string;
-  actualPaymentDate?: string;
-  notes?: string;
-  repayment?: {
-    id: number;
-    amount: number;
-    paidDate: string;
-    paymentType: string;
-  };
-}
-
-// ParamValue type from Next.js is string | string[] | undefined
-type ParamValue = string | string[] | undefined;
-
-interface GlobalMember {
-  id: number;
-  name: string;
-  contact: string;
-  email?: string | null;
-  address?: string | null;
-}
-
-interface Loan {
-  installmentAmount?: number;
-  id: ParamValue;
-  borrowerId: number;
-  borrower: GlobalMember;
-  amount: number;
-  interestRate: number;
-  documentCharge?: number;
-  loanType: string;
-  disbursementDate: string;
-  duration: number;
-  currentMonth: number;
-  repaymentType: string;
-  remainingBalance: number;
-  overdueAmount: number;
-  missedPayments: number;
-  nextPaymentDate: string;
-  status: string;
-  repayments: Repayment[];
-}
+import { Loan, Repayment, PaymentSchedule } from '@/lib/interfaces';
+import { formatCurrency, formatDate, calculateLoanProfit } from '@/lib/formatUtils';
 
 const LoanDetailPage = () => {
   const params = useParams();
@@ -274,9 +220,7 @@ const LoanDetailPage = () => {
       // Combine the data
       const combinedData = {
         ...loanData,
-        repayments: repaymentsList,
-        // Map remainingAmount to remainingBalance for compatibility
-        remainingBalance: loanData.remainingAmount
+        repayments: repaymentsList || []
       };
 
       console.log('Combined data for loan state:', combinedData);
@@ -839,7 +783,7 @@ const LoanDetailPage = () => {
             </div>
             <div>
               <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-2">Remaining Balance</h3>
-              <p className="text-xl font-semibold">{formatCurrency(loan.remainingBalance)}</p>
+              <p className="text-xl font-semibold">{formatCurrency(loan.remainingAmount)}</p>
             </div>
             <div>
               <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-2 flex items-center">

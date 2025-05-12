@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { getCurrentUserId } from '@/lib/auth';
 import * as XLSX from 'xlsx';
+import { formatCurrency, formatDate, calculateLoanProfit } from '@/lib/formatUtils';
 
 // Use type assertion to handle TypeScript type checking
 const prismaAny = prisma as any;
@@ -109,17 +110,17 @@ export async function GET(request: NextRequest) {
       const periodAny = period as any;
       return {
         'Period': periodAny.period,
-        'Date Range': `${new Date(periodAny.periodRange.startDate).toLocaleDateString()} - ${new Date(periodAny.periodRange.endDate).toLocaleDateString()}`,
-        'Cash Inflow': periodAny.cashInflow,
-        'Cash Outflow': periodAny.cashOutflow,
-        'Net Cash Flow': periodAny.cashFlowDetails.netCashFlow,
-        'Total Profit': periodAny.profit,
-        'Loan Profit': periodAny.loanProfit,
-        'Chit Fund Profit': periodAny.chitFundProfit,
-        'Outside Amount': periodAny.outsideAmount,
-        'Loan Remaining Amount': periodAny.outsideAmountBreakdown.loanRemainingAmount,
-        'Chit Fund Outside Amount': periodAny.outsideAmountBreakdown.chitFundOutsideAmount,
-        'Overdue Amount': periodAny.overdueDetails?.totalOverdueAmount || 0,
+        'Date Range': `${formatDate(periodAny.periodRange.startDate)} - ${formatDate(periodAny.periodRange.endDate)}`,
+        'Cash Inflow': formatCurrency(periodAny.cashInflow),
+        'Cash Outflow': formatCurrency(periodAny.cashOutflow),
+        'Net Cash Flow': formatCurrency(periodAny.cashFlowDetails.netCashFlow),
+        'Total Profit': formatCurrency(periodAny.profit),
+        'Loan Profit': formatCurrency(periodAny.loanProfit),
+        'Chit Fund Profit': formatCurrency(periodAny.chitFundProfit),
+        'Outside Amount': formatCurrency(periodAny.outsideAmount),
+        'Loan Remaining Amount': formatCurrency(periodAny.outsideAmountBreakdown.loanRemainingAmount),
+        'Chit Fund Outside Amount': formatCurrency(periodAny.outsideAmountBreakdown.chitFundOutsideAmount),
+        'Overdue Amount': formatCurrency(periodAny.overdueDetails?.totalOverdueAmount || 0),
         'Missed Payments': periodAny.overdueDetails?.totalMissedPayments || 0,
         'Total Transactions': periodAny.transactionCounts.totalTransactions
       };
@@ -388,39 +389,18 @@ async function getFinancialDataByDuration(duration: string, limit: number, userI
         }
       });
 
-      // Calculate interest-only payments correctly
+      // Calculate loan profit using the centralized utility function
       Object.values(allRepaymentsByLoan).forEach((loanData: any) => {
         const loan = loanData.loan;
         const loanRepayments = loanData.repayments;
 
-        // Get interest-only payments for this loan
-        const interestOnlyRepayments = loanRepayments.filter((r: any) => r.paymentType === 'interestOnly');
+        // Calculate profit for this loan
+        const loanProfitAmount = calculateLoanProfit(loan, loanRepayments);
+        loanProfit += loanProfitAmount;
 
-        if (interestOnlyRepayments.length > 0) {
-          // For interest-only payments, only count the interest rate, not the full payment amount
-          const interestOnlyProfit = (loan.interestRate || 0) * interestOnlyRepayments.length;
-          loanProfit += interestOnlyProfit;
-          interestPayments += interestOnlyProfit;
-        }
-      });
-
-      // Calculate regular payments interest using the same allRepaymentsByLoan object
-      Object.values(allRepaymentsByLoan).forEach((loanData: any) => {
-        const loan = loanData.loan;
-        const loanRepayments = loanData.repayments;
-
-        // Get regular payments for this loan
-        const regularPayments = loanRepayments.filter((r: any) => r.paymentType !== 'interestOnly');
-        const regularPaymentsCount = regularPayments.length;
-
-        if (regularPaymentsCount > 0 && loan.interestRate) {
-          // Count ONLY the interest portion for each regular payment made
-          // NOT the full installment amount
-          const interestAmount = loan.interestRate * regularPaymentsCount;
-
-          loanProfit += interestAmount;
-          interestPayments += interestAmount;
-        }
+        // Calculate interest payments (profit minus document charge)
+        const interestPaymentAmount = loanProfitAmount - (loan.documentCharge || 0);
+        interestPayments += interestPaymentAmount;
       });
 
       // Add document charges for loans disbursed in this period

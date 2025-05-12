@@ -1,48 +1,13 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams } from 'next/navigation';
 import Link from 'next/link';
-
-// Define interfaces
-interface Loan {
-  id: number;
-  borrowerId: number;
-  borrower: {
-    name: string;
-  };
-  amount: number;
-  remainingAmount: number;
-  status: string;
-}
-
-interface PaymentSchedule {
-  id: number;
-  period: number;
-  dueDate: string;
-  status: string;
-}
-
-interface Repayment {
-  id: number;
-  paidDate: string;
-  amount: number;
-  createdAt: string;
-  paymentType?: 'full' | 'interestOnly';
-  period?: number;
-}
-
-interface PaginatedResponse {
-  repayments: Repayment[];
-  totalCount: number;
-  page: number;
-  pageSize: number;
-  totalPages: number;
-}
+import { Loan, Repayment, PaginatedResponse } from '@/lib/interfaces';
+import { formatCurrency, formatDate } from '@/lib/formatUtils';
 
 const RepaymentsPage = () => {
   const params = useParams();
-  const router = useRouter();
   const id = params.id;
 
   // State variables
@@ -95,7 +60,7 @@ const RepaymentsPage = () => {
         throw new Error('Failed to fetch repayments');
       }
 
-      const repaymentsData: PaginatedResponse = await repaymentsResponse.json();
+      const repaymentsData: PaginatedResponse<Repayment> = await repaymentsResponse.json();
 
       // Check if the response has pagination metadata
       if (repaymentsData.repayments && Array.isArray(repaymentsData.repayments)) {
