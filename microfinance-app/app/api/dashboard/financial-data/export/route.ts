@@ -372,35 +372,46 @@ async function getFinancialDataByDuration(duration: string, limit: number, userI
       let interestPayments = 0;
       let documentCharges = 0;
 
-      // For interest-only payments, they are pure profit
-      const interestOnlyPayments = repayments
-        .filter((repayment: any) => repayment.paymentType === 'interestOnly')
-        .reduce((sum: number, repayment: any) => sum + repayment.amount, 0);
-
-      loanProfit += interestOnlyPayments;
-      interestPayments += interestOnlyPayments;
-
-      // For regular payments, calculate the interest portion
-      // Group repayments by loan to calculate interest correctly
-      const repaymentsByLoan: Record<number, { loan: any; repayments: any[] }> = {};
+      // Group all repayments by loan first
+      const allRepaymentsByLoan: Record<number, { loan: any; repayments: any[] }> = {};
 
       repayments.forEach((repayment: any) => {
-        if (repayment.paymentType !== 'interestOnly' && repayment.loan) {
+        if (repayment.loan) {
           const loanId = repayment.loan.id;
-          if (!repaymentsByLoan[loanId]) {
-            repaymentsByLoan[loanId] = {
+          if (!allRepaymentsByLoan[loanId]) {
+            allRepaymentsByLoan[loanId] = {
               loan: repayment.loan,
               repayments: []
             };
           }
-          repaymentsByLoan[loanId].repayments.push(repayment);
+          allRepaymentsByLoan[loanId].repayments.push(repayment);
         }
       });
 
-      // Calculate interest for each loan based on number of regular payments
-      Object.values(repaymentsByLoan).forEach((loanData: any) => {
+      // Calculate interest-only payments correctly
+      Object.values(allRepaymentsByLoan).forEach((loanData: any) => {
         const loan = loanData.loan;
-        const regularPaymentsCount = loanData.repayments.length;
+        const loanRepayments = loanData.repayments;
+
+        // Get interest-only payments for this loan
+        const interestOnlyRepayments = loanRepayments.filter((r: any) => r.paymentType === 'interestOnly');
+
+        if (interestOnlyRepayments.length > 0) {
+          // For interest-only payments, only count the interest rate, not the full payment amount
+          const interestOnlyProfit = (loan.interestRate || 0) * interestOnlyRepayments.length;
+          loanProfit += interestOnlyProfit;
+          interestPayments += interestOnlyProfit;
+        }
+      });
+
+      // Calculate regular payments interest using the same allRepaymentsByLoan object
+      Object.values(allRepaymentsByLoan).forEach((loanData: any) => {
+        const loan = loanData.loan;
+        const loanRepayments = loanData.repayments;
+
+        // Get regular payments for this loan
+        const regularPayments = loanRepayments.filter((r: any) => r.paymentType !== 'interestOnly');
+        const regularPaymentsCount = regularPayments.length;
 
         if (regularPaymentsCount > 0 && loan.interestRate) {
           // Count ONLY the interest portion for each regular payment made
@@ -664,40 +675,51 @@ async function getSinglePeriodData(periodLabel: string, startDate: Date, endDate
   let interestPayments = 0;
   let documentCharges = 0;
 
-  // For interest-only payments, they are pure profit
-  const interestOnlyPayments = repayments
-    .filter((repayment: any) => repayment.paymentType === 'interestOnly')
-    .reduce((sum: number, repayment: any) => sum + repayment.amount, 0);
-
-  loanProfit += interestOnlyPayments;
-  interestPayments += interestOnlyPayments;
-
-  // For regular payments, calculate the interest portion
-  // Group repayments by loan to calculate interest correctly
-  const repaymentsByLoan: Record<number, { loan: any; repayments: any[] }> = {};
+  // Group all repayments by loan first
+  const allRepaymentsByLoan: Record<number, { loan: any; repayments: any[] }> = {};
 
   repayments.forEach((repayment: any) => {
-    if (repayment.paymentType !== 'interestOnly' && repayment.loan) {
+    if (repayment.loan) {
       const loanId = repayment.loan.id;
-      if (!repaymentsByLoan[loanId]) {
-        repaymentsByLoan[loanId] = {
+      if (!allRepaymentsByLoan[loanId]) {
+        allRepaymentsByLoan[loanId] = {
           loan: repayment.loan,
           repayments: []
         };
       }
-      repaymentsByLoan[loanId].repayments.push(repayment);
+      allRepaymentsByLoan[loanId].repayments.push(repayment);
     }
   });
 
-  // Calculate interest for each loan based on number of regular payments
-  Object.values(repaymentsByLoan).forEach((loanData: any) => {
+  // Calculate interest-only payments correctly
+  Object.values(allRepaymentsByLoan).forEach((loanData: any) => {
     const loan = loanData.loan;
-    const regularPaymentsCount = loanData.repayments.length;
+    const loanRepayments = loanData.repayments;
+
+    // Get interest-only payments for this loan
+    const interestOnlyRepayments = loanRepayments.filter((r: any) => r.paymentType === 'interestOnly');
+
+    if (interestOnlyRepayments.length > 0) {
+      // For interest-only payments, only count the interest rate, not the full payment amount
+      const interestOnlyProfit = (loan.interestRate || 0) * interestOnlyRepayments.length;
+      loanProfit += interestOnlyProfit;
+      interestPayments += interestOnlyProfit;
+    }
+  });
+
+  // Calculate regular payments interest using the same allRepaymentsByLoan object
+  Object.values(allRepaymentsByLoan).forEach((loanData: any) => {
+    const loan = loanData.loan;
+    const loanRepayments = loanData.repayments;
+
+    // Get regular payments for this loan
+    const regularPayments = loanRepayments.filter((r: any) => r.paymentType !== 'interestOnly');
+    const regularPaymentsCount = regularPayments.length;
 
     if (regularPaymentsCount > 0 && loan.interestRate) {
-      // Only count interest for months where payments have been made
-      const completedMonths = Math.min(regularPaymentsCount, loan.currentMonth || 0);
-      const interestAmount = loan.interestRate * completedMonths;
+      // Count ONLY the interest portion for each regular payment made
+      // NOT the full installment amount
+      const interestAmount = loan.interestRate * regularPaymentsCount;
 
       loanProfit += interestAmount;
       interestPayments += interestAmount;

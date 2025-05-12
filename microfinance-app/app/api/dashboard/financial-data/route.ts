@@ -192,13 +192,14 @@ async function getFinancialDataByDuration(duration: string, limit: number, userI
           loanProfit += interestAmount;
           interestPayments += interestAmount;
         } else {
-          // For interest-only payments, they are pure profit
-          const interestOnlyPayments = loanRepayments
+          // For interest-only payments, only count the interest rate, not the full payment amount
+          const interestOnlyPaymentsCount = loanRepayments
             .filter((repayment: any) => repayment.paymentType === 'interestOnly')
-            .reduce((sum: number, repayment: any) => sum + repayment.amount, 0);
+            .length;
 
-          loanProfit += interestOnlyPayments;
-          interestPayments += interestOnlyPayments;
+          const interestOnlyProfit = (loan.interestRate || 0) * interestOnlyPaymentsCount;
+          loanProfit += interestOnlyProfit;
+          interestPayments += interestOnlyProfit;
 
           // For regular payments, calculate the interest portion
           const regularPayments = loanRepayments.filter((r: any) => r.paymentType !== 'interestOnly');

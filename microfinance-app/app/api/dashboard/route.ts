@@ -69,13 +69,30 @@ export async function GET() {
     });
 
     // Calculate loan profit based on loan type and repayments
+    console.log('Calculating loan profit for', loansWithDetails.length, 'loans');
+
+    // Debug each loan's details
+    loansWithDetails.forEach((loan, index) => {
+      console.log(`Loan ${index + 1}:`, {
+        id: loan.id,
+        type: loan.repaymentType,
+        amount: loan.amount,
+        interestRate: loan.interestRate,
+        documentCharge: loan.documentCharge,
+        repayments: loan.repayments.length,
+        repaymentDetails: loan.repayments.map(r => ({ amount: r.amount, type: r.paymentType }))
+      });
+    });
+
     const loanProfit = loansWithDetails.reduce((sum, loan) => {
       let loanProfit = 0;
 
       if (loan.repaymentType === 'Monthly') {
         // For monthly loans:
         // 1. Document charge is a one-time profit
-        loanProfit += loan.documentCharge || 0;
+        const documentCharge = loan.documentCharge || 0;
+        loanProfit += documentCharge;
+        console.log(`Monthly loan ${loan.id} - Document charge: ${documentCharge}`);
 
         // 2. For interest, we either count interest-only payments OR monthly interest, not both
         const hasInterestOnlyPayments = loan.repayments.some(payment => payment.paymentType === 'interestOnly');
@@ -89,14 +106,20 @@ export async function GET() {
           // For loans with only interest-only payments, the profit is the interest rate
           // multiplied by the number of interest-only payments made
           const interestOnlyPaymentsCount = loan.repayments.length;
-          loanProfit += (loan.interestRate || 0) * interestOnlyPaymentsCount;
+          const interestProfit = (loan.interestRate || 0) * interestOnlyPaymentsCount;
+          loanProfit += interestProfit;
+          console.log(`Monthly loan ${loan.id} - Interest-only payments profit: ${interestProfit}`);
         } else {
-          // Add all interest-only payments
-          const interestOnlyPayments = loan.repayments
+          // For interest-only payments, only count the interest rate, not the full payment amount
+          const interestOnlyPaymentsCount = loan.repayments
             .filter(payment => payment.paymentType === 'interestOnly')
-            .reduce((total, payment) => total + payment.amount, 0);
+            .length;
 
-          loanProfit += interestOnlyPayments;
+          // For interest-only payments, the profit is just the interest rate
+          // NOT the full payment amount
+          const interestOnlyProfit = (loan.interestRate || 0) * interestOnlyPaymentsCount;
+          loanProfit += interestOnlyProfit;
+          console.log(`Monthly loan ${loan.id} - Interest-only payments (${interestOnlyPaymentsCount} payments): ${interestOnlyProfit}`);
 
           // Add interest from regular payments
           const regularPayments = loan.repayments.filter(payment => payment.paymentType !== 'interestOnly');
@@ -105,25 +128,45 @@ export async function GET() {
           if (regularPaymentsCount > 0) {
             // Count ONLY the interest portion for each regular payment made
             // NOT the full installment amount
-            loanProfit += (loan.interestRate || 0) * regularPaymentsCount;
+            const regularInterestProfit = (loan.interestRate || 0) * regularPaymentsCount;
+            loanProfit += regularInterestProfit;
+            console.log(`Monthly loan ${loan.id} - Regular payments interest: ${regularInterestProfit}`);
           }
         }
       } else if (loan.repaymentType === 'Weekly') {
         // For weekly loans:
         // Profit is calculated based on the difference between total amount to be repaid and principal
-        // For example, 5000 principal with 11 weeks = 5500 total repayment, so 500 profit
 
-        // Calculate profit as 10% of the principal amount
-        // This is a simplified calculation - in a real system, you might want to
-        // calculate this based on the actual repayment schedule
-        const weeklyProfit = loan.amount * 0.1; // 10% profit for weekly loans
-        loanProfit += weeklyProfit;
+        // Add document charge if any
+        const documentCharge = loan.documentCharge || 0;
+        loanProfit += documentCharge;
+        console.log(`Weekly loan ${loan.id} - Document charge: ${documentCharge}`);
 
-        // Note: Weekly loans don't have interest or document charges
+        // Calculate profit based on actual repayments
+        const totalRepaid = loan.repayments
+          .filter(payment => payment.paymentType !== 'interestOnly')
+          .reduce((total, payment) => total + payment.amount, 0);
+
+        console.log(`Weekly loan ${loan.id} - Total repaid: ${totalRepaid}, Principal: ${loan.amount}`);
+
+        // If there are repayments, calculate profit as the difference between total repaid and principal
+        if (totalRepaid > 0) {
+          // Only count as profit the amount that exceeds the principal
+          const principalRepaid = Math.min(totalRepaid, loan.amount);
+          const profitFromRepayments = totalRepaid - principalRepaid;
+          loanProfit += profitFromRepayments;
+          console.log(`Weekly loan ${loan.id} - Profit from repayments: ${profitFromRepayments}`);
+        } else {
+          // If no repayments yet, don't add any profit
+          console.log(`Weekly loan ${loan.id} - No repayments yet, no profit calculated`);
+        }
       }
 
+      console.log(`Loan ${loan.id} total profit: ${loanProfit}`);
       return sum + loanProfit;
     }, 0);
+
+    console.log('Total loan profit:', loanProfit);
 
     // Get all chit funds with members, auctions, and contributions to calculate chit fund profit
     const chitFundsWithDetails = await prisma.chitFund.findMany({
