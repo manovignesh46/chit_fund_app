@@ -65,18 +65,28 @@ export default function NewRepaymentPage() {
 
     try {
       setLoadingSchedules(true);
+      console.log('Fetching payment schedules for loan ID:', id);
+
       // Include all schedules, not just pending ones, and set includeAll to true to get all periods
       const response = await fetch(`/api/loans/${id}/payment-schedules?includeAll=true`);
 
       if (!response.ok) {
-        throw new Error('Failed to fetch payment schedules');
+        const errorText = await response.text();
+        console.error('Failed to fetch payment schedules. Status:', response.status, 'Response:', errorText);
+        throw new Error(`Failed to fetch payment schedules: ${response.status} ${errorText}`);
       }
 
       const data = await response.json();
+      console.log('Payment schedules data:', data);
+
       if (data.schedules && Array.isArray(data.schedules)) {
         // Sort schedules by period to ensure they appear in chronological order
         const sortedSchedules = [...data.schedules].sort((a, b) => a.period - b.period);
+        console.log('Sorted schedules:', sortedSchedules);
         setPendingSchedules(sortedSchedules);
+      } else {
+        console.warn('No schedules found in response or schedules is not an array:', data);
+        setPendingSchedules([]);
       }
     } catch (error) {
       console.error('Error fetching payment schedules:', error);
@@ -145,6 +155,8 @@ export default function NewRepaymentPage() {
 
     if (!formData.scheduleId) {
       newErrors.scheduleId = 'Please select the payment schedule this repayment is for';
+    } else if (isNaN(Number(formData.scheduleId)) || Number(formData.scheduleId) <= 0) {
+      newErrors.scheduleId = 'Please select a valid payment schedule';
     }
 
     setErrors(newErrors);
@@ -153,30 +165,88 @@ export default function NewRepaymentPage() {
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
+    console.log('Form submission started');
 
     if (!validateForm()) {
+      console.log('Form validation failed');
       return;
     }
 
     setSubmitting(true);
+    setErrors({});
+    console.log('Form validated successfully, proceeding with submission');
 
     try {
+      // Double-check scheduleId is a valid number
+      if (!formData.scheduleId || isNaN(Number(formData.scheduleId))) {
+        console.warn('Invalid scheduleId detected:', formData.scheduleId);
+        setErrors(prev => ({
+          ...prev,
+          scheduleId: 'Please select a valid payment schedule',
+          general: 'Please correct the errors before submitting'
+        }));
+        setSubmitting(false);
+        return;
+      }
+
+      // Check if the selected schedule exists in pendingSchedules
+      const selectedSchedule = pendingSchedules.find(schedule => schedule.id.toString() === formData.scheduleId);
+      if (!selectedSchedule) {
+        console.warn('Selected schedule not found in pendingSchedules:', formData.scheduleId);
+        console.log('Available schedules:', pendingSchedules.map(s => s.id));
+
+        // If we can't find the schedule in pendingSchedules, but the scheduleId is a valid number,
+        // we'll still try to submit the form since the scheduleId is used as the period in the API
+        console.log('Proceeding with submission using scheduleId as period:', formData.scheduleId);
+      } else {
+        console.log('Selected schedule found:', selectedSchedule);
+      }
+
+      console.log('Submitting form data:', formData);
+
+      const requestData = {
+        amount: formData.amount,
+        paidDate: formData.paidDate,
+        paymentType: formData.paymentType,
+        scheduleId: formData.scheduleId,
+      };
+
+      console.log('Request data:', requestData);
+
       const response = await fetch(`/api/loans/${id}/repayments`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          amount: formData.amount,
-          paidDate: formData.paidDate,
-          paymentType: formData.paymentType,
-          scheduleId: formData.scheduleId, // Now required
-        }),
+        body: JSON.stringify(requestData),
       });
 
+      console.log('Response status:', response.status);
+
       if (!response.ok) {
-        const errorData = await response.json();
+        const errorText = await response.text();
+        console.log('Error response text:', errorText);
+
+        let errorData;
+        try {
+          errorData = JSON.parse(errorText);
+          console.log('Parsed error data:', errorData);
+        } catch (parseError) {
+          console.error('Error parsing error response:', parseError);
+          throw new Error(`Server error: ${response.status} - ${errorText}`);
+        }
+
         throw new Error(errorData.error || 'Failed to record payment');
+      }
+
+      // Try to parse the response as JSON, but don't fail if it's not valid JSON
+      let responseData;
+      try {
+        responseData = await response.json();
+        console.log('Success response:', responseData);
+      } catch (parseError) {
+        console.warn('Could not parse response as JSON, but request was successful');
+        // Continue with the redirect even if we can't parse the response
       }
 
       // Redirect back to the loan details page

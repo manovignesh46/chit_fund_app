@@ -245,14 +245,18 @@ export async function updateOverdueAmountFromRepayments(loanId: number) {
 
     // If loan is not active, no overdue
     if (loan.status !== 'Active') {
-      await prismaAny.loan.update({
+      const updatedLoan = await prismaAny.loan.update({
         where: { id: loanId },
         data: {
           overdueAmount: 0,
           missedPayments: 0
         }
       });
-      return;
+      console.log(`Loan ${loanId} is not active, setting overdue amount to 0`);
+      return {
+        overdueAmount: 0,
+        missedPayments: 0
+      };
     }
 
     // Get all repayments for this loan
@@ -349,7 +353,7 @@ export async function updateOverdueAmountFromRepayments(loanId: number) {
     }
 
     // Update the loan with the new overdue amount and missed payments
-    await prismaAny.loan.update({
+    const updatedLoan = await prismaAny.loan.update({
       where: { id: loanId },
       data: {
         overdueAmount,
@@ -357,6 +361,9 @@ export async function updateOverdueAmountFromRepayments(loanId: number) {
       }
     });
 
+    console.log(`Updated overdue amount for loan ${loanId}: ${overdueAmount}, missed payments: ${missedPayments}`);
+
+    // Return the updated values
     return {
       overdueAmount,
       missedPayments
@@ -537,20 +544,14 @@ export async function recordPaymentForPeriod(
       console.log(`Weekly loan: Calculated period ${finalPeriod} based on payment date (no period was specified)`);
     }
 
-    // Create the repayment record with basic required fields
+    // Create the repayment record with all required fields
     const repaymentData: any = {
       loanId,
       amount,
       paidDate: new Date(paidDate),
-      paymentType
+      paymentType,
+      period: finalPeriod // Always include the period field
     };
-
-    // Add period field if it's supported by the schema
-    try {
-      repaymentData.period = finalPeriod;
-    } catch (error) {
-      console.warn('Period field not supported in Repayment model, skipping it');
-    }
 
     const repayment = await prismaAny.repayment.create({
       data: repaymentData

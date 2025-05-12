@@ -1,22 +1,56 @@
 import { NextRequest, NextResponse } from 'next/server';
-import prisma from '@/lib/prisma'; // Adjust the import based on your project structure
-import { calculateNextPaymentDate, getRepaymentWeek } from '@/lib/paymentSchedule';
+import { PrismaClient } from '@prisma/client';
+// Import the necessary functions from paymentSchedule
+import { getRepaymentWeek, updateOverdueAmountFromRepayments } from '@/lib/paymentSchedule';
 
-// Use type assertion to handle TypeScript type checking
-const prismaAny = prisma as any;
+// Create a new instance of PrismaClient for this API route
+const prisma = new PrismaClient();
 
-// Function to calculate overdue amount for a loan
-async function calculateOverdueAmount(loanId: number) {
+// Function to calculate the next payment date for a loan
+async function calculateNextPaymentDate(loanId: number) {
     try {
-        // Get the loan with its repayments and payment schedules
-        const loan = await prismaAny.loan.findUnique({
+        // Get the loan details with repayments
+        const loan = await prisma.loan.findUnique({
             where: { id: loanId },
             include: {
                 repayments: {
                     orderBy: { paidDate: 'asc' }
-                },
-                paymentSchedules: {
-                    orderBy: { period: 'asc' }
+                }
+            }
+        });
+
+        if (!loan) {
+            console.error(`Loan with ID ${loanId} not found when calculating next payment date`);
+            return null;
+        }
+
+        // If loan is completed, no next payment date
+        if (loan.status === 'Completed' || loan.remainingAmount <= 0) {
+            return null;
+        }
+
+        // For simplicity, just return a date one month from now
+        const nextDate = new Date();
+        nextDate.setMonth(nextDate.getMonth() + 1);
+        return nextDate;
+    } catch (error) {
+        console.error('Error calculating next payment date:', error);
+        // Return a default date rather than throwing an error
+        const defaultDate = new Date();
+        defaultDate.setMonth(defaultDate.getMonth() + 1);
+        return defaultDate;
+    }
+}
+
+// Function to calculate overdue amount for a loan
+async function calculateOverdueAmount(loanId: number) {
+    try {
+        // Get the loan with its repayments
+        const loan = await prisma.loan.findUnique({
+            where: { id: loanId },
+            include: {
+                repayments: {
+                    orderBy: { paidDate: 'asc' }
                 }
             }
         });
@@ -82,7 +116,6 @@ async function calculateOverdueAmount(loanId: number) {
                 // If the next payment date is later than expected, it means a payment was missed
                 // But we need to check if the borrower has already made the expected number of payments
                 // based on the current month
-                const disbursementDate = new Date(loan.disbursementDate);
                 const monthsPassed = loan.currentMonth;
 
                 // If the number of full payments is less than the months passed, there are missed payments
@@ -170,8 +203,7 @@ async function calculateOverdueAmount(loanId: number) {
             ? (loan.amount / loan.duration)
             : (loan.amount / (loan.duration - 1));
 
-        // Calculate the interest portion of each payment
-        const interestPerPayment = loan.installmentAmount - principalPerPayment;
+        // Calculate the principal portion of each payment (interest is handled separately)
 
         // Calculate overdue amount and missed payments
         let overdueAmount = 0;
@@ -218,12 +250,12 @@ export async function GET(
         const skip = (validPage - 1) * validPageSize;
 
         // Get total count for pagination
-        const totalCount = await prismaAny.repayment.count({
+        const totalCount = await prisma.repayment.count({
             where: { loanId: Number(id) }
         });
 
         // Get paginated repayments
-        const repayments = await prismaAny.repayment.findMany({
+        const repayments = await prisma.repayment.findMany({
             where: { loanId: Number(id) },
             orderBy: { paidDate: 'desc' },
             skip,
@@ -252,13 +284,18 @@ export async function POST(
 ) {
     try {
         const { id } = await params;
-        const { amount, paidDate, paymentType = 'full', scheduleId } = await request.json();
+        const requestBody = await request.json();
+        console.log('Request body:', requestBody);
+
+        const { amount, paidDate, paymentType = 'full', scheduleId } = requestBody;
+        console.log('Extracted values:', { amount, paidDate, paymentType, scheduleId });
+
         const loanId = Number(id);
         const paymentAmount = parseFloat(amount);
         const isInterestOnly = paymentType === 'interestOnly';
 
         // Get the current loan to check remaining amount
-        const loan = await prismaAny.loan.findUnique({
+        const loan = await prisma.loan.findUnique({
             where: { id: loanId }
         });
 
@@ -299,54 +336,79 @@ export async function POST(
             : loan.remainingAmount - paymentAmount;
 
         // Calculate overdue amount after this payment
-        const { overdueAmount, missedPayments } = await calculateOverdueAmount(loanId);
+        // Use the updateOverdueAmountFromRepayments function for more accurate results
+        const overdueResult = await updateOverdueAmountFromRepayments(loanId);
+        const { overdueAmount, missedPayments } = overdueResult || await calculateOverdueAmount(loanId);
 
         // Get the period from the selected schedule
         // For dynamic schedules, the ID is the period
         const finalPeriod = Number(scheduleId);
 
-        // Use a transaction to ensure both operations succeed or fail together
-        const result = await prismaAny.$transaction([
-            // Create the repayment record
-            prismaAny.repayment.create({
+        // Validate that the period is a valid number
+        if (isNaN(finalPeriod) || finalPeriod <= 0) {
+            return NextResponse.json(
+                { error: 'Invalid payment schedule ID' },
+                { status: 400 }
+            );
+        }
+
+        // Prepare the repayment data
+        const repaymentData = {
+            loanId: loanId,
+            amount: paymentAmount,
+            paidDate: new Date(paidDate),
+            paymentType: isInterestOnly ? 'interestOnly' : 'full',
+            // Store the period from the schedule ID
+            period: finalPeriod
+        };
+
+        console.log('Creating repayment with data:', repaymentData);
+
+        try {
+            // Step 1: Create the repayment record
+            const repayment = await prisma.repayment.create({
+                data: repaymentData,
+            });
+
+            console.log('Repayment created successfully:', repayment);
+
+            // Step 2: Calculate the next payment date
+            const nextPaymentDate = await calculateNextPaymentDate(loanId);
+            console.log('Calculated next payment date:', nextPaymentDate);
+
+            // Step 3: Update the loan
+            const updatedLoan = await prisma.loan.update({
+                where: { id: loanId },
                 data: {
-                    loanId: loanId,
-                    amount: paymentAmount,
-                    paidDate: new Date(paidDate),
-                    paymentType: isInterestOnly ? 'interestOnly' : 'full',
-                    // Store the period if provided or calculated
-                    period: finalPeriod ? Number(finalPeriod) : null
-                },
-            }),
+                    // Only update remaining amount for full payments
+                    remainingAmount: newRemainingAmount,
+                    // If fully paid, update the status
+                    status: newRemainingAmount <= 0 ? 'Completed' : 'Active',
+                    // Update next payment date with the calculated value
+                    nextPaymentDate: newRemainingAmount <= 0 ? null : nextPaymentDate,
+                    // Update overdue information
+                    overdueAmount: overdueAmount,
+                    missedPayments: missedPayments
+                } as any, // Use type assertion to handle custom fields
+            });
 
-            // Calculate the next payment date based on loan details and repayment history
-            calculateNextPaymentDate(loanId).then(nextPaymentDate => {
-                // Update the loan with the calculated next payment date
-                return prismaAny.loan.update({
-                    where: { id: loanId },
-                    data: {
-                        // Only update remaining amount for full payments
-                        remainingAmount: newRemainingAmount,
-                        // If fully paid, update the status
-                        status: newRemainingAmount <= 0 ? 'Completed' : 'Active',
-                        // Update next payment date with the calculated value
-                        nextPaymentDate: newRemainingAmount <= 0 ? null : nextPaymentDate,
-                        // Update overdue information
-                        overdueAmount: overdueAmount,
-                        missedPayments: missedPayments
-                    },
-                });
-            }),
-        ]);
+            console.log('Loan updated successfully:', updatedLoan);
 
-        return NextResponse.json({
-            ...result[0],
-            paymentType: isInterestOnly ? 'interestOnly' : 'full'
-        }, { status: 201 });
-    } catch (error) {
+            return NextResponse.json({
+                ...repayment,
+                paymentType: isInterestOnly ? 'interestOnly' : 'full'
+            }, { status: 201 });
+        } catch (error: any) {
+            console.error('Error in repayment creation process:', error);
+            return NextResponse.json(
+                { error: `Failed to create repayment: ${error.message || 'Unknown error'}` },
+                { status: 500 }
+            );
+        }
+    } catch (error: any) {
         console.error('Error creating repayment:', error);
         return NextResponse.json(
-            { error: 'Failed to create repayment' },
+            { error: `Failed to create repayment: ${error.message || 'Unknown error'}` },
             { status: 500 }
         );
     }
@@ -364,7 +426,7 @@ export async function DELETE(
         // Check if we're deleting a single repayment or multiple
         if (body.repaymentId) {
             // Get the repayment to check if it's a full payment and get its payment schedule
-            const repayment = await prismaAny.repayment.findUnique({
+            const repayment = await prisma.repayment.findUnique({
                 where: { id: body.repaymentId }
             });
 
@@ -375,15 +437,10 @@ export async function DELETE(
                 );
             }
 
-            // Check if this repayment has a period
-            let period = null;
-
-            if (repayment.period) {
-                period = repayment.period;
-            }
+            // We don't need to access the period field for this operation
 
             // Get the loan to update remaining amount
-            const loan = await prismaAny.loan.findUnique({
+            const loan = await prisma.loan.findUnique({
                 where: { id: loanId }
             });
 
@@ -400,13 +457,15 @@ export async function DELETE(
                 : loan.remainingAmount;
 
             // First delete the repayment
-            await prismaAny.repayment.delete({
+            await prisma.repayment.delete({
                 where: { id: body.repaymentId }
             });
 
             // No need to reset payment schedule status as it's been removed
             // Calculate new overdue amount after deletion
-            const { overdueAmount, missedPayments } = await calculateOverdueAmount(loanId);
+            // Use the updateOverdueAmountFromRepayments function for more accurate results
+            const overdueResult = await updateOverdueAmountFromRepayments(loanId);
+            const { overdueAmount, missedPayments } = overdueResult || await calculateOverdueAmount(loanId);
 
             // Recalculate the next payment date regardless of whether the repayment had a period or payment schedule
             let nextPaymentDate;
@@ -420,7 +479,7 @@ export async function DELETE(
             }
 
             // Update the loan with new values
-            await prismaAny.loan.update({
+            await prisma.loan.update({
                 where: { id: loanId },
                 data: {
                     remainingAmount: newRemainingAmount,
@@ -431,14 +490,14 @@ export async function DELETE(
                     // Update overdue information
                     overdueAmount: overdueAmount,
                     missedPayments: missedPayments
-                },
+                } as any, // Use type assertion to handle custom fields
             });
 
             return NextResponse.json({ message: 'Repayment deleted successfully' });
         }
         else if (body.repaymentIds && Array.isArray(body.repaymentIds)) {
             // Get all repayments to calculate amount adjustment and get their payment schedules
-            const repayments = await prismaAny.repayment.findMany({
+            const repayments = await prisma.repayment.findMany({
                 where: {
                     id: { in: body.repaymentIds },
                     loanId: loanId
@@ -452,13 +511,10 @@ export async function DELETE(
                 );
             }
 
-            // Collect periods for repayments that have them
-            const periods = repayments
-                .filter((r: any) => r.period)
-                .map((r: any) => r.period);
+            // We don't need to collect periods for this operation
 
             // Get the loan to update remaining amount
-            const loan = await prismaAny.loan.findUnique({
+            const loan = await prisma.loan.findUnique({
                 where: { id: loanId }
             });
 
@@ -475,7 +531,7 @@ export async function DELETE(
                 .reduce((sum: number, r: any) => sum + r.amount, 0);
 
             // First delete the repayments
-            await prismaAny.repayment.deleteMany({
+            await prisma.repayment.deleteMany({
                 where: {
                     id: { in: body.repaymentIds },
                     loanId: loanId
@@ -485,7 +541,9 @@ export async function DELETE(
             // No need to reset payment schedule statuses as they've been removed
 
             // Calculate new overdue amount after deletion
-            const { overdueAmount, missedPayments } = await calculateOverdueAmount(loanId);
+            // Use the updateOverdueAmountFromRepayments function for more accurate results
+            const overdueResult = await updateOverdueAmountFromRepayments(loanId);
+            const { overdueAmount, missedPayments } = overdueResult || await calculateOverdueAmount(loanId);
 
             // Recalculate the next payment date regardless of whether the repayments had periods or payment schedules
             let nextPaymentDate;
@@ -499,7 +557,7 @@ export async function DELETE(
             }
 
             // Update the loan with new values
-            await prismaAny.loan.update({
+            await prisma.loan.update({
                 where: { id: loanId },
                 data: {
                     remainingAmount: loan.remainingAmount + amountToAddBack,
@@ -510,7 +568,7 @@ export async function DELETE(
                     // Update overdue information
                     overdueAmount: overdueAmount,
                     missedPayments: missedPayments
-                },
+                } as any, // Use type assertion to handle custom fields
             });
 
             return NextResponse.json({

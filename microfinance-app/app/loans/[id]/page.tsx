@@ -219,6 +219,29 @@ const LoanDetailPage = () => {
     try {
       setLoading(true);
 
+      // First, update the overdue amount to ensure it's current
+      try {
+        console.log('Updating overdue amount...');
+        const overdueResponse = await fetch(`/api/loans/${id}/payment-schedules`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            action: 'updateOverdue'
+          }),
+        });
+
+        if (overdueResponse.ok) {
+          console.log('Overdue amount updated successfully');
+        } else {
+          console.warn('Failed to update overdue amount');
+        }
+      } catch (overdueError) {
+        console.error('Error updating overdue amount:', overdueError);
+        // Continue with fetching loan details even if updating overdue amount fails
+      }
+
       // Fetch loan details
       const loanResponse = await fetch(`/api/loans/${id}`);
       if (!loanResponse.ok) {
@@ -826,12 +849,6 @@ const LoanDetailPage = () => {
                     {loan.missedPayments} {loan.missedPayments === 1 ? 'payment' : 'payments'} missed
                   </span>
                 )}
-                <Link
-                  href={`/api/loans/${loan.id}/update-overdue?redirect=true`}
-                  className="ml-2 text-xs text-blue-600 hover:text-blue-800"
-                >
-                  Refresh
-                </Link>
               </h3>
               <p className={`text-xl font-semibold ${loan.overdueAmount > 0 ? 'text-red-600' : 'text-gray-500'}`}>
                 {formatCurrency(loan.overdueAmount)}
