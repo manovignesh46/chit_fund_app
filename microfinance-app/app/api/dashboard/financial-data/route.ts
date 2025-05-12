@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { getCurrentUserId } from '@/lib/auth';
+import { calculateLoanProfit, calculateChitFundProfit, calculateChitFundOutsideAmount } from '@/lib/formatUtils';
 
 // Use type assertion to handle TypeScript type checking
 const prismaAny = prisma as any;
@@ -152,8 +153,7 @@ async function getFinancialDataByDuration(duration: string, limit: number, userI
       const loanOutflow = loans.reduce((sum: number, loan: any) => sum + loan.amount, 0);
       const cashOutflow = auctionOutflow + loanOutflow;
 
-      // Calculate profit
-      // For loans: interest payments + document charges
+      // Calculate profit using centralized utility functions
       let loanProfit = 0;
       let interestPayments = 0;
       let documentCharges = 0;
@@ -174,65 +174,58 @@ async function getFinancialDataByDuration(duration: string, limit: number, userI
         }
       });
 
-      // Calculate profit for each loan
+      // Calculate profit for each loan using the centralized utility function
       Object.values(repaymentsByLoan).forEach((loanData: any) => {
         const loan = loanData.loan;
         const loanRepayments = loanData.repayments;
 
-        // SPECIAL CASE: For loans with only interest-only payments
-        const onlyHasInterestOnlyPayments =
-          loanRepayments.length > 0 &&
-          loanRepayments.every((r: any) => r.paymentType === 'interestOnly');
+        // Calculate profit for this loan
+        const loanProfitAmount = calculateLoanProfit(loan, loanRepayments);
+        loanProfit += loanProfitAmount;
 
-        if (onlyHasInterestOnlyPayments) {
-          // For loans with only interest-only payments, the profit is the interest rate
-          // multiplied by the number of interest-only payments made
-          const interestOnlyPaymentsCount = loanRepayments.length;
-          const interestAmount = (loan.interestRate || 0) * interestOnlyPaymentsCount;
-          loanProfit += interestAmount;
-          interestPayments += interestAmount;
-        } else {
-          // For interest-only payments, only count the interest rate, not the full payment amount
-          const interestOnlyPaymentsCount = loanRepayments
-            .filter((repayment: any) => repayment.paymentType === 'interestOnly')
-            .length;
+        // Calculate interest payments (profit minus document charge)
+        const interestPaymentAmount = loanProfitAmount - (loan.documentCharge || 0);
+        interestPayments += interestPaymentAmount;
 
-          const interestOnlyProfit = (loan.interestRate || 0) * interestOnlyPaymentsCount;
-          loanProfit += interestOnlyProfit;
-          interestPayments += interestOnlyProfit;
-
-          // For regular payments, calculate the interest portion
-          const regularPayments = loanRepayments.filter((r: any) => r.paymentType !== 'interestOnly');
-          const regularPaymentsCount = regularPayments.length;
-
-          if (regularPaymentsCount > 0 && loan.interestRate) {
-            // Count ONLY the interest portion for each regular payment made
-            // NOT the full installment amount
-            const interestAmount = loan.interestRate * regularPaymentsCount;
-
-            loanProfit += interestAmount;
-            interestPayments += interestAmount;
-          }
-        }
+        // Add to document charges total
+        documentCharges += (loan.documentCharge || 0);
       });
 
-      // Add document charges for loans disbursed in this period
-      documentCharges = loans.reduce((sum: number, loan: any) => sum + loan.documentCharge, 0);
-      loanProfit += documentCharges;
-
-      // For chit funds: auction profit (commission)
+      // For chit funds: auction profit (commission) using centralized utility function
       let chitFundProfit = 0;
       let auctionCommissions = 0;
 
+      // Group auctions by chit fund
+      const auctionsByChitFund: Record<number, { chitFund: any; auctions: any[]; contributions: any[] }> = {};
+
+      // First, collect all auctions by chit fund
       auctions.forEach((auction: any) => {
         if (auction.chitFund) {
-          const monthlyTotal = auction.chitFund.monthlyContribution * auction.chitFund.membersCount;
-          const auctionProfit = monthlyTotal - auction.amount;
-          if (auctionProfit > 0) {
-            chitFundProfit += auctionProfit;
-            auctionCommissions += auctionProfit;
+          const chitFundId = auction.chitFund.id;
+          if (!auctionsByChitFund[chitFundId]) {
+            auctionsByChitFund[chitFundId] = {
+              chitFund: auction.chitFund,
+              auctions: [],
+              contributions: []
+            };
           }
+          auctionsByChitFund[chitFundId].auctions.push(auction);
         }
+      });
+
+      // Then, collect all contributions by chit fund
+      contributions.forEach((contribution: any) => {
+        const chitFundId = contribution.chitFundId;
+        if (auctionsByChitFund[chitFundId]) {
+          auctionsByChitFund[chitFundId].contributions.push(contribution);
+        }
+      });
+
+      // Calculate profit for each chit fund using the centralized utility function
+      Object.values(auctionsByChitFund).forEach((data) => {
+        const profit = calculateChitFundProfit(data.chitFund, data.contributions, data.auctions);
+        chitFundProfit += profit;
+        auctionCommissions += profit; // All chit fund profit comes from auction commissions
       });
 
       const totalProfit = loanProfit + chitFundProfit;
@@ -284,14 +277,12 @@ async function getFinancialDataByDuration(duration: string, limit: number, userI
         },
       });
 
+      // Calculate outside amount for each chit fund using the centralized utility function
       let chitFundOutsideAmount = 0;
-      chitFundsWithDetails.forEach((fund: any) => {
-        const fundInflow = fund.contributions.reduce((sum: number, contribution: any) => sum + contribution.amount, 0);
-        const fundOutflow = fund.auctions.reduce((sum: number, auction: any) => sum + auction.amount, 0);
 
-        if (fundOutflow > fundInflow) {
-          chitFundOutsideAmount += (fundOutflow - fundInflow);
-        }
+      chitFundsWithDetails.forEach((fund: any) => {
+        const outsideAmount = calculateChitFundOutsideAmount(fund, fund.contributions, fund.auctions);
+        chitFundOutsideAmount += outsideAmount;
       });
 
       const totalOutsideAmount = (loanRemainingAmount._sum.remainingAmount || 0) + chitFundOutsideAmount;

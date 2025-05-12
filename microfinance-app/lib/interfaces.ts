@@ -17,6 +17,92 @@ export interface GlobalMember {
 }
 
 /**
+ * Chit Fund interface
+ */
+export interface ChitFund {
+  id: number;
+  name: string;
+  totalAmount: number;
+  monthlyContribution: number;
+  duration: number;
+  membersCount: number;
+  status: string;
+  startDate: Date | string;
+  currentMonth: number;
+  nextAuctionDate?: Date | string | null;
+  description?: string | null;
+  createdAt?: Date | string;
+  updatedAt?: Date | string;
+  createdById: number;
+  members?: ChitFundMember[];
+  contributions?: Contribution[];
+  auctions?: Auction[];
+  _count?: {
+    members?: number;
+    contributions?: number;
+    auctions?: number;
+  };
+}
+
+/**
+ * Chit Fund Member interface
+ */
+export interface ChitFundMember {
+  id: number;
+  globalMemberId: number;
+  chitFundId: number;
+  joinDate: Date | string;
+  auctionWon: boolean;
+  auctionMonth?: number | null;
+  contribution: number;
+  createdAt?: Date | string;
+  updatedAt?: Date | string;
+  globalMember?: GlobalMember;
+  chitFund?: ChitFund;
+  name?: string; // For convenience when including globalMember data
+}
+
+/**
+ * Contribution interface
+ */
+export interface Contribution {
+  id: number;
+  amount: number;
+  month: number;
+  paidDate: Date | string;
+  memberId: number;
+  chitFundId: number;
+  balance: number;
+  balancePaymentDate?: Date | string | null;
+  balancePaymentStatus?: string | null;
+  actualBalancePaymentDate?: Date | string | null;
+  createdAt?: Date | string;
+  updatedAt?: Date | string;
+  member?: ChitFundMember;
+  chitFund?: ChitFund;
+}
+
+/**
+ * Auction interface
+ */
+export interface Auction {
+  id: number;
+  chitFundId: number;
+  month: number;
+  date: Date | string;
+  winnerId: number;
+  amount: number;
+  lowestBid?: number | null;
+  highestBid?: number | null;
+  numberOfBidders?: number | null;
+  notes?: string | null;
+  createdAt?: Date | string;
+  updatedAt?: Date | string;
+  chitFund?: ChitFund;
+  winner?: ChitFundMember;
+}
+
+/**
  * Loan interface
  */
 export interface Loan {

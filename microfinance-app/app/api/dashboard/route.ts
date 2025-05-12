@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
+import { calculateLoanProfit, calculateChitFundProfit, calculateChitFundOutsideAmount } from '@/lib/formatUtils';
 
 export const dynamic = 'force-dynamic'; // Ensure the route is not statically optimized
 
@@ -68,102 +69,14 @@ export async function GET() {
       },
     });
 
-    // Calculate loan profit based on loan type and repayments
+    // Calculate loan profit using the centralized utility function
     console.log('Calculating loan profit for', loansWithDetails.length, 'loans');
 
-    // Debug each loan's details
-    loansWithDetails.forEach((loan, index) => {
-      console.log(`Loan ${index + 1}:`, {
-        id: loan.id,
-        type: loan.repaymentType,
-        amount: loan.amount,
-        interestRate: loan.interestRate,
-        documentCharge: loan.documentCharge,
-        repayments: loan.repayments.length,
-        repaymentDetails: loan.repayments.map(r => ({ amount: r.amount, type: r.paymentType }))
-      });
-    });
-
     const loanProfit = loansWithDetails.reduce((sum, loan) => {
-      let loanProfit = 0;
-
-      if (loan.repaymentType === 'Monthly') {
-        // For monthly loans:
-        // 1. Document charge is a one-time profit
-        const documentCharge = loan.documentCharge || 0;
-        loanProfit += documentCharge;
-        console.log(`Monthly loan ${loan.id} - Document charge: ${documentCharge}`);
-
-        // 2. For interest, we either count interest-only payments OR monthly interest, not both
-        const hasInterestOnlyPayments = loan.repayments.some(payment => payment.paymentType === 'interestOnly');
-
-        // SPECIAL CASE: For loans with only interest-only payments
-        const onlyHasInterestOnlyPayments =
-          loan.repayments.length > 0 &&
-          loan.repayments.every(payment => payment.paymentType === 'interestOnly');
-
-        if (onlyHasInterestOnlyPayments) {
-          // For loans with only interest-only payments, the profit is the interest rate
-          // multiplied by the number of interest-only payments made
-          const interestOnlyPaymentsCount = loan.repayments.length;
-          const interestProfit = (loan.interestRate || 0) * interestOnlyPaymentsCount;
-          loanProfit += interestProfit;
-          console.log(`Monthly loan ${loan.id} - Interest-only payments profit: ${interestProfit}`);
-        } else {
-          // For interest-only payments, only count the interest rate, not the full payment amount
-          const interestOnlyPaymentsCount = loan.repayments
-            .filter(payment => payment.paymentType === 'interestOnly')
-            .length;
-
-          // For interest-only payments, the profit is just the interest rate
-          // NOT the full payment amount
-          const interestOnlyProfit = (loan.interestRate || 0) * interestOnlyPaymentsCount;
-          loanProfit += interestOnlyProfit;
-          console.log(`Monthly loan ${loan.id} - Interest-only payments (${interestOnlyPaymentsCount} payments): ${interestOnlyProfit}`);
-
-          // Add interest from regular payments
-          const regularPayments = loan.repayments.filter(payment => payment.paymentType !== 'interestOnly');
-          const regularPaymentsCount = regularPayments.length;
-
-          if (regularPaymentsCount > 0) {
-            // Count ONLY the interest portion for each regular payment made
-            // NOT the full installment amount
-            const regularInterestProfit = (loan.interestRate || 0) * regularPaymentsCount;
-            loanProfit += regularInterestProfit;
-            console.log(`Monthly loan ${loan.id} - Regular payments interest: ${regularInterestProfit}`);
-          }
-        }
-      } else if (loan.repaymentType === 'Weekly') {
-        // For weekly loans:
-        // Profit is calculated based on the difference between total amount to be repaid and principal
-
-        // Add document charge if any
-        const documentCharge = loan.documentCharge || 0;
-        loanProfit += documentCharge;
-        console.log(`Weekly loan ${loan.id} - Document charge: ${documentCharge}`);
-
-        // Calculate profit based on actual repayments
-        const totalRepaid = loan.repayments
-          .filter(payment => payment.paymentType !== 'interestOnly')
-          .reduce((total, payment) => total + payment.amount, 0);
-
-        console.log(`Weekly loan ${loan.id} - Total repaid: ${totalRepaid}, Principal: ${loan.amount}`);
-
-        // If there are repayments, calculate profit as the difference between total repaid and principal
-        if (totalRepaid > 0) {
-          // Only count as profit the amount that exceeds the principal
-          const principalRepaid = Math.min(totalRepaid, loan.amount);
-          const profitFromRepayments = totalRepaid - principalRepaid;
-          loanProfit += profitFromRepayments;
-          console.log(`Weekly loan ${loan.id} - Profit from repayments: ${profitFromRepayments}`);
-        } else {
-          // If no repayments yet, don't add any profit
-          console.log(`Weekly loan ${loan.id} - No repayments yet, no profit calculated`);
-        }
-      }
-
-      console.log(`Loan ${loan.id} total profit: ${loanProfit}`);
-      return sum + loanProfit;
+      // Use the centralized utility function to calculate profit
+      const profit = calculateLoanProfit(loan, loan.repayments);
+      console.log(`Loan ${loan.id} total profit: ${profit}`);
+      return sum + profit;
     }, 0);
 
     console.log('Total loan profit:', loanProfit);
@@ -177,45 +90,21 @@ export async function GET() {
       },
     });
 
-    // Calculate chit fund profit (commission from auctions)
+    // Calculate chit fund profit using the centralized utility function
     let chitFundProfit = 0;
     let totalOutsideAmount = 0;
 
-    // Calculate outside amount from chit funds
+    // Calculate profit and outside amount for each chit fund
     chitFundsWithDetails.forEach(fund => {
-      let fundProfit = 0;
-      let fundInflow = 0;
-      let fundOutflow = 0;
+      // Use the centralized utility functions to calculate profit and outside amount
+      const fundProfit = calculateChitFundProfit(fund, fund.contributions, fund.auctions);
+      const fundOutsideAmount = calculateChitFundOutsideAmount(fund, fund.contributions, fund.auctions);
 
-      // Calculate inflow from contributions
-      if (fund.contributions && fund.contributions.length > 0) {
-        fundInflow = fund.contributions.reduce((sum, contribution) => sum + contribution.amount, 0);
-      }
-
-      // Calculate outflow and profit from auctions
-      if (fund.auctions && fund.auctions.length > 0 && fund.members && fund.members.length > 0) {
-        fund.auctions.forEach(auction => {
-          fundOutflow += auction.amount;
-
-          // Each auction's profit is the difference between the total monthly contribution and the auction amount
-          const monthlyTotal = fund.monthlyContribution * fund.members.length;
-          const auctionProfit = monthlyTotal - auction.amount;
-          fundProfit += auctionProfit > 0 ? auctionProfit : 0;
-        });
-      }
-
-      // If there are no auctions or the calculated profit is 0, but there's a difference between inflow and outflow,
-      // use that difference as the profit (especially for completed chit funds)
-      if ((fund.auctions.length === 0 || fundProfit === 0) && fundInflow > fundOutflow) {
-        fundProfit = fundInflow - fundOutflow;
-      }
-
-      // Calculate outside amount (when outflow exceeds inflow)
-      if (fundOutflow > fundInflow) {
-        totalOutsideAmount += (fundOutflow - fundInflow);
-      }
-
+      // Add to totals
       chitFundProfit += fundProfit;
+      totalOutsideAmount += fundOutsideAmount;
+
+      console.log(`Chit Fund ${fund.id} profit: ${fundProfit}, outside amount: ${fundOutsideAmount}`);
     });
 
     // Add remaining loan amounts to the outside amount

@@ -3,44 +3,18 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
+import { ChitFund, ChitFundMember, Auction, Contribution } from '@/lib/interfaces';
+import { formatCurrency, formatDate, calculateChitFundProfit, calculateChitFundOutsideAmount } from '@/lib/formatUtils';
+import ChitFundCard from '@/components/chit-funds/ChitFundCard';
+import ChitFundMembersList from '@/components/chit-funds/ChitFundMembersList';
+import ChitFundFinancialSummary from '@/components/chit-funds/ChitFundFinancialSummary';
 
-// Define interfaces for type safety
-interface Member {
+// Define interface for member balance data
+interface MemberBalanceData {
   id: number;
   name: string;
-  contribution: number;
-  auctionWon: boolean;
-  auctionMonth: number | null;
-  contributionsCount: number;
-}
-
-interface Auction {
-  id: number;
-  month: number;
-  date: string;
-  amount: number;
-  winner: {
-    id: number;
-    name: string;
-    contact: string;
-  };
-}
-
-interface ChitFund {
-  id: number;
-  name: string;
-  totalAmount: number;
-  monthlyContribution: number;
-  duration: number;
-  membersCount: number;
-  status: string;
-  startDate: string;
-  nextAuctionDate: string | null;
-  currentMonth: number;
-  members?: Member[];
-  auctions?: Auction[];
-  nextPayoutReceiver?: string;
-  finalPayout?: number;
+  totalBalance: number;
+  months: Array<{month: number; balance: number}>;
 }
 
 const ChitFundDetails = () => {
@@ -162,41 +136,23 @@ const ChitFundDetails = () => {
         setTotalBalance(totalBalanceAmount);
         setMembersWithBalance(membersWithBalanceData);
 
-        // Calculate cash inflow, outflow, and profit
-        let profitAmount = 0;
+        // Calculate financial metrics using centralized utility functions
         let totalInflow = 0;
         let totalOutflow = 0;
 
         // Calculate cash inflow from contributions
         if (contributionsData && contributionsData.length > 0) {
-          contributionsData.forEach((contribution: any) => {
-            totalInflow += contribution.amount;
-          });
+          totalInflow = contributionsData.reduce((sum, contribution) => sum + contribution.amount, 0);
         }
 
-        // Calculate cash outflow from auctions (payouts to winners)
+        // Calculate cash outflow from auctions
         if (auctionsData && auctionsData.length > 0) {
-          auctionsData.forEach((auction: Auction) => {
-            totalOutflow += auction.amount;
-
-            // Each auction's profit is the difference between the total monthly contribution and the auction amount
-            const monthlyTotal = chitFundData.monthlyContribution * membersData.length;
-            const auctionProfit = monthlyTotal - auction.amount;
-            profitAmount += auctionProfit > 0 ? auctionProfit : 0;
-          });
+          totalOutflow = auctionsData.reduce((sum, auction) => sum + auction.amount, 0);
         }
 
-        // If there are no auctions or the calculated profit is 0, but there's a difference between inflow and outflow,
-        // use that difference as the profit (especially for completed chit funds)
-        if ((auctionsData.length === 0 || profitAmount === 0) && totalInflow > totalOutflow) {
-          profitAmount = totalInflow - totalOutflow;
-        }
-
-        // Calculate outside amount (when outflow exceeds inflow)
-        let outsideAmountValue = 0;
-        if (totalOutflow > totalInflow) {
-          outsideAmountValue = totalOutflow - totalInflow;
-        }
+        // Calculate profit and outside amount using centralized utility functions
+        const profitAmount = calculateChitFundProfit(chitFundData, contributionsData, auctionsData);
+        const outsideAmountValue = calculateChitFundOutsideAmount(chitFundData, contributionsData, auctionsData);
 
         setCashInflow(totalInflow);
         setCashOutflow(totalOutflow);
@@ -242,25 +198,7 @@ const ChitFundDetails = () => {
     }
   }, [id]);
 
-  // Format currency
-  const formatCurrency = (amount: number): string => {
-    return new Intl.NumberFormat('en-IN', {
-      style: 'currency',
-      currency: 'INR',
-      maximumFractionDigits: 0,
-    }).format(amount);
-  };
-
-  // Format date
-  const formatDate = (dateString: string | null | undefined): string => {
-    if (!dateString) return 'N/A';
-    const date = new Date(dateString);
-    return new Intl.DateTimeFormat('en-IN', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-    }).format(date);
-  };
+  // Using centralized formatting functions from formatUtils.ts
 
   // Calculate end date based on start date and duration
   const calculateEndDate = (startDate: string, durationMonths: number): string => {
@@ -678,37 +616,14 @@ const ChitFundDetails = () => {
         </div>
 
         <div>
-          <div className="bg-white rounded-lg shadow-md overflow-hidden">
-            <div className="p-6 border-b">
-              <h2 className="text-xl font-semibold">Members</h2>
-            </div>
-            <div className="p-6">
-              <ul className="divide-y divide-gray-200">
-                {members.length === 0 ? (
-                  <li className="py-3 text-center text-gray-500">No members found</li>
-                ) : (
-                  members.slice(0, 5).map((member) => (
-                    <li key={member.id} className="py-3 flex justify-between items-center">
-                      <div>
-                        <p className="text-sm font-medium text-gray-900">{member.name}</p>
-                        <p className="text-sm text-gray-500">
-                          {member.auctionWon ? `Won auction in month ${member.auctionMonth}` : 'No auction won yet'}
-                        </p>
-                      </div>
-                      <div className="text-sm font-semibold">
-                        {formatCurrency(member.contribution)}
-                      </div>
-                    </li>
-                  ))
-                )}
-              </ul>
-            </div>
-            <div className="p-6 border-t">
-              <Link href={`/chit-funds/${chitFund.id}/members`} className="text-blue-600 hover:underline block text-center">
-                View All Members
-              </Link>
-            </div>
-          </div>
+          {/* Use the ChitFundMembersList component */}
+          <ChitFundMembersList
+            members={members}
+            showAuctionDetails={true}
+            maxDisplay={5}
+            showAll={false}
+            onViewMore={() => window.location.href = `/chit-funds/${chitFund.id}/members`}
+          />
 
           <div className="bg-white rounded-lg shadow-md overflow-hidden mt-6">
             <div className="p-6 border-b">
