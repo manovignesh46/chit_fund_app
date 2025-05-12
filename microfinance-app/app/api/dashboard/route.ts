@@ -1,119 +1,137 @@
-import { NextResponse } from 'next/server';
+import { NextResponse, NextRequest } from 'next/server';
 import prisma from '@/lib/prisma';
 import { calculateLoanProfit, calculateChitFundProfit, calculateChitFundOutsideAmount } from '@/lib/formatUtils';
+// import { apiCache } from '@/lib/cache';
+import { getCurrentUserId } from '@/lib/auth';
 
-export const dynamic = 'force-dynamic'; // Ensure the route is not statically optimized
+// Use ISR with a 5-minute revalidation period
+export const revalidate = 300; // 5 minutes
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    // Get total cash inflow from chit fund contributions
-    const contributionsSum = await prisma.contribution.aggregate({
-      _sum: {
-        amount: true,
-      },
-    });
+    // Get the current user ID for data isolation
+    const currentUserId = getCurrentUserId(request);
+    if (!currentUserId) {
+      return NextResponse.json(
+        { error: 'Authentication required' },
+        { status: 401 }
+      );
+    }
 
-    // Get total cash inflow from loan repayments
-    const repaymentsSum = await prisma.repayment.aggregate({
-      _sum: {
-        amount: true,
-      },
-    });
+    console.log('Fetching dashboard data...');
 
-    // Get total cash outflow from auctions
-    const auctionsSum = await prisma.auction.aggregate({
-      _sum: {
-        amount: true,
-      },
-    });
+    // Get all aggregations in parallel for better performance
+    const [
+      contributionsSum,
+      repaymentsSum,
+      auctionsSum,
+      loansSum,
+      activeChitFunds,
+      totalMembers,
+      activeLoans,
+      loansWithDetails,
+      chitFundsWithDetails
+    ] = await Promise.all([
+      // Get total cash inflow from chit fund contributions
+      prisma.contribution.aggregate({
+        _sum: { amount: true },
+        where: { chitFund: { createdById: currentUserId } }
+      }),
 
-    // Get total cash outflow from loan disbursements
-    const loansSum = await prisma.loan.aggregate({
-      _sum: {
-        amount: true,
-      },
-    });
+      // Get total cash inflow from loan repayments
+      prisma.repayment.aggregate({
+        _sum: { amount: true },
+        where: { loan: { createdById: currentUserId } }
+      }),
 
-    // Get active chit funds count
-    const activeChitFunds = await prisma.chitFund.count({
-      where: {
-        status: 'Active',
-      },
-    });
+      // Get total cash outflow from auctions
+      prisma.auction.aggregate({
+        _sum: { amount: true },
+        where: { chitFund: { createdById: currentUserId } }
+      }),
 
-    // Get total members count
-    const totalMembers = await prisma.member.count();
+      // Get total cash outflow from loan disbursements
+      prisma.loan.aggregate({
+        _sum: { amount: true },
+        where: { createdById: currentUserId }
+      }),
 
-    // Get active loans count
-    const activeLoans = await prisma.loan.count({
-      where: {
-        status: 'Active',
-      },
-    });
+      // Get active chit funds count
+      prisma.chitFund.count({
+        where: {
+          status: 'Active',
+          createdById: currentUserId
+        }
+      }),
 
-    // Get recent activities
-    const recentActivities = await getRecentActivities();
+      // Get total members count
+      prisma.globalMember.count({
+        where: { createdById: currentUserId }
+      }),
 
-    // Get upcoming events
-    const upcomingEvents = await getUpcomingEvents();
+      // Get active loans count
+      prisma.loan.count({
+        where: {
+          status: 'Active',
+          createdById: currentUserId
+        }
+      }),
 
-    // Get loans with all necessary data for profit calculation
-    const loansWithDetails = await prisma.loan.findMany({
-      include: {
-        repayments: {
-          select: {
-            amount: true,
-            paymentType: true,
+      // Get loans with all necessary data for profit calculation
+      prisma.loan.findMany({
+        where: { createdById: currentUserId },
+        include: {
+          repayments: {
+            select: {
+              amount: true,
+              paymentType: true,
+            },
           },
         },
-      },
-    });
+      }),
+
+      // Get all chit funds with members, auctions, and contributions
+      prisma.chitFund.findMany({
+        where: { createdById: currentUserId },
+        include: {
+          members: true,
+          auctions: true,
+          contributions: true,
+        },
+      })
+    ]);
+
+    // Get recent activities and upcoming events in parallel
+    const [recentActivities, upcomingEvents] = await Promise.all([
+      getRecentActivities(prisma, currentUserId),
+      getUpcomingEvents(prisma, currentUserId)
+    ]);
 
     // Calculate loan profit using the centralized utility function
-    console.log('Calculating loan profit for', loansWithDetails.length, 'loans');
-
     const loanProfit = loansWithDetails.reduce((sum, loan) => {
       // Use the centralized utility function to calculate profit
       const profit = calculateLoanProfit(loan, loan.repayments);
-      console.log(`Loan ${loan.id} total profit: ${profit}`);
       return sum + profit;
     }, 0);
 
-    console.log('Total loan profit:', loanProfit);
-
-    // Get all chit funds with members, auctions, and contributions to calculate chit fund profit
-    const chitFundsWithDetails = await prisma.chitFund.findMany({
-      include: {
-        members: true,
-        auctions: true,
-        contributions: true,
-      },
-    });
-
-    // Calculate chit fund profit using the centralized utility function
+    // Calculate chit fund profit and outside amount
     let chitFundProfit = 0;
     let totalOutsideAmount = 0;
 
     // Calculate profit and outside amount for each chit fund
     chitFundsWithDetails.forEach(fund => {
-      // Use the centralized utility functions to calculate profit and outside amount
       const fundProfit = calculateChitFundProfit(fund, fund.contributions, fund.auctions);
       const fundOutsideAmount = calculateChitFundOutsideAmount(fund, fund.contributions, fund.auctions);
 
-      // Add to totals
       chitFundProfit += fundProfit;
       totalOutsideAmount += fundOutsideAmount;
-
-      console.log(`Chit Fund ${fund.id} profit: ${fundProfit}, outside amount: ${fundOutsideAmount}`);
     });
 
-    // Add remaining loan amounts to the outside amount
-    // This represents money that has been disbursed but not yet repaid
+    // Calculate remaining loan amount more efficiently
     const totalLoanAmount = loansWithDetails.reduce((sum, loan) => sum + loan.amount, 0);
     const totalRepaymentAmount = loansWithDetails.reduce((sum, loan) => {
       const loanRepayments = loan.repayments || [];
       return sum + loanRepayments.reduce((repaymentSum, repayment) => {
-        // Only count full payments toward reducing the principal
         if (repayment.paymentType !== 'interestOnly') {
           return repaymentSum + repayment.amount;
         }
@@ -122,23 +140,18 @@ export async function GET() {
     }, 0);
 
     // Calculate the remaining loan amount
-    const remainingLoanAmount = totalLoanAmount - totalRepaymentAmount;
-
-    // Calculate the chit fund outside amount (already calculated above)
-    const chitFundOutsideAmount = totalOutsideAmount;
+    const remainingLoanAmount = Math.max(0, totalLoanAmount - totalRepaymentAmount);
 
     // Add the remaining loan amount to the total outside amount
-    if (remainingLoanAmount > 0) {
-      totalOutsideAmount += remainingLoanAmount;
-    }
+    const totalOutsideAmountWithLoans = totalOutsideAmount + remainingLoanAmount;
 
     // Create an object to store the breakdown of outside amount
     const outsideAmountBreakdown = {
-      loanRemainingAmount: remainingLoanAmount > 0 ? remainingLoanAmount : 0,
-      chitFundOutsideAmount: chitFundOutsideAmount
+      loanRemainingAmount: remainingLoanAmount,
+      chitFundOutsideAmount: totalOutsideAmount
     };
 
-    // Calculate total cash flows including loan transactions
+    // Calculate total cash flows
     const totalCashInflow = (contributionsSum._sum.amount || 0) + (repaymentsSum._sum.amount || 0);
     const totalCashOutflow = (auctionsSum._sum.amount || 0) + (loansSum._sum.amount || 0);
     const totalProfit = loanProfit + chitFundProfit;
@@ -149,7 +162,7 @@ export async function GET() {
       totalProfit,
       loanProfit,
       chitFundProfit,
-      totalOutsideAmount,
+      totalOutsideAmount: totalOutsideAmountWithLoans,
       outsideAmountBreakdown,
       activeChitFunds,
       totalMembers,
@@ -166,11 +179,16 @@ export async function GET() {
   }
 }
 
-async function getRecentActivities() {
+async function getRecentActivities(prismaClient: any, userId: number) {
   try {
     // Get recent members (new chit fund members)
-    const recentMembers = await prisma.member.findMany({
+    const recentMembers = await prismaClient.member.findMany({
       take: 3,
+      where: {
+        chitFund: {
+          createdById: userId
+        }
+      },
       orderBy: {
         joinDate: 'desc',
       },
@@ -181,8 +199,13 @@ async function getRecentActivities() {
     });
 
     // Get recent auctions
-    const recentAuctions = await prisma.auction.findMany({
+    const recentAuctions = await prismaClient.auction.findMany({
       take: 3,
+      where: {
+        chitFund: {
+          createdById: userId
+        }
+      },
       orderBy: {
         date: 'desc',
       },
@@ -197,8 +220,11 @@ async function getRecentActivities() {
     });
 
     // Get recent loans
-    const recentLoans = await prisma.loan.findMany({
+    const recentLoans = await prismaClient.loan.findMany({
       take: 3,
+      where: {
+        createdById: userId
+      },
       orderBy: {
         createdAt: 'desc',
       },
@@ -208,8 +234,13 @@ async function getRecentActivities() {
     });
 
     // Get recent repayments
-    const recentRepayments = await prisma.repayment.findMany({
+    const recentRepayments = await prismaClient.repayment.findMany({
       take: 3,
+      where: {
+        loan: {
+          createdById: userId
+        }
+      },
       orderBy: {
         paidDate: 'desc',
       },
@@ -293,16 +324,17 @@ async function getRecentActivities() {
   }
 }
 
-async function getUpcomingEvents() {
+async function getUpcomingEvents(prismaClient: any, userId: number) {
   try {
     const today = new Date();
     const nextMonth = new Date();
     nextMonth.setMonth(today.getMonth() + 1);
 
     // Get upcoming auctions
-    const upcomingAuctions = await prisma.chitFund.findMany({
+    const upcomingAuctions = await prismaClient.chitFund.findMany({
       where: {
         status: 'Active',
+        createdById: userId,
         nextAuctionDate: {
           gte: today,
           lte: nextMonth,
@@ -320,9 +352,10 @@ async function getUpcomingEvents() {
     });
 
     // Get upcoming loan payments
-    const upcomingPayments = await prisma.loan.findMany({
+    const upcomingPayments = await prismaClient.loan.findMany({
       where: {
         status: 'Active',
+        createdById: userId,
         nextPaymentDate: {
           gte: today,
           lte: nextMonth,
@@ -345,7 +378,7 @@ async function getUpcomingEvents() {
 
     // Combine and format all events
     const events = [
-      ...upcomingAuctions.map(auction => ({
+      ...upcomingAuctions.map((auction: any) => ({
         id: `auction-${auction.id}`,
         title: `${auction.name} Auction`,
         date: auction.nextAuctionDate ? formatDate(auction.nextAuctionDate) : 'Date not set',

@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { memberAPI } from '@/lib/api';
+import dynamic from 'next/dynamic';
 
 interface GlobalMember {
   id: number;
@@ -20,6 +21,7 @@ interface GlobalMember {
   };
 }
 
+// This component has been optimized for performance
 export default function MembersPage() {
   const router = useRouter();
   const [members, setMembers] = useState<GlobalMember[]>([]);

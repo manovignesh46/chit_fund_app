@@ -6,11 +6,14 @@ import { PrismaClient } from '@prisma/client';
 
 const globalForPrisma = global as unknown as { prisma: PrismaClient };
 
-export const prisma =
-  globalForPrisma.prisma ||
-  new PrismaClient({
-    log: process.env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error'],
+// Configure Prisma client with connection pooling for better performance
+const prismaClientSingleton = () => {
+  return new PrismaClient({
+    log: ['error', 'warn'],
   });
+};
+
+export const prisma = globalForPrisma.prisma || prismaClientSingleton();
 
 if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma;
 

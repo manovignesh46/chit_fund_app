@@ -3,6 +3,7 @@ import prisma from '@/lib/prisma';
 import { getCurrentUserId } from '@/lib/auth';
 import * as XLSX from 'xlsx';
 import { formatCurrency, formatDate, calculateLoanProfit, calculateChitFundProfit, calculateChitFundOutsideAmount } from '@/lib/formatUtils';
+import { apiCache } from '@/lib/cache';
 
 // Use type assertion to handle TypeScript type checking
 const prismaAny = prisma as any;
@@ -55,6 +56,9 @@ interface FinancialDataPoint {
   };
 }
 
+
+// Use ISR with a 5-minute revalidation period
+export const revalidate = 300; // 5 minutes
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);

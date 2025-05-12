@@ -8,6 +8,10 @@ import { formatCurrency, formatDate, calculateChitFundProfit, calculateChitFundO
 import ChitFundCard from '@/components/chit-funds/ChitFundCard';
 import ChitFundMembersList from '@/components/chit-funds/ChitFundMembersList';
 import ChitFundFinancialSummary from '@/components/chit-funds/ChitFundFinancialSummary';
+import dynamic from 'next/dynamic';
+
+// Define Member type
+type Member = ChitFundMember;
 
 // Define interface for member balance data
 interface MemberBalanceData {
@@ -142,12 +146,12 @@ const ChitFundDetails = () => {
 
         // Calculate cash inflow from contributions
         if (contributionsData && contributionsData.length > 0) {
-          totalInflow = contributionsData.reduce((sum, contribution) => sum + contribution.amount, 0);
+          totalInflow = contributionsData.reduce((sum: number, contribution: any) => sum + contribution.amount, 0);
         }
 
         // Calculate cash outflow from auctions
         if (auctionsData && auctionsData.length > 0) {
-          totalOutflow = auctionsData.reduce((sum, auction) => sum + auction.amount, 0);
+          totalOutflow = auctionsData.reduce((sum: number, auction: any) => sum + auction.amount, 0);
         }
 
         // Calculate profit and outside amount using centralized utility functions
@@ -201,9 +205,9 @@ const ChitFundDetails = () => {
   // Using centralized formatting functions from formatUtils.ts
 
   // Calculate end date based on start date and duration
-  const calculateEndDate = (startDate: string, durationMonths: number): string => {
+  const calculateEndDate = (startDate: string | Date, durationMonths: number): string => {
     if (!startDate) return 'N/A';
-    const start = new Date(startDate);
+    const start = typeof startDate === 'string' ? new Date(startDate) : startDate;
     const end = new Date(start);
 
     // For a 10-month chit fund starting on April 1, 2025, the end date should be February 1, 2026
@@ -214,10 +218,10 @@ const ChitFundDetails = () => {
   };
 
   // Calculate the current month based on start date
-  const calculateCurrentMonth = (startDate: string): number => {
+  const calculateCurrentMonth = (startDate: string | Date): number => {
     if (!startDate) return 1;
 
-    const start = new Date(startDate);
+    const start = typeof startDate === 'string' ? new Date(startDate) : startDate;
     const now = new Date();
 
     // If the start date is in the future, return 1
@@ -595,7 +599,7 @@ const ChitFundDetails = () => {
                         <div className="text-sm text-gray-900">{formatDate(auction.date)}</div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm font-medium text-blue-600">{auction.winner.name}</div>
+                        <div className="text-sm font-medium text-blue-600">{auction.winner?.name || 'Unknown'}</div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="text-sm text-gray-900">{formatCurrency(auction.amount)}</div>
@@ -638,7 +642,7 @@ const ChitFundDetails = () => {
                 <div className="text-center text-gray-500">
                   <p>All payouts have been distributed.</p>
                 </div>
-              ) : !chitFund.nextPayoutReceiver ? (
+              ) : !(chitFund as any).nextPayoutReceiver ? (
                 <div className="text-center text-gray-500">
                   <p>No eligible members for next payout.</p>
                 </div>
@@ -646,11 +650,11 @@ const ChitFundDetails = () => {
                 <>
                   <div className="mb-4">
                     <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-2">Receiver</h3>
-                    <p className="text-xl font-semibold">{chitFund.nextPayoutReceiver}</p>
+                    <p className="text-xl font-semibold">{(chitFund as any).nextPayoutReceiver}</p>
                   </div>
                   <div>
                     <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-2">Estimated Amount</h3>
-                    <p className="text-xl font-semibold">{chitFund.finalPayout ? formatCurrency(chitFund.finalPayout) : 'To be determined'}</p>
+                    <p className="text-xl font-semibold">{(chitFund as any).finalPayout ? formatCurrency((chitFund as any).finalPayout) : 'To be determined'}</p>
                   </div>
                 </>
               )}

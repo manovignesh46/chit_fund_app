@@ -2,10 +2,14 @@ import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import * as XLSX from 'xlsx';
 import { formatCurrency, formatDate, calculateInstallmentAmount, calculateLoanProfit } from '@/lib/formatUtils';
+import { apiCache } from '@/lib/cache';
 
 // Use type assertion to handle TypeScript type checking
 const prismaAny = prisma as any;
 
+
+// Use ISR with a 5-minute revalidation period
+export const revalidate = 300; // 5 minutes
 export async function GET(
     _request: NextRequest,
     { params }: { params: Promise<{ id: string }> }

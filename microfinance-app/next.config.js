@@ -1,4 +1,9 @@
-module.exports = {
+// Import bundle analyzer
+const withBundleAnalyzer = process.env.ANALYZE === 'true'
+  ? require('@next/bundle-analyzer')({ enabled: true })
+  : (config) => config;
+
+const nextConfig = {
   reactStrictMode: true,
   env: {
     DATABASE_URL: process.env.DATABASE_URL,
@@ -6,4 +11,32 @@ module.exports = {
     ADMIN_EMAIL: process.env.ADMIN_EMAIL,
     ADMIN_PASSWORD: process.env.ADMIN_PASSWORD,
   },
+  // Performance optimizations
+  compiler: {
+    // Remove console logs in production
+    removeConsole: process.env.NODE_ENV === 'production',
+  },
+  images: {
+    // Enable image optimization
+    domains: ['localhost'],
+    formats: ['image/avif', 'image/webp'],
+  },
+  // Enable React Server Components
+  experimental: {
+    serverActions: {
+      allowedOrigins: ['localhost:3000', 'localhost:3003'],
+    },
+  },
+  // Optimize large pages
+  onDemandEntries: {
+    // Keep the pages in memory longer (good for development)
+    maxInactiveAge: 60 * 60 * 1000, // 1 hour
+    // Number of pages to keep in memory
+    pagesBufferLength: 5,
+  },
+  // Optimize production builds
+  productionBrowserSourceMaps: false, // Disable source maps in production for smaller bundles
 };
+
+// Export the configuration with the bundle analyzer wrapper
+module.exports = withBundleAnalyzer(nextConfig);

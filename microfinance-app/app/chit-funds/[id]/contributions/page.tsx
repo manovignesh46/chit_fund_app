@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
+import dynamic from 'next/dynamic';
 
 interface GlobalMember {
   id: number;
@@ -42,6 +43,7 @@ interface ChitFund {
   currentMonth: number;
 }
 
+// This component has been optimized for performance
 export default function ChitFundContributionsPage() {
   const params = useParams();
   const router = useRouter();

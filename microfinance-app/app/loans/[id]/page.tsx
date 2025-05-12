@@ -5,6 +5,7 @@ import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { Loan, Repayment, PaymentSchedule } from '@/lib/interfaces';
 import { formatCurrency, formatDate, calculateLoanProfit } from '@/lib/formatUtils';
+import dynamic from 'next/dynamic';
 
 const LoanDetailPage = () => {
   const params = useParams();
@@ -288,9 +289,9 @@ const LoanDetailPage = () => {
   };
 
   // Format date
-  const formatDate = (dateString: string | undefined): string => {
+  const formatDate = (dateString: string | Date | null | undefined): string => {
     if (!dateString) return 'N/A';
-    const date = new Date(dateString);
+    const date = typeof dateString === 'string' ? new Date(dateString) : dateString;
     return new Intl.DateTimeFormat('en-IN', {
       year: 'numeric',
       month: 'long',
@@ -299,8 +300,8 @@ const LoanDetailPage = () => {
   };
 
   // Format period to show month and year
-  const formatPeriod = (period: number, dueDate: string, repaymentType: string): string => {
-    const date = new Date(dueDate);
+  const formatPeriod = (period: number, dueDate: string | Date, repaymentType: string): string => {
+    const date = typeof dueDate === 'string' ? new Date(dueDate) : dueDate;
 
     if (repaymentType === 'Weekly') {
       return `Week ${period} (${date.toLocaleDateString('en-IN', { month: 'short', year: 'numeric' })})`;
@@ -310,10 +311,10 @@ const LoanDetailPage = () => {
   };
 
   // Calculate end date based on disbursement date and duration
-  const calculateEndDate = (disbursementDate: string, durationMonths: number): string => {
+  const calculateEndDate = (disbursementDate: string | Date, durationMonths: number): string => {
     if (!disbursementDate) return '';
 
-    const startDate = new Date(disbursementDate);
+    const startDate = typeof disbursementDate === 'string' ? new Date(disbursementDate) : disbursementDate;
     const endDate = new Date(startDate);
     endDate.setMonth(startDate.getMonth() + durationMonths);
 
@@ -835,13 +836,13 @@ const LoanDetailPage = () => {
                     (() => {
                       // SPECIAL CASE: For loans with only interest-only payments
                       const onlyHasInterestOnlyPayments =
-                        loan.repayments.length > 0 &&
-                        loan.repayments.every(r => r.paymentType === 'interestOnly');
+                        loan.repayments && loan.repayments.length > 0 &&
+                        loan.repayments.every((r: any) => r.paymentType === 'interestOnly');
 
                       if (onlyHasInterestOnlyPayments) {
                         // For loans with only interest-only payments, the profit is the interest rate
                         // multiplied by the number of interest-only payments made
-                        const interestOnlyPaymentsCount = loan.repayments.length;
+                        const interestOnlyPaymentsCount = loan.repayments ? loan.repayments.length : 0;
                         const profit = (loan.interestRate || 0) * interestOnlyPaymentsCount;
                         console.log('Detected interest-only payments only case - profit:', profit, 'from', interestOnlyPaymentsCount, 'payments');
                         return formatCurrency(profit);
@@ -853,23 +854,29 @@ const LoanDetailPage = () => {
                       // Sum of all interest-only payments
                       // For interest-only payments, the entire payment amount is interest (profit)
                       const interestOnlyPayments = loan.repayments
-                        .filter(repayment => repayment.paymentType === 'interestOnly')
-                        .reduce((sum, repayment) => sum + repayment.amount, 0);
+                        ? loan.repayments
+                            .filter((repayment: any) => repayment.paymentType === 'interestOnly')
+                            .reduce((sum: number, repayment: any) => sum + repayment.amount, 0)
+                        : 0;
 
                       // Log the interest-only payments for debugging
                       console.log('Interest-only payments:', loan.repayments
-                        .filter(r => r.paymentType === 'interestOnly')
-                        .map(r => ({
-                          id: r.id,
-                          amount: r.amount,
-                          paymentType: r.paymentType,
-                          paidDate: r.paidDate
-                        })));
+                        ? loan.repayments
+                            .filter((r: any) => r.paymentType === 'interestOnly')
+                            .map((r: any) => ({
+                              id: r.id,
+                              amount: r.amount,
+                              paymentType: r.paymentType,
+                              paidDate: r.paidDate
+                            }))
+                        : []);
 
                       // Interest from regular payments (if any)
                       // Regular payments are those that are NOT interest-only payments
                       // These include full payments (principal + interest)
-                      const regularPayments = loan.repayments.filter(r => r.paymentType !== 'interestOnly');
+                      const regularPayments = loan.repayments
+                        ? loan.repayments.filter((r: any) => r.paymentType !== 'interestOnly')
+                        : [];
                       const regularPaymentsCount = regularPayments.length;
 
                       // Log the regular payments for debugging
@@ -921,7 +928,7 @@ const LoanDetailPage = () => {
                       // Total Profit = (Interest Amount × Number of Dues Paid) + Document Charge
 
                       // Count total number of payments (both interest-only and regular)
-                      const totalPaymentsMade = loan.repayments.length;
+                      const totalPaymentsMade = loan.repayments ? loan.repayments.length : 0;
 
                       // Calculate profit using the simple formula
                       const totalProfit = (loan.interestRate * totalPaymentsMade) + documentCharge;
@@ -958,7 +965,9 @@ const LoanDetailPage = () => {
                         totalPaymentsMade,
                         totalProfit,
                         loanAmount: loan.amount,
-                        interestOnlyCount: loan.repayments.filter(r => r.paymentType === 'interestOnly').length,
+                        interestOnlyCount: loan.repayments
+                          ? loan.repayments.filter((r: any) => r.paymentType === 'interestOnly').length
+                          : 0,
                         regularCount: regularPaymentsCount
                       });
 
@@ -969,11 +978,13 @@ const LoanDetailPage = () => {
                         totalPaymentsMade,
                         totalProfit,
                         formula: `(${loan.interestRate} × ${totalPaymentsMade}) + ${documentCharge} = ${totalProfit}`,
-                        repayments: loan.repayments.map(r => ({
-                          amount: r.amount,
-                          paymentType: r.paymentType,
-                          paidDate: r.paidDate
-                        }))
+                        repayments: loan.repayments
+                          ? loan.repayments.map((r: any) => ({
+                              amount: r.amount,
+                              paymentType: r.paymentType,
+                              paidDate: r.paidDate
+                            }))
+                          : []
                       });
 
                       return formatCurrency(totalProfit);
@@ -988,16 +999,16 @@ const LoanDetailPage = () => {
                     (() => {
                       // SPECIAL CASE: For loans with only interest-only payments
                       const onlyHasInterestOnlyPayments =
-                        loan.repayments.length > 0 &&
-                        loan.repayments.every(r => r.paymentType === 'interestOnly');
+                        loan.repayments && loan.repayments.length > 0 &&
+                        loan.repayments.every((r: any) => r.paymentType === 'interestOnly');
 
                       if (onlyHasInterestOnlyPayments) {
-                        const interestOnlyPaymentsCount = loan.repayments.length;
+                        const interestOnlyPaymentsCount = loan.repayments ? loan.repayments.length : 0;
                         return `Interest from ${interestOnlyPaymentsCount} payment${interestOnlyPaymentsCount !== 1 ? 's' : ''}`;
                       }
 
                       // Check if there are any repayments
-                      if (loan.repayments.length === 0) {
+                      if (!loan.repayments || loan.repayments.length === 0) {
                         return 'No profit yet - no payments have been made';
                       }
 
@@ -1005,10 +1016,14 @@ const LoanDetailPage = () => {
                       const hasDocumentCharge = loan.documentCharge && loan.documentCharge > 0;
 
                       // Check for interest-only payments
-                      const hasInterestOnlyPayments = loan.repayments.filter(r => r.paymentType === 'interestOnly').length > 0;
+                      const hasInterestOnlyPayments = loan.repayments
+                        ? loan.repayments.filter((r: any) => r.paymentType === 'interestOnly').length > 0
+                        : false;
 
                       // Check for regular payments
-                      const hasRegularPayments = loan.repayments.filter(r => r.paymentType !== 'interestOnly').length > 0;
+                      const hasRegularPayments = loan.repayments
+                        ? loan.repayments.filter((r: any) => r.paymentType !== 'interestOnly').length > 0
+                        : false;
 
                       // Build explanation text
                       let explanation = '';
@@ -1024,7 +1039,12 @@ const LoanDetailPage = () => {
 
                       if (hasRegularPayments) {
                         if (explanation) explanation += ' + ';
-                        const months = Math.min(loan.repayments.filter(r => r.paymentType !== 'interestOnly').length, loan.currentMonth);
+                        const months = Math.min(
+                          loan.repayments
+                            ? loan.repayments.filter((r: any) => r.paymentType !== 'interestOnly').length
+                            : 0,
+                          loan.currentMonth
+                        );
                         explanation += `Interest from ${months} regular payment${months !== 1 ? 's' : ''}`;
                       }
 

@@ -1,9 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { getCurrentUserId, isResourceOwner } from '@/lib/auth';
+import { apiCache } from '@/lib/cache';
 
 export const dynamic = 'force-dynamic'; // Ensure the route is not statically optimized
 
+
+// Use ISR with a 5-minute revalidation period
+export const revalidate = 300; // 5 minutes
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);

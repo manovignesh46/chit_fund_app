@@ -2,7 +2,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { compare } from 'bcrypt';
 import { sign } from 'jsonwebtoken';
+import { apiCache } from '@/lib/cache';
 
+
+// Use ISR with a 5-minute revalidation period
+export const revalidate = 300; // 5 minutes
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();

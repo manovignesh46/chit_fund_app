@@ -222,9 +222,9 @@ const RepaymentsPage = () => {
   };
 
   // Format date
-  const formatDate = (dateString: string): string => {
+  const formatDate = (dateString: string | Date): string => {
     if (!dateString) return 'N/A';
-    const date = new Date(dateString);
+    const date = typeof dateString === 'string' ? new Date(dateString) : dateString;
     return new Intl.DateTimeFormat('en-IN', {
       year: 'numeric',
       month: 'long',

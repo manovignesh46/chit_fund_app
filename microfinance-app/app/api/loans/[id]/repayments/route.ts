@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { PrismaClient } from '@prisma/client';
 // Import the necessary functions from paymentSchedule
 import { getRepaymentWeek, updateOverdueAmountFromRepayments } from '@/lib/paymentSchedule';
+import { apiCache } from '@/lib/cache';
 
 // Create a new instance of PrismaClient for this API route
 const prisma = new PrismaClient();
@@ -232,6 +233,9 @@ async function calculateOverdueAmount(loanId: number) {
     }
 }
 
+
+// Use ISR with a 5-minute revalidation period
+export const revalidate = 300; // 5 minutes
 export async function GET(
     request: NextRequest,
     { params }: { params: Promise<{ id: string }> }

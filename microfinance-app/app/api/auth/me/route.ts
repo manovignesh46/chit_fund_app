@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { verify } from 'jsonwebtoken';
+import { apiCache } from '@/lib/cache';
 
+
+// Use ISR with a 5-minute revalidation period
+export const revalidate = 300; // 5 minutes
 export async function GET(request: NextRequest) {
   try {
     // Get the token from cookies
