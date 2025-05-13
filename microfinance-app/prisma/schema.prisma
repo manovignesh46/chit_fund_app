@@ -3,7 +3,10 @@
 
 generator client {
   provider = "prisma-client-js"
-  binaryTargets = ["native", "debian-openssl-1.0.x", "debian-openssl-1.1.x", "debian-openssl-3.0.x", "rhel-openssl-1.0.x", "rhel-openssl-1.1.x", "rhel-openssl-3.0.x", "linux-musl"]
+  // Only include the binary targets that are absolutely necessary
+  binaryTargets = ["native", "rhel-openssl-3.0.x"]
+  // Reduce the size of the Prisma client
+  previewFeatures = ["reducedClientSize"]
 }
 
 datasource db {

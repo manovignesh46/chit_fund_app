@@ -1,6 +1,17 @@
 {
   "buildCommand": "npm run vercel-build",
-  "installCommand": "npm install",
+  "installCommand": "npm run vercel-install",
   "framework": "nextjs",
-  "outputDirectory": ".next"
+  "outputDirectory": ".next",
+  "cleanUrls": true,
+  "trailingSlash": false,
+  "github": {
+    "silent": true
+  },
+  "functions": {
+    "api/**/*": {
+      "memory": 1024,
+      "maxDuration": 10
+    }
+  }
 }

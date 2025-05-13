@@ -1,0 +1,61 @@
+# Development files
+.git
+.github
+.vscode
+.idea
+.DS_Store
+*.log
+*.swp
+*.bak
+
+# Node.js
+node_modules
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Testing
+coverage
+.nyc_output
+test
+tests
+__tests__
+jest.config.js
+
+# Build artifacts
+.next/cache
+out
+dist
+build
+.turbo
+
+# Documentation
+docs
+*.md
+LICENSE
+CHANGELOG.md
+
+# Configuration files not needed in production
+.eslintrc*
+.prettierrc*
+.editorconfig
+tsconfig.tsbuildinfo
+*.config.js
+*.config.ts
+!next.config.js
+!postcss.config.js
+!tailwind.config.js
+
+# Prisma
+prisma/migrations
+prisma/seed.ts
+
+# Development scripts
+scripts/dev-*
+scripts/test-*
+
+# Misc
+.env.local
+.env.development
+.env.test
+.env.example
