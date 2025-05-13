@@ -26,22 +26,22 @@ const nextConfig = {
     serverActions: {
       allowedOrigins: ['localhost:3000', 'localhost:3003'],
     },
-    // Enable output file tracing for serverless functions
-    outputFileTracingRoot: process.cwd(),
-    // Optimize serverless function size
-    outputFileTracingExcludes: {
-      '*': [
-        'node_modules/@swc/core-linux-x64-gnu',
-        'node_modules/@swc/core-linux-x64-musl',
-        'node_modules/@esbuild/linux-x64',
-        'node_modules/typescript',
-        'node_modules/prettier',
-        'node_modules/eslint',
-        '.git/**',
-        '**/*.{md,txt,log,LICENSE}',
-        'prisma/migrations/**',
-      ],
-    },
+  },
+  // Enable output file tracing for serverless functions
+  outputFileTracingRoot: process.cwd(),
+  // Optimize serverless function size
+  outputFileTracingExcludes: {
+    '*': [
+      'node_modules/@swc/core-linux-x64-gnu',
+      'node_modules/@swc/core-linux-x64-musl',
+      'node_modules/@esbuild/linux-x64',
+      'node_modules/typescript',
+      'node_modules/prettier',
+      'node_modules/eslint',
+      '.git/**',
+      '**/*.{md,txt,log,LICENSE}',
+      'prisma/migrations/**',
+    ],
   },
   // Optimize large pages
   onDemandEntries: {
@@ -51,9 +51,7 @@ const nextConfig = {
     pagesBufferLength: 5,
   },
   // Optimize production builds
-  productionBrowserSourceMaps: false, // Disable source maps in production for smaller bundles
-  // Optimize bundle size
-  swcMinify: true, // Use SWC for minification
+  productionBrowserSourceMaps: false // Disable source maps in production for smaller bundles
 };
 
 // Export the configuration with the bundle analyzer wrapper

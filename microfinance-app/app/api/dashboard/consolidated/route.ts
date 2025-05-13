@@ -52,6 +52,7 @@ export async function GET(request: NextRequest) {
 // Handler for dashboard summary
 async function getSummary(request: NextRequest, currentUserId: number) {
   try {
+    console.time('getSummary'); // Add timing for performance monitoring
     console.log('Fetching dashboard data...');
 
     // Get all aggregations in parallel for better performance
@@ -63,8 +64,10 @@ async function getSummary(request: NextRequest, currentUserId: number) {
       activeChitFunds,
       totalMembers,
       activeLoans,
-      loansWithDetails,
-      chitFundsWithDetails
+      // Optimize loan query to only fetch what's needed
+      loansWithRepayments,
+      // Optimize chit fund query to only fetch what's needed
+      chitFundsWithData
     ] = await Promise.all([
       // Get total cash inflow from chit fund contributions
       prisma.contribution.aggregate({
@@ -111,10 +114,14 @@ async function getSummary(request: NextRequest, currentUserId: number) {
         }
       }),
 
-      // Get loans with all necessary data for profit calculation
+      // Get loans with only necessary data for profit calculation
       prisma.loan.findMany({
         where: { createdById: currentUserId },
-        include: {
+        select: {
+          id: true,
+          amount: true,
+          interestRate: true,
+          documentCharge: true,
           repayments: {
             select: {
               amount: true,
@@ -124,25 +131,36 @@ async function getSummary(request: NextRequest, currentUserId: number) {
         },
       }),
 
-      // Get all chit funds with members, auctions, and contributions
+      // Get chit funds with only necessary data
       prisma.chitFund.findMany({
         where: { createdById: currentUserId },
-        include: {
-          members: true,
-          auctions: true,
-          contributions: true,
+        select: {
+          id: true,
+          totalAmount: true,
+          monthlyContribution: true, // Added this field which is used in calculateChitFundProfit
+          membersCount: true, // Added this field which is used in calculateChitFundProfit
+          contributions: {
+            select: {
+              amount: true,
+            },
+          },
+          auctions: {
+            select: {
+              amount: true,
+            },
+          },
         },
       })
     ]);
 
-    // Get recent activities and upcoming events in parallel
-    const [recentActivities, upcomingEvents] = await Promise.all([
+    // Start fetching activities and events in parallel while we calculate other metrics
+    const activitiesAndEventsPromise = Promise.all([
       getRecentActivitiesData(currentUserId),
       getUpcomingEventsData(currentUserId)
     ]);
 
     // Calculate loan profit using the centralized utility function
-    const loanProfit = loansWithDetails.reduce((sum, loan) => {
+    const loanProfit = loansWithRepayments.reduce((sum, loan) => {
       // Use the centralized utility function to calculate profit
       const profit = calculateLoanProfit(loan, loan.repayments);
       return sum + profit;
@@ -153,7 +171,7 @@ async function getSummary(request: NextRequest, currentUserId: number) {
     let totalOutsideAmount = 0;
 
     // Calculate profit and outside amount for each chit fund
-    chitFundsWithDetails.forEach(fund => {
+    chitFundsWithData.forEach(fund => {
       const fundProfit = calculateChitFundProfit(fund, fund.contributions, fund.auctions);
       const fundOutsideAmount = calculateChitFundOutsideAmount(fund, fund.contributions, fund.auctions);
 
@@ -162,8 +180,8 @@ async function getSummary(request: NextRequest, currentUserId: number) {
     });
 
     // Calculate remaining loan amount more efficiently
-    const totalLoanAmount = loansWithDetails.reduce((sum, loan) => sum + loan.amount, 0);
-    const totalRepaymentAmount = loansWithDetails.reduce((sum, loan) => {
+    const totalLoanAmount = loansWithRepayments.reduce((sum, loan) => sum + loan.amount, 0);
+    const totalRepaymentAmount = loansWithRepayments.reduce((sum, loan) => {
       const loanRepayments = loan.repayments || [];
       return sum + loanRepayments.reduce((repaymentSum, repayment) => {
         if (repayment.paymentType !== 'interestOnly') {
@@ -189,6 +207,11 @@ async function getSummary(request: NextRequest, currentUserId: number) {
     const totalCashInflow = (contributionsSum._sum.amount || 0) + (repaymentsSum._sum.amount || 0);
     const totalCashOutflow = (auctionsSum._sum.amount || 0) + (loansSum._sum.amount || 0);
     const totalProfit = loanProfit + chitFundProfit;
+
+    // Get the activities and events that were being fetched in parallel
+    const [recentActivities, upcomingEvents] = await activitiesAndEventsPromise;
+
+    console.timeEnd('getSummary'); // End timing
 
     return NextResponse.json({
       totalCashInflow,
@@ -244,10 +267,10 @@ async function getUpcomingEvents(request: NextRequest, currentUserId: number) {
 // Handler for financial data
 async function getFinancialData(request: NextRequest, currentUserId: number) {
   try {
+    console.time('getFinancialData'); // Add timing for performance monitoring
     const { searchParams } = new URL(request.url);
     const duration = searchParams.get('duration') || 'monthly';
     const limit = parseInt(searchParams.get('limit') || '12');
-    const skipCache = searchParams.get('skipCache') === 'true';
 
     // Validate duration parameter
     if (!['weekly', 'monthly', 'yearly'].includes(duration)) {
@@ -267,7 +290,7 @@ async function getFinancialData(request: NextRequest, currentUserId: number) {
     }
 
     // Normalize limit to prevent excessive queries
-    const validLimit = Math.min(Math.max(parsedLimit, 1), 60);
+    const validLimit = Math.min(Math.max(parsedLimit, 1), 24); // Reduced max limit from 60 to 24
 
     // Get the current date
     const now = new Date();
@@ -285,19 +308,14 @@ async function getFinancialData(request: NextRequest, currentUserId: number) {
       startDate.setFullYear(now.getFullYear() - validLimit);
     }
 
-    // Initialize arrays to store the data
-    const labels: string[] = [];
-    const cashInflow: number[] = [];
-    const cashOutflow: number[] = [];
-    const profit: number[] = [];
-    const outsideAmount: number[] = [];
-
     // Generate the periods based on the duration
     const periods = [];
     const currentDate = new Date(startDate);
 
     for (let i = 0; i < validLimit; i++) {
       let periodLabel = '';
+      let periodStartDate = new Date(currentDate);
+      let periodEndDate = new Date(currentDate);
 
       if (duration === 'weekly') {
         // Format as "Week X of Month Year"
@@ -306,11 +324,21 @@ async function getFinancialData(request: NextRequest, currentUserId: number) {
         const year = currentDate.getFullYear();
         periodLabel = `Week ${weekNumber} of ${monthName} ${year}`;
 
+        // For weekly, the period is 7 days
+        periodStartDate = new Date(currentDate);
+        periodStartDate.setDate(periodStartDate.getDate() - 7);
+        periodEndDate = new Date(currentDate);
+
         // Move to the next week
         currentDate.setDate(currentDate.getDate() + 7);
       } else if (duration === 'monthly') {
         // Format as "Month Year"
         periodLabel = currentDate.toLocaleString('default', { month: 'long', year: 'numeric' });
+
+        // For monthly, the period is 1 month
+        periodStartDate = new Date(currentDate);
+        periodStartDate.setMonth(periodStartDate.getMonth() - 1);
+        periodEndDate = new Date(currentDate);
 
         // Move to the next month
         currentDate.setMonth(currentDate.getMonth() + 1);
@@ -318,48 +346,43 @@ async function getFinancialData(request: NextRequest, currentUserId: number) {
         // Format as "Year"
         periodLabel = currentDate.getFullYear().toString();
 
+        // For yearly, the period is 1 year
+        periodStartDate = new Date(currentDate);
+        periodStartDate.setFullYear(periodStartDate.getFullYear() - 1);
+        periodEndDate = new Date(currentDate);
+
         // Move to the next year
         currentDate.setFullYear(currentDate.getFullYear() + 1);
       }
 
       periods.push({
         label: periodLabel,
-        startDate: new Date(currentDate),
-        endDate: new Date(currentDate),
+        startDate: periodStartDate,
+        endDate: periodEndDate,
       });
     }
 
-    // For each period, calculate the financial data
-    for (const period of periods) {
-      // Add the label to the labels array
-      labels.push(period.label);
+    // Prepare arrays for the response
+    const labels = periods.map(period => period.label);
+    const cashInflow = new Array(periods.length).fill(0);
+    const cashOutflow = new Array(periods.length).fill(0);
+    const profit = new Array(periods.length).fill(0);
+    const outsideAmount = new Array(periods.length).fill(0);
 
-      // Calculate the start and end dates for the period
-      let periodStartDate, periodEndDate;
+    // Get all financial data for the entire date range at once
+    const overallStartDate = periods[0].startDate;
+    const overallEndDate = periods[periods.length - 1].endDate;
 
-      if (duration === 'weekly') {
-        // For weekly, the period is 7 days
-        periodStartDate = new Date(period.startDate);
-        periodStartDate.setDate(periodStartDate.getDate() - 7);
-        periodEndDate = new Date(period.startDate);
-      } else if (duration === 'monthly') {
-        // For monthly, the period is 1 month
-        periodStartDate = new Date(period.startDate);
-        periodStartDate.setMonth(periodStartDate.getMonth() - 1);
-        periodEndDate = new Date(period.startDate);
-      } else if (duration === 'yearly') {
-        // For yearly, the period is 1 year
-        periodStartDate = new Date(period.startDate);
-        periodStartDate.setFullYear(periodStartDate.getFullYear() - 1);
-        periodEndDate = new Date(period.startDate);
-      }
+    console.log(`Fetching data from ${overallStartDate.toISOString()} to ${overallEndDate.toISOString()}`);
 
-      // Get contributions for the period
-      const contributions = await prisma.contribution.findMany({
+    // Fetch all data in parallel
+    const [allContributions, allRepayments, allAuctions, allLoans] = await Promise.all([
+      // Get all contributions for the entire date range
+      prisma.contribution.findMany({
         where: {
           paidDate: {
-            gte: periodStartDate,
-            lt: periodEndDate,
+            gte: overallStartDate,
+            lte: overallEndDate,
           },
           chitFund: {
             createdById: currentUserId,
@@ -367,15 +390,16 @@ async function getFinancialData(request: NextRequest, currentUserId: number) {
         },
         select: {
           amount: true,
+          paidDate: true,
         },
-      });
+      }),
 
-      // Get repayments for the period
-      const repayments = await prisma.repayment.findMany({
+      // Get all repayments for the entire date range
+      prisma.repayment.findMany({
         where: {
           paidDate: {
-            gte: periodStartDate,
-            lt: periodEndDate,
+            gte: overallStartDate,
+            lte: overallEndDate,
           },
           loan: {
             createdById: currentUserId,
@@ -383,6 +407,7 @@ async function getFinancialData(request: NextRequest, currentUserId: number) {
         },
         select: {
           amount: true,
+          paidDate: true,
           paymentType: true,
           loan: {
             select: {
@@ -390,14 +415,14 @@ async function getFinancialData(request: NextRequest, currentUserId: number) {
             },
           },
         },
-      });
+      }),
 
-      // Get auctions for the period
-      const auctions = await prisma.auction.findMany({
+      // Get all auctions for the entire date range
+      prisma.auction.findMany({
         where: {
           date: {
-            gte: periodStartDate,
-            lt: periodEndDate,
+            gte: overallStartDate,
+            lte: overallEndDate,
           },
           chitFund: {
             createdById: currentUserId,
@@ -405,57 +430,83 @@ async function getFinancialData(request: NextRequest, currentUserId: number) {
         },
         select: {
           amount: true,
+          date: true,
         },
-      });
+      }),
 
-      // Get loans disbursed in the period
-      const loans = await prisma.loan.findMany({
+      // Get all loans disbursed in the entire date range
+      prisma.loan.findMany({
         where: {
           disbursementDate: {
-            gte: periodStartDate,
-            lt: periodEndDate,
+            gte: overallStartDate,
+            lte: overallEndDate,
           },
           createdById: currentUserId,
         },
         select: {
           amount: true,
+          disbursementDate: true,
           documentCharge: true,
         },
-      });
+      }),
+    ]);
+
+    console.log(`Retrieved: ${allContributions.length} contributions, ${allRepayments.length} repayments, ${allAuctions.length} auctions, ${allLoans.length} loans`);
+
+    // Process each period
+    periods.forEach((period, index) => {
+      // Filter data for this period
+      const periodContributions = allContributions.filter(
+        c => new Date(c.paidDate) >= period.startDate && new Date(c.paidDate) < period.endDate
+      );
+
+      const periodRepayments = allRepayments.filter(
+        r => new Date(r.paidDate) >= period.startDate && new Date(r.paidDate) < period.endDate
+      );
+
+      const periodAuctions = allAuctions.filter(
+        a => new Date(a.date) >= period.startDate && new Date(a.date) < period.endDate
+      );
+
+      const periodLoans = allLoans.filter(
+        l => new Date(l.disbursementDate) >= period.startDate && new Date(l.disbursementDate) < period.endDate
+      );
 
       // Calculate cash inflow (contributions + repayments)
-      const contributionsTotal = contributions.reduce((sum, contribution) => sum + contribution.amount, 0);
-      const repaymentsTotal = repayments.reduce((sum, repayment) => sum + repayment.amount, 0);
+      const contributionsTotal = periodContributions.reduce((sum, contribution) => sum + contribution.amount, 0);
+      const repaymentsTotal = periodRepayments.reduce((sum, repayment) => sum + repayment.amount, 0);
       const periodCashInflow = contributionsTotal + repaymentsTotal;
-      cashInflow.push(periodCashInflow);
+      cashInflow[index] = periodCashInflow;
 
       // Calculate cash outflow (auctions + loans)
-      const auctionsTotal = auctions.reduce((sum, auction) => sum + auction.amount, 0);
-      const loansTotal = loans.reduce((sum, loan) => sum + loan.amount, 0);
+      const auctionsTotal = periodAuctions.reduce((sum, auction) => sum + auction.amount, 0);
+      const loansTotal = periodLoans.reduce((sum, loan) => sum + loan.amount, 0);
       const periodCashOutflow = auctionsTotal + loansTotal;
-      cashOutflow.push(periodCashOutflow);
+      cashOutflow[index] = periodCashOutflow;
 
       // Calculate profit
       // For loans: interest payments + document charges
-      const loanProfit = repayments.reduce((sum, repayment) => {
+      const loanProfit = periodRepayments.reduce((sum, repayment) => {
         if (repayment.paymentType === 'interestOnly') {
           return sum + repayment.amount;
         } else {
           return sum + (repayment.loan?.interestRate || 0);
         }
-      }, 0) + loans.reduce((sum, loan) => sum + (loan.documentCharge || 0), 0);
+      }, 0) + periodLoans.reduce((sum, loan) => sum + (loan.documentCharge || 0), 0);
 
       // For chit funds: difference between contributions and auctions
       const chitFundProfit = Math.max(0, contributionsTotal - auctionsTotal);
 
       // Total profit
       const periodProfit = loanProfit + chitFundProfit;
-      profit.push(periodProfit);
+      profit[index] = periodProfit;
 
       // Calculate outside amount (cash outflow - cash inflow)
       const periodOutsideAmount = Math.max(0, periodCashOutflow - periodCashInflow);
-      outsideAmount.push(periodOutsideAmount);
-    }
+      outsideAmount[index] = periodOutsideAmount;
+    });
+
+    console.timeEnd('getFinancialData'); // End timing
 
     // Return the financial data
     return NextResponse.json({
@@ -968,77 +1019,118 @@ function addDetailsWorksheets(workbook: any, data: any, usePeriodPrefix = false)
 // Helper function to get recent activities
 async function getRecentActivitiesData(userId: number) {
   try {
-    // Get recent members (new chit fund members)
-    const recentMembers = await prisma.member.findMany({
-      take: 3,
-      where: {
-        chitFund: {
-          createdById: userId
-        }
-      },
-      orderBy: {
-        joinDate: 'desc',
-      },
-      include: {
-        chitFund: true,
-        globalMember: true,
-      },
-    });
+    console.time('getRecentActivitiesData'); // Add timing for performance monitoring
 
-    // Get recent auctions
-    const recentAuctions = await prisma.auction.findMany({
-      take: 3,
-      where: {
-        chitFund: {
-          createdById: userId
-        }
-      },
-      orderBy: {
-        date: 'desc',
-      },
-      include: {
-        chitFund: true,
-        winner: {
-          include: {
-            globalMember: true
+    // Get all recent activities in parallel with optimized queries
+    const [recentMembers, recentAuctions, recentLoans, recentRepayments] = await Promise.all([
+      // Get recent members (new chit fund members) with optimized select
+      prisma.member.findMany({
+        take: 3,
+        where: {
+          chitFund: {
+            createdById: userId
           }
         },
-      },
-    });
+        orderBy: {
+          joinDate: 'desc',
+        },
+        select: {
+          id: true,
+          joinDate: true,
+          chitFund: {
+            select: {
+              name: true,
+            }
+          },
+          globalMember: {
+            select: {
+              name: true,
+            }
+          },
+        },
+      }),
 
-    // Get recent loans
-    const recentLoans = await prisma.loan.findMany({
-      take: 3,
-      where: {
-        createdById: userId
-      },
-      orderBy: {
-        createdAt: 'desc',
-      },
-      include: {
-        borrower: true,
-      },
-    });
-
-    // Get recent repayments
-    const recentRepayments = await prisma.repayment.findMany({
-      take: 3,
-      where: {
-        loan: {
-          createdById: userId
-        }
-      },
-      orderBy: {
-        paidDate: 'desc',
-      },
-      include: {
-        loan: {
-          include: {
-            borrower: true
+      // Get recent auctions with optimized select
+      prisma.auction.findMany({
+        take: 3,
+        where: {
+          chitFund: {
+            createdById: userId
           }
         },
-      },
-    });
+        orderBy: {
+          date: 'desc',
+        },
+        select: {
+          id: true,
+          amount: true,
+          date: true,
+          chitFund: {
+            select: {
+              name: true,
+            }
+          },
+          winner: {
+            select: {
+              globalMember: {
+                select: {
+                  name: true,
+                }
+              }
+            }
+          },
+        },
+      }),
+
+      // Get recent loans with optimized select
+      prisma.loan.findMany({
+        take: 3,
+        where: {
+          createdById: userId
+        },
+        orderBy: {
+          createdAt: 'desc',
+        },
+        select: {
+          id: true,
+          amount: true,
+          loanType: true,
+          disbursementDate: true,
+          borrower: {
+            select: {
+              name: true,
+            }
+          },
+        },
+      }),
+
+      // Get recent repayments with optimized select
+      prisma.repayment.findMany({
+        take: 3,
+        where: {
+          loan: {
+            createdById: userId
+          }
+        },
+        orderBy: {
+          paidDate: 'desc',
+        },
+        select: {
+          id: true,
+          amount: true,
+          paidDate: true,
+          loan: {
+            select: {
+              borrower: {
+                select: {
+                  name: true,
+                }
+              }
+            }
+          },
+        },
+      }),
+    ]);
 
     // Combine and format all activities
     const activities = [
@@ -1098,13 +1190,16 @@ async function getRecentActivitiesData(userId: number) {
     ];
 
     // Sort by date (newest first) and take top 5
-    return activities
+    const result = activities
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
       .slice(0, 5)
       .map(activity => ({
         ...activity,
         date: formatRelativeTime(activity.date),
       }));
+
+    console.timeEnd('getRecentActivitiesData'); // End timing
+    return result;
   } catch (error) {
     console.error('Error getting recent activities:', error);
     return [];
@@ -1114,55 +1209,60 @@ async function getRecentActivitiesData(userId: number) {
 // Helper function to get upcoming events
 async function getUpcomingEventsData(userId: number) {
   try {
+    console.time('getUpcomingEventsData'); // Add timing for performance monitoring
+
     const today = new Date();
     const nextMonth = new Date();
     nextMonth.setMonth(today.getMonth() + 1);
 
-    // Get upcoming auctions
-    const upcomingAuctions = await prisma.chitFund.findMany({
-      where: {
-        status: 'Active',
-        createdById: userId,
-        nextAuctionDate: {
-          gte: today,
-          lte: nextMonth,
+    // Get upcoming auctions and payments in parallel
+    const [upcomingAuctions, upcomingPayments] = await Promise.all([
+      // Get upcoming auctions
+      prisma.chitFund.findMany({
+        where: {
+          status: 'Active',
+          createdById: userId,
+          nextAuctionDate: {
+            gte: today,
+            lte: nextMonth,
+          },
         },
-      },
-      select: {
-        id: true,
-        name: true,
-        nextAuctionDate: true,
-      },
-      take: 3,
-      orderBy: {
-        nextAuctionDate: 'asc',
-      },
-    });
+        select: {
+          id: true,
+          name: true,
+          nextAuctionDate: true,
+        },
+        take: 3,
+        orderBy: {
+          nextAuctionDate: 'asc',
+        },
+      }),
 
-    // Get upcoming loan payments
-    const upcomingPayments = await prisma.loan.findMany({
-      where: {
-        status: 'Active',
-        createdById: userId,
-        nextPaymentDate: {
-          gte: today,
-          lte: nextMonth,
+      // Get upcoming loan payments
+      prisma.loan.findMany({
+        where: {
+          status: 'Active',
+          createdById: userId,
+          nextPaymentDate: {
+            gte: today,
+            lte: nextMonth,
+          },
         },
-      },
-      select: {
-        id: true,
-        nextPaymentDate: true,
-        borrower: {
-          select: {
-            name: true
+        select: {
+          id: true,
+          nextPaymentDate: true,
+          borrower: {
+            select: {
+              name: true
+            }
           }
-        }
-      },
-      take: 3,
-      orderBy: {
-        nextPaymentDate: 'asc',
-      },
-    });
+        },
+        take: 3,
+        orderBy: {
+          nextPaymentDate: 'asc',
+        },
+      })
+    ]);
 
     // Combine and format all events
     const events = [
@@ -1171,6 +1271,7 @@ async function getUpcomingEventsData(userId: number) {
         title: `${auction.name} Auction`,
         date: auction.nextAuctionDate ? formatDate(auction.nextAuctionDate) : 'Date not set',
         type: 'Chit Fund',
+        rawDate: auction.nextAuctionDate, // Keep raw date for sorting
       })),
       ...upcomingPayments.map((payment: any) => {
         // Get borrower name safely
@@ -1181,14 +1282,24 @@ async function getUpcomingEventsData(userId: number) {
           title: `${borrowerName} Loan Payment`,
           date: payment.nextPaymentDate ? formatDate(payment.nextPaymentDate) : 'Date not set',
           type: 'Loan',
+          rawDate: payment.nextPaymentDate, // Keep raw date for sorting
         };
       }),
     ];
 
     // Sort by date (soonest first) and take top 3
-    return events
-      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
-      .slice(0, 3);
+    // Use the raw date for sorting to avoid string comparison issues
+    const result = events
+      .sort((a, b) => {
+        if (!a.rawDate) return 1;
+        if (!b.rawDate) return -1;
+        return new Date(a.rawDate).getTime() - new Date(b.rawDate).getTime();
+      })
+      .slice(0, 3)
+      .map(({ rawDate, ...rest }) => rest); // Remove the rawDate property from the result
+
+    console.timeEnd('getUpcomingEventsData'); // End timing
+    return result;
   } catch (error) {
     console.error('Error getting upcoming events:', error);
     return [];
