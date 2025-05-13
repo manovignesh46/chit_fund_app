@@ -80,38 +80,104 @@ async function fetchAPI<T>(
   }
 }
 
-// Chit Fund API functions
+// Chit Fund API functions (consolidated)
 export const chitFundAPI = {
-  getAll: () => fetchAPI<any[]>('/chit-funds'),
+  getAll: (page = 1, pageSize = 10, status?: string) => {
+    let url = `/chit-funds/consolidated?action=list&page=${page}&pageSize=${pageSize}`;
+    if (status) url += `&status=${status}`;
+    return fetchAPI<any>(url);
+  },
 
-  getById: (id: number) => fetchAPI<any>(`/chit-funds/${id}`),
+  getById: (id: number) => fetchAPI<any>(`/chit-funds/consolidated?action=detail&id=${id}`),
 
-  create: (data: any) => fetchAPI<any>('/chit-funds', {
+  create: (data: any) => fetchAPI<any>('/chit-funds/consolidated?action=create', {
     method: 'POST',
     body: JSON.stringify(data),
   }),
 
-  update: (id: number, data: any) => fetchAPI<any>('/chit-funds', {
+  update: (id: number, data: any) => fetchAPI<any>(`/chit-funds/consolidated?action=update&id=${id}`, {
     method: 'PUT',
-    body: JSON.stringify({ id, ...data }),
+    body: JSON.stringify(data),
   }),
 
-  delete: (id: number) => fetchAPI<any>('/chit-funds', {
+  delete: (id: number) => fetchAPI<any>(`/chit-funds/consolidated?action=delete&id=${id}`, {
     method: 'DELETE',
-    body: JSON.stringify({ id }),
+    body: JSON.stringify({}),
   }),
 
-  getMembers: (id: number, page = 1, pageSize = 10) => fetchAPI<any>(`/chit-funds/${id}/members?page=${page}&pageSize=${pageSize}`),
+  getMembers: (id: number, page = 1, pageSize = 10) =>
+    fetchAPI<any>(`/chit-funds/consolidated?action=members&id=${id}&page=${page}&pageSize=${pageSize}`),
 
-  addMember: (id: number, data: any) => fetchAPI<any>(`/chit-funds/${id}/members`, {
+  getMemberDetail: (id: number, memberId: number) =>
+    fetchAPI<any>(`/chit-funds/consolidated?action=member-detail&id=${id}&memberId=${memberId}`),
+
+  addMember: (id: number, data: any) => fetchAPI<any>(`/chit-funds/consolidated?action=add-member&id=${id}`, {
     method: 'POST',
     body: JSON.stringify(data),
   }),
 
-  conductAuction: (id: number, data: any) => fetchAPI<any>(`/chit-funds/${id}/auction`, {
-    method: 'POST',
-    body: JSON.stringify(data),
-  }),
+  updateMember: (id: number, memberId: number, data: any) =>
+    fetchAPI<any>(`/chit-funds/consolidated?action=update-member&id=${id}&memberId=${memberId}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }),
+
+  deleteMember: (id: number, memberId: number) =>
+    fetchAPI<any>(`/chit-funds/consolidated?action=delete-member&id=${id}&memberId=${memberId}`, {
+      method: 'DELETE',
+      body: JSON.stringify({}),
+    }),
+
+  getContributions: (id: number, memberId?: number, page = 1, pageSize = 10) => {
+    let url = `/chit-funds/consolidated?action=contributions&id=${id}&page=${page}&pageSize=${pageSize}`;
+    if (memberId) url += `&memberId=${memberId}`;
+    return fetchAPI<any>(url);
+  },
+
+  addContribution: (id: number, data: any) =>
+    fetchAPI<any>(`/chit-funds/consolidated?action=add-contribution&id=${id}`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  updateContribution: (id: number, contributionId: number, data: any) =>
+    fetchAPI<any>(`/chit-funds/consolidated?action=update-contribution&id=${id}`, {
+      method: 'PUT',
+      body: JSON.stringify({ contributionId, ...data }),
+    }),
+
+  deleteContribution: (id: number, contributionId: number) =>
+    fetchAPI<any>(`/chit-funds/consolidated?action=delete-contribution&id=${id}`, {
+      method: 'DELETE',
+      body: JSON.stringify({ contributionId }),
+    }),
+
+  getAuctions: (id: number, page = 1, pageSize = 10) =>
+    fetchAPI<any>(`/chit-funds/consolidated?action=auctions&id=${id}&page=${page}&pageSize=${pageSize}`),
+
+  addAuction: (id: number, data: any) =>
+    fetchAPI<any>(`/chit-funds/consolidated?action=add-auction&id=${id}`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  updateAuction: (id: number, auctionId: number, data: any) =>
+    fetchAPI<any>(`/chit-funds/consolidated?action=update-auction&id=${id}`, {
+      method: 'PUT',
+      body: JSON.stringify({ auctionId, ...data }),
+    }),
+
+  deleteAuction: (id: number, auctionId: number) =>
+    fetchAPI<any>(`/chit-funds/consolidated?action=delete-auction&id=${id}`, {
+      method: 'DELETE',
+      body: JSON.stringify({ auctionId }),
+    }),
+
+  exportChitFund: (id: number) => {
+    // This is a special case that needs to trigger a file download
+    window.location.href = `/api/chit-funds/consolidated?action=export&id=${id}`;
+    return Promise.resolve(); // Return a resolved promise for consistency
+  },
 };
 
 // Loan API functions
