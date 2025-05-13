@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { compare, hash } from 'bcrypt';
-import { sign } from 'jsonwebtoken';
+import { sign, verify } from 'jsonwebtoken';
 
 // Handler functions for different actions
 const handlers = {
@@ -236,7 +236,7 @@ export async function POST(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
     const action = searchParams.get('action');
-  
+
     // Route to the appropriate handler based on action
     switch (action) {
       case 'login':
@@ -277,5 +277,4 @@ export async function GET(req: NextRequest) {
   );
 }
 
-// Import verify from jsonwebtoken
-import { verify } from 'jsonwebtoken';
+
