@@ -73,13 +73,7 @@ const PaymentSchedulesPage = () => {
       setLoan(loanResponse);
 
       // Fetch payment schedules
-      const schedulesResponse = await loanAPI.getPaymentSchedules(
-        Number(id),
-        currentPage,
-        pageSize,
-        statusFilter || undefined,
-        false // We don't need includeAll=true since we've updated the filter logic
-      );
+      const schedulesResponse = await loanAPI.getPaymentSchedules(Number(id));
 
       if (schedulesResponse.schedules && Array.isArray(schedulesResponse.schedules)) {
         setSchedules(schedulesResponse.schedules);
@@ -121,8 +115,7 @@ const PaymentSchedulesPage = () => {
       const result = await loanAPI.recordPayment(
         Number(id),
         {
-          action: 'recordPayment',
-          period,
+          scheduleId: period,
           amount,
           paidDate: new Date().toISOString().split('T')[0],
           paymentType

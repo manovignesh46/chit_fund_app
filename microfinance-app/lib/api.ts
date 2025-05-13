@@ -225,6 +225,8 @@ export const loanAPI = {
 
   getPaymentSchedules: (id: number) => fetchAPI<any>(`/loans/consolidated?action=payment-schedules&id=${id}`),
 
+  recordPayment: (id: number, data: any) => loanAPI.addRepayment(id, data),
+
   updateOverdueAmount: (id: number) => fetchAPI<any>(`/loans/consolidated?action=update-overdue&id=${id}`, {
     method: 'POST',
     body: JSON.stringify({}),
