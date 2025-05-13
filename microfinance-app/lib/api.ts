@@ -160,30 +160,47 @@ export const loanAPI = {
   }),
 };
 
-// Auth API functions
+// User API functions (consolidated)
 export const authAPI = {
-  login: (email: string, password: string) => fetchAPI<any>('/auth/login', {
+  login: (email: string, password: string) => fetchAPI<any>('/user?action=login', {
     method: 'POST',
     body: JSON.stringify({ email, password }),
   }),
 
-  logout: () => fetchAPI<any>('/auth/logout', {
+  logout: () => fetchAPI<any>('/user?action=logout', {
     method: 'POST',
   }),
 
-  getCurrentUser: () => fetchAPI<any>('/auth/me'),
+  getCurrentUser: () => fetchAPI<any>('/user?action=me'),
+
+  register: (data: any) => fetchAPI<any>('/user?action=register', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  }),
 };
 
-// Dashboard API functions
+// Dashboard API functions (consolidated)
 export const dashboardAPI = {
-  getSummary: () => fetchAPI<any>('/dashboard'),
+  getSummary: () => fetchAPI<any>('/dashboard/consolidated?action=summary'),
 
-  getActivities: () => fetchAPI<any[]>('/dashboard/activities'),
+  getActivities: () => fetchAPI<any[]>('/dashboard/consolidated?action=activities'),
 
-  getUpcomingEvents: () => fetchAPI<any[]>('/dashboard/events'),
+  getUpcomingEvents: () => fetchAPI<any[]>('/dashboard/consolidated?action=events'),
 
   getFinancialData: (duration: string = 'monthly', limit: number = 12) =>
-    fetchAPI<any[]>(`/dashboard/financial-data?duration=${duration}&limit=${limit}`),
+    fetchAPI<any[]>(`/dashboard/consolidated?action=financial-data&duration=${duration}&limit=${limit}`),
+
+  exportFinancialData: (duration: string = 'monthly', limit: number = 12) => {
+    // This is a special case that needs to trigger a file download
+    window.location.href = `/api/dashboard/consolidated?action=export&duration=${duration}&limit=${limit}`;
+    return Promise.resolve(); // Return a resolved promise for consistency
+  },
+
+  exportSinglePeriodData: (period: string, startDate: string, endDate: string) => {
+    // This is a special case that needs to trigger a file download
+    window.location.href = `/api/dashboard/consolidated?action=export&duration=single&period=${encodeURIComponent(period)}&startDate=${startDate}&endDate=${endDate}`;
+    return Promise.resolve(); // Return a resolved promise for consistency
+  },
 };
 
 // Global Members API functions
