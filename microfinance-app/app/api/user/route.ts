@@ -233,23 +233,32 @@ const handlers = {
 // Main handler function
 export async function POST(req: NextRequest) {
   // Get the action from the query parameter
-  const { searchParams } = new URL(req.url);
-  const action = searchParams.get('action');
-
-  // Route to the appropriate handler based on action
-  switch (action) {
-    case 'login':
-      return handlers.login(req);
-    case 'logout':
-      return handlers.logout();
-    case 'register':
-      return handlers.register(req);
-    default:
-      return NextResponse.json(
-        { error: 'Invalid action' },
-        { status: 400 }
-      );
+  try {
+    const { searchParams } = new URL(req.url);
+    const action = searchParams.get('action');
+  
+    // Route to the appropriate handler based on action
+    switch (action) {
+      case 'login':
+        return handlers.login(req);
+      case 'logout':
+        return handlers.logout();
+      case 'register':
+        return handlers.register(req);
+      default:
+        return NextResponse.json(
+          { error: 'Invalid action' },
+          { status: 400 }
+        );
+    }
+  } catch (error) {
+    console.error('Error in user API:', error);
+    return NextResponse.json(
+      { error: 'An error occurred while processing your request' },
+      { status: 500 }
+    );
   }
+
 }
 
 // GET handler for user info
