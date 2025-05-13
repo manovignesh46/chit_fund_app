@@ -40,7 +40,7 @@ const schema = fs.readFileSync(schemaPath, 'utf8');
 console.log('Prisma schema file found and read successfully.');
 
 // Check if the schema has the correct binary targets
-const requiredTargets = ['debian-openssl-3.0.x', 'rhel-openssl-3.0.x', 'rhel-openssl-3.2.x', 'linux-musl', 'linux-musl-openssl-3.0.x'];
+const requiredTargets = ['debian-openssl-3.0.x', 'rhel-openssl-3.0.x', 'linux-musl'];
 const missingTargets = requiredTargets.filter(target => !schema.includes(target));
 
 if (missingTargets.length > 0) {
@@ -49,10 +49,25 @@ if (missingTargets.length > 0) {
   // Don't exit - just warn and continue
 }
 
+// Check if we're running on Vercel
+const isVercel = process.env.VERCEL === '1';
+if (isVercel) {
+  console.log('Detected Vercel environment. Using special Prisma setup for Vercel...');
+}
+
 // Run Prisma generate
 try {
   console.log('Running prisma generate...');
-  execSync('npx prisma generate', { stdio: 'inherit' });
+
+  // On Vercel, we need to use a different approach
+  if (isVercel) {
+    // For Vercel, we'll use a more specific command that works better in their environment
+    execSync('npx prisma generate --schema=./prisma/schema.prisma', { stdio: 'inherit' });
+  } else {
+    // For local development, use the standard command
+    execSync('npx prisma generate', { stdio: 'inherit' });
+  }
+
   console.log('Prisma client generated successfully.');
 } catch (error) {
   console.error('ERROR: Failed to generate Prisma client:', error.message);
