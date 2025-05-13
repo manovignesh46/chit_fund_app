@@ -537,7 +537,7 @@ async function exportFinancialData(request: NextRequest, currentUserId: number) 
     }
 
     // Generate Excel file
-    const workbook = await generateExcelFile(financialData, duration, period);
+    const workbook = await generateExcelFile(financialData, duration, period || undefined);
 
     // Convert workbook to buffer
     const buffer = await workbook.xlsx.writeBuffer();
@@ -835,7 +835,7 @@ async function getRegularFinancialData(userId: number, duration: string, limit: 
 }
 
 // Helper function to generate Excel file
-async function generateExcelFile(data: any, duration: string, period?: string) {
+async function generateExcelFile(data: any, duration: string, period: string | undefined) {
   // Import Excel.js dynamically
   const ExcelJS = require('exceljs');
 
