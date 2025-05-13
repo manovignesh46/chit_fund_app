@@ -180,50 +180,72 @@ export const chitFundAPI = {
   },
 };
 
-// Loan API functions
+// Loan API functions (consolidated)
 export const loanAPI = {
-  getAll: () => fetchAPI<any[]>('/loans'),
-
-  getById: (id: number) => fetchAPI<any>(`/loans/${id}`),
-
-  create: (data: any) => fetchAPI<any>('/loans', {
-    method: 'POST',
-    body: JSON.stringify(data),
-  }),
-
-  update: (id: number, data: any) => fetchAPI<any>('/loans', {
-    method: 'PUT',
-    body: JSON.stringify({ id, ...data }),
-  }),
-
-  delete: (id: number) => fetchAPI<any>('/loans', {
-    method: 'DELETE',
-    body: JSON.stringify({ id }),
-  }),
-
-  getRepayments: (id: number, page = 1, pageSize = 10) =>
-    fetchAPI<any>(`/loans/${id}/repayments?page=${page}&pageSize=${pageSize}`),
-
-  addRepayment: (id: number, data: any) => fetchAPI<any>(`/loans/${id}/repayments`, {
-    method: 'POST',
-    body: JSON.stringify(data),
-  }),
-
-  getPaymentSchedules: (id: number, page = 1, pageSize = 10, status?: string, includeAll = false) => {
-    let url = `/loans/${id}/payment-schedules?page=${page}&pageSize=${pageSize}&includeAll=${includeAll}`;
+  getAll: (page = 1, pageSize = 10, status?: string) => {
+    let url = `/loans/consolidated?action=list&page=${page}&pageSize=${pageSize}`;
     if (status) url += `&status=${status}`;
     return fetchAPI<any>(url);
   },
 
-  recordPayment: (id: number, data: any) => fetchAPI<any>(`/loans/${id}/payment-schedules`, {
+  getById: (id: number) => fetchAPI<any>(`/loans/consolidated?action=detail&id=${id}`),
+
+  create: (data: any) => fetchAPI<any>('/loans/consolidated?action=create', {
     method: 'POST',
     body: JSON.stringify(data),
   }),
 
-  updateOverdueAmount: (id: number) => fetchAPI<any>(`/loans/${id}/payment-schedules`, {
-    method: 'POST',
-    body: JSON.stringify({ action: 'updateOverdue' }),
+  update: (id: number, data: any) => fetchAPI<any>(`/loans/consolidated?action=update&id=${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
   }),
+
+  delete: (id: number) => fetchAPI<any>(`/loans/consolidated?action=delete&id=${id}`, {
+    method: 'DELETE',
+    body: JSON.stringify({}),
+  }),
+
+  getRepayments: (id: number, page = 1, pageSize = 10) =>
+    fetchAPI<any>(`/loans/consolidated?action=repayments&id=${id}&page=${page}&pageSize=${pageSize}`),
+
+  addRepayment: (id: number, data: any) => fetchAPI<any>(`/loans/consolidated?action=add-repayment&id=${id}`, {
+    method: 'POST',
+    body: JSON.stringify(data),
+  }),
+
+  deleteRepayment: (id: number, repaymentId: number) => fetchAPI<any>(`/loans/consolidated?action=delete-repayment&id=${id}`, {
+    method: 'DELETE',
+    body: JSON.stringify({ repaymentId }),
+  }),
+
+  deleteRepayments: (id: number, repaymentIds: number[]) => fetchAPI<any>(`/loans/consolidated?action=delete-repayment&id=${id}`, {
+    method: 'DELETE',
+    body: JSON.stringify({ repaymentIds }),
+  }),
+
+  getPaymentSchedules: (id: number) => fetchAPI<any>(`/loans/consolidated?action=payment-schedules&id=${id}`),
+
+  updateOverdueAmount: (id: number) => fetchAPI<any>(`/loans/consolidated?action=update-overdue&id=${id}`, {
+    method: 'POST',
+    body: JSON.stringify({}),
+  }),
+
+  updateAllOverdueAmounts: () => fetchAPI<any>('/loans/consolidated?action=update-overdue', {
+    method: 'POST',
+    body: JSON.stringify({}),
+  }),
+
+  exportLoan: (id: number) => {
+    // This is a special case that needs to trigger a file download
+    window.location.href = `/api/loans/consolidated?action=export&id=${id}`;
+    return Promise.resolve(); // Return a resolved promise for consistency
+  },
+
+  exportAllLoans: () => {
+    // This is a special case that needs to trigger a file download
+    window.location.href = `/api/loans/consolidated?action=export-all`;
+    return Promise.resolve(); // Return a resolved promise for consistency
+  },
 };
 
 // User API functions (consolidated)
