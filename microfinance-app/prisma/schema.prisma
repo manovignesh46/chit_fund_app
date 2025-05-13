@@ -97,6 +97,7 @@ model Contribution {
   balancePaymentDate     DateTime?     // Expected date when the balance will be paid
   balancePaymentStatus   String?       @default("Pending") // Status of balance payment: "Pending", "Paid", "Overdue"
   actualBalancePaymentDate DateTime?   // Actual date when the balance was paid
+  notes                  String?       // Additional notes about the contribution
   createdAt              DateTime      @default(now())
   updatedAt              DateTime      @updatedAt
   member                 Member        @relation(fields: [memberId], references: [id])

@@ -76,6 +76,7 @@ export interface Contribution {
   balancePaymentDate?: Date | string | null;
   balancePaymentStatus?: string | null;
   actualBalancePaymentDate?: Date | string | null;
+  notes?: string | null;
   createdAt?: Date | string;
   updatedAt?: Date | string;
   member?: ChitFundMember;

@@ -24,12 +24,12 @@ export default function AssignChitFundPage() {
   const params = useParams();
   const router = useRouter();
   const memberId = params.id;
-  
+
   const [member, setMember] = useState<GlobalMember | null>(null);
   const [chitFunds, setChitFunds] = useState<ChitFund[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  
+
   const [selectedChitFund, setSelectedChitFund] = useState<string>('');
   const [contribution, setContribution] = useState<string>('');
   const [formErrors, setFormErrors] = useState<{[key: string]: string}>({});
@@ -39,17 +39,17 @@ export default function AssignChitFundPage() {
     const fetchData = async () => {
       try {
         setLoading(true);
-        
+
         // Fetch member details
         const memberData = await memberAPI.getById(Number(memberId));
         setMember(memberData);
-        
+
         // Fetch all active chit funds
         const chitFundsData = await chitFundAPI.getAll();
         // Filter to only show active chit funds
-        const activeChitFunds = chitFundsData.filter(cf => cf.status === 'Active');
+        const activeChitFunds = chitFundsData.filter((cf: ChitFund) => cf.status === 'Active');
         setChitFunds(activeChitFunds);
-        
+
         setError(null);
       } catch (err: any) {
         console.error('Error fetching data:', err);
@@ -67,10 +67,10 @@ export default function AssignChitFundPage() {
   const handleChitFundChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const chitFundId = e.target.value;
     setSelectedChitFund(chitFundId);
-    
+
     // Set default contribution amount based on selected chit fund
     if (chitFundId) {
-      const selectedCF = chitFunds.find(cf => cf.id.toString() === chitFundId);
+      const selectedCF = chitFunds.find((cf: ChitFund) => cf.id.toString() === chitFundId);
       if (selectedCF) {
         setContribution(selectedCF.monthlyContribution.toString());
       }
@@ -81,30 +81,30 @@ export default function AssignChitFundPage() {
 
   const validateForm = () => {
     const errors: {[key: string]: string} = {};
-    
+
     if (!selectedChitFund) {
       errors.chitFund = 'Please select a chit fund';
     }
-    
+
     if (!contribution) {
       errors.contribution = 'Contribution amount is required';
     } else if (isNaN(Number(contribution)) || Number(contribution) <= 0) {
       errors.contribution = 'Contribution must be a positive number';
     }
-    
+
     setFormErrors(errors);
     return Object.keys(errors).length === 0;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!validateForm()) {
       return;
     }
-    
+
     setIsSubmitting(true);
-    
+
     try {
       // Add member to chit fund
       await fetch(`/api/chit-funds/${selectedChitFund}/members`, {
@@ -117,7 +117,7 @@ export default function AssignChitFundPage() {
           contribution: Number(contribution),
         }),
       });
-      
+
       // Redirect back to member details page
       router.push(`/members/${memberId}`);
     } catch (error: any) {

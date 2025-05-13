@@ -291,24 +291,24 @@ export const dashboardAPI = {
   },
 };
 
-// Global Members API functions
+// Global Members API functions (consolidated)
 export const memberAPI = {
-  getAll: (page = 1, pageSize = 10) => fetchAPI<any>(`/members?page=${page}&pageSize=${pageSize}`),
+  getAll: (page = 1, pageSize = 10) => fetchAPI<any>(`/members/consolidated?action=list&page=${page}&pageSize=${pageSize}`),
 
-  getById: (id: number) => fetchAPI<any>(`/members/${id}`),
+  getById: (id: number) => fetchAPI<any>(`/members/consolidated?action=detail&id=${id}`),
 
-  create: (data: any) => fetchAPI<any>('/members', {
+  create: (data: any) => fetchAPI<any>('/members/consolidated?action=create', {
     method: 'POST',
     body: JSON.stringify(data),
   }),
 
-  update: (id: number, data: any) => fetchAPI<any>('/members', {
+  update: (id: number, data: any) => fetchAPI<any>(`/members/consolidated?action=update&id=${id}`, {
     method: 'PUT',
-    body: JSON.stringify({ id, ...data }),
+    body: JSON.stringify(data),
   }),
 
-  delete: (id: number) => fetchAPI<any>('/members', {
+  delete: (id: number) => fetchAPI<any>(`/members/consolidated?action=delete&id=${id}`, {
     method: 'DELETE',
-    body: JSON.stringify({ id }),
+    body: JSON.stringify({}),
   }),
 };

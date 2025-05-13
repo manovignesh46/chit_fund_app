@@ -28,6 +28,7 @@ interface Contribution {
   balancePaymentDate: string | null;
   balancePaymentStatus: string | null;
   actualBalancePaymentDate: string | null;
+  notes: string | null;
 }
 
 interface ChitFund {
