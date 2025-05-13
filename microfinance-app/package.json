@@ -4,13 +4,14 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "prisma generate && next build",
+    "build": "node scripts/setup-prisma.js && next build",
     "start": "next start",
     "lint": "eslint .",
     "format": "prettier --write .",
     "seed": "ts-node --compiler-options {\\\"module\\\":\\\"CommonJS\\\"} prisma/seed.ts",
     "analyze": "ANALYZE=true next build",
-    "postinstall": "prisma generate"
+    "postinstall": "prisma generate",
+    "vercel-build": "node scripts/setup-prisma.js && next build"
   },
   "dependencies": {
     "@prisma/client": "^3.15.2",
