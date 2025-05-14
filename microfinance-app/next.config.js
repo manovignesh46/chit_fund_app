@@ -32,15 +32,31 @@ const nextConfig = {
   // Optimize serverless function size
   outputFileTracingExcludes: {
     '*': [
+      // Development dependencies
       'node_modules/@swc/core-linux-x64-gnu',
       'node_modules/@swc/core-linux-x64-musl',
       'node_modules/@esbuild/linux-x64',
       'node_modules/typescript',
       'node_modules/prettier',
       'node_modules/eslint',
+      'node_modules/@types/**',
+      'node_modules/ts-node/**',
+      // Prisma specific exclusions
+      'node_modules/.prisma/client/libquery_engine-*',
+      'node_modules/@prisma/engines/**',
+      'node_modules/prisma/libquery_engine-*',
+      'node_modules/prisma/migration-engine-*',
+      'node_modules/prisma/introspection-engine-*',
+      'node_modules/prisma/prisma-fmt-*',
+      // Keep only the required Prisma engines
+      '!node_modules/.prisma/client/libquery_engine-rhel-*',
+      '!node_modules/.prisma/client/libquery_engine-debian-*',
+      '!node_modules/.prisma/client/libquery_engine-linux-*',
+      // Other exclusions
       '.git/**',
       '**/*.{md,txt,log,LICENSE}',
       'prisma/migrations/**',
+      'node_modules/**/*.{md,d.ts,map}',
     ],
   },
   // Optimize large pages

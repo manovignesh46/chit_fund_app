@@ -9,7 +9,16 @@
 *.bak
 
 # Node.js
-node_modules
+# Don't ignore all node_modules, just specific parts
+# node_modules
+node_modules/.cache
+node_modules/.pnpm
+node_modules/@types
+node_modules/typescript
+node_modules/ts-node
+node_modules/eslint
+node_modules/prettier
+node_modules/@next/bundle-analyzer
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
@@ -49,6 +58,19 @@ tsconfig.tsbuildinfo
 # Prisma
 prisma/migrations
 prisma/seed.ts
+node_modules/.prisma/client/libquery_engine-*
+!node_modules/.prisma/client/libquery_engine-rhel-openssl-1.0.x
+!node_modules/.prisma/client/libquery_engine-rhel-openssl-1.1.x
+!node_modules/.prisma/client/libquery_engine-rhel-openssl-3.0.x
+!node_modules/.prisma/client/libquery_engine-debian-openssl-1.0.x
+!node_modules/.prisma/client/libquery_engine-debian-openssl-1.1.x
+!node_modules/.prisma/client/libquery_engine-debian-openssl-3.0.x
+!node_modules/.prisma/client/libquery_engine-linux-musl
+node_modules/@prisma/engines/**
+node_modules/prisma/libquery_engine-*
+node_modules/prisma/migration-engine-*
+node_modules/prisma/introspection-engine-*
+node_modules/prisma/prisma-fmt-*
 
 # Development scripts
 scripts/dev-*

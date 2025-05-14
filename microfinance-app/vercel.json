@@ -13,5 +13,25 @@
       "memory": 1024,
       "maxDuration": 10
     }
-  }
+  },
+  "excludeFiles": [
+    "node_modules/.prisma/client/libquery_engine-*",
+    "node_modules/@prisma/engines/**",
+    "node_modules/prisma/libquery_engine-*",
+    "node_modules/prisma/migration-engine-*",
+    "node_modules/prisma/introspection-engine-*",
+    "node_modules/prisma/prisma-fmt-*",
+    "node_modules/.prisma/client/schema.prisma",
+    "node_modules/.pnpm",
+    "node_modules/.cache",
+    "**/*.md",
+    "**/*.map",
+    "**/*.d.ts.map",
+    "**/*.js.map",
+    "**/*.ts.map",
+    "**/*.d.ts",
+    "**/*.test.*",
+    "**/*.spec.*",
+    "**/__tests__/**"
+  ]
 }
