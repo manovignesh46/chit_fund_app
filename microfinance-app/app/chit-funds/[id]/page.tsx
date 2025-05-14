@@ -57,29 +57,40 @@ const ChitFundDetails = () => {
       try {
         setLoading(true);
 
-        // Fetch chit fund details
-        const chitFundResponse = await fetch(`/api/chit-funds/${id}`);
+        // Fetch chit fund details using the consolidated API endpoint
+        const chitFundResponse = await fetch(`/api/chit-funds/consolidated?action=detail&id=${id}`);
         if (!chitFundResponse.ok) {
-          throw new Error('Failed to fetch chit fund details');
+          const errorData = await chitFundResponse.json().catch(() => ({}));
+          console.error('Chit fund fetch error response:', chitFundResponse.status, errorData);
+
+          // Handle 404 errors specifically
+          if (chitFundResponse.status === 404) {
+            setChitFund(null);
+            setError(`Chit fund with ID ${id} not found. It may have been deleted or you don't have permission to view it.`);
+            setLoading(false);
+            return; // Exit early
+          }
+
+          throw new Error(`Failed to fetch chit fund details: ${chitFundResponse.status} ${errorData.error || ''}`);
         }
         const chitFundData = await chitFundResponse.json();
 
-        // Fetch members
-        const membersResponse = await fetch(`/api/chit-funds/${id}/members`);
+        // Fetch members using the consolidated API endpoint
+        const membersResponse = await fetch(`/api/chit-funds/consolidated?action=members&id=${id}`);
         if (!membersResponse.ok) {
           throw new Error('Failed to fetch members');
         }
         const membersData = await membersResponse.json();
 
-        // Fetch auctions
-        const auctionsResponse = await fetch(`/api/chit-funds/${id}/auctions`);
+        // Fetch auctions using the consolidated API endpoint
+        const auctionsResponse = await fetch(`/api/chit-funds/consolidated?action=auctions&id=${id}`);
         if (!auctionsResponse.ok) {
           throw new Error('Failed to fetch auctions');
         }
         const auctionsData = await auctionsResponse.json();
 
-        // Fetch contributions
-        const contributionsResponse = await fetch(`/api/chit-funds/${id}/contributions`);
+        // Fetch contributions using the consolidated API endpoint
+        const contributionsResponse = await fetch(`/api/chit-funds/consolidated?action=contributions&id=${id}`);
         if (!contributionsResponse.ok) {
           throw new Error('Failed to fetch contributions');
         }
@@ -96,8 +107,20 @@ const ChitFundDetails = () => {
           setMembers(Array.isArray(membersData) ? membersData : []);
         }
 
-        setAuctions(auctionsData);
-        setContributions(contributionsData);
+        // Handle the paginated response format for auctions
+        const auctionsArray = auctionsData.auctions && Array.isArray(auctionsData.auctions)
+          ? auctionsData.auctions
+          : (Array.isArray(auctionsData) ? auctionsData : []);
+
+        setAuctions(auctionsArray);
+
+        // Handle the paginated response format for contributions
+        const contributionsArray = contributionsData.contributions && Array.isArray(contributionsData.contributions)
+          ? contributionsData.contributions
+          : (Array.isArray(contributionsData) ? contributionsData : []);
+
+        // Set the contributions state
+        setContributions(contributionsArray);
 
         // Calculate total balance and members with balance
         let totalBalanceAmount = 0;
@@ -108,14 +131,14 @@ const ChitFundDetails = () => {
         const memberBalances = new Map<number, MemberBalanceData>();
 
         // Process all contributions to calculate balances
-        for (const contribution of contributionsData) {
+        for (const contribution of contributionsArray) {
           // Only count balances that are not marked as "Paid"
           if (contribution.balance > 0 && contribution.balancePaymentStatus !== 'Paid') {
             totalBalanceAmount += contribution.balance;
 
             // Track balance by member
             const memberId = contribution.memberId;
-            const memberName = contribution.member.name;
+            const memberName = contribution.member?.globalMember?.name || 'Unknown';
             const currentBalance = memberBalances.get(memberId) || {
               id: memberId,
               name: memberName,
@@ -146,18 +169,18 @@ const ChitFundDetails = () => {
         let totalOutflow = 0;
 
         // Calculate cash inflow from contributions
-        if (contributionsData && contributionsData.length > 0) {
-          totalInflow = contributionsData.reduce((sum: number, contribution: any) => sum + contribution.amount, 0);
+        if (contributionsArray && contributionsArray.length > 0) {
+          totalInflow = contributionsArray.reduce((sum: number, contribution: any) => sum + contribution.amount, 0);
         }
 
         // Calculate cash outflow from auctions
-        if (auctionsData && auctionsData.length > 0) {
-          totalOutflow = auctionsData.reduce((sum: number, auction: any) => sum + auction.amount, 0);
+        if (auctionsArray && auctionsArray.length > 0) {
+          totalOutflow = auctionsArray.reduce((sum: number, auction: any) => sum + auction.amount, 0);
         }
 
         // Calculate profit and outside amount using centralized utility functions
-        const profitAmount = calculateChitFundProfit(chitFundData, contributionsData, auctionsData);
-        const outsideAmountValue = calculateChitFundOutsideAmount(chitFundData, contributionsData, auctionsData);
+        const profitAmount = calculateChitFundProfit(chitFundData, contributionsArray, auctionsArray);
+        const outsideAmountValue = calculateChitFundOutsideAmount(chitFundData, contributionsArray, auctionsArray);
 
         setCashInflow(totalInflow);
         setCashOutflow(totalOutflow);
@@ -165,7 +188,7 @@ const ChitFundDetails = () => {
         setOutsideAmount(outsideAmountValue);
 
         // Calculate next payout details if there are auctions
-        if (auctionsData.length > 0 && chitFundData.currentMonth < chitFundData.duration) {
+        if (auctionsArray.length > 0 && chitFundData.currentMonth < chitFundData.duration) {
           // Get the members array from the response
           const membersArray = membersData.members && Array.isArray(membersData.members)
             ? membersData.members
@@ -180,8 +203,8 @@ const ChitFundDetails = () => {
             chitFundData.nextPayoutReceiver = nextReceiver.name;
 
             // Calculate final payout based on previous auctions average or total amount
-            if (auctionsData.length > 0) {
-              const avgAmount = auctionsData.reduce((sum: number, auction: Auction) => sum + auction.amount, 0) / auctionsData.length;
+            if (auctionsArray.length > 0) {
+              const avgAmount = auctionsArray.reduce((sum: number, auction: Auction) => sum + auction.amount, 0) / auctionsArray.length;
               chitFundData.finalPayout = Math.round(avgAmount);
             } else {
               chitFundData.finalPayout = chitFundData.totalAmount;
@@ -190,9 +213,22 @@ const ChitFundDetails = () => {
         }
 
         setError(null);
-      } catch (err) {
+      } catch (err: any) {
         console.error('Error fetching data:', err);
-        setError('Failed to load data. Please try again later.');
+        // Check if the error is related to authentication
+        if (err.message && (
+          err.message.includes('401') ||
+          err.message.includes('Unauthorized') ||
+          err.message.toLowerCase().includes('authentication')
+        )) {
+          setError('Authentication error. Please log in again to continue.');
+          // Redirect to login page after a short delay
+          setTimeout(() => {
+            window.location.href = `/login?from=/chit-funds/${id}&error=session_expired`;
+          }, 3000);
+        } else {
+          setError(`Failed to load data: ${err.message || 'Unknown error'}. Please try again later.`);
+        }
       } finally {
         setLoading(false);
       }
@@ -253,7 +289,7 @@ const ChitFundDetails = () => {
 
       // Only update if the calculated month is different from the current month
       if (chitFund.currentMonth !== calculatedMonth) {
-        const response = await fetch(`/api/chit-funds/${chitFund.id}`, {
+        const response = await fetch(`/api/chit-funds/consolidated?action=update&id=${chitFund.id}`, {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
@@ -290,7 +326,8 @@ const ChitFundDetails = () => {
 
       console.log('Generated filename:', filename);
 
-      // Call the export API endpoint
+      // Call the direct export API endpoint
+      // This bypasses the consolidated API and goes directly to the export route
       const response = await fetch(`/api/chit-funds/${id}/export`);
 
       if (!response.ok) {
@@ -335,7 +372,7 @@ const ChitFundDetails = () => {
     setDeleteError(null);
 
     try {
-      const response = await fetch(`/api/chit-funds/${id}`, {
+      const response = await fetch(`/api/chit-funds/consolidated?action=delete&id=${id}`, {
         method: 'DELETE',
       });
 

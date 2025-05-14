@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { apiGet, apiPut } from '@/lib/apiUtils';
 
 interface GlobalMember {
   id: number;
@@ -66,34 +67,38 @@ export default function MemberContributionsPage() {
       try {
         setLoading(true);
 
-        // Fetch chit fund details
-        const chitFundResponse = await fetch(`/api/chit-funds/${chitFundId}`);
-        if (!chitFundResponse.ok) {
-          throw new Error('Failed to fetch chit fund details');
-        }
-        const chitFundData = await chitFundResponse.json();
+        // Fetch chit fund details using the consolidated API endpoint
+        const chitFundData = await apiGet(
+          `/api/chit-funds/consolidated?action=detail&id=${chitFundId}`,
+          'Failed to fetch chit fund details'
+        );
         setChitFund(chitFundData);
 
-        // Fetch member details
-        const memberResponse = await fetch(`/api/chit-funds/${chitFundId}/members/${memberId}`);
-        if (!memberResponse.ok) {
-          throw new Error('Failed to fetch member details');
-        }
-        const memberData = await memberResponse.json();
+        // Fetch member details using the consolidated API endpoint
+        const memberData = await apiGet(
+          `/api/chit-funds/consolidated?action=member-detail&id=${chitFundId}&memberId=${memberId}`,
+          'Failed to fetch member details'
+        );
         setMember(memberData);
 
-        // Fetch member's contributions
-        const contributionsResponse = await fetch(`/api/chit-funds/${chitFundId}/members/${memberId}/contributions`);
-        if (!contributionsResponse.ok) {
-          throw new Error('Failed to fetch contributions');
+        // Fetch member's contributions using the consolidated API endpoint
+        const contributionsData = await apiGet(
+          `/api/chit-funds/consolidated?action=contributions&id=${chitFundId}&memberId=${memberId}`,
+          'Failed to fetch contributions'
+        );
+
+        // Check if the response has a contributions property (new format) or is an array (old format)
+        if (contributionsData.contributions && Array.isArray(contributionsData.contributions)) {
+          setContributions(contributionsData.contributions);
+        } else {
+          // Fallback for backward compatibility
+          setContributions(Array.isArray(contributionsData) ? contributionsData : []);
         }
-        const contributionsData = await contributionsResponse.json();
-        setContributions(contributionsData);
 
         setError(null);
-      } catch (err) {
+      } catch (err: any) {
         console.error('Error fetching data:', err);
-        setError('Failed to load data. Please try again later.');
+        setError(err.message || 'Failed to load data. Please try again later.');
       } finally {
         setLoading(false);
       }
@@ -170,26 +175,18 @@ export default function MemberContributionsPage() {
     setUpdateError(null);
 
     try {
-      const response = await fetch(`/api/chit-funds/${chitFundId}/contributions`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
+      // Use the apiPut function from apiUtils
+      const updatedContribution = await apiPut(
+        `/api/chit-funds/consolidated?action=update-contribution&id=${chitFundId}`,
+        {
           contributionId: selectedContribution.id,
           amount: selectedContribution.amount,
           paidDate: new Date(selectedContribution.paidDate).toISOString().split('T')[0],
           balancePaymentStatus: 'Paid',
           actualBalancePaymentDate: new Date().toISOString().split('T')[0],
-        }),
-      });
-
-      if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.error || 'Failed to update balance payment status');
-      }
-
-      const updatedContribution = await response.json();
+        },
+        'Failed to update balance payment status'
+      );
 
       // Update the contributions list
       setContributions(contributions.map(c =>

@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import dynamic from 'next/dynamic';
+import { apiGet, apiPost, apiPut, apiDelete } from '@/lib/apiUtils';
 
 interface GlobalMember {
   id: number;
@@ -103,21 +103,42 @@ export default function ChitFundContributionsPage() {
       try {
         setLoading(true);
 
-        // Fetch chit fund details
-        const chitFundResponse = await fetch(`/api/chit-funds/${chitFundId}`);
-        if (!chitFundResponse.ok) {
-          throw new Error('Failed to fetch chit fund details');
-        }
-        const chitFundData = await chitFundResponse.json();
-        console.log('Chit Fund Data:', chitFundData);
-        setChitFund(chitFundData);
+        // Fetch chit fund details using the consolidated API endpoint
+        try {
+          const chitFundData = await apiGet(
+            `/api/chit-funds/consolidated?action=detail&id=${chitFundId}`,
+            'Failed to fetch chit fund details'
+          );
+          console.log('Chit Fund Data:', chitFundData);
+          setChitFund(chitFundData);
+        } catch (error: any) {
+          // Handle 404 errors specifically
+          if (error.message.includes('not found')) {
+            setChitFund(null);
+            setError(`Chit fund with ID ${chitFundId} not found. It may have been deleted or you don't have permission to view it.`);
+            setLoading(false);
+            return; // Exit early
+          }
 
-        // Fetch members
-        const membersResponse = await fetch(`/api/chit-funds/${chitFundId}/members`);
-        if (!membersResponse.ok) {
-          throw new Error('Failed to fetch members');
+          // Handle authentication errors
+          if (error.message.includes('Authentication') || error.message.includes('Unauthorized')) {
+            setError('Authentication error. Please log in again to continue.');
+            // Redirect to login page after a short delay
+            setTimeout(() => {
+              window.location.href = `/login?from=/chit-funds/${chitFundId}/contributions&error=session_expired`;
+            }, 3000);
+            return; // Exit early
+          }
+
+          // Re-throw the error to be caught by the outer catch block
+          throw error;
         }
-        const membersData = await membersResponse.json();
+
+        // Fetch members using the consolidated API endpoint
+        const membersData = await apiGet(
+          `/api/chit-funds/consolidated?action=members&id=${chitFundId}`,
+          'Failed to fetch members'
+        );
         console.log('Members Data:', membersData);
 
         // Check if the response has pagination metadata
@@ -128,19 +149,25 @@ export default function ChitFundContributionsPage() {
           setMembers(Array.isArray(membersData) ? membersData : []);
         }
 
-        // Fetch contributions
-        const contributionsResponse = await fetch(`/api/chit-funds/${chitFundId}/contributions`);
-        if (!contributionsResponse.ok) {
-          throw new Error('Failed to fetch contributions');
-        }
-        const contributionsData = await contributionsResponse.json();
+        // Fetch contributions using the consolidated API endpoint
+        const contributionsData = await apiGet(
+          `/api/chit-funds/consolidated?action=contributions&id=${chitFundId}`,
+          'Failed to fetch contributions'
+        );
         console.log('Contributions Data:', contributionsData);
-        setContributions(contributionsData);
+
+        // Check if the response has a contributions property (new format) or is an array (old format)
+        if (contributionsData.contributions && Array.isArray(contributionsData.contributions)) {
+          setContributions(contributionsData.contributions);
+        } else {
+          // Fallback for backward compatibility
+          setContributions(Array.isArray(contributionsData) ? contributionsData : []);
+        }
 
         setError(null);
       } catch (err) {
         console.error('Error fetching data:', err);
-        setError('Failed to load data. Please try again later.');
+        setError(`Failed to load data: ${err instanceof Error ? err.message : 'Unknown error'}. Please try again later.`);
       } finally {
         setLoading(false);
       }
@@ -204,12 +231,10 @@ export default function ChitFundContributionsPage() {
         amount: Number(newContribution.amount),
       });
 
-      const response = await fetch(`/api/chit-funds/${chitFundId}/contributions`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
+      // Use the apiPost utility function
+      const responseData = await apiPost(
+        `/api/chit-funds/consolidated?action=add-contribution&id=${chitFundId}`,
+        {
           ...newContribution,
           chitFundId: Number(chitFundId),
           memberId: Number(newContribution.memberId),
@@ -218,15 +243,12 @@ export default function ChitFundContributionsPage() {
           balancePaymentDate: newContribution.balancePaymentDate || null,
           balancePaymentStatus: chitFund && Number(newContribution.amount) < chitFund.monthlyContribution ? 'Pending' : null,
           actualBalancePaymentDate: newContribution.actualBalancePaymentDate || null,
-        }),
-      });
+          notes: null, // Add notes field with null value
+        },
+        'Failed to add contribution'
+      );
 
-      const responseData = await response.json();
       console.log('API Response:', responseData);
-
-      if (!response.ok) {
-        throw new Error(responseData.error || 'Failed to add contribution');
-      }
 
       // Update the contributions list
       setContributions([...contributions, responseData]);
@@ -415,27 +437,20 @@ export default function ChitFundContributionsPage() {
     setIsEditing(true);
 
     try {
-      const response = await fetch(`/api/chit-funds/consolidated?action=update-contribution&id=${chitFundId}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
+      // Use the apiPut utility function
+      const updatedContribution = await apiPut(
+        `/api/chit-funds/consolidated?action=update-contribution&id=${chitFundId}`,
+        {
           contributionId: contributionToEdit.id,
           amount: Number(editFormData.amount),
           paidDate: editFormData.paidDate,
           balancePaymentDate: editFormData.balancePaymentDate || null,
           balancePaymentStatus: editFormData.balancePaymentStatus || null,
           actualBalancePaymentDate: editFormData.actualBalancePaymentDate || null,
-        }),
-      });
-
-      if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.error || 'Failed to update contribution');
-      }
-
-      const updatedContribution = await response.json();
+          notes: null, // Add notes field with null value
+        },
+        'Failed to update contribution'
+      );
 
       // Update the contributions list
       setContributions(contributions.map(c =>
@@ -466,21 +481,14 @@ export default function ChitFundContributionsPage() {
     if (!contributionToDelete) return;
 
     try {
-      const response = await fetch(`/api/chit-funds/${chitFundId}/contributions`, {
-        method: 'DELETE',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
+      // Use the apiDelete utility function
+      await apiDelete(
+        `/api/chit-funds/consolidated?action=delete-contribution&id=${chitFundId}`,
+        {
           contributionId: contributionToDelete
-        }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to delete contribution');
-      }
+        },
+        'Failed to delete contribution'
+      );
 
       // Remove the deleted contribution from the state
       setContributions(contributions.filter(c => c.id !== contributionToDelete));

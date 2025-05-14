@@ -16,7 +16,7 @@ export async function GET(
         { status: 401 }
       );
     }
-    const id = await params.id;
+    const id = params.id;
     const chitFundId = parseInt(id);
 
     if (isNaN(chitFundId)) {
@@ -83,7 +83,7 @@ export async function POST(
         { status: 401 }
       );
     }
-    const id = await params.id;
+    const id = params.id;
     const chitFundId = parseInt(id);
 
     if (isNaN(chitFundId)) {

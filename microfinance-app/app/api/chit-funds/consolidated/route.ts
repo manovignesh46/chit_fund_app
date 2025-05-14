@@ -571,26 +571,39 @@ async function getContributions(request: NextRequest, id: number, memberId: numb
 
 // Handler for exporting a chit fund
 async function exportChitFund(request: NextRequest, id: number, currentUserId: number) {
-  // Forward the request to the existing export API
-  const response = await fetch(`${request.nextUrl.origin}/api/chit-funds/${id}/export`, {
-    headers: {
-      cookie: request.headers.get('cookie') || '',
-    },
-  });
+  try {
+    // Forward the request to the existing export API
+    const response = await fetch(`${request.nextUrl.origin}/api/chit-funds/${id}/export`, {
+      headers: {
+        cookie: request.headers.get('cookie') || '',
+      },
+    });
 
-  if (!response.ok) {
-    throw new Error(`Failed to export chit fund: ${response.status} ${response.statusText}`);
-  }
-
-  const data = await response.arrayBuffer();
-
-  // Set response headers for file download
-  return new NextResponse(data, {
-    headers: {
-      'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-      'Content-Disposition': response.headers.get('Content-Disposition') || 'attachment; filename=chit_fund.xlsx'
+    if (!response.ok) {
+      throw new Error(`Failed to export chit fund: ${response.status} ${response.statusText}`);
     }
-  });
+
+    const data = await response.arrayBuffer();
+
+    // Set response headers for file download
+    return new NextResponse(data, {
+      headers: {
+        'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        'Content-Disposition': response.headers.get('Content-Disposition') || 'attachment; filename=chit_fund.xlsx'
+      }
+    });
+  } catch (error) {
+    console.error('Error in exportChitFund:', error);
+
+    // If the error is that the export route doesn't exist, suggest using the direct route
+    return NextResponse.json(
+      {
+        error: 'Failed to export chit fund',
+        message: 'Please use the direct export route: /api/chit-funds/[id]/export'
+      },
+      { status: 500 }
+    );
+  }
 }
 
 // Handler for creating a chit fund

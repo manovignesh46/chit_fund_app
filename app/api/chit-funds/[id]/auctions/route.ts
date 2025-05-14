@@ -2,10 +2,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { getCurrentUserId } from '@/lib/auth';
 
-// GET: Fetch all members of a chit fund
+// GET: Fetch all auctions of a chit fund
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: { id: string } }
 ) {
   try {
     // Get the current user ID from the request
@@ -16,7 +16,7 @@ export async function GET(
         { status: 401 }
       );
     }
-    const id = await params.id;
+    const id = context.params.id;
     const chitFundId = parseInt(id);
 
     if (isNaN(chitFundId)) {
@@ -41,53 +41,37 @@ export async function GET(
       );
     }
 
-    // Get pagination parameters from the query string
-    const { searchParams } = new URL(request.url);
-    const page = parseInt(searchParams.get('page') || '1');
-    const pageSize = parseInt(searchParams.get('pageSize') || '10');
-    const skip = (page - 1) * pageSize;
-
-    // Fetch members with pagination
-    const members = await prisma.member.findMany({
+    // Fetch auctions
+    const auctions = await prisma.auction.findMany({
       where: {
         chitFundId,
       },
       include: {
-        globalMember: true,
+        winner: {
+          include: {
+            globalMember: true,
+          },
+        },
       },
-      skip,
-      take: pageSize,
-    });
-
-    // Get total count for pagination
-    const totalCount = await prisma.member.count({
-      where: {
-        chitFundId,
+      orderBy: {
+        month: 'asc',
       },
     });
 
-    return NextResponse.json({
-      members,
-      pagination: {
-        page,
-        pageSize,
-        totalCount,
-        totalPages: Math.ceil(totalCount / pageSize),
-      },
-    });
+    return NextResponse.json(auctions);
   } catch (error) {
-    console.error('Error fetching chit fund members:', error);
+    console.error('Error fetching chit fund auctions:', error);
     return NextResponse.json(
-      { error: 'Failed to fetch chit fund members' },
+      { error: 'Failed to fetch chit fund auctions' },
       { status: 500 }
     );
   }
 }
 
-// POST: Add a new member to a chit fund
+// POST: Add a new auction to a chit fund
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: { id: string } }
 ) {
   try {
     // Get the current user ID from the request
@@ -98,7 +82,7 @@ export async function POST(
         { status: 401 }
       );
     }
-    const id = await params.id;
+    const id = context.params.id;
     const chitFundId = parseInt(id);
 
     if (isNaN(chitFundId)) {
@@ -126,24 +110,56 @@ export async function POST(
     // Parse the request body
     const data = await request.json();
 
-    // Create the new member
-    const newMember = await prisma.member.create({
+    // Create the new auction
+    const newAuction = await prisma.auction.create({
       data: {
-        globalMemberId: data.globalMemberId,
         chitFundId,
-        joinDate: data.joinDate || new Date(),
-        contribution: data.contribution || chitFund.monthlyContribution,
+        month: data.month,
+        date: data.date || new Date(),
+        winnerId: data.winnerId,
+        amount: data.amount,
+        lowestBid: data.lowestBid,
+        highestBid: data.highestBid,
+        numberOfBidders: data.numberOfBidders,
+        notes: data.notes,
       },
       include: {
-        globalMember: true,
+        winner: {
+          include: {
+            globalMember: true,
+          },
+        },
       },
     });
 
-    return NextResponse.json(newMember);
+    // Update the member to mark that they won an auction
+    await prisma.member.update({
+      where: {
+        id: data.winnerId,
+      },
+      data: {
+        auctionWon: true,
+        auctionMonth: data.month,
+      },
+    });
+
+    // Update the chit fund's current month if needed
+    if (data.month > chitFund.currentMonth) {
+      await prisma.chitFund.update({
+        where: {
+          id: chitFundId,
+        },
+        data: {
+          currentMonth: data.month,
+        },
+      });
+    }
+
+    return NextResponse.json(newAuction);
   } catch (error) {
-    console.error('Error adding chit fund member:', error);
+    console.error('Error adding chit fund auction:', error);
     return NextResponse.json(
-      { error: 'Failed to add chit fund member' },
+      { error: 'Failed to add chit fund auction' },
       { status: 500 }
     );
   }

@@ -23,10 +23,10 @@ const prismaAny = prisma as any;
 
 export async function GET(
     request: NextRequest,
-    { params }: { params: Promise<{ id: string }> }
+    context: { params: { id: string } }
 ) {
     try {
-        const { id } = await params;
+        const id = context.params.id;
         const { searchParams } = new URL(request.url);
         const page = parseInt(searchParams.get('page') || '1');
         const pageSize = parseInt(searchParams.get('pageSize') || '10');
@@ -69,10 +69,10 @@ export async function GET(
 
 export async function POST(
     request: NextRequest,
-    { params }: { params: Promise<{ id: string }> }
+    context: { params: { id: string } }
 ) {
     try {
-        const { id } = await params;
+        const id = context.params.id;
         const { amount, paidDate, paymentType = 'full' } = await request.json();
         const loanId = Number(id);
         const paymentAmount = parseFloat(amount);
@@ -156,10 +156,10 @@ export async function POST(
 
 export async function DELETE(
     request: NextRequest,
-    { params }: { params: Promise<{ id: string }> }
+    context: { params: { id: string } }
 ) {
     try {
-        const { id } = await params;
+        const id = context.params.id;
         const loanId = Number(id);
         const body = await request.json();
 

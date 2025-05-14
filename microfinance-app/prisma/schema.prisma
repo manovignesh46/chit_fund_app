@@ -165,3 +165,19 @@ model Repayment {
   loan            Loan          @relation(fields: [loanId], references: [id])
 }
 
+model PaymentSchedule {
+  id                Int           @id @default(autoincrement())
+  loanId            Int
+  period            Int           // Month or week number in the loan term
+  dueDate           DateTime
+  amount            Float
+  status            String        @default("Pending") // Pending, Paid, Missed, InterestOnly
+  actualPaymentDate DateTime?     // Date when payment was actually made
+  notes             String?       // Additional notes about the payment
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  // Relations
+  loan              Loan          @relation(fields: [loanId], references: [id])
+}
+

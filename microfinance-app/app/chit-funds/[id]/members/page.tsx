@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import dynamic from 'next/dynamic';
+import { apiGet, apiPost, apiPut, apiDelete } from '@/lib/apiUtils';
 
 interface GlobalMember {
   id: number;
@@ -93,16 +93,21 @@ export default function ChitFundMembersPage() {
     try {
       setLoadingGlobalMembers(true);
 
-      const response = await fetch('/api/members');
-      if (!response.ok) {
-        throw new Error('Failed to fetch global members');
-      }
-
-      const data = await response.json();
+      // Use the apiGet utility function
+      const data = await apiGet(
+        '/api/members/consolidated?action=list',
+        'Failed to fetch global members'
+      );
 
       // Filter out members that are already in this chit fund
       const existingMemberIds = members.map(member => member.globalMemberId);
-      const filteredGlobalMembers = data.members.filter((member: GlobalMember) =>
+
+      // Check if the response has a members property (new format) or is an array (old format)
+      const membersArray = data.members && Array.isArray(data.members)
+        ? data.members
+        : (Array.isArray(data) ? data : []);
+
+      const filteredGlobalMembers = membersArray.filter((member: GlobalMember) =>
         !existingMemberIds.includes(member.id)
       );
 
@@ -110,7 +115,7 @@ export default function ChitFundMembersPage() {
       setError(null);
     } catch (err) {
       console.error('Error fetching global members:', err);
-      setError('Failed to load global members. Please try again later.');
+      setError(`Failed to load global members: ${err instanceof Error ? err.message : 'Unknown error'}. Please try again later.`);
     } finally {
       setLoadingGlobalMembers(false);
     }
@@ -121,20 +126,18 @@ export default function ChitFundMembersPage() {
       try {
         setLoading(true);
 
-        // Fetch chit fund details
-        const chitFundResponse = await fetch(`/api/chit-funds/${chitFundId}`);
-        if (!chitFundResponse.ok) {
-          throw new Error('Failed to fetch chit fund details');
-        }
-        const chitFundData = await chitFundResponse.json();
+        // Fetch chit fund details using the apiGet utility function
+        const chitFundData = await apiGet(
+          `/api/chit-funds/consolidated?action=detail&id=${chitFundId}`,
+          'Failed to fetch chit fund details'
+        );
         setChitFund(chitFundData);
 
-        // Fetch members with pagination
-        const membersResponse = await fetch(`/api/chit-funds/${chitFundId}/members?page=${currentPage}&pageSize=${pageSize}`);
-        if (!membersResponse.ok) {
-          throw new Error('Failed to fetch members');
-        }
-        const membersData = await membersResponse.json();
+        // Fetch members with pagination using the apiGet utility function
+        const membersData = await apiGet(
+          `/api/chit-funds/consolidated?action=members&id=${chitFundId}&page=${currentPage}&pageSize=${pageSize}`,
+          'Failed to fetch members'
+        );
 
         // Check if the response has pagination metadata
         if (membersData.members && membersData.totalCount !== undefined) {
@@ -150,15 +153,19 @@ export default function ChitFundMembersPage() {
         setSelectedMembers([]);
         setSelectAll(false);
 
-        // Fetch all contributions for this chit fund
-        const contributionsResponse = await fetch(`/api/chit-funds/${chitFundId}/contributions`);
-        if (!contributionsResponse.ok) {
-          throw new Error('Failed to fetch contributions');
-        }
-        const contributionsData = await contributionsResponse.json();
+        // Fetch all contributions for this chit fund using the apiGet utility function
+        const contributionsData = await apiGet(
+          `/api/chit-funds/consolidated?action=contributions&id=${chitFundId}`,
+          'Failed to fetch contributions'
+        );
+
+        // Extract contributions array from the response
+        const contributionsArray = contributionsData.contributions && Array.isArray(contributionsData.contributions)
+          ? contributionsData.contributions
+          : (Array.isArray(contributionsData) ? contributionsData : []);
 
         // Create a simplified array of member IDs and months for easy checking
-        const contributionMap = contributionsData.map((contribution: any) => ({
+        const contributionMap = contributionsArray.map((contribution: any) => ({
           memberId: contribution.memberId,
           month: contribution.month
         }));
@@ -167,7 +174,7 @@ export default function ChitFundMembersPage() {
         setError(null);
       } catch (err) {
         console.error('Error fetching data:', err);
-        setError('Failed to load data. Please try again later.');
+        setError(`Failed to load data: ${err instanceof Error ? err.message : 'Unknown error'}. Please try again later.`);
       } finally {
         setLoading(false);
       }
@@ -213,24 +220,16 @@ export default function ChitFundMembersPage() {
     setIsSubmitting(true);
 
     try {
-      const response = await fetch(`/api/chit-funds/${chitFundId}/members`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          ...newMember,
-          chitFundId: Number(chitFundId),
+      // Use the apiPost utility function
+      const newMemberData = await apiPost(
+        `/api/chit-funds/consolidated?action=add-member&id=${chitFundId}`,
+        {
+          name: newMember.name,
+          contact: newMember.contact,
           contribution: chitFund?.monthlyContribution || 0,
-        }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to add member');
-      }
-
-      const newMemberData = await response.json();
+        },
+        'Failed to add member'
+      );
 
       // Update the members list
       setMembers([...members, newMemberData]);
@@ -244,9 +243,9 @@ export default function ChitFundMembersPage() {
 
       // Refresh the page to get updated data
       window.location.reload();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error adding member:', error);
-      setFormErrors({ submit: 'Failed to add member. Please try again.' });
+      setFormErrors({ submit: error.message || 'Failed to add member. Please try again.' });
     } finally {
       setIsSubmitting(false);
     }
@@ -286,21 +285,14 @@ export default function ChitFundMembersPage() {
     setDeleteError(null);
 
     try {
-      const response = await fetch(`/api/chit-funds/${chitFundId}/members`, {
-        method: 'DELETE',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
+      // Use the apiDelete utility function
+      await apiDelete(
+        `/api/chit-funds/consolidated?action=remove-member&id=${chitFundId}`,
+        {
           memberId: memberToDelete
-        }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to delete member');
-      }
+        },
+        'Failed to delete member'
+      );
 
       // Remove the deleted member from the state
       setMembers(members.filter(m => m.id !== memberToDelete));
@@ -344,19 +336,18 @@ export default function ChitFundMembersPage() {
 
       // Process each selected member
       for (const memberId of selectedMembers) {
-        const response = await fetch(`/api/chit-funds/${chitFundId}/members`, {
-          method: 'DELETE',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            memberId: memberId
-          }),
-        });
-
-        if (response.ok) {
+        try {
+          // Use the apiDelete utility function
+          await apiDelete(
+            `/api/chit-funds/consolidated?action=remove-member&id=${chitFundId}`,
+            {
+              memberId: memberId
+            },
+            'Failed to delete member'
+          );
           successCount++;
-        } else {
+        } catch (error) {
+          console.error(`Error removing member ${memberId}:`, error);
           errorCount++;
         }
       }
@@ -453,24 +444,16 @@ export default function ChitFundMembersPage() {
       // Process each selected member
       for (const memberId of selectedGlobalMembers) {
         try {
-          const response = await fetch(`/api/chit-funds/consolidated?action=add-member&id=${chitFundId}`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
+          // Use the apiPost utility function
+          await apiPost(
+            `/api/chit-funds/consolidated?action=add-member&id=${chitFundId}`,
+            {
               globalMemberId: memberId,
               // No need to specify contribution as it will use the chit fund's monthlyContribution
-            }),
-          });
-
-          if (response.ok) {
-            successCount++;
-          } else {
-            const errorData = await response.json();
-            console.error('Error assigning member:', errorData);
-            errorCount++;
-          }
+            },
+            'Failed to assign member'
+          );
+          successCount++;
         } catch (error) {
           console.error(`Error assigning member ${memberId}:`, error);
           errorCount++;
@@ -523,25 +506,25 @@ export default function ChitFundMembersPage() {
           continue;
         }
 
-        // Create the contribution
-        const response = await fetch(`/api/chit-funds/consolidated?action=add-contribution&id=${chitFundId}`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            memberId: memberId,
-            month: currentMonth,
-            amount: chitFund.monthlyContribution, // Default to full amount
-            paidDate: new Date().toISOString().split('T')[0], // Today's date
-          }),
-        });
+        // Create the contribution using the apiPost utility function
+        try {
+          await apiPost(
+            `/api/chit-funds/consolidated?action=add-contribution&id=${chitFundId}`,
+            {
+              memberId: memberId,
+              month: currentMonth,
+              amount: chitFund.monthlyContribution, // Default to full amount
+              paidDate: new Date().toISOString().split('T')[0], // Today's date
+              notes: null, // Add notes field with null value
+            },
+            'Failed to add contribution'
+          );
 
-        if (response.ok) {
           // Update the contributions list
           setAllContributions(prev => [...prev, { memberId, month: currentMonth }]);
           successCount++;
-        } else {
+        } catch (error) {
+          console.error(`Error adding contribution for member ${memberId}:`, error);
           errorCount++;
         }
       }
@@ -595,24 +578,18 @@ export default function ChitFundMembersPage() {
         throw new Error(`Contribution for month ${currentMonth} already exists for this member`);
       }
 
-      // Create the contribution
-      const response = await fetch(`/api/chit-funds/${chitFundId}/contributions`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
+      // Create the contribution using the apiPost utility function
+      await apiPost(
+        `/api/chit-funds/consolidated?action=add-contribution&id=${chitFundId}`,
+        {
           memberId: memberId,
           month: currentMonth,
           amount: chitFund.monthlyContribution, // Default to full amount
           paidDate: new Date().toISOString().split('T')[0], // Today's date
-        }),
-      });
-
-      if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.error || 'Failed to create contribution');
-      }
+          notes: null, // Add notes field with null value
+        },
+        'Failed to create contribution'
+      );
 
       // Show success message
       const member = members.find(m => m.id === memberId);

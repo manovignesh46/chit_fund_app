@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { apiGet, apiPost } from '@/lib/apiUtils';
 
 interface GlobalMember {
   id: number;
@@ -74,20 +75,18 @@ export default function ChitFundAuctionsPage() {
       try {
         setLoading(true);
 
-        // Fetch chit fund details
-        const chitFundResponse = await fetch(`/api/chit-funds/${chitFundId}`);
-        if (!chitFundResponse.ok) {
-          throw new Error('Failed to fetch chit fund details');
-        }
-        const chitFundData = await chitFundResponse.json();
+        // Fetch chit fund details using the consolidated API endpoint
+        const chitFundData = await apiGet(
+          `/api/chit-funds/consolidated?action=detail&id=${chitFundId}`,
+          'Failed to fetch chit fund details'
+        );
         setChitFund(chitFundData);
 
-        // Fetch members
-        const membersResponse = await fetch(`/api/chit-funds/${chitFundId}/members`);
-        if (!membersResponse.ok) {
-          throw new Error('Failed to fetch members');
-        }
-        const membersData = await membersResponse.json();
+        // Fetch members using the consolidated API endpoint
+        const membersData = await apiGet(
+          `/api/chit-funds/consolidated?action=members&id=${chitFundId}`,
+          'Failed to fetch members'
+        );
 
         // Check if the response is paginated or a direct array
         if (membersData && membersData.members && Array.isArray(membersData.members)) {
@@ -102,18 +101,24 @@ export default function ChitFundAuctionsPage() {
           setMembers([]);
         }
 
-        // Fetch auctions
-        const auctionsResponse = await fetch(`/api/chit-funds/${chitFundId}/auctions`);
-        if (!auctionsResponse.ok) {
-          throw new Error('Failed to fetch auctions');
+        // Fetch auctions using the consolidated API endpoint
+        const auctionsData = await apiGet(
+          `/api/chit-funds/consolidated?action=auctions&id=${chitFundId}`,
+          'Failed to fetch auctions'
+        );
+
+        // Check if the response has an auctions property (new format) or is an array (old format)
+        if (auctionsData.auctions && Array.isArray(auctionsData.auctions)) {
+          setAuctions(auctionsData.auctions);
+        } else {
+          // Fallback for backward compatibility
+          setAuctions(Array.isArray(auctionsData) ? auctionsData : []);
         }
-        const auctionsData = await auctionsResponse.json();
-        setAuctions(auctionsData);
 
         setError(null);
-      } catch (err) {
+      } catch (err: any) {
         console.error('Error fetching data:', err);
-        setError('Failed to load data. Please try again later.');
+        setError(err.message || 'Failed to load data. Please try again later.');
       } finally {
         setLoading(false);
       }
@@ -169,12 +174,10 @@ export default function ChitFundAuctionsPage() {
     setIsSubmitting(true);
 
     try {
-      const response = await fetch(`/api/chit-funds/${chitFundId}/auctions`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
+      // Use the apiPost function with the consolidated API endpoint
+      const newAuctionData = await apiPost(
+        `/api/chit-funds/consolidated?action=add-auction&id=${chitFundId}`,
+        {
           ...newAuction,
           chitFundId: Number(chitFundId),
           winnerId: Number(newAuction.winnerId),
@@ -183,15 +186,9 @@ export default function ChitFundAuctionsPage() {
           lowestBid: newAuction.lowestBid ? Number(newAuction.lowestBid) : undefined,
           highestBid: newAuction.highestBid ? Number(newAuction.highestBid) : undefined,
           numberOfBidders: newAuction.numberOfBidders ? Number(newAuction.numberOfBidders) : undefined,
-        }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to add auction');
-      }
-
-      const newAuctionData = await response.json();
+        },
+        'Failed to add auction'
+      );
 
       // Update the auctions list
       setAuctions([...auctions, newAuctionData]);

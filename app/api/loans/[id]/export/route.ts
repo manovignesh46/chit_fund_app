@@ -7,10 +7,10 @@ const prismaAny = prisma as any;
 
 export async function GET(
     _request: NextRequest,
-    { params }: { params: Promise<{ id: string }> }
+    context: { params: { id: string } }
 ) {
     try {
-        const { id } = await params;
+        const id = context.params.id;
         const loanId = Number(id);
 
         // Get loan details with borrower and all repayments
@@ -96,28 +96,28 @@ export async function GET(
 
         // Create workbook with multiple sheets
         const wb = XLSX.utils.book_new();
-        
+
         // Add loan details sheet
         const loanDetailsWS = XLSX.utils.json_to_sheet([loanDetails]);
         XLSX.utils.book_append_sheet(wb, loanDetailsWS, 'Loan Details');
-        
+
         // Add repayments sheet
         const repaymentsWS = XLSX.utils.json_to_sheet(repayments);
         XLSX.utils.book_append_sheet(wb, repaymentsWS, 'Repayments');
-        
+
         // Add summary sheet
         const summaryWS = XLSX.utils.json_to_sheet([summary]);
         XLSX.utils.book_append_sheet(wb, summaryWS, 'Summary');
-        
+
         // Generate Excel file
         const excelBuffer = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
-        
+
         // Set response headers for file download
         const headers = new Headers();
         headers.append('Content-Disposition', `attachment; filename="loan_${loan.id}_details.xlsx"`);
         headers.append('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-        
-        return new NextResponse(excelBuffer, { 
+
+        return new NextResponse(excelBuffer, {
             status: 200,
             headers: headers
         });

@@ -69,7 +69,12 @@ export default function NewRepaymentPage() {
       console.log('Fetching payment schedules for loan ID:', id);
 
       // Use the API client to fetch payment schedules with includeAll=true to show all periods
-      const numericId = typeof id === 'string' ? parseInt(id, 10) : id;
+      const numericId = typeof id === 'string' ? parseInt(id, 10) : Array.isArray(id) ? parseInt(id[0], 10) : 0;
+      
+      if (!numericId) {
+        throw new Error('Invalid loan ID');
+      }
+      
       const data = await loanAPI.getPaymentSchedules(numericId, true); // Pass true to include all periods
       console.log('Payment schedules data:', data);
 
@@ -101,7 +106,11 @@ export default function NewRepaymentPage() {
         console.log(`Fetching loan details for ID: ${id}`);
 
         // Convert id to number for API call
-        const numericId = typeof id === 'string' ? parseInt(id, 10) : id;
+        const numericId = typeof id === 'string' ? parseInt(id, 10) : Array.isArray(id) ? parseInt(id[0], 10) : 0;
+        
+        if (!numericId) {
+          throw new Error('Invalid loan ID');
+        }
 
         // Use the API client to fetch loan details
         const data = await loanAPI.getById(numericId);
@@ -215,7 +224,11 @@ export default function NewRepaymentPage() {
       console.log('Request data:', requestData);
 
       // Convert id to number for API call
-      const numericId = typeof id === 'string' ? parseInt(id, 10) : id;
+      const numericId = typeof id === 'string' ? parseInt(id, 10) : Array.isArray(id) ? parseInt(id[0], 10) : 0;
+      
+      if (!numericId) {
+        throw new Error('Invalid loan ID');
+      }
 
       // Use the API client to add a repayment
       console.log('Adding repayment for loan ID:', numericId, 'with data:', requestData);

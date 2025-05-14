@@ -246,41 +246,79 @@ export default function ChitFundsPage() {
     try {
       setIsExporting(true);
 
-      // Call the export API endpoint with selected chit fund IDs
-      const response = await fetch('/api/chit-funds/consolidated?action=export&id=' + selectedChitFunds[0], {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
+      // If only one chit fund is selected, use the single export endpoint
+      if (selectedChitFunds.length === 1) {
+        const response = await fetch(`/api/chit-funds/${selectedChitFunds[0]}/export`, {
+          method: 'GET',
+        });
 
-      if (!response.ok) {
-        throw new Error('Failed to export chit funds');
+        if (!response.ok) {
+          throw new Error('Failed to export chit fund');
+        }
+
+        // Get the blob from the response
+        const blob = await response.blob();
+
+        // Generate filename with current date
+        const today = new Date();
+        const dateStr = today.toISOString().split('T')[0]; // YYYY-MM-DD format
+        const filename = `ChitFund_Details_${dateStr}.xlsx`;
+
+        // Create a URL for the blob
+        const url = window.URL.createObjectURL(blob);
+
+        // Create a temporary link element
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+
+        // Append to the document and trigger a click
+        document.body.appendChild(a);
+        a.click();
+
+        // Clean up
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+      } else {
+        // Multiple chit funds selected, use the bulk export endpoint
+        const response = await fetch('/api/chit-funds/export', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            chitFundIds: selectedChitFunds,
+          }),
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to export chit funds');
+        }
+
+        // Get the blob from the response
+        const blob = await response.blob();
+
+        // Generate filename with current date
+        const today = new Date();
+        const dateStr = today.toISOString().split('T')[0]; // YYYY-MM-DD format
+        const filename = `ChitFunds_Export_${dateStr}.xlsx`;
+
+        // Create a URL for the blob
+        const url = window.URL.createObjectURL(blob);
+
+        // Create a temporary link element
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+
+        // Append to the document and trigger a click
+        document.body.appendChild(a);
+        a.click();
+
+        // Clean up
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
       }
-
-      // Get the blob from the response
-      const blob = await response.blob();
-
-      // Generate filename with current date
-      const today = new Date();
-      const dateStr = today.toISOString().split('T')[0]; // YYYY-MM-DD format
-      const filename = `ChitFund_Details_${dateStr}.xlsx`;
-
-      // Create a URL for the blob
-      const url = window.URL.createObjectURL(blob);
-
-      // Create a temporary link element
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = filename;
-
-      // Append to the document and trigger a click
-      document.body.appendChild(a);
-      a.click();
-
-      // Clean up
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
     } catch (error) {
       console.error('Error exporting chit funds:', error);
       alert('Failed to export chit funds. Please try again.');
