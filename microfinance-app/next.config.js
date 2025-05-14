@@ -33,30 +33,49 @@ const nextConfig = {
   outputFileTracingExcludes: {
     '*': [
       // Development dependencies
-      'node_modules/@swc/core-linux-x64-gnu',
-      'node_modules/@swc/core-linux-x64-musl',
-      'node_modules/@esbuild/linux-x64',
-      'node_modules/typescript',
-      'node_modules/prettier',
-      'node_modules/eslint',
+      'node_modules/@swc/**',
+      'node_modules/@esbuild/**',
+      'node_modules/typescript/**',
+      'node_modules/prettier/**',
+      'node_modules/eslint/**',
       'node_modules/@types/**',
       'node_modules/ts-node/**',
-      // Prisma specific exclusions
+      'node_modules/@next/bundle-analyzer/**',
+      // Prisma specific exclusions - exclude all engines first
       'node_modules/.prisma/client/libquery_engine-*',
       'node_modules/@prisma/engines/**',
       'node_modules/prisma/libquery_engine-*',
       'node_modules/prisma/migration-engine-*',
       'node_modules/prisma/introspection-engine-*',
       'node_modules/prisma/prisma-fmt-*',
-      // Keep only the required Prisma engines
-      '!node_modules/.prisma/client/libquery_engine-rhel-*',
-      '!node_modules/.prisma/client/libquery_engine-debian-*',
-      '!node_modules/.prisma/client/libquery_engine-linux-*',
-      // Other exclusions
+      // Then selectively include only the required Prisma engines
+      '!node_modules/.prisma/client/libquery_engine-rhel-openssl-1.0.x',
+      '!node_modules/.prisma/client/libquery_engine-rhel-openssl-1.1.x',
+      '!node_modules/.prisma/client/libquery_engine-rhel-openssl-3.0.x',
+      '!node_modules/.prisma/client/libquery_engine-debian-openssl-1.0.x',
+      '!node_modules/.prisma/client/libquery_engine-debian-openssl-1.1.x',
+      '!node_modules/.prisma/client/libquery_engine-debian-openssl-3.0.x',
+      '!node_modules/.prisma/client/libquery_engine-linux-musl',
+      // Documentation and unnecessary files
       '.git/**',
       '**/*.{md,txt,log,LICENSE}',
       'prisma/migrations/**',
       'node_modules/**/*.{md,d.ts,map}',
+      // Test files
+      'node_modules/**/test/**',
+      'node_modules/**/tests/**',
+      'node_modules/**/__tests__/**',
+      // Examples and docs
+      'node_modules/**/example/**',
+      'node_modules/**/examples/**',
+      'node_modules/**/docs/**',
+      // Source files when compiled output exists
+      'node_modules/**/*.{ts,tsx}',
+      '!node_modules/**/*.d.ts',
+      // Other large dependencies that aren't needed at runtime
+      'node_modules/rxjs/**',
+      'node_modules/webpack/**',
+      'node_modules/terser/**',
     ],
   },
   // Optimize large pages

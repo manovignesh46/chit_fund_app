@@ -11,9 +11,10 @@
     "seed": "ts-node --compiler-options {\\\"module\\\":\\\"CommonJS\\\"} prisma/seed.ts",
     "analyze": "ANALYZE=true next build",
     "postinstall": "node scripts/setup-prisma.js",
-    "vercel-build": "node scripts/setup-prisma.js && node scripts/cleanup-prisma.js && NODE_OPTIONS='--max_old_space_size=3072' next build",
+    "vercel-build": "node scripts/setup-prisma.js && node scripts/cleanup-prisma.js && NODE_OPTIONS='--max_old_space_size=3072' next build && node scripts/optimize-vercel-output.js",
     "vercel-install": "npm ci --no-audit",
-    "cleanup-prisma": "node scripts/cleanup-prisma.js"
+    "cleanup-prisma": "node scripts/cleanup-prisma.js",
+    "optimize-vercel": "node scripts/optimize-vercel-output.js"
   },
   "dependencies": {
     "@prisma/client": "^3.15.2",
