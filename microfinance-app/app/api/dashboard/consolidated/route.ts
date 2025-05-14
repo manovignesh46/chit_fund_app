@@ -52,7 +52,8 @@ export async function GET(request: NextRequest) {
 // Handler for dashboard summary
 async function getSummary(request: NextRequest, currentUserId: number) {
   try {
-    console.time('getSummary'); // Add timing for performance monitoring
+    const timerLabel = `getSummary-${Date.now()}`;
+    console.time(timerLabel); // Add timing with unique label
     console.log('Fetching dashboard data...');
 
     // Get all aggregations in parallel for better performance
@@ -122,10 +123,16 @@ async function getSummary(request: NextRequest, currentUserId: number) {
           amount: true,
           interestRate: true,
           documentCharge: true,
+          repaymentType: true, // Added this field which is required for profit calculation
+          loanType: true,      // Added this field which might be needed for some calculations
+          duration: true,      // Added this field which might be needed for some calculations
           repayments: {
             select: {
+              id: true,
               amount: true,
               paymentType: true,
+              paidDate: true,
+              period: true
             },
           },
         },
@@ -160,9 +167,25 @@ async function getSummary(request: NextRequest, currentUserId: number) {
     ]);
 
     // Calculate loan profit using the centralized utility function
-    const loanProfit = loansWithRepayments.reduce((sum, loan) => {
+    console.log('Calculating loan profit for dashboard...');
+    console.log('Number of loans found:', loansWithRepayments.length);
+
+    const loanProfit = loansWithRepayments.reduce((sum, loan, index) => {
+      // Log loan details for debugging
+      console.log(`Loan ${index + 1} details:`, {
+        id: loan.id,
+        amount: loan.amount,
+        interestRate: loan.interestRate,
+        documentCharge: loan.documentCharge,
+        repayments: loan.repayments ? loan.repayments.length : 0
+      });
+
       // Use the centralized utility function to calculate profit
       const profit = calculateLoanProfit(loan, loan.repayments);
+
+      // Log profit calculation for debugging
+      console.log(`Loan ${index + 1} profit:`, profit);
+
       return sum + profit;
     }, 0);
 
@@ -211,7 +234,7 @@ async function getSummary(request: NextRequest, currentUserId: number) {
     // Get the activities and events that were being fetched in parallel
     const [recentActivities, upcomingEvents] = await activitiesAndEventsPromise;
 
-    console.timeEnd('getSummary'); // End timing
+    console.timeEnd(timerLabel); // End timing with the same unique label
 
     return NextResponse.json({
       totalCashInflow,
@@ -267,7 +290,8 @@ async function getUpcomingEvents(request: NextRequest, currentUserId: number) {
 // Handler for financial data
 async function getFinancialData(request: NextRequest, currentUserId: number) {
   try {
-    console.time('getFinancialData'); // Add timing for performance monitoring
+    const timerLabel = `getFinancialData-${Date.now()}`;
+    console.time(timerLabel); // Add timing with unique label
     const { searchParams } = new URL(request.url);
     const duration = searchParams.get('duration') || 'monthly';
     const limit = parseInt(searchParams.get('limit') || '12');
@@ -506,7 +530,7 @@ async function getFinancialData(request: NextRequest, currentUserId: number) {
       outsideAmount[index] = periodOutsideAmount;
     });
 
-    console.timeEnd('getFinancialData'); // End timing
+    console.timeEnd(timerLabel); // End timing with the same unique label
 
     // Return the financial data
     return NextResponse.json({
@@ -1019,7 +1043,8 @@ function addDetailsWorksheets(workbook: any, data: any, usePeriodPrefix = false)
 // Helper function to get recent activities
 async function getRecentActivitiesData(userId: number) {
   try {
-    console.time('getRecentActivitiesData'); // Add timing for performance monitoring
+    const timerLabel = `getRecentActivitiesData-${Date.now()}`;
+    console.time(timerLabel); // Add timing with unique label
 
     // Get all recent activities in parallel with optimized queries
     const [recentMembers, recentAuctions, recentLoans, recentRepayments] = await Promise.all([
@@ -1198,7 +1223,7 @@ async function getRecentActivitiesData(userId: number) {
         date: formatRelativeTime(activity.date),
       }));
 
-    console.timeEnd('getRecentActivitiesData'); // End timing
+    console.timeEnd(timerLabel); // End timing with the same unique label
     return result;
   } catch (error) {
     console.error('Error getting recent activities:', error);
@@ -1209,14 +1234,20 @@ async function getRecentActivitiesData(userId: number) {
 // Helper function to get upcoming events
 async function getUpcomingEventsData(userId: number) {
   try {
-    console.time('getUpcomingEventsData'); // Add timing for performance monitoring
+    const timerLabel = `getUpcomingEventsData-${Date.now()}`;
+    console.time(timerLabel); // Add timing with unique label
 
     const today = new Date();
+    today.setHours(0, 0, 0, 0); // Set to beginning of day for accurate comparisons
+
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+
     const nextMonth = new Date();
     nextMonth.setMonth(today.getMonth() + 1);
 
-    // Get upcoming auctions and payments in parallel
-    const [upcomingAuctions, upcomingPayments] = await Promise.all([
+    // Get upcoming auctions, payments, and active loans in parallel
+    const [upcomingAuctions, upcomingPayments, activeLoans] = await Promise.all([
       // Get upcoming auctions
       prisma.chitFund.findMany({
         where: {
@@ -1261,21 +1292,70 @@ async function getUpcomingEventsData(userId: number) {
         orderBy: {
           nextPaymentDate: 'asc',
         },
+      }),
+
+      // Get all active loans to check their payment schedules
+      prisma.loan.findMany({
+        where: {
+          status: 'Active',
+          createdById: userId,
+        },
+        select: {
+          id: true,
+          disbursementDate: true,
+          duration: true,
+          repaymentType: true,
+          installmentAmount: true,
+          interestRate: true,
+          borrower: {
+            select: {
+              name: true
+            }
+          },
+          repayments: {
+            select: {
+              period: true,
+              paidDate: true,
+              paymentType: true
+            }
+          }
+        }
       })
     ]);
 
-    // Combine and format all events
+    // Initialize events array with auctions and payments from nextPaymentDate
     const events = [
-      ...upcomingAuctions.map((auction: any) => ({
-        id: `auction-${auction.id}`,
-        title: `${auction.name} Auction`,
-        date: auction.nextAuctionDate ? formatDate(auction.nextAuctionDate) : 'Date not set',
-        type: 'Chit Fund',
-        rawDate: auction.nextAuctionDate, // Keep raw date for sorting
-      })),
+      ...upcomingAuctions.map((auction: any) => {
+        // Check if auction is due tomorrow
+        const auctionDate = auction.nextAuctionDate ? new Date(auction.nextAuctionDate) : null;
+        let isDueTomorrow = false;
+
+        if (auctionDate) {
+          auctionDate.setHours(0, 0, 0, 0); // Set to beginning of day
+          isDueTomorrow = auctionDate.getTime() === tomorrow.getTime();
+        }
+
+        return {
+          id: `auction-${auction.id}`,
+          title: `${auction.name} Auction`,
+          date: auction.nextAuctionDate ? formatDate(auction.nextAuctionDate) : 'Date not set',
+          type: 'Chit Fund',
+          rawDate: auction.nextAuctionDate, // Keep raw date for sorting
+          isDueTomorrow: isDueTomorrow
+        };
+      }),
       ...upcomingPayments.map((payment: any) => {
         // Get borrower name safely
         const borrowerName = payment.borrower ? payment.borrower.name : 'Unknown Borrower';
+
+        // Check if payment is due tomorrow
+        const paymentDate = payment.nextPaymentDate ? new Date(payment.nextPaymentDate) : null;
+        let isDueTomorrow = false;
+
+        if (paymentDate) {
+          paymentDate.setHours(0, 0, 0, 0); // Set to beginning of day
+          isDueTomorrow = paymentDate.getTime() === tomorrow.getTime();
+        }
 
         return {
           id: `payment-${payment.id}`,
@@ -1283,11 +1363,70 @@ async function getUpcomingEventsData(userId: number) {
           date: payment.nextPaymentDate ? formatDate(payment.nextPaymentDate) : 'Date not set',
           type: 'Loan',
           rawDate: payment.nextPaymentDate, // Keep raw date for sorting
+          isDueTomorrow: isDueTomorrow
         };
       }),
     ];
 
-    // Sort by date (soonest first) and take top 3
+    // Process each active loan to check for upcoming payment schedules
+    for (const loan of activeLoans) {
+      // Create a map of repayments by period for quick lookup
+      const repaymentsByPeriod = new Map();
+      loan.repayments.forEach((repayment: any) => {
+        if (repayment.period) {
+          repaymentsByPeriod.set(repayment.period, repayment);
+        }
+      });
+
+      // Generate dynamic payment schedules for the next 7 days
+      const disbursementDate = new Date(loan.disbursementDate);
+      const repaymentType = loan.repaymentType;
+      const duration = loan.duration;
+      const borrowerName = loan.borrower ? loan.borrower.name : 'Unknown Borrower';
+
+      // Generate schedules for each period
+      for (let period = 1; period <= duration; period++) {
+        // Calculate the due date for this period
+        const dueDate = new Date(disbursementDate);
+        if (repaymentType === 'Monthly') {
+          dueDate.setMonth(disbursementDate.getMonth() + period);
+        } else if (repaymentType === 'Weekly') {
+          dueDate.setDate(disbursementDate.getDate() + (period * 7));
+        }
+
+        // Check if this period has been paid
+        const repayment = repaymentsByPeriod.get(period);
+        const isPaid = !!repayment;
+
+        // Only include schedules that are due tomorrow or in the next 7 days
+        const dueDateNormalized = new Date(dueDate);
+        dueDateNormalized.setHours(0, 0, 0, 0);
+
+        // Calculate the grace period date (3 days after due date)
+        const gracePeriodDate = new Date(dueDateNormalized);
+        gracePeriodDate.setDate(gracePeriodDate.getDate() + 3);
+
+        const isDueTomorrow = dueDateNormalized.getTime() === tomorrow.getTime();
+        const isUpcoming = dueDateNormalized > today && dueDateNormalized <= nextMonth;
+
+        // Check if it's within the grace period (not overdue yet)
+        const isWithinGracePeriod = dueDateNormalized < today && today < gracePeriodDate;
+
+        // Only add unpaid schedules that are due tomorrow, upcoming, or within grace period
+        if (!isPaid && (isDueTomorrow || isUpcoming || isWithinGracePeriod)) {
+          events.push({
+            id: `schedule-${loan.id}-${period}`,
+            title: `${borrowerName} Loan Payment (Period ${period})`,
+            date: formatDate(dueDate),
+            type: 'Loan',
+            rawDate: dueDate,
+            isDueTomorrow: isDueTomorrow
+          });
+        }
+      }
+    }
+
+    // Sort by date (soonest first) and take top 5
     // Use the raw date for sorting to avoid string comparison issues
     const result = events
       .sort((a, b) => {
@@ -1295,10 +1434,10 @@ async function getUpcomingEventsData(userId: number) {
         if (!b.rawDate) return -1;
         return new Date(a.rawDate).getTime() - new Date(b.rawDate).getTime();
       })
-      .slice(0, 3)
+      .slice(0, 5) // Increased from 3 to 5 to show more upcoming events
       .map(({ rawDate, ...rest }) => rest); // Remove the rawDate property from the result
 
-    console.timeEnd('getUpcomingEventsData'); // End timing
+    console.timeEnd(timerLabel); // End timing with the same unique label
     return result;
   } catch (error) {
     console.error('Error getting upcoming events:', error);

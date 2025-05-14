@@ -3,6 +3,7 @@
 import React, { useState, useEffect, ChangeEvent, FormEvent } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { loanAPI } from '@/lib/api';
 
 // Define interfaces for form data and errors
 interface LoanFormData {
@@ -85,13 +86,11 @@ export default function EditLoanPage() {
     const fetchLoanData = async () => {
       try {
         setLoading(true);
-        const response = await fetch(`/api/loans/${id}`);
+        console.log(`Fetching loan data for ID: ${numericId}`);
 
-        if (!response.ok) {
-          throw new Error('Failed to fetch loan data');
-        }
-
-        const loanData = await response.json();
+        // Use the API client to fetch loan data
+        const loanData = await loanAPI.getById(numericId);
+        console.log('Loan data fetched successfully:', loanData);
 
         // Format date to YYYY-MM-DD for input
         const formatDateForInput = (dateString: string) => {
@@ -103,7 +102,7 @@ export default function EditLoanPage() {
         setFormData({
           borrowerName: loanData.borrower?.name || '',
           contact: loanData.borrower?.contact || '',
-          loanType: loanData.loanType || 'Personal',
+          loanType: loanData.loanType || 'Monthly',
           amount: loanData.amount?.toString() || '',
           interestRate: loanData.interestRate?.toString() || '',
           documentCharge: (loanData.documentCharge || 0).toString(),
@@ -121,10 +120,10 @@ export default function EditLoanPage() {
       }
     };
 
-    if (id) {
+    if (numericId) {
       fetchLoanData();
     }
-  }, [id]);
+  }, [numericId]);
 
   const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -267,25 +266,9 @@ export default function EditLoanPage() {
         repaymentType: formData.loanType, // Set repaymentType to match loanType
       };
 
-      // Make the API call to update the loan
-      const response = await fetch('/api/loans', {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(loanData),
-      });
-
-      if (!response.ok) {
-        let errorMessage = 'Failed to update loan';
-        try {
-          const errorData = await response.json();
-          errorMessage = errorData.error || errorMessage;
-        } catch (parseError) {
-          console.error('Error parsing error response:', parseError);
-        }
-        throw new Error(errorMessage);
-      }
+      // Make the API call to update the loan using the API client
+      console.log('Updating loan with data:', loanData);
+      await loanAPI.update(numericId, loanData);
 
       // Redirect to loan details page after successful update
       router.push(`/loans/${id}`);

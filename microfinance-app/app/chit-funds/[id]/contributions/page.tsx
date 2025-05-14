@@ -415,7 +415,7 @@ export default function ChitFundContributionsPage() {
     setIsEditing(true);
 
     try {
-      const response = await fetch(`/api/chit-funds/${chitFundId}/contributions`, {
+      const response = await fetch(`/api/chit-funds/consolidated?action=update-contribution&id=${chitFundId}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',

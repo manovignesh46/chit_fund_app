@@ -133,12 +133,10 @@ export async function getDynamicPaymentSchedule(
 
     const tomorrow = new Date(today);
     tomorrow.setDate(tomorrow.getDate() + 1);
-    tomorrow.setHours(23, 59, 59, 999);
 
     // Set up date for showing schedules due within the next 7 days
     const nextWeek = new Date(today);
     nextWeek.setDate(nextWeek.getDate() + 7);
-    nextWeek.setHours(23, 59, 59, 999);
 
     // Generate dynamic payment schedules
     const dynamicSchedules: any[] = [];
@@ -174,14 +172,23 @@ export async function getDynamicPaymentSchedule(
         nextUpcomingPaymentDate = dueDate;
       }
 
+      // Normalize due date for comparison
+      const dueDateNormalized = new Date(dueDate);
+      dueDateNormalized.setHours(0, 0, 0, 0);
+
+      // Check if due tomorrow specifically
+      const isDueTomorrow = dueDateNormalized.getTime() === tomorrow.getTime();
+
       // Filter schedules based on visibility rules unless includeAll is true
       // New logic: Show all past due dates, current and upcoming due dates (within next 7 days), and any paid months
       const shouldShow = includeAll ||
                          status === 'Paid' || // Show all paid payments
                          status === 'InterestOnly' || // Show all interest-only payments
                          status === 'Missed' || // Show all missed payments
-                         dueDate < today || // Show all past due dates
-                         dueDate <= nextWeek; // Show all upcoming due dates within next 7 days
+                         dueDateNormalized < today || // Show all past due dates
+                         dueDateNormalized.getTime() === today.getTime() || // Due today
+                         isDueTomorrow || // Due tomorrow
+                         dueDateNormalized <= nextWeek; // Show all upcoming due dates within next 7 days
 
       // Apply status filter if provided
       const matchesStatusFilter = !status || !options.status || status === options.status;
@@ -610,15 +617,17 @@ export async function generatePaymentSchedule(loanId: number, loan?: any) {
       }
     }
 
-    // Get existing payment schedules for this loan
-    const existingSchedules = await prismaAny.paymentSchedule.findMany({
+    // Get existing repayments for this loan instead of payment schedules
+    const existingRepayments = await prismaAny.repayment.findMany({
       where: { loanId }
     });
 
-    // Create a map of existing schedules by period for quick lookup
-    const existingSchedulesByPeriod: Record<number, any> = {};
-    for (const schedule of existingSchedules) {
-      existingSchedulesByPeriod[schedule.period] = schedule;
+    // Create a map of existing repayments by period for quick lookup
+    const existingRepaymentsByPeriod: Record<number, any> = {};
+    for (const repayment of existingRepayments) {
+      if (repayment.period) {
+        existingRepaymentsByPeriod[repayment.period] = repayment;
+      }
     }
 
     const schedules: any[] = [];
@@ -639,63 +648,35 @@ export async function generatePaymentSchedule(loanId: number, loan?: any) {
       const today = new Date();
       today.setHours(0, 0, 0, 0);
 
-      // Check if there's an existing schedule for this period
-      const existingSchedule = existingSchedulesByPeriod[i];
+      // Check if there's an existing repayment for this period
+      const existingRepayment = existingRepaymentsByPeriod[i];
 
-      if (existingSchedule) {
-        // If the schedule exists and has been acted upon (Paid or InterestOnly), keep it
-        if (existingSchedule.status === 'Paid' || existingSchedule.status === 'InterestOnly') {
-          schedules.push(existingSchedule);
-          continue;
-        }
-
-        // If it's Pending or Missed, update it with the correct status based on current date
-        const newStatus = dueDate < today ? 'Missed' : 'Pending';
-
-        // Only update if the status has changed
-        if (existingSchedule.status !== newStatus) {
-          const updatedSchedule = await prismaAny.paymentSchedule.update({
-            where: { id: existingSchedule.id },
-            data: { status: newStatus }
-          });
-          schedules.push(updatedSchedule);
-        } else {
-          schedules.push(existingSchedule);
-        }
+      // Determine status based on existing repayment or due date
+      let status;
+      if (existingRepayment) {
+        status = existingRepayment.paymentType === 'interestOnly' ? 'InterestOnly' : 'Paid';
       } else {
-        // Determine status based on due date for new schedules
-        const status = dueDate < today ? 'Missed' : 'Pending';
-
-        // Create new payment schedule entry
-        const schedule = await prismaAny.paymentSchedule.create({
-          data: {
-            loanId,
-            period: i,
-            dueDate,
-            amount: installmentAmount,
-            status
-          }
-        });
-
-        schedules.push(schedule);
+        status = dueDate < today ? 'Missed' : 'Pending';
       }
+
+      // Create a schedule object (not stored in DB, just for the response)
+      const schedule = {
+        loanId,
+        period: i,
+        dueDate,
+        amount: installmentAmount,
+        status,
+        // If there's an existing repayment, include its details
+        repaymentId: existingRepayment?.id,
+        paidDate: existingRepayment?.paidDate,
+        paymentType: existingRepayment?.paymentType
+      };
+
+      schedules.push(schedule);
     }
 
-    // Delete any schedules that are no longer needed (e.g., if loan duration was reduced)
-    const validPeriods = Array.from({ length: duration }, (_, i) => i + 1);
-    const schedulesToDelete = existingSchedules.filter(
-      (schedule: any) => !validPeriods.includes(schedule.period) &&
-                 schedule.status !== 'Paid' &&
-                 schedule.status !== 'InterestOnly'
-    );
-
-    if (schedulesToDelete.length > 0) {
-      await prismaAny.paymentSchedule.deleteMany({
-        where: {
-          id: { in: schedulesToDelete.map((s: any) => s.id) }
-        }
-      });
-    }
+    // No need to delete schedules since they're not stored in the database
+    // We only need to make sure we're returning the correct schedules for the current loan duration
 
     // Sort schedules by period for consistent return order
     schedules.sort((a, b) => a.period - b.period);
@@ -708,79 +689,79 @@ export async function generatePaymentSchedule(loanId: number, loan?: any) {
 }
 
 /**
- * Update payment schedule status
- * @param scheduleId The ID of the payment schedule
- * @param status The new status
+ * Update payment schedule status by recording a payment for a specific period
+ * @param loanId The ID of the loan
+ * @param period The period number (month or week)
+ * @param status The new status ('Paid' or 'InterestOnly')
+ * @param amount The payment amount
  * @param actualPaymentDate The actual payment date (optional)
  * @param notes Additional notes (optional)
- * @returns Updated payment schedule
+ * @returns Created or updated repayment record
  */
 export async function updatePaymentScheduleStatus(
-  scheduleId: number,
+  loanId: number,
+  period: number,
   status: string,
+  amount: number,
   actualPaymentDate?: Date | string,
   notes?: string
 ) {
   try {
-    // Get the current schedule to check its previous status and loan details
-    const currentSchedule = await prismaAny.paymentSchedule.findUnique({
-      where: { id: scheduleId },
-      include: {
-        loan: {
-          include: {
-            paymentSchedules: true
-          }
-        },
-        repayment: true
+    // Get the loan details
+    const loan = await prismaAny.loan.findUnique({
+      where: { id: loanId }
+    });
+
+    if (!loan) {
+      throw new Error(`Loan with ID ${loanId} not found`);
+    }
+
+    const paymentDate = actualPaymentDate ? new Date(actualPaymentDate) : new Date();
+
+    // Check if there's an existing repayment for this period
+    const existingRepayment = await prismaAny.repayment.findFirst({
+      where: {
+        loanId,
+        period
       }
     });
 
-    if (!currentSchedule) {
-      throw new Error(`Payment schedule with ID ${scheduleId} not found`);
-    }
+    let repayment;
 
-    const updateData: any = { status };
-    const paymentDate = actualPaymentDate ? new Date(actualPaymentDate) : new Date();
+    // Handle repayment record based on status
+    if (status === 'Paid' || status === 'InterestOnly') {
+      const paymentType = status === 'InterestOnly' ? 'interestOnly' : 'full';
 
-    if (actualPaymentDate) {
-      updateData.actualPaymentDate = paymentDate;
-    }
-
-    if (notes) {
-      updateData.notes = notes;
-    }
-
-    // Handle repayment record based on status change
-    if ((status === 'Paid' || status === 'InterestOnly') && currentSchedule.status !== status) {
-      // Create a new repayment record or update existing one
-      if (currentSchedule.repayment) {
+      if (existingRepayment) {
         // Update existing repayment
-        await prismaAny.repayment.update({
-          where: { id: currentSchedule.repayment.id },
+        repayment = await prismaAny.repayment.update({
+          where: { id: existingRepayment.id },
           data: {
-            amount: currentSchedule.amount,
+            amount,
             paidDate: paymentDate,
-            paymentType: status === 'InterestOnly' ? 'interestOnly' : 'full'
+            paymentType,
+            notes
           }
         });
       } else {
         // Create new repayment record
-        const newRepayment = await prismaAny.repayment.create({
+        repayment = await prismaAny.repayment.create({
           data: {
-            loanId: currentSchedule.loanId,
-            amount: currentSchedule.amount,
+            loanId,
+            period,
+            amount,
             paidDate: paymentDate,
-            paymentType: status === 'InterestOnly' ? 'interestOnly' : 'full',
-            paymentScheduleId: scheduleId
+            paymentType,
+            notes
           }
         });
 
         // If this is a full payment (not interest-only), update the loan's remaining amount
-        if (status === 'Paid' && currentSchedule.loan) {
-          const newRemainingAmount = Math.max(0, currentSchedule.loan.remainingAmount - currentSchedule.amount);
+        if (status === 'Paid') {
+          const newRemainingAmount = Math.max(0, loan.remainingAmount - amount);
 
           await prismaAny.loan.update({
-            where: { id: currentSchedule.loanId },
+            where: { id: loanId },
             data: {
               remainingAmount: newRemainingAmount,
               status: newRemainingAmount <= 0 ? 'Completed' : 'Active'
@@ -788,39 +769,41 @@ export async function updatePaymentScheduleStatus(
           });
         }
       }
-    } else if (status === 'Pending' && currentSchedule.repayment) {
-      // If status is changed back to Pending and there's a linked repayment, delete it
+    } else if (status === 'Pending' && existingRepayment) {
+      // If status is changed back to Pending and there's a repayment, delete it
       await prismaAny.repayment.delete({
-        where: { id: currentSchedule.repayment.id }
+        where: { id: existingRepayment.id }
       });
 
       // If this was a full payment, restore the loan's remaining amount
-      if (currentSchedule.status === 'Paid' && currentSchedule.loan) {
-        const restoredRemainingAmount = currentSchedule.loan.remainingAmount + currentSchedule.amount;
+      if (existingRepayment.paymentType === 'full') {
+        const restoredRemainingAmount = loan.remainingAmount + existingRepayment.amount;
 
         await prismaAny.loan.update({
-          where: { id: currentSchedule.loanId },
+          where: { id: loanId },
           data: {
             remainingAmount: restoredRemainingAmount,
             status: 'Active' // Always set back to Active when restoring amount
           }
         });
       }
+
+      // Return a placeholder for the deleted repayment
+      repayment = {
+        id: existingRepayment.id,
+        deleted: true,
+        status: 'Pending'
+      };
     }
 
-    // Update the payment schedule
-    const updatedSchedule = await prismaAny.paymentSchedule.update({
-      where: { id: scheduleId },
-      data: updateData,
-      include: {
-        repayment: true
-      }
-    });
-
     // Calculate and update the overdue amount and missed payments directly
-    await updateOverdueAmount(currentSchedule.loanId);
+    await updateOverdueAmount(loanId);
 
-    return updatedSchedule;
+    // Return the repayment with status information
+    return {
+      ...repayment,
+      status: status
+    };
   } catch (error) {
     console.error('Error updating payment schedule status:', error);
     throw error;
@@ -834,14 +817,9 @@ export async function updatePaymentScheduleStatus(
  */
 async function updateOverdueAmount(loanId: number) {
   try {
-    // Get the loan with its payment schedules
+    // Get the loan without payment schedules (since they're dynamic)
     const loan = await prismaAny.loan.findUnique({
-      where: { id: loanId },
-      include: {
-        paymentSchedules: {
-          orderBy: { period: 'asc' }
-        }
-      }
+      where: { id: loanId }
     });
 
     if (!loan) {
@@ -970,36 +948,35 @@ async function updateOverdueAmount(loanId: number) {
 }
 
 /**
- * Link a repayment to a payment schedule
- * @param scheduleId The ID of the payment schedule
+ * Link a repayment to a specific period
+ * @param loanId The ID of the loan
  * @param repaymentId The ID of the repayment
- * @returns Updated payment schedule
+ * @param period The period number to link the repayment to
+ * @returns Updated repayment
  */
-export async function linkRepaymentToSchedule(scheduleId: number, repaymentId: number) {
+export async function linkRepaymentToPeriod(loanId: number, repaymentId: number, period: number) {
   try {
-    // Update the repayment to link to the schedule
-    await prismaAny.repayment.update({
-      where: { id: repaymentId },
-      data: { paymentScheduleId: scheduleId }
-    });
-
     // Get the repayment details
     const repayment = await prismaAny.repayment.findUnique({
       where: { id: repaymentId }
     });
 
-    // Update the schedule with the payment information
-    const updatedSchedule = await prismaAny.paymentSchedule.update({
-      where: { id: scheduleId },
-      data: {
-        status: repayment.paymentType === 'interestOnly' ? 'InterestOnly' : 'Paid',
-        actualPaymentDate: repayment.paidDate
-      }
+    if (!repayment) {
+      throw new Error(`Repayment with ID ${repaymentId} not found`);
+    }
+
+    // Update the repayment with the period
+    const updatedRepayment = await prismaAny.repayment.update({
+      where: { id: repaymentId },
+      data: { period }
     });
 
-    return updatedSchedule;
+    // Update the loan's overdue amount and missed payments
+    await updateOverdueAmount(loanId);
+
+    return updatedRepayment;
   } catch (error) {
-    console.error('Error linking repayment to schedule:', error);
+    console.error('Error linking repayment to period:', error);
     throw error;
   }
 }

@@ -46,16 +46,16 @@ const RepaymentsPage = () => {
     try {
       setLoading(true);
 
-      // Fetch loan details
-      const loanResponse = await fetch(`/api/loans/${id}`);
+      // Fetch loan details using the consolidated API
+      const loanResponse = await fetch(`/api/loans/consolidated?action=detail&id=${id}`);
       if (!loanResponse.ok) {
         throw new Error('Failed to fetch loan details');
       }
       const loanData = await loanResponse.json();
       setLoan(loanData);
 
-      // Fetch paginated repayments
-      const repaymentsResponse = await fetch(`/api/loans/${id}/repayments?page=${currentPage}&pageSize=${pageSize}`);
+      // Fetch paginated repayments using the consolidated API
+      const repaymentsResponse = await fetch(`/api/loans/consolidated?action=repayments&id=${id}&page=${currentPage}&pageSize=${pageSize}`);
       if (!repaymentsResponse.ok) {
         throw new Error('Failed to fetch repayments');
       }
@@ -131,7 +131,7 @@ const RepaymentsPage = () => {
     setDeleteError(null);
 
     try {
-      const response = await fetch(`/api/loans/${id}/repayments`, {
+      const response = await fetch(`/api/loans/consolidated?action=delete-repayment&id=${id}`, {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',
@@ -178,7 +178,7 @@ const RepaymentsPage = () => {
     setBulkDeleteError(null);
 
     try {
-      const response = await fetch(`/api/loans/${id}/repayments`, {
+      const response = await fetch(`/api/loans/consolidated?action=delete-repayment&id=${id}`, {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',

@@ -15,11 +15,10 @@ export function formatCurrency(value: number | string | null | undefined): strin
 
   if (isNaN(numValue)) return 'N/A';
 
-  return new Intl.NumberFormat('en-IN', {
-    style: 'currency',
-    currency: 'INR',
-    maximumFractionDigits: 0,
-  }).format(numValue);
+  // Use a more consistent approach that doesn't rely on locale-specific formatting
+  // Format as INR with ₹ symbol and no decimal places
+  const formattedValue = numValue.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  return `₹${formattedValue}`;
 }
 
 /**
@@ -35,11 +34,15 @@ export function formatDate(date: Date | string | null | undefined): string {
 
     if (isNaN(d.getTime())) return 'N/A';
 
-    return d.toLocaleDateString('en-IN', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-    });
+    // Use a more consistent approach that doesn't rely on locale-specific formatting
+    const day = d.getDate();
+    const month = [
+      'January', 'February', 'March', 'April', 'May', 'June',
+      'July', 'August', 'September', 'October', 'November', 'December'
+    ][d.getMonth()];
+    const year = d.getFullYear();
+
+    return `${day} ${month} ${year}`;
   } catch (error) {
     console.error('Error formatting date:', error);
     return 'N/A';
@@ -75,26 +78,58 @@ export function formatDateForInput(date: Date | string | null | undefined): stri
 export function calculateLoanProfit(loan: any, repayments: any[]): number {
   if (!loan) return 0;
 
+  // Debug log
+  console.log('calculateLoanProfit input:', {
+    loan: {
+      id: loan.id,
+      amount: loan.amount,
+      interestRate: loan.interestRate,
+      documentCharge: loan.documentCharge,
+      repaymentType: loan.repaymentType
+    },
+    repayments: Array.isArray(repayments) ? repayments.length : 'not an array'
+  });
+
   let profit = 0;
 
   // Add document charge to profit
   profit += loan.documentCharge || 0;
 
+  // Ensure repayments is an array
+  const repaymentsArray = Array.isArray(repayments) ? repayments : [];
+
+  // Check if repaymentType is missing
+  if (!loan.repaymentType) {
+    console.log('WARNING: loan.repaymentType is missing, defaulting to Monthly');
+    loan.repaymentType = 'Monthly'; // Default to Monthly if missing
+  }
+
   if (loan.repaymentType === 'Monthly') {
     // For monthly loans with interest
 
     // Count interest-only payments
-    const interestOnlyPayments = repayments.filter(r => r.paymentType === 'interestOnly');
+    const interestOnlyPayments = repaymentsArray.filter(r => r.paymentType === 'interestOnly');
     const interestOnlyProfit = interestOnlyPayments.length * loan.interestRate;
     profit += interestOnlyProfit;
 
     // Count regular payments (interest portion only)
-    const regularPayments = repayments.filter(r => r.paymentType !== 'interestOnly');
+    const regularPayments = repaymentsArray.filter(r => r.paymentType !== 'interestOnly');
     const regularPaymentsProfit = regularPayments.length * loan.interestRate;
     profit += regularPaymentsProfit;
+
+    // Debug log
+    console.log('Monthly loan profit calculation:', {
+      documentCharge: loan.documentCharge || 0,
+      interestRate: loan.interestRate,
+      interestOnlyPayments: interestOnlyPayments.length,
+      interestOnlyProfit,
+      regularPayments: regularPayments.length,
+      regularPaymentsProfit,
+      totalProfit: profit
+    });
   } else if (loan.repaymentType === 'Weekly') {
     // For weekly loans: profit is the difference between total payments and principal
-    const totalPaid = repayments
+    const totalPaid = repaymentsArray
       .filter(r => r.paymentType !== 'interestOnly')
       .reduce((sum, r) => sum + r.amount, 0);
 
@@ -102,6 +137,15 @@ export function calculateLoanProfit(loan: any, repayments: any[]): number {
     if (totalPaid > loan.amount) {
       profit += totalPaid - loan.amount;
     }
+
+    // Debug log
+    console.log('Weekly loan profit calculation:', {
+      documentCharge: loan.documentCharge || 0,
+      totalPaid,
+      loanAmount: loan.amount,
+      profitFromPayments: totalPaid > loan.amount ? totalPaid - loan.amount : 0,
+      totalProfit: profit
+    });
   }
 
   return profit;

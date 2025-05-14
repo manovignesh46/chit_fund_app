@@ -221,7 +221,7 @@ export default function NewLoanPage() {
       console.log('Sending loan data to API:', JSON.stringify(loanData, null, 2));
 
       // Make the actual API call to create a loan
-      const response = await fetch('/api/loans', {
+      const response = await fetch('/api/loans/consolidated?action=create', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

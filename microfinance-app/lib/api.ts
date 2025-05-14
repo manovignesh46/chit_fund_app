@@ -223,7 +223,7 @@ export const loanAPI = {
     body: JSON.stringify({ repaymentIds }),
   }),
 
-  getPaymentSchedules: (id: number) => fetchAPI<any>(`/loans/consolidated?action=payment-schedules&id=${id}`),
+  getPaymentSchedules: (id: number, includeAll = false) => fetchAPI<any>(`/loans/consolidated?action=payment-schedules&id=${id}&includeAll=${includeAll}`),
 
   recordPayment: (id: number, data: any) => loanAPI.addRepayment(id, data),
 
@@ -248,6 +248,12 @@ export const loanAPI = {
     window.location.href = `/api/loans/consolidated?action=export-all`;
     return Promise.resolve(); // Return a resolved promise for consistency
   },
+
+  exportSelectedLoans: (loanIds: number[]) => {
+    // This is a special case that needs to trigger a file download
+    window.location.href = `/api/loans/consolidated?action=export-selected&ids=${loanIds.join(',')}`;
+    return Promise.resolve(); // Return a resolved promise for consistency
+  },
 };
 
 // User API functions (consolidated)
@@ -269,6 +275,15 @@ export const authAPI = {
   }),
 };
 
+// Define the financial data response type
+export interface FinancialDataResponse {
+  labels: string[];
+  cashInflow: number[];
+  cashOutflow: number[];
+  profit: number[];
+  outsideAmount: number[];
+}
+
 // Dashboard API functions (consolidated)
 export const dashboardAPI = {
   getSummary: () => fetchAPI<any>('/dashboard/consolidated?action=summary'),
@@ -278,7 +293,7 @@ export const dashboardAPI = {
   getUpcomingEvents: () => fetchAPI<any[]>('/dashboard/consolidated?action=events'),
 
   getFinancialData: (duration: string = 'monthly', limit: number = 12) =>
-    fetchAPI<any[]>(`/dashboard/consolidated?action=financial-data&duration=${duration}&limit=${limit}`),
+    fetchAPI<FinancialDataResponse>(`/dashboard/consolidated?action=financial-data&duration=${duration}&limit=${limit}`),
 
   exportFinancialData: (duration: string = 'monthly', limit: number = 12) => {
     // This is a special case that needs to trigger a file download

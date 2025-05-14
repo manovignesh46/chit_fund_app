@@ -313,13 +313,13 @@ export default function MembersPage() {
     setAssignSuccess(null);
 
     try {
-      const response = await fetch('/api/chit-funds');
+      const response = await fetch('/api/chit-funds/consolidated?action=list');
       if (!response.ok) {
         throw new Error('Failed to fetch chit funds');
       }
 
       const data = await response.json();
-      setChitFunds(data);
+      setChitFunds(data.chitFunds || []);
 
     } catch (error: any) {
       console.error('Error fetching chit funds:', error);

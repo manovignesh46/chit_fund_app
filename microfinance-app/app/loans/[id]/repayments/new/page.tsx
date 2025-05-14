@@ -1,8 +1,9 @@
 'use client';
 
-import React, { useState, useEffect, FormEvent } from 'react';
+import React, { useState, useEffect, FormEvent, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { loanAPI } from '@/lib/api';
 
 interface Loan {
   id: number;
@@ -60,27 +61,25 @@ export default function NewRepaymentPage() {
   const [errors, setErrors] = useState<FormErrors>({});
 
   // Fetch payment schedules
-  const fetchPendingSchedules = async () => {
+  const fetchPendingSchedules = useCallback(async () => {
     if (!id) return;
 
     try {
       setLoadingSchedules(true);
       console.log('Fetching payment schedules for loan ID:', id);
 
-      // Include all schedules, not just pending ones, and set includeAll to true to get all periods
-      const response = await fetch(`/api/loans/${id}/payment-schedules?includeAll=true`);
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('Failed to fetch payment schedules. Status:', response.status, 'Response:', errorText);
-        throw new Error(`Failed to fetch payment schedules: ${response.status} ${errorText}`);
-      }
-
-      const data = await response.json();
+      // Use the API client to fetch payment schedules with includeAll=true to show all periods
+      const numericId = typeof id === 'string' ? parseInt(id, 10) : id;
+      const data = await loanAPI.getPaymentSchedules(numericId, true); // Pass true to include all periods
       console.log('Payment schedules data:', data);
 
-      if (data.schedules && Array.isArray(data.schedules)) {
+      if (Array.isArray(data)) {
         // Sort schedules by period to ensure they appear in chronological order
+        const sortedSchedules = [...data].sort((a, b) => a.period - b.period);
+        console.log('Sorted schedules:', sortedSchedules);
+        setPendingSchedules(sortedSchedules);
+      } else if (data.schedules && Array.isArray(data.schedules)) {
+        // Handle case where API might return an object with schedules property
         const sortedSchedules = [...data.schedules].sort((a, b) => a.period - b.period);
         console.log('Sorted schedules:', sortedSchedules);
         setPendingSchedules(sortedSchedules);
@@ -93,19 +92,21 @@ export default function NewRepaymentPage() {
     } finally {
       setLoadingSchedules(false);
     }
-  };
+  }, [id]);
 
   useEffect(() => {
     const fetchLoanDetails = async () => {
       try {
         setLoading(true);
-        const response = await fetch(`/api/loans/${id}`);
+        console.log(`Fetching loan details for ID: ${id}`);
 
-        if (!response.ok) {
-          throw new Error('Failed to fetch loan details');
-        }
+        // Convert id to number for API call
+        const numericId = typeof id === 'string' ? parseInt(id, 10) : id;
 
-        const data = await response.json();
+        // Use the API client to fetch loan details
+        const data = await loanAPI.getById(numericId);
+        console.log('Loan details fetched successfully:', data);
+
         setLoan(data);
 
         // Prepopulate the payment amount with the loan's installment amount if available
@@ -128,7 +129,7 @@ export default function NewRepaymentPage() {
     if (id) {
       fetchLoanDetails();
     }
-  }, [id]);
+  }, [id, fetchPendingSchedules]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -213,41 +214,13 @@ export default function NewRepaymentPage() {
 
       console.log('Request data:', requestData);
 
-      const response = await fetch(`/api/loans/${id}/repayments`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(requestData),
-      });
+      // Convert id to number for API call
+      const numericId = typeof id === 'string' ? parseInt(id, 10) : id;
 
-      console.log('Response status:', response.status);
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.log('Error response text:', errorText);
-
-        let errorData;
-        try {
-          errorData = JSON.parse(errorText);
-          console.log('Parsed error data:', errorData);
-        } catch (parseError) {
-          console.error('Error parsing error response:', parseError);
-          throw new Error(`Server error: ${response.status} - ${errorText}`);
-        }
-
-        throw new Error(errorData.error || 'Failed to record payment');
-      }
-
-      // Try to parse the response as JSON, but don't fail if it's not valid JSON
-      let responseData;
-      try {
-        responseData = await response.json();
-        console.log('Success response:', responseData);
-      } catch (parseError) {
-        console.warn('Could not parse response as JSON, but request was successful');
-        // Continue with the redirect even if we can't parse the response
-      }
+      // Use the API client to add a repayment
+      console.log('Adding repayment for loan ID:', numericId, 'with data:', requestData);
+      const responseData = await loanAPI.addRepayment(numericId, requestData);
+      console.log('Repayment added successfully:', responseData);
 
       // Redirect back to the loan details page
       router.push(`/loans/${id}`);

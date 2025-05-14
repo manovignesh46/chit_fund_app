@@ -5,18 +5,18 @@ import { dashboardAPI, loanAPI, chitFundAPI, memberAPI } from './api';
 // Generic fetcher function for SWR
 const fetcher = async (url: string) => {
   const response = await fetch(url);
-  
+
   if (!response.ok) {
     const error = new Error('An error occurred while fetching the data.');
     throw error;
   }
-  
+
   return response.json();
 };
 
 // Dashboard data hook
 export function useDashboardData() {
-  const { data, error, isLoading, mutate } = useSWR('/api/dashboard', fetcher, {
+  const { data, error, isLoading, mutate } = useSWR('/api/dashboard/consolidated?action=summary', fetcher, {
     revalidateOnFocus: false, // Don't revalidate when window gets focus
     revalidateIfStale: true,  // Revalidate if data is stale
     dedupingInterval: 60000,  // Dedupe requests within 1 minute
@@ -33,7 +33,7 @@ export function useDashboardData() {
 // Financial data hook with period selection
 export function useFinancialData(duration = 'monthly', limit = 12) {
   const { data, error, isLoading, mutate } = useSWR(
-    `/api/dashboard/financial-data?duration=${duration}&limit=${limit}`,
+    `/api/dashboard/consolidated?action=financial-data&duration=${duration}&limit=${limit}`,
     fetcher,
     {
       revalidateOnFocus: false,
@@ -53,7 +53,7 @@ export function useFinancialData(duration = 'monthly', limit = 12) {
 export function useLoans(page = 1, pageSize = 10, status?: string) {
   const statusParam = status ? `&status=${status}` : '';
   const { data, error, isLoading, mutate } = useSWR(
-    `/api/loans?page=${page}&pageSize=${pageSize}${statusParam}`,
+    `/api/loans/consolidated?action=list&page=${page}&pageSize=${pageSize}${statusParam}`,
     fetcher,
     {
       revalidateOnFocus: false,
@@ -74,7 +74,7 @@ export function useLoans(page = 1, pageSize = 10, status?: string) {
 // Single loan hook
 export function useLoan(id: number | string) {
   const { data, error, isLoading, mutate } = useSWR(
-    id ? `/api/loans/${id}` : null,
+    id ? `/api/loans/consolidated?action=detail&id=${id}` : null,
     fetcher,
     {
       revalidateOnFocus: false,
@@ -94,7 +94,7 @@ export function useLoan(id: number | string) {
 export function useChitFunds(page = 1, pageSize = 10, status?: string) {
   const statusParam = status ? `&status=${status}` : '';
   const { data, error, isLoading, mutate } = useSWR(
-    `/api/chit-funds?page=${page}&pageSize=${pageSize}${statusParam}`,
+    `/api/chit-funds/consolidated?action=list&page=${page}&pageSize=${pageSize}${statusParam}`,
     fetcher,
     {
       revalidateOnFocus: false,
@@ -115,7 +115,7 @@ export function useChitFunds(page = 1, pageSize = 10, status?: string) {
 // Members list hook with pagination
 export function useMembers(page = 1, pageSize = 10) {
   const { data, error, isLoading, mutate } = useSWR(
-    `/api/members?page=${page}&pageSize=${pageSize}`,
+    `/api/members/consolidated?action=list&page=${page}&pageSize=${pageSize}`,
     fetcher,
     {
       revalidateOnFocus: false,

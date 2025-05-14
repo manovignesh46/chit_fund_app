@@ -113,7 +113,7 @@ export default function AssignMemberPage() {
 
     try {
       // Add member to chit fund
-      const response = await fetch(`/api/chit-funds/${chitFundId}/members`, {
+      const response = await fetch(`/api/chit-funds/consolidated?action=add-member&id=${chitFundId}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

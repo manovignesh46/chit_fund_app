@@ -150,6 +150,7 @@ model Loan {
   // Relations
   borrower          GlobalMember  @relation("BorrowerToLoan", fields: [borrowerId], references: [id])
   repayments        Repayment[]
+  paymentSchedules  PaymentSchedule[]
 }
 
 model Repayment {

@@ -66,7 +66,7 @@ export default function ChitFundsPage() {
   const fetchChitFunds = async () => {
     try {
       setLoading(true);
-      let url = `/api/chit-funds?page=${currentPage}&pageSize=${pageSize}`;
+      let url = `/api/chit-funds/consolidated?action=list&page=${currentPage}&pageSize=${pageSize}`;
 
       // Add status filter if selected
       if (statusFilter) {
@@ -157,12 +157,11 @@ export default function ChitFundsPage() {
     setDeleteError(null);
 
     try {
-      const response = await fetch('/api/chit-funds', {
+      const response = await fetch(`/api/chit-funds/consolidated?action=delete&id=${chitFundToDelete}`, {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ id: chitFundToDelete }),
       });
 
       if (!response.ok) {
@@ -206,12 +205,11 @@ export default function ChitFundsPage() {
     try {
       // Delete chit funds one by one
       const deletePromises = selectedChitFunds.map(chitFundId =>
-        fetch('/api/chit-funds', {
+        fetch(`/api/chit-funds/consolidated?action=delete&id=${chitFundId}`, {
           method: 'DELETE',
           headers: {
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({ id: chitFundId }),
         })
       );
 
@@ -249,12 +247,11 @@ export default function ChitFundsPage() {
       setIsExporting(true);
 
       // Call the export API endpoint with selected chit fund IDs
-      const response = await fetch('/api/chit-funds/export', {
-        method: 'POST',
+      const response = await fetch('/api/chit-funds/consolidated?action=export&id=' + selectedChitFunds[0], {
+        method: 'GET',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ chitFundIds: selectedChitFunds }),
       });
 
       if (!response.ok) {

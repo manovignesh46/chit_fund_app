@@ -62,6 +62,16 @@ export async function GET(request: NextRequest) {
         return await exportLoan(request, id, currentUserId);
       case 'export-all':
         return await exportAllLoans(request, currentUserId);
+      case 'export-selected':
+        const idsParam = searchParams.get('ids');
+        if (!idsParam) {
+          return NextResponse.json(
+            { error: 'Loan IDs are required' },
+            { status: 400 }
+          );
+        }
+        const loanIds = idsParam.split(',').map(id => parseInt(id));
+        return await exportSelectedLoans(request, loanIds, currentUserId);
       default:
         return NextResponse.json(
           { error: 'Invalid action' },
@@ -379,6 +389,10 @@ async function getRepayments(request: NextRequest, id: number, currentUserId: nu
 // Handler for getting payment schedules of a loan
 async function getPaymentSchedules(request: NextRequest, id: number, currentUserId: number) {
   try {
+    // Get the includeAll parameter from the query string
+    const { searchParams } = new URL(request.url);
+    const includeAll = searchParams.get('includeAll') === 'true';
+
     // Check if the loan exists and belongs to the current user
     const loan = await prismaAny.loan.findUnique({
       where: { id },
@@ -407,12 +421,20 @@ async function getPaymentSchedules(request: NextRequest, id: number, currentUser
 
     // Get the current date
     const today = new Date();
+    today.setHours(0, 0, 0, 0); // Set to beginning of day for accurate comparisons
+
     const tomorrow = new Date(today);
     tomorrow.setDate(today.getDate() + 1);
 
     // Calculate the date one week from now
     const oneWeekFromNow = new Date(today);
     oneWeekFromNow.setDate(today.getDate() + 7);
+
+    console.log('Date ranges for payment schedules:', {
+      today: today.toISOString(),
+      tomorrow: tomorrow.toISOString(),
+      oneWeekFromNow: oneWeekFromNow.toISOString()
+    });
 
     // Generate dynamic payment schedules
     const schedules = [];
@@ -421,6 +443,17 @@ async function getPaymentSchedules(request: NextRequest, id: number, currentUser
     const duration = loan.duration;
     const installmentAmount = loan.installmentAmount;
     const interestRate = loan.interestRate;
+
+    console.log('Generating payment schedules with dates:', {
+      today: today.toISOString(),
+      tomorrow: tomorrow.toISOString(),
+      oneWeekFromNow: oneWeekFromNow.toISOString(),
+      disbursementDate: disbursementDate.toISOString(),
+      loanId: id,
+      duration: duration,
+      repaymentType: repaymentType,
+      includeAll: includeAll
+    });
 
     // Create a map of repayments by period for quick lookup
     const repaymentsByPeriod = new Map();
@@ -440,18 +473,75 @@ async function getPaymentSchedules(request: NextRequest, id: number, currentUser
         dueDate.setDate(disbursementDate.getDate() + (period * 7));
       }
 
+      // Log the first payment schedule due date for debugging
+      if (period === 1) {
+        console.log(`First payment due date: ${dueDate.toISOString()}`);
+      }
+
       // Check if this period has been paid
       const repayment = repaymentsByPeriod.get(period);
       const isPaid = !!repayment;
       const isInterestOnly = repayment && repayment.paymentType === 'interestOnly';
 
       // Only include schedules that are due today or earlier, due tomorrow, or overdue
-      const isDueToday = dueDate.toDateString() === today.toDateString();
-      const isDueTomorrow = dueDate.toDateString() === tomorrow.toDateString();
-      const isOverdue = dueDate < today && !isPaid;
-      const isUpcoming = dueDate <= oneWeekFromNow && dueDate > today;
+      // Normalize dates for comparison by setting hours to 0
+      const dueDateNormalized = new Date(dueDate);
+      dueDateNormalized.setHours(0, 0, 0, 0);
 
-      if (isDueToday || isDueTomorrow || isOverdue || isUpcoming || isPaid) {
+      const isDueToday = dueDateNormalized.getTime() === today.getTime();
+      const isDueTomorrow = dueDateNormalized.getTime() === tomorrow.getTime();
+
+      // Calculate the grace period date (3 days after due date)
+      const gracePeriodDate = new Date(dueDateNormalized);
+      gracePeriodDate.setDate(gracePeriodDate.getDate() + 3);
+
+      // Only mark as overdue if it's past the grace period (3 days after due date)
+      const isOverdue = dueDateNormalized < today && today >= gracePeriodDate && !isPaid;
+
+      const isUpcoming = dueDateNormalized <= oneWeekFromNow && dueDateNormalized > today;
+
+      // Debug log for period 1 (first payment)
+      if (period === 1) {
+        console.log(`Payment schedule for period ${period}:`, {
+          dueDate: dueDateNormalized.toISOString(),
+          isDueToday,
+          isDueTomorrow,
+          isOverdue,
+          isUpcoming,
+          isPaid,
+          dueDateTimestamp: dueDateNormalized.getTime(),
+          tomorrowTimestamp: tomorrow.getTime(),
+          isSameAsTomorrow: dueDateNormalized.getTime() === tomorrow.getTime(),
+          dateDiff: dueDateNormalized.getTime() - tomorrow.getTime()
+        });
+      }
+
+      // Check if this is the next payment date (first unpaid period)
+      const nextPaymentDate = loan.nextPaymentDate ? new Date(loan.nextPaymentDate) : null;
+      const isNextPayment = !isPaid && nextPaymentDate &&
+        nextPaymentDate.toDateString() === dueDate.toDateString();
+
+      // For debugging
+      if (period === 1) {
+        console.log('Next payment date check:', {
+          nextPaymentDate: nextPaymentDate ? nextPaymentDate.toISOString() : null,
+          dueDate: dueDate.toISOString(),
+          isNextPayment,
+          nextPaymentDateString: nextPaymentDate ? nextPaymentDate.toDateString() : null,
+          dueDateString: dueDate.toDateString(),
+          stringsEqual: nextPaymentDate ? nextPaymentDate.toDateString() === dueDate.toDateString() : false
+        });
+      }
+
+      // ALWAYS include the first payment if it's not paid yet
+      const isFirstUnpaidPayment = period === 1 && !isPaid;
+
+      // If includeAll is true, include all periods regardless of status
+      // Otherwise, apply the filtering logic
+      const shouldInclude = includeAll ||
+        isDueToday || isDueTomorrow || isOverdue || isUpcoming || isPaid || isNextPayment || isFirstUnpaidPayment;
+
+      if (shouldInclude) {
         schedules.push({
           id: period, // Use the period as the ID
           period,
@@ -465,16 +555,34 @@ async function getPaymentSchedules(request: NextRequest, id: number, currentUser
           isDueTomorrow,
           isOverdue,
           isUpcoming,
+          isNextPayment,
           paidDate: repayment ? repayment.paidDate : null,
           paidAmount: repayment ? repayment.amount : null,
         });
+
+        // Log if this is the next payment
+        if (isNextPayment) {
+          console.log(`Including next payment date: ${dueDate.toISOString()} for period ${period}`);
+        }
       }
     }
 
-    // Sort schedules by due date (ascending)
-    schedules.sort((a: any, b: any) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime());
+    // Sort schedules by due date in descending order (newest first)
+    schedules.sort((a: any, b: any) => new Date(b.dueDate).getTime() - new Date(a.dueDate).getTime());
 
-    return NextResponse.json(schedules);
+    // If includeAll is true, return the array directly (for the Record Payment page)
+    // Otherwise, return an object with schedules property (for the Loan Details page)
+    if (includeAll) {
+      return NextResponse.json(schedules);
+    } else {
+      return NextResponse.json({
+        schedules,
+        totalCount: schedules.length,
+        page: 1,
+        pageSize: schedules.length,
+        totalPages: 1
+      });
+    }
   } catch (error) {
     console.error('Error fetching payment schedules:', error);
     return NextResponse.json(
@@ -486,50 +594,206 @@ async function getPaymentSchedules(request: NextRequest, id: number, currentUser
 
 // Handler for exporting a loan
 async function exportLoan(request: NextRequest, id: number, currentUserId: number) {
-  // Forward the request to the existing export API
-  const response = await fetch(`${request.nextUrl.origin}/api/loans/${id}/export`, {
-    headers: {
-      cookie: request.headers.get('cookie') || '',
-    },
-  });
+  try {
+    // Get the loan for the current user
+    const loan = await prismaAny.loan.findUnique({
+      where: {
+        id,
+        createdById: currentUserId
+      },
+      include: {
+        borrower: true,
+        repayments: true
+      }
+    });
 
-  if (!response.ok) {
-    throw new Error(`Failed to export loan: ${response.status} ${response.statusText}`);
-  }
-
-  const data = await response.arrayBuffer();
-
-  // Set response headers for file download
-  return new NextResponse(data, {
-    headers: {
-      'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-      'Content-Disposition': response.headers.get('Content-Disposition') || 'attachment; filename=loan.xlsx'
+    // Check if the loan was found
+    if (!loan) {
+      return NextResponse.json(
+        { error: 'Loan not found' },
+        { status: 404 }
+      );
     }
-  });
+
+    // Generate Excel file
+    const workbook = await generateLoansExcel([loan]);
+    const buffer = await workbook.xlsx.writeBuffer();
+
+    // Set response headers for file download
+    return new NextResponse(buffer, {
+      headers: {
+        'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        'Content-Disposition': `attachment; filename=loan_${id}.xlsx`
+      }
+    });
+  } catch (error) {
+    console.error('Error exporting loan:', error);
+    throw new Error(`Failed to export loan: ${error instanceof Error ? error.message : 'Unknown error'}`);
+  }
 }
 
 // Handler for exporting all loans
 async function exportAllLoans(request: NextRequest, currentUserId: number) {
-  // Forward the request to the existing export API
-  const response = await fetch(`${request.nextUrl.origin}/api/loans/export`, {
-    headers: {
-      cookie: request.headers.get('cookie') || '',
-    },
+  try {
+    // Get all loans for the current user
+    const loans = await prismaAny.loan.findMany({
+      where: {
+        createdById: currentUserId
+      },
+      include: {
+        borrower: true,
+        repayments: true
+      }
+    });
+
+    // Generate Excel file
+    const workbook = await generateLoansExcel(loans);
+    const buffer = await workbook.xlsx.writeBuffer();
+
+    // Set response headers for file download
+    return new NextResponse(buffer, {
+      headers: {
+        'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        'Content-Disposition': 'attachment; filename=all_loans.xlsx'
+      }
+    });
+  } catch (error) {
+    console.error('Error exporting all loans:', error);
+    throw new Error(`Failed to export loans: ${error instanceof Error ? error.message : 'Unknown error'}`);
+  }
+}
+
+// Handler for exporting selected loans
+async function exportSelectedLoans(request: NextRequest, loanIds: number[], currentUserId: number) {
+  try {
+    // Get selected loans for the current user
+    const loans = await prismaAny.loan.findMany({
+      where: {
+        id: { in: loanIds },
+        createdById: currentUserId
+      },
+      include: {
+        borrower: true,
+        repayments: true
+      }
+    });
+
+    // Check if any loans were found
+    if (loans.length === 0) {
+      return NextResponse.json(
+        { error: 'No loans found with the provided IDs' },
+        { status: 404 }
+      );
+    }
+
+    // Generate Excel file
+    const workbook = await generateLoansExcel(loans);
+    const buffer = await workbook.xlsx.writeBuffer();
+
+    // Set response headers for file download
+    return new NextResponse(buffer, {
+      headers: {
+        'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        'Content-Disposition': 'attachment; filename=selected_loans.xlsx'
+      }
+    });
+  } catch (error) {
+    console.error('Error exporting selected loans:', error);
+    throw new Error(`Failed to export loans: ${error instanceof Error ? error.message : 'Unknown error'}`);
+  }
+}
+
+// Helper function to generate Excel file for loans
+async function generateLoansExcel(loans: any[]) {
+  // Import Excel.js dynamically
+  const ExcelJS = require('exceljs');
+
+  // Create a new workbook
+  const workbook = new ExcelJS.Workbook();
+
+  // Add a worksheet for loan details
+  const worksheet = workbook.addWorksheet('Loan Details');
+
+  // Define columns
+  worksheet.columns = [
+    { header: 'Loan ID', key: 'id', width: 10 },
+    { header: 'Borrower Name', key: 'borrowerName', width: 20 },
+    { header: 'Contact', key: 'contact', width: 15 },
+    { header: 'Loan Type', key: 'loanType', width: 15 },
+    { header: 'Amount', key: 'amount', width: 15 },
+    { header: 'Interest Rate', key: 'interestRate', width: 15 },
+    { header: 'Document Charge', key: 'documentCharge', width: 15 },
+    { header: 'Installment Amount', key: 'installmentAmount', width: 15 },
+    { header: 'Duration', key: 'duration', width: 10 },
+    { header: 'Disbursement Date', key: 'disbursementDate', width: 20 },
+    { header: 'Remaining Amount', key: 'remainingAmount', width: 15 },
+    { header: 'Status', key: 'status', width: 15 },
+    { header: 'Overdue Amount', key: 'overdueAmount', width: 15 },
+    { header: 'Missed Payments', key: 'missedPayments', width: 15 },
+    { header: 'Next Payment Date', key: 'nextPaymentDate', width: 20 },
+    { header: 'Purpose', key: 'purpose', width: 30 },
+  ];
+
+  // Format header row
+  worksheet.getRow(1).font = { bold: true };
+
+  // Add data
+  loans.forEach(loan => {
+    worksheet.addRow({
+      id: loan.id,
+      borrowerName: loan.borrower?.name || 'Unknown',
+      contact: loan.borrower?.contact || 'Unknown',
+      loanType: loan.loanType,
+      amount: loan.amount,
+      interestRate: loan.interestRate,
+      documentCharge: loan.documentCharge || 0,
+      installmentAmount: loan.installmentAmount,
+      duration: loan.duration,
+      disbursementDate: loan.disbursementDate ? new Date(loan.disbursementDate).toLocaleDateString() : 'Unknown',
+      remainingAmount: loan.remainingAmount,
+      status: loan.status,
+      overdueAmount: loan.overdueAmount || 0,
+      missedPayments: loan.missedPayments || 0,
+      nextPaymentDate: loan.nextPaymentDate ? new Date(loan.nextPaymentDate).toLocaleDateString() : 'N/A',
+      purpose: loan.purpose || 'N/A',
+    });
   });
 
-  if (!response.ok) {
-    throw new Error(`Failed to export loans: ${response.status} ${response.statusText}`);
-  }
+  // Add a worksheet for repayments
+  const repaymentsWorksheet = workbook.addWorksheet('Repayments');
 
-  const data = await response.arrayBuffer();
+  // Define columns for repayments
+  repaymentsWorksheet.columns = [
+    { header: 'Loan ID', key: 'loanId', width: 10 },
+    { header: 'Borrower Name', key: 'borrowerName', width: 20 },
+    { header: 'Repayment ID', key: 'repaymentId', width: 15 },
+    { header: 'Amount', key: 'amount', width: 15 },
+    { header: 'Paid Date', key: 'paidDate', width: 20 },
+    { header: 'Payment Type', key: 'paymentType', width: 15 },
+    { header: 'Period', key: 'period', width: 10 },
+  ];
 
-  // Set response headers for file download
-  return new NextResponse(data, {
-    headers: {
-      'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-      'Content-Disposition': response.headers.get('Content-Disposition') || 'attachment; filename=loans.xlsx'
+  // Format header row
+  repaymentsWorksheet.getRow(1).font = { bold: true };
+
+  // Add repayment data
+  loans.forEach(loan => {
+    if (loan.repayments && loan.repayments.length > 0) {
+      loan.repayments.forEach((repayment: any) => {
+        repaymentsWorksheet.addRow({
+          loanId: loan.id,
+          borrowerName: loan.borrower?.name || 'Unknown',
+          repaymentId: repayment.id,
+          amount: repayment.amount,
+          paidDate: repayment.paidDate ? new Date(repayment.paidDate).toLocaleDateString() : 'Unknown',
+          paymentType: repayment.paymentType || 'full',
+          period: repayment.period || 'N/A',
+        });
+      });
     }
   });
+
+  return workbook;
 }
 
 // Handler for creating a loan
@@ -828,6 +1092,9 @@ async function updateLoan(request: NextRequest, id: number, currentUserId: numbe
       });
     }
 
+    // Log the update request
+    console.log('Updating loan with data:', body);
+
     // Update the loan
     const loan = await prismaAny.loan.update({
       where: { id },
@@ -843,6 +1110,8 @@ async function updateLoan(request: NextRequest, id: number, currentUserId: numbe
         remainingAmount: body.remainingAmount ? parseFloat(body.remainingAmount) : undefined,
         status: body.status,
         purpose: body.purpose,
+        // Add support for updating currentMonth
+        currentMonth: body.currentMonth !== undefined ? parseInt(body.currentMonth) : undefined,
       },
       include: {
         borrower: true

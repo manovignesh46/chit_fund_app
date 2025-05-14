@@ -91,7 +91,7 @@ export default function NewChitFundPage() {
 
     try {
       // Make the actual API call to create a chit fund
-      const response = await fetch('/api/chit-funds', {
+      const response = await fetch('/api/chit-funds/consolidated?action=create', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

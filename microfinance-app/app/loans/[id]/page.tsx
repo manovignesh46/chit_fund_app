@@ -75,7 +75,8 @@ const LoanDetailPage = () => {
       setScheduleError(null);
 
       // Build the URL with query parameters
-      const url = `/api/loans/${id}/payment-schedules?page=${currentPage}&pageSize=${pageSize}`;
+      // Explicitly set includeAll=false to maintain original filtering behavior
+      const url = `/api/loans/consolidated?action=payment-schedules&id=${id}&page=${currentPage}&pageSize=${pageSize}&includeAll=false`;
 
       const response = await fetch(url);
 
@@ -84,13 +85,21 @@ const LoanDetailPage = () => {
       }
 
       const data = await response.json();
+      console.log('Payment schedules API response:', data);
 
       if (data.schedules && Array.isArray(data.schedules)) {
-        // Schedules are already sorted in descending order by the API
+        // Response has a schedules property (paginated format)
         setPaymentSchedules(data.schedules);
         setTotalCount(data.totalCount || 0);
         setTotalPages(data.totalPages || 1);
+      } else if (Array.isArray(data)) {
+        // Response is a direct array of schedules
+        setPaymentSchedules(data);
+        setTotalCount(data.length);
+        setTotalPages(1);
+        console.log('Found direct array of schedules:', data);
       } else {
+        console.warn('No valid payment schedules found in response:', data);
         setPaymentSchedules([]);
         setTotalCount(0);
         setTotalPages(1);
@@ -114,14 +123,14 @@ const LoanDetailPage = () => {
 
       console.log(`Recording payment for period ${period}, amount ${amount}, type ${paymentType}`);
 
-      const response = await fetch(`/api/loans/${id}/payment-schedules`, {
+      // The API expects scheduleId, not period
+      const response = await fetch(`/api/loans/consolidated?action=add-repayment&id=${id}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          action: 'recordPayment',
-          period,
+          scheduleId: period, // Use period as scheduleId
           amount,
           paidDate: new Date().toISOString().split('T')[0],
           paymentType: paymentType === 'InterestOnly' ? 'interestOnly' : 'full'
@@ -132,9 +141,26 @@ const LoanDetailPage = () => {
       console.log(`Payment API response status: ${response.status}`);
 
       if (!response.ok) {
-        const errorData = await response.json();
-        console.error('Error response data:', errorData);
-        throw new Error(errorData.error || 'Failed to record payment');
+        // Get the response text first
+        const errorText = await response.text();
+        console.error('Error response text:', errorText);
+
+        // Try to parse as JSON if possible
+        let errorMessage = 'Failed to record payment';
+        try {
+          if (errorText) {
+            const errorData = JSON.parse(errorText);
+            console.error('Error response data:', errorData);
+            if (errorData.error) {
+              errorMessage = errorData.error;
+            }
+          }
+        } catch (e) {
+          console.error('Could not parse error response as JSON:', e);
+          errorMessage = errorText || errorMessage;
+        }
+
+        throw new Error(errorMessage);
       }
 
       // Parse the response to get the repayment data
@@ -170,14 +196,12 @@ const LoanDetailPage = () => {
       // First, update the overdue amount to ensure it's current
       try {
         console.log('Updating overdue amount...');
-        const overdueResponse = await fetch(`/api/loans/${id}/payment-schedules`, {
+        const overdueResponse = await fetch(`/api/loans/consolidated?action=update-overdue&id=${id}`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({
-            action: 'updateOverdue'
-          }),
+          body: JSON.stringify({}),
         });
 
         if (overdueResponse.ok) {
@@ -191,7 +215,7 @@ const LoanDetailPage = () => {
       }
 
       // Fetch loan details
-      const loanResponse = await fetch(`/api/loans/${id}`);
+      const loanResponse = await fetch(`/api/loans/consolidated?action=detail&id=${id}`);
       if (!loanResponse.ok) {
         throw new Error('Failed to fetch loan details');
       }
@@ -200,7 +224,7 @@ const LoanDetailPage = () => {
       console.log('Loan data from API:', loanData);
 
       // Fetch paginated repayments for this loan
-      const repaymentsResponse = await fetch(`/api/loans/${id}/repayments?page=${currentPage}&pageSize=${pageSize}`);
+      const repaymentsResponse = await fetch(`/api/loans/consolidated?action=repayments&id=${id}&page=${currentPage}&pageSize=${pageSize}`);
       if (!repaymentsResponse.ok) {
         throw new Error('Failed to fetch repayments');
       }
@@ -338,7 +362,7 @@ const LoanDetailPage = () => {
     setDeleteError(null);
 
     try {
-      const response = await fetch(`/api/loans/${id}/repayments`, {
+      const response = await fetch(`/api/loans/consolidated?action=delete-repayment&id=${id}`, {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',
@@ -373,7 +397,7 @@ const LoanDetailPage = () => {
   const updateLoanCurrentMonth = async (monthValue: number) => {
     console.log(`Updating loan ID ${id} to month ${monthValue}`);
     try {
-      const response = await fetch(`/api/loans/${id}`, {
+      const response = await fetch(`/api/loans/consolidated?action=update&id=${id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -383,24 +407,41 @@ const LoanDetailPage = () => {
         }),
       });
 
+      // Check if the response is OK
       if (!response.ok) {
-        // Try to get more detailed error information
+        const errorText = await response.text();
+        console.error('API error response text:', errorText);
+
+        // Try to parse as JSON if possible
         let errorDetails = response.statusText;
         try {
-          const errorResponse = await response.json();
-          console.error('API error response:', errorResponse);
-          if (errorResponse.message) {
-            errorDetails = `${errorResponse.message}${errorResponse.details ? ': ' + errorResponse.details : ''}`;
+          if (errorText) {
+            const errorJson = JSON.parse(errorText);
+            if (errorJson.error) {
+              errorDetails = errorJson.error;
+            }
           }
         } catch (e) {
-          console.error('Could not parse error response as JSON');
+          console.error('Could not parse error response as JSON:', e);
+          errorDetails = errorText || errorDetails;
         }
 
         throw new Error(`Failed to update current month: ${errorDetails}`);
       }
 
       // Parse the response
-      const updatedLoan = await response.json();
+      const responseText = await response.text();
+      console.log('Raw response:', responseText);
+
+      let updatedLoan;
+      try {
+        updatedLoan = responseText ? JSON.parse(responseText) : { currentMonth: monthValue };
+      } catch (e) {
+        console.error('Error parsing response JSON:', e);
+        // If we can't parse the response, just use the month value we sent
+        updatedLoan = { currentMonth: monthValue };
+      }
+
       console.log('Updated loan data:', updatedLoan);
 
       // Update the local state
@@ -415,6 +456,8 @@ const LoanDetailPage = () => {
       return true;
     } catch (error) {
       console.error('Error updating loan month:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      alert(`Failed to update current month: ${errorMessage}`);
       return false;
     } finally {
       setUpdating(false);
@@ -439,7 +482,7 @@ const LoanDetailPage = () => {
       console.log('Generated filename:', filename);
 
       // Call the export API endpoint
-      const response = await fetch(`/api/loans/${id}/export`);
+      const response = await fetch(`/api/loans/consolidated?action=export&id=${id}`);
 
       if (!response.ok) {
         throw new Error('Failed to export loan details');
@@ -482,17 +525,24 @@ const LoanDetailPage = () => {
       const startDate = new Date(loan.disbursementDate);
       const currentDate = new Date();
 
+      console.log('Updating current month with dates:', {
+        startDate: startDate.toISOString(),
+        currentDate: currentDate.toISOString(),
+        currentMonth: loan.currentMonth,
+        duration: loan.duration
+      });
+
       // Check if disbursement date is in the future
       if (startDate > currentDate) {
         console.log('Disbursement date is in the future, setting current period to 0');
         // If disbursement date is in the future, current period should be 0 (not started yet)
         if (loan.currentMonth !== 0) {
           // Only update if it's not already 0
-          setUpdating(true);
           return updateLoanCurrentMonth(0);
         } else {
           // Already at period 0, no need to update
           console.log('Loan is already at period 0, no update needed');
+          setUpdating(false);
           return;
         }
       }
@@ -592,6 +642,7 @@ const LoanDetailPage = () => {
       }
 
       // Call the helper function to update the current period
+      console.log(`Updating loan current month from ${loan.currentMonth} to ${newCurrentPeriod}`);
       await updateLoanCurrentMonth(newCurrentPeriod);
 
     } catch (error) {
@@ -1153,15 +1204,36 @@ const LoanDetailPage = () => {
                   </td>
                 </tr>
               ) : (
-                paymentSchedules.map((schedule) => (
-                  <tr key={schedule.id} className={`hover:bg-gray-50 ${
-                    new Date(schedule.dueDate) <= new Date() && schedule.status === 'Pending' ? 'bg-red-50' : ''
-                  }`}>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">
-                        {formatPeriod(schedule.period, schedule.dueDate, loan.repaymentType)}
-                      </div>
-                    </td>
+                paymentSchedules.map((schedule) => {
+                  // Check if payment is due tomorrow
+                  const today = new Date();
+                  today.setHours(0, 0, 0, 0);
+
+                  const tomorrow = new Date(today);
+                  tomorrow.setDate(tomorrow.getDate() + 1);
+
+                  const dueDate = new Date(schedule.dueDate);
+                  dueDate.setHours(0, 0, 0, 0);
+
+                  const isDueTomorrow = dueDate.getTime() === tomorrow.getTime();
+
+                  // Calculate the grace period date (3 days after due date)
+                  const gracePeriodDate = new Date(dueDate);
+                  gracePeriodDate.setDate(gracePeriodDate.getDate() + 3);
+
+                  // Only mark as overdue if it's past the grace period (3 days after due date)
+                  const isOverdue = dueDate < today && today >= gracePeriodDate && schedule.status === 'Pending';
+
+                  return (
+                    <tr key={schedule.id} className={`hover:bg-gray-50 ${
+                      isOverdue ? 'bg-red-50' :
+                      isDueTomorrow ? 'bg-yellow-50' : ''
+                    }`}>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm text-gray-900">
+                          {formatPeriod(schedule.period, schedule.dueDate, loan.repaymentType)}
+                        </div>
+                      </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm text-gray-900">{formatDate(schedule.dueDate)}</div>
                     </td>
@@ -1169,15 +1241,24 @@ const LoanDetailPage = () => {
                       <div className="text-sm text-gray-900">{formatCurrency(schedule.amount)}</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
-                        schedule.status === 'Paid' ? 'bg-green-100 text-green-800' :
-                        schedule.status === 'Pending' ? 'bg-yellow-100 text-yellow-800' :
-                        schedule.status === 'Missed' ? 'bg-red-100 text-red-800' :
-                        schedule.status === 'InterestOnly' ? 'bg-blue-100 text-blue-800' :
-                        'bg-gray-100 text-gray-800'
-                      }`}>
-                        {schedule.status}
-                      </span>
+                      <div className="flex flex-col space-y-1">
+                        <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
+                          schedule.status === 'Paid' ? 'bg-green-100 text-green-800' :
+                          schedule.status === 'Pending' ? 'bg-yellow-100 text-yellow-800' :
+                          schedule.status === 'Missed' ? 'bg-red-100 text-red-800' :
+                          schedule.status === 'InterestOnly' ? 'bg-blue-100 text-blue-800' :
+                          'bg-gray-100 text-gray-800'
+                        }`}>
+                          {schedule.status}
+                        </span>
+
+                        {isDueTomorrow && (
+                          <span className="px-2 py-1 text-xs font-semibold rounded-full bg-amber-100 text-amber-800 border border-amber-200"
+                                title="This loan payment is due tomorrow">
+                            Due Tomorrow
+                          </span>
+                        )}
+                      </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm text-gray-900">
@@ -1217,7 +1298,8 @@ const LoanDetailPage = () => {
                       </div>
                     </td>
                   </tr>
-                ))
+                );
+              })
               )}
             </tbody>
           </table>

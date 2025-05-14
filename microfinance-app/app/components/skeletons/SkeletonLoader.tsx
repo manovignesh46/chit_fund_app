@@ -127,7 +127,7 @@ export function TableSkeleton({
               <SkeletonLoader
                 key={`header-${index}`}
                 height="0.75rem"
-                width={`${Math.floor(Math.random() * 30) + 50}%`}
+                width={index % 2 === 0 ? "70%" : "80%"}
                 className={`col-span-${Math.ceil(12 / columns)}`}
               />
             ))}
@@ -148,7 +148,7 @@ export function TableSkeleton({
                 <SkeletonLoader
                   key={`cell-${rowIndex}-${colIndex}`}
                   height="0.875rem"
-                  width={`${Math.floor(Math.random() * 40) + 60}%`}
+                  width={colIndex % 3 === 0 ? "75%" : colIndex % 3 === 1 ? "85%" : "65%"}
                   className={`col-span-${Math.ceil(12 / columns)}`}
                 />
               ))}

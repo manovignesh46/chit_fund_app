@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { LoansListSkeleton } from '../components/skeletons/ListSkeletons';
+import { loanAPI } from '@/lib/api';
 
 // Define interfaces for Loan type
 interface GlobalMember {
@@ -73,7 +74,7 @@ export default function LoansPage() {
   const fetchLoans = async () => {
     try {
       setLoading(true);
-      let url = `/api/loans?page=${currentPage}&pageSize=${pageSize}`;
+      let url = `/api/loans/consolidated?action=list&page=${currentPage}&pageSize=${pageSize}`;
 
       // Add status filter if selected
       if (statusFilter) {
@@ -164,7 +165,7 @@ export default function LoansPage() {
     setDeleteError(null);
 
     try {
-      const response = await fetch('/api/loans', {
+      const response = await fetch('/api/loans/consolidated?action=delete', {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',
@@ -209,43 +210,12 @@ export default function LoansPage() {
 
     try {
       setIsExporting(true);
+      console.log('Exporting selected loans:', selectedLoans);
 
-      // Call the export API endpoint with selected loan IDs
-      const response = await fetch('/api/loans/export', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ loanIds: selectedLoans }),
-      });
+      // Use the API client to export selected loans
+      await loanAPI.exportSelectedLoans(selectedLoans);
 
-      if (!response.ok) {
-        throw new Error('Failed to export loans');
-      }
-
-      // Get the blob from the response
-      const blob = await response.blob();
-
-      // Generate filename with current date
-      const today = new Date();
-      const dateStr = today.toISOString().split('T')[0]; // YYYY-MM-DD format
-      const filename = `Loan_Details_${dateStr}.xlsx`;
-
-      // Create a URL for the blob
-      const url = window.URL.createObjectURL(blob);
-
-      // Create a temporary link element
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = filename;
-
-      // Append to the document and trigger a click
-      document.body.appendChild(a);
-      a.click();
-
-      // Clean up
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
+      // No need to handle the response as the API client will trigger the download
     } catch (error) {
       console.error('Error exporting loans:', error);
       alert('Failed to export loans. Please try again.');
@@ -264,7 +234,7 @@ export default function LoansPage() {
     try {
       // Delete loans one by one
       const deletePromises = selectedLoans.map(loanId =>
-        fetch('/api/loans', {
+        fetch('/api/loans/consolidated?action=delete', {
           method: 'DELETE',
           headers: {
             'Content-Type': 'application/json',

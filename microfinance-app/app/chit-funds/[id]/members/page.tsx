@@ -453,7 +453,7 @@ export default function ChitFundMembersPage() {
       // Process each selected member
       for (const memberId of selectedGlobalMembers) {
         try {
-          const response = await fetch(`/api/chit-funds/${chitFundId}/members`, {
+          const response = await fetch(`/api/chit-funds/consolidated?action=add-member&id=${chitFundId}`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
@@ -524,7 +524,7 @@ export default function ChitFundMembersPage() {
         }
 
         // Create the contribution
-        const response = await fetch(`/api/chit-funds/${chitFundId}/contributions`, {
+        const response = await fetch(`/api/chit-funds/consolidated?action=add-contribution&id=${chitFundId}`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
