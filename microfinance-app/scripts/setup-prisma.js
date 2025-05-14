@@ -40,7 +40,7 @@ const schema = fs.readFileSync(schemaPath, 'utf8');
 console.log('Prisma schema file found and read successfully.');
 
 // Check if the schema has the correct binary targets
-const requiredTargets = ['debian-openssl-3.0.x', 'rhel-openssl-3.0.x', 'linux-musl'];
+const requiredTargets = ['debian-openssl-3.0.x', 'rhel-openssl-3.0.x', 'rhel-openssl-3.2.x', 'linux-musl'];
 const missingTargets = requiredTargets.filter(target => !schema.includes(target));
 
 if (missingTargets.length > 0) {
