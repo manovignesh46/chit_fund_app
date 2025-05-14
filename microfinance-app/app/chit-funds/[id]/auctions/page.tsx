@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { apiGet, apiPost } from '@/lib/apiUtils';
+import { apiGet, apiPost } from './apiUtils';
 
 interface GlobalMember {
   id: number;
