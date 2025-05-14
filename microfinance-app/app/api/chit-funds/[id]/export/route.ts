@@ -6,9 +6,15 @@ import * as XLSX from 'xlsx';
 // Use type assertion to handle TypeScript type checking
 const prismaAny = prisma as any;
 
+type RouteParams = {
+  params: Promise<{
+    id: string;
+  }>;
+};
+
 export async function GET(
   request: NextRequest,
-  context: { params: { id: string } }
+  { params }: RouteParams
 ) {
   try {
     // Get the current user ID from the request
@@ -20,7 +26,7 @@ export async function GET(
       );
     }
 
-    const id = context.params.id;
+    const { id } = await params;
     const chitFundId = parseInt(id);
 
     if (isNaN(chitFundId)) {
@@ -101,7 +107,7 @@ export async function GET(
     XLSX.utils.book_append_sheet(wb, detailsWS, 'Chit Fund Details');
 
     // 2. Members Sheet
-    const membersData = chitFund.members.map(member => ({
+    const membersData = chitFund.members.map((member: any) => ({
       'Member ID': member.id,
       'Name': member.globalMember.name,
       'Contact': member.globalMember.contact,
@@ -118,7 +124,7 @@ export async function GET(
     XLSX.utils.book_append_sheet(wb, membersWS, 'Members');
 
     // 3. Auctions Sheet
-    const auctionsData = chitFund.auctions.map(auction => ({
+    const auctionsData = chitFund.auctions.map((auction: any) => ({
       'Auction ID': auction.id,
       'Month': auction.month,
       'Date': formatDate(auction.date),
@@ -136,7 +142,7 @@ export async function GET(
     XLSX.utils.book_append_sheet(wb, auctionsWS, 'Auctions');
 
     // 4. Contributions Sheet
-    const contributionsData = chitFund.contributions.map(contribution => ({
+    const contributionsData = chitFund.contributions.map((contribution: any) => ({
       'Contribution ID': contribution.id,
       'Month': contribution.month,
       'Member': contribution.member?.globalMember?.name || `Member ID: ${contribution.memberId}`,
@@ -154,10 +160,10 @@ export async function GET(
 
     // 5. Financial Summary Sheet
     // Calculate total cash inflow (contributions)
-    const totalContributions = chitFund.contributions.reduce((sum, contribution) => sum + contribution.amount, 0);
+    const totalContributions = chitFund.contributions.reduce((sum: number, contribution: any) => sum + contribution.amount, 0);
 
     // Calculate total cash outflow (auctions)
-    const totalAuctions = chitFund.auctions.reduce((sum, auction) => sum + auction.amount, 0);
+    const totalAuctions = chitFund.auctions.reduce((sum: number, auction: any) => sum + auction.amount, 0);
 
     // Calculate profit
     const profit = totalContributions - totalAuctions;

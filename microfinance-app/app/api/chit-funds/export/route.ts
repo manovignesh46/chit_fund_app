@@ -82,7 +82,7 @@ export async function POST(request: NextRequest) {
     const wb = XLSX.utils.book_new();
 
     // 1. Summary Sheet - List all chit funds
-    const summaryData = chitFunds.map(fund => ({
+    const summaryData = chitFunds.map((fund: any) => ({
       'ID': fund.id,
       'Name': fund.name,
       'Total Amount': fund.totalAmount,
@@ -95,8 +95,8 @@ export async function POST(request: NextRequest) {
       'Members Count': fund.members.length,
       'Auctions Count': fund.auctions.length,
       'Contributions Count': fund.contributions.length,
-      'Cash Inflow': fund.contributions.reduce((sum, contribution) => sum + contribution.amount, 0),
-      'Cash Outflow': fund.auctions.reduce((sum, auction) => sum + auction.amount, 0),
+      'Cash Inflow': fund.contributions.reduce((sum: number, contribution: any) => sum + contribution.amount, 0),
+      'Cash Outflow': fund.auctions.reduce((sum: number, auction: any) => sum + auction.amount, 0),
       'Profit': calculateProfit(fund),
       'Outside Amount': calculateOutsideAmount(fund),
     }));
@@ -105,10 +105,10 @@ export async function POST(request: NextRequest) {
     XLSX.utils.book_append_sheet(wb, summaryWS, 'Chit Funds Summary');
 
     // 2. Create individual sheets for each chit fund
-    chitFunds.forEach(fund => {
+    chitFunds.forEach((fund: any) => {
       // Create a sheet for this chit fund's details
       const sheetName = `Fund ${fund.id} - ${truncateSheetName(fund.name)}`;
-      
+
       // Fund details
       const fundDetails = {
         'Name': fund.name,
@@ -123,20 +123,20 @@ export async function POST(request: NextRequest) {
         'Auctions Count': fund.auctions.length,
         'Contributions Count': fund.contributions.length,
         'Notes': fund.notes || '',
-        'Cash Inflow': fund.contributions.reduce((sum, contribution) => sum + contribution.amount, 0),
-        'Cash Outflow': fund.auctions.reduce((sum, auction) => sum + auction.amount, 0),
+        'Cash Inflow': fund.contributions.reduce((sum: number, contribution: any) => sum + contribution.amount, 0),
+        'Cash Outflow': fund.auctions.reduce((sum: number, auction: any) => sum + auction.amount, 0),
         'Profit': calculateProfit(fund),
         'Outside Amount': calculateOutsideAmount(fund),
       };
 
       const fundWS = XLSX.utils.json_to_sheet([fundDetails]);
-      
+
       // Add some space
       XLSX.utils.sheet_add_aoa(fundWS, [['']], { origin: -1 });
       XLSX.utils.sheet_add_aoa(fundWS, [['Members']], { origin: -1 });
-      
+
       // Add members data
-      const membersData = fund.members.map(member => ({
+      const membersData = fund.members.map((member: any) => ({
         'Member ID': member.id,
         'Name': member.globalMember.name,
         'Contact': member.globalMember.contact,
@@ -148,15 +148,15 @@ export async function POST(request: NextRequest) {
         'Won Auction': member.auctionWon ? 'Yes' : 'No',
         'Auction Month': member.auctionMonth || 'N/A',
       }));
-      
+
       XLSX.utils.sheet_add_json(fundWS, membersData, { origin: -1, skipHeader: false });
-      
+
       // Add some space
       XLSX.utils.sheet_add_aoa(fundWS, [['']], { origin: -1 });
       XLSX.utils.sheet_add_aoa(fundWS, [['Auctions']], { origin: -1 });
-      
+
       // Add auctions data
-      const auctionsData = fund.auctions.map(auction => ({
+      const auctionsData = fund.auctions.map((auction: any) => ({
         'Auction ID': auction.id,
         'Month': auction.month,
         'Date': formatDate(auction.date),
@@ -169,9 +169,9 @@ export async function POST(request: NextRequest) {
         'Number of Bidders': auction.numberOfBidders || 'N/A',
         'Notes': auction.notes || '',
       }));
-      
+
       XLSX.utils.sheet_add_json(fundWS, auctionsData, { origin: -1, skipHeader: false });
-      
+
       // Add the sheet to the workbook
       XLSX.utils.book_append_sheet(wb, fundWS, sheetName);
     });
