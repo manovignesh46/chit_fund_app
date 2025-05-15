@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { apiGet, apiPost } from './apiUtils';
+import { apiGet, apiPost, apiDelete } from './apiUtils';
 
 interface GlobalMember {
   id: number;
@@ -54,6 +54,12 @@ export default function ChitFundAuctionsPage() {
   const [error, setError] = useState<string | null>(null);
   const [selectedAuction, setSelectedAuction] = useState<Auction | null>(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
+
+  // For deleting auction
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [auctionToDelete, setAuctionToDelete] = useState<number | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   // For adding new auction
   const [showAddForm, setShowAddForm] = useState(false);
@@ -246,6 +252,42 @@ export default function ChitFundAuctionsPage() {
       .filter(month => !auctions.some(auction => auction.month === month)) :
     [];
 
+  // Handle delete auction
+  const handleDeleteAuction = (id: number) => {
+    setAuctionToDelete(id);
+    setShowDeleteModal(true);
+    setDeleteError(null);
+  };
+
+  // Confirm delete auction
+  const confirmDeleteAuction = async () => {
+    if (!auctionToDelete) return;
+
+    setIsDeleting(true);
+    setDeleteError(null);
+
+    try {
+      // Use the apiDelete function with the consolidated API endpoint
+      await apiDelete(
+        `/api/chit-funds/consolidated?action=delete-auction&id=${chitFundId}`,
+        { auctionId: auctionToDelete },
+        'Failed to delete auction'
+      );
+
+      // Remove the deleted auction from the state
+      setAuctions(auctions.filter(a => a.id !== auctionToDelete));
+
+      // Close the modal
+      setShowDeleteModal(false);
+      setAuctionToDelete(null);
+    } catch (error: any) {
+      console.error('Error deleting auction:', error);
+      setDeleteError(error.message || 'Failed to delete auction. Please try again.');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="container mx-auto px-4 py-8">
@@ -342,12 +384,15 @@ export default function ChitFundAuctionsPage() {
                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Details
                 </th>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Actions
+                </th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {auctions.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-6 py-4 text-center text-gray-500">
+                  <td colSpan={7} className="px-6 py-4 text-center text-gray-500">
                     No auctions found. Record auctions for this chit fund.
                   </td>
                 </tr>
@@ -384,6 +429,17 @@ export default function ChitFundAuctionsPage() {
                         className="text-blue-600 hover:text-blue-900 underline"
                       >
                         View Details
+                      </button>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <button
+                        onClick={() => handleDeleteAuction(auction.id)}
+                        className="text-red-600 hover:text-red-900"
+                        title="Delete auction"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
                       </button>
                     </td>
                   </tr>
@@ -570,6 +626,42 @@ export default function ChitFundAuctionsPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-md">
+            <h2 className="text-xl font-bold text-red-700 mb-4">Confirm Deletion</h2>
+            <p className="mb-6">Are you sure you want to delete this auction? This action cannot be undone.</p>
+            {deleteError && (
+              <div className="mb-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+                <p>{deleteError}</p>
+              </div>
+            )}
+            <div className="flex justify-end space-x-4">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowDeleteModal(false);
+                  setAuctionToDelete(null);
+                }}
+                className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition duration-300"
+                disabled={isDeleting}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={confirmDeleteAuction}
+                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition duration-300 disabled:opacity-50"
+                disabled={isDeleting}
+              >
+                {isDeleting ? 'Deleting...' : 'Delete'}
+              </button>
+            </div>
           </div>
         </div>
       )}

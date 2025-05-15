@@ -1,11 +1,22 @@
 'use client';
 
-import React, { useState, ChangeEvent, FormEvent } from 'react';
+import React, { useState, useEffect, ChangeEvent, FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 
+// Define interfaces for global member
+interface GlobalMember {
+  id: number;
+  name: string;
+  contact: string;
+  email?: string;
+  address?: string;
+  notes?: string;
+}
+
 // Define interfaces for form data and errors
 interface LoanFormData {
+  globalMemberId: string;
   borrowerName: string;
   contact: string;
   loanType: string;
@@ -19,6 +30,7 @@ interface LoanFormData {
 }
 
 interface LoanFormErrors {
+  globalMemberId?: string;
   borrowerName?: string;
   contact?: string;
   loanType?: string;
@@ -42,6 +54,7 @@ export default function NewLoanPage() {
   const today = new Date().toISOString().split('T')[0];
 
   const [formData, setFormData] = useState<LoanFormData>({
+    globalMemberId: '',
     borrowerName: '',
     contact: '',
     loanType: 'Monthly',
@@ -55,11 +68,40 @@ export default function NewLoanPage() {
   });
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [errors, setErrors] = useState<LoanFormErrors>({});
+  const [globalMembers, setGlobalMembers] = useState<GlobalMember[]>([]);
+  const [isLoadingMembers, setIsLoadingMembers] = useState<boolean>(true);
+  const [memberError, setMemberError] = useState<string | null>(null);
 
   const loanTypes: LoanType[] = [
     { value: 'Monthly', label: 'Monthly' },
     { value: 'Weekly', label: 'Weekly' },
   ];
+
+  // Fetch global members when the component mounts
+  useEffect(() => {
+    const fetchGlobalMembers = async () => {
+      try {
+        setIsLoadingMembers(true);
+        setMemberError(null);
+
+        const response = await fetch('/api/members/consolidated?action=list&pageSize=1000');
+
+        if (!response.ok) {
+          throw new Error('Failed to fetch global members');
+        }
+
+        const data = await response.json();
+        setGlobalMembers(data.members || []);
+      } catch (error) {
+        console.error('Error fetching global members:', error);
+        setMemberError('Failed to load members. Please try again.');
+      } finally {
+        setIsLoadingMembers(false);
+      }
+    };
+
+    fetchGlobalMembers();
+  }, []);
 
   const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -67,6 +109,15 @@ export default function NewLoanPage() {
       ...formData,
       [name]: value,
     };
+
+    // If global member is selected, populate borrower name and contact
+    if (name === 'globalMemberId' && value) {
+      const selectedMember = globalMembers.find(member => member.id.toString() === value);
+      if (selectedMember) {
+        updatedFormData.borrowerName = selectedMember.name;
+        updatedFormData.contact = selectedMember.contact;
+      }
+    }
 
     // Recalculate installment amount when loan type changes
     if (name === 'loanType') {
@@ -123,6 +174,10 @@ export default function NewLoanPage() {
 
   const validateForm = (): boolean => {
     const newErrors: LoanFormErrors = {};
+
+    if (!formData.globalMemberId) {
+      newErrors.globalMemberId = 'Please select a member';
+    }
 
     if (!formData.borrowerName.trim()) {
       newErrors.borrowerName = 'Borrower name is required';
@@ -203,6 +258,7 @@ export default function NewLoanPage() {
 
       // Create loan data with all fields
       const loanData = {
+        globalMemberId: parseInt(formData.globalMemberId),
         borrowerName: formData.borrowerName,
         contact: formData.contact,
         loanType: formData.loanType,
@@ -278,6 +334,46 @@ export default function NewLoanPage() {
       <div className="bg-white rounded-lg shadow-md overflow-hidden">
         <form onSubmit={handleSubmit} className="p-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="md:col-span-2">
+              <label htmlFor="globalMemberId" className="block text-sm font-medium text-gray-700 mb-1">
+                Select Member <span className="text-red-500">*</span>
+              </label>
+              {isLoadingMembers ? (
+                <div className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-50">
+                  Loading members...
+                </div>
+              ) : memberError ? (
+                <div className="w-full px-4 py-2 border border-red-500 rounded-lg bg-red-50 text-red-500">
+                  {memberError}
+                </div>
+              ) : (
+                <select
+                  id="globalMemberId"
+                  name="globalMemberId"
+                  value={formData.globalMemberId}
+                  onChange={handleChange}
+                  className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent ${
+                    errors.globalMemberId ? 'border-red-500' : 'border-gray-300'
+                  }`}
+                >
+                  <option value="">-- Select a member --</option>
+                  {globalMembers.map((member) => (
+                    <option key={member.id} value={member.id}>
+                      {member.name} ({member.contact})
+                    </option>
+                  ))}
+                </select>
+              )}
+              {errors.globalMemberId && (
+                <p className="mt-1 text-sm text-red-500">{errors.globalMemberId}</p>
+              )}
+              <div className="mt-2 text-sm text-gray-600">
+                <Link href="/members" className="text-green-600 hover:text-green-800">
+                  + Add a new member
+                </Link> if not in the list
+              </div>
+            </div>
+
             <div>
               <label htmlFor="borrowerName" className="block text-sm font-medium text-gray-700 mb-1">
                 Borrower Name <span className="text-red-500">*</span>
@@ -288,9 +384,10 @@ export default function NewLoanPage() {
                 name="borrowerName"
                 value={formData.borrowerName}
                 onChange={handleChange}
+                readOnly={!!formData.globalMemberId}
                 className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent ${
                   errors.borrowerName ? 'border-red-500' : 'border-gray-300'
-                }`}
+                } ${!!formData.globalMemberId ? 'bg-gray-100' : ''}`}
               />
               {errors.borrowerName && (
                 <p className="mt-1 text-sm text-red-500">{errors.borrowerName}</p>
@@ -307,9 +404,10 @@ export default function NewLoanPage() {
                 name="contact"
                 value={formData.contact}
                 onChange={handleChange}
+                readOnly={!!formData.globalMemberId}
                 className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent ${
                   errors.contact ? 'border-red-500' : 'border-gray-300'
-                }`}
+                } ${!!formData.globalMemberId ? 'bg-gray-100' : ''}`}
               />
               {errors.contact && (
                 <p className="mt-1 text-sm text-red-500">{errors.contact}</p>

@@ -245,6 +245,8 @@ async function getMemberDetail(request: NextRequest, id: number, currentUserId: 
             status: true,
             disbursementDate: true,
             remainingAmount: true,
+            overdueAmount: true,
+            missedPayments: true,
           },
         },
         _count: {
@@ -271,7 +273,56 @@ async function getMemberDetail(request: NextRequest, id: number, currentUserId: 
       );
     }
 
-    return NextResponse.json(member);
+    // Get all contributions for this member's chit funds
+    const memberWithContributions = { ...member };
+
+    // Process each chit fund membership to add missed contributions and pending amount
+    for (const membership of memberWithContributions.chitFundMembers) {
+      // Only calculate for active chit funds
+      if (membership.chitFund.status === 'Active') {
+        // Get all contributions for this member in this chit fund
+        const contributions = await prisma.contribution.findMany({
+          where: {
+            memberId: membership.id,
+            chitFundId: membership.chitFund.id,
+          },
+        });
+
+        // Calculate missed contributions
+        const currentMonth = membership.chitFund.currentMonth;
+
+        // Get all months that have contributions
+        const contributedMonths = contributions.map(c => c.month);
+
+        // Count how many months from 1 to currentMonth are missing in contributedMonths
+        let missedContributions = 0;
+        for (let month = 1; month <= currentMonth; month++) {
+          if (!contributedMonths.includes(month)) {
+            missedContributions++;
+          }
+        }
+
+        // Calculate pending amount based on missed contributions and any balance from partial payments
+        let pendingAmount = missedContributions * membership.contribution;
+
+        // Add any balance from partial payments
+        for (const contribution of contributions) {
+          if (contribution.balance > 0) {
+            pendingAmount += contribution.balance;
+          }
+        }
+
+        // Add these fields to the membership object
+        membership.missedContributions = missedContributions;
+        membership.pendingAmount = pendingAmount;
+      } else {
+        // For inactive chit funds, set to 0
+        membership.missedContributions = 0;
+        membership.pendingAmount = 0;
+      }
+    }
+
+    return NextResponse.json(memberWithContributions);
   } catch (error) {
     console.error('Error fetching member:', error);
     return NextResponse.json(

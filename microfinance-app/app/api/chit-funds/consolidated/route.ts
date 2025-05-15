@@ -421,9 +421,50 @@ async function getChitFundMembers(request: NextRequest, id: number, currentUserI
     take: validPageSize,
   });
 
-  // Transform the data to include auction information
-  const transformedMembers = members.map(member => {
+  // Get all contributions for this chit fund with balance information
+  const allContributions = await prisma.contribution.findMany({
+    where: { chitFundId: id },
+    select: {
+      memberId: true,
+      month: true,
+      balance: true,
+    },
+  });
+
+  // Transform the data to include auction information and calculate missed contributions
+  const transformedMembers = await Promise.all(members.map(async member => {
     const wonAuction = member.auctions && member.auctions.length > 0 ? member.auctions[0] : null;
+
+    // Get contributions for this member
+    const memberContributions = allContributions.filter(c => c.memberId === member.id);
+
+    // Calculate missed contributions (only for active chit funds)
+    let missedContributions = 0;
+    let pendingAmount = 0;
+
+    if (chitFund.status === 'Active') {
+      // Current month of the chit fund minus the number of contributions made
+      const currentMonth = chitFund.currentMonth;
+      const contributionMonths = memberContributions.map(c => c.month);
+
+      // Count how many months from 1 to currentMonth are missing in contributionMonths
+      for (let month = 1; month <= currentMonth; month++) {
+        if (!contributionMonths.includes(month)) {
+          missedContributions++;
+        }
+      }
+
+      // Calculate pending amount based on missed contributions
+      pendingAmount = missedContributions * member.contribution;
+
+      // Add any balance from partial payments
+      for (const contribution of memberContributions) {
+        if (contribution.balance && contribution.balance > 0) {
+          pendingAmount += contribution.balance;
+        }
+      }
+    }
+
     return {
       id: member.id,
       globalMemberId: member.globalMemberId,
@@ -435,8 +476,10 @@ async function getChitFundMembers(request: NextRequest, id: number, currentUserI
       contributionsCount: member._count.contributions,
       auctionWon: wonAuction !== null,
       auctionMonth: wonAuction?.month || null,
+      missedContributions: missedContributions,
+      pendingAmount: pendingAmount,
     };
-  });
+  }));
 
   return NextResponse.json({
     members: transformedMembers,
@@ -819,15 +862,25 @@ async function addContribution(request: NextRequest, id: number, currentUserId: 
     );
   }
 
-  // Create the contribution
+  // Calculate balance if the payment is partial
+  const expectedAmount = chitFund.monthlyContribution;
+  const paidAmount = parseFloat(body.amount);
+  const isPartialPayment = paidAmount < expectedAmount;
+
+  // Create the contribution with balance information if it's a partial payment
   const contribution = await prisma.contribution.create({
     data: {
       memberId: parseInt(body.memberId),
       chitFundId: id,
       month: parseInt(body.month),
-      amount: parseFloat(body.amount),
+      amount: paidAmount,
       paidDate: new Date(body.paidDate),
       notes: body.notes || null,
+      // Set balance and status for partial payments
+      balance: isPartialPayment ? expectedAmount - paidAmount : 0,
+      balancePaymentStatus: isPartialPayment ? 'Pending' : null,
+      // Set a default balance payment date 30 days from now if it's a partial payment
+      balancePaymentDate: isPartialPayment ? new Date(new Date().setDate(new Date().getDate() + 30)) : null,
     },
   });
 
@@ -1082,6 +1135,11 @@ async function updateContribution(request: NextRequest, id: number, currentUserI
       ...(body.amount && { amount: parseFloat(body.amount) }),
       ...(body.paidDate && { paidDate: new Date(body.paidDate) }),
       ...(body.notes !== undefined && { notes: body.notes }),
+      ...(body.balancePaymentStatus !== undefined && { balancePaymentStatus: body.balancePaymentStatus }),
+      ...(body.balancePaymentDate !== undefined && { balancePaymentDate: body.balancePaymentDate ? new Date(body.balancePaymentDate) : null }),
+      ...(body.actualBalancePaymentDate !== undefined && { actualBalancePaymentDate: body.actualBalancePaymentDate ? new Date(body.actualBalancePaymentDate) : null }),
+      // If marking as paid, set balance to 0
+      ...(body.balancePaymentStatus === 'Paid' && { balance: 0 }),
     },
   });
 

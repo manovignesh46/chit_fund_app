@@ -9,6 +9,8 @@ interface ChitFundMember {
   id: number;
   joinDate: string;
   contribution: number;
+  missedContributions?: number;
+  pendingAmount?: number;
   chitFund: {
     id: number;
     name: string;
@@ -25,6 +27,8 @@ interface Loan {
   status: string;
   disbursementDate: string;
   remainingAmount: number;
+  overdueAmount: number;
+  missedPayments: number;
 }
 
 interface GlobalMember {
@@ -52,6 +56,10 @@ export default function MemberDetailPage() {
   const [member, setMember] = useState<GlobalMember | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // For exporting member data
+  const [isExporting, setIsExporting] = useState(false);
+  const [exportError, setExportError] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchMember = async () => {
@@ -90,6 +98,53 @@ export default function MemberDetailPage() {
       day: 'numeric'
     };
     return new Date(dateString).toLocaleDateString('en-IN', options);
+  };
+
+  // Handle exporting member data
+  const handleExportMember = async () => {
+    if (!member) return;
+
+    try {
+      setIsExporting(true);
+      setExportError(null);
+
+      const response = await fetch('/api/members/export', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ memberIds: [member.id] }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to export member');
+      }
+
+      // Get the filename from the Content-Disposition header
+      const contentDisposition = response.headers.get('Content-Disposition');
+      const filename = contentDisposition ?
+        contentDisposition.split('filename=')[1].replace(/"/g, '') :
+        'member_export.xlsx';
+
+      // Convert the response to a blob
+      const blob = await response.blob();
+
+      // Create a download link and trigger the download
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.style.display = 'none';
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (error: any) {
+      console.error('Error exporting member:', error);
+      setExportError(error.message || 'Failed to export member');
+    } finally {
+      setIsExporting(false);
+    }
   };
 
   if (loading) {
@@ -138,12 +193,28 @@ export default function MemberDetailPage() {
 
   return (
     <div className="container mx-auto px-4 py-8">
+      {exportError && (
+        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-6">
+          <p className="font-bold">Export Error</p>
+          <p>{exportError}</p>
+        </div>
+      )}
+
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-3xl font-bold text-blue-700">{member.name}</h1>
         <div className="flex space-x-4">
           <Link href="/members" className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition duration-300">
             Back to Members
           </Link>
+          <button
+            onClick={handleExportMember}
+            disabled={isExporting}
+            className={`px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition duration-300 ${
+              isExporting ? 'opacity-50 cursor-not-allowed' : ''
+            }`}
+          >
+            {isExporting ? 'Exporting...' : 'Export Member Data'}
+          </button>
           <Link
             href={`/members/${member.id}/edit`}
             className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-300"
@@ -211,6 +282,12 @@ export default function MemberDetailPage() {
                     Contribution
                   </th>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Missed Contributions
+                  </th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Pending Amount
+                  </th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Join Date
                   </th>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -240,6 +317,16 @@ export default function MemberDetailPage() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm text-gray-900">{formatCurrency(membership.contribution)}</div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className={`text-sm ${membership.missedContributions > 0 ? 'text-red-600 font-semibold' : 'text-gray-900'}`}>
+                        {membership.missedContributions || 0}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className={`text-sm ${membership.pendingAmount > 0 ? 'text-red-600 font-semibold' : 'text-gray-900'}`}>
+                        {formatCurrency(membership.pendingAmount || 0)}
+                      </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm text-gray-900">{formatDate(membership.joinDate)}</div>
@@ -283,6 +370,12 @@ export default function MemberDetailPage() {
                     Remaining
                   </th>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Overdue Amount
+                  </th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Missed Payments
+                  </th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Status
                   </th>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -304,6 +397,16 @@ export default function MemberDetailPage() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm text-gray-900">{formatCurrency(loan.remainingAmount)}</div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className={`text-sm ${loan.overdueAmount > 0 ? 'text-red-600 font-semibold' : 'text-gray-900'}`}>
+                        {formatCurrency(loan.overdueAmount || 0)}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className={`text-sm ${loan.missedPayments > 0 ? 'text-red-600 font-semibold' : 'text-gray-900'}`}>
+                        {loan.missedPayments || 0}
+                      </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${

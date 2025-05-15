@@ -349,13 +349,19 @@ export default function ChitFundContributionsPage() {
       // Get all members with their status for this month
       const membersWithStatus = getMembersWithStatusForMonth(month);
       const pendingMembers = membersWithStatus.filter(m => m.status === 'pending');
+      const pendingCount = pendingMembers.length;
+      const contributionCount = contributionsForMonth.length;
 
       // Calculate totals for this month
       const totalExpected = chitFund ? chitFund.monthlyContribution * chitFund.membersCount : 0;
       const totalCollected = contributionsForMonth.reduce((sum, c) => sum + c.amount, 0);
-      const totalBalance = contributionsForMonth.reduce((sum, c) => sum + c.balance, 0);
-      const contributionCount = contributionsForMonth.length;
-      const pendingCount = pendingMembers.length;
+
+      // Calculate total balance including both:
+      // 1. Balance from partial payments (where balance > 0)
+      // 2. Expected contributions from pending members
+      const balanceFromPartialPayments = contributionsForMonth.reduce((sum, c) => sum + c.balance, 0);
+      const pendingMembersExpectedAmount = pendingCount > 0 ? pendingCount * (chitFund?.monthlyContribution || 0) : 0;
+      const totalBalance = balanceFromPartialPayments + pendingMembersExpectedAmount;
 
       monthlyContributions.push({
         month,
@@ -942,7 +948,14 @@ export default function ChitFundContributionsPage() {
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           {monthData.totalBalance > 0 ? (
-                            <div className="text-sm text-red-600 font-semibold">{formatCurrency(monthData.totalBalance)}</div>
+                            <div>
+                              <div className="text-sm text-red-600 font-semibold">{formatCurrency(monthData.totalBalance)}</div>
+                              {monthData.pendingCount > 0 && (
+                                <div className="text-xs text-gray-500 mt-1">
+                                  Includes {monthData.pendingCount} pending member{monthData.pendingCount > 1 ? 's' : ''}
+                                </div>
+                              )}
+                            </div>
                           ) : (
                             <div className="text-sm text-green-600 font-semibold">Fully collected</div>
                           )}

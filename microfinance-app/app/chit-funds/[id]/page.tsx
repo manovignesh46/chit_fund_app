@@ -628,7 +628,7 @@ const ChitFundDetails = () => {
                         <div className="text-sm text-gray-900">{formatDate(auction.date)}</div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm font-medium text-blue-600">{auction.winner?.name || 'Unknown'}</div>
+                        <div className="text-sm font-medium text-blue-600">{auction.winner?.globalMember?.name || `Member ID: ${auction.winnerId}`}</div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="text-sm text-gray-900">{formatCurrency(auction.amount)}</div>

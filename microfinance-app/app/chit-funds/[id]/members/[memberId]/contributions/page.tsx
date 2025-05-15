@@ -62,6 +62,22 @@ export default function MemberContributionsPage() {
   const [isUpdating, setIsUpdating] = useState(false);
   const [updateError, setUpdateError] = useState<string | null>(null);
 
+  // For recording a new contribution
+  const [showRecordModal, setShowRecordModal] = useState(false);
+  const [selectedMonth, setSelectedMonth] = useState<number | null>(null);
+  const [newContribution, setNewContribution] = useState({
+    amount: '',
+    paidDate: new Date().toISOString().split('T')[0],
+    notes: '',
+  });
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [submitSuccess, setSubmitSuccess] = useState<string | null>(null);
+
+  // For exporting member data
+  const [isExporting, setIsExporting] = useState(false);
+  const [exportError, setExportError] = useState<string | null>(null);
+
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -184,6 +200,8 @@ export default function MemberContributionsPage() {
           paidDate: new Date(selectedContribution.paidDate).toISOString().split('T')[0],
           balancePaymentStatus: 'Paid',
           actualBalancePaymentDate: new Date().toISOString().split('T')[0],
+          // Set balance to 0 when marking as paid
+          balance: 0,
         },
         'Failed to update balance payment status'
       );
@@ -201,6 +219,119 @@ export default function MemberContributionsPage() {
       setUpdateError(error.message || 'Failed to update balance payment status');
     } finally {
       setIsUpdating(false);
+    }
+  };
+
+  // Handle opening the record contribution modal
+  const handleOpenRecordModal = (month: number) => {
+    setSelectedMonth(month);
+    setNewContribution({
+      amount: chitFund ? chitFund.monthlyContribution.toString() : '',
+      paidDate: new Date().toISOString().split('T')[0],
+      notes: '',
+    });
+    setShowRecordModal(true);
+    setSubmitError(null);
+    setSubmitSuccess(null);
+  };
+
+  // Handle exporting member data
+  const handleExportMember = async () => {
+    if (!member) return;
+
+    try {
+      setIsExporting(true);
+      setExportError(null);
+
+      // Create a form to submit as POST
+      const form = document.createElement('form');
+      form.method = 'POST';
+      form.action = `/api/chit-funds/${chitFundId}/members/export`;
+      form.target = '_blank'; // Open in new tab
+
+      // Add member ID as hidden input
+      const input = document.createElement('input');
+      input.type = 'hidden';
+      input.name = 'memberIds';
+      input.value = JSON.stringify([member.id]);
+      form.appendChild(input);
+
+      // Submit the form
+      document.body.appendChild(form);
+      form.submit();
+      document.body.removeChild(form);
+    } catch (error: any) {
+      console.error('Error exporting member:', error);
+      setExportError(error.message || 'Failed to export member');
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  // Handle recording a new contribution
+  const handleRecordContribution = async () => {
+    if (!chitFund || !member || selectedMonth === null) return;
+
+    // Validate form
+    if (!newContribution.amount || parseFloat(newContribution.amount) <= 0) {
+      setSubmitError('Please enter a valid amount');
+      return;
+    }
+
+    if (!newContribution.paidDate) {
+      setSubmitError('Please enter a valid payment date');
+      return;
+    }
+
+    setIsSubmitting(true);
+    setSubmitError(null);
+    setSubmitSuccess(null);
+
+    try {
+      // Use the apiPost function from apiUtils
+      const { apiPost } = await import('./apiUtils');
+
+      // Check if it's a partial payment
+      const paidAmount = parseFloat(newContribution.amount);
+      const expectedAmount = chitFund.monthlyContribution;
+      const isPartialPayment = paidAmount < expectedAmount;
+
+      // Prepare the request data
+      const requestData = {
+        memberId: member.id,
+        month: selectedMonth,
+        amount: paidAmount,
+        paidDate: newContribution.paidDate,
+        notes: newContribution.notes || null,
+      };
+
+      const recordedContribution = await apiPost(
+        `/api/chit-funds/consolidated?action=add-contribution&id=${chitFundId}`,
+        requestData,
+        'Failed to record contribution'
+      );
+
+      // Update the contributions list
+      setContributions([...contributions, recordedContribution]);
+
+      // Show success message with payment status
+      let successMessage = `Successfully recorded contribution for Month ${selectedMonth}`;
+      if (isPartialPayment) {
+        successMessage += ` (Partial payment: ${formatCurrency(paidAmount)} of ${formatCurrency(expectedAmount)})`;
+      }
+      setSubmitSuccess(successMessage);
+
+      // Close the modal after a delay
+      setTimeout(() => {
+        setShowRecordModal(false);
+        setSubmitSuccess(null);
+      }, 2000);
+
+    } catch (error: any) {
+      console.error('Error recording contribution:', error);
+      setSubmitError(error.message || 'Failed to record contribution');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -257,12 +388,28 @@ export default function MemberContributionsPage() {
             {chitFund.name} | Monthly Contribution: {formatCurrency(chitFund.monthlyContribution)}
           </p>
         </div>
-        <div>
+        <div className="flex space-x-4">
+          <button
+            onClick={handleExportMember}
+            disabled={isExporting}
+            className={`px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition duration-300 ${
+              isExporting ? 'opacity-50 cursor-not-allowed' : ''
+            }`}
+          >
+            {isExporting ? 'Exporting...' : 'Export Member Data'}
+          </button>
           <Link href={`/chit-funds/${chitFundId}/members`} className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition duration-300">
             Back to Members
           </Link>
         </div>
       </div>
+
+      {/* Error Messages */}
+      {exportError && (
+        <div className="mb-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative">
+          <span className="block sm:inline">{exportError}</span>
+        </div>
+      )}
 
       {/* Member Info Card */}
       <div className="bg-white rounded-lg shadow-md p-6 mb-8">
@@ -317,7 +464,7 @@ export default function MemberContributionsPage() {
                   <tr
                     key={monthData.month}
                     className={`hover:bg-gray-50 ${monthData.status === 'paid' ? 'cursor-pointer' : ''}`}
-                    onClick={() => monthData.contribution && handleViewContribution(monthData.contribution)}
+                    onClick={() => monthData.status === 'paid' && monthData.contribution && handleViewContribution(monthData.contribution)}
                   >
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm text-gray-900">Month {monthData.month}</div>
@@ -333,7 +480,18 @@ export default function MemberContributionsPage() {
                       {monthData.status === 'paid' ? (
                         <div className="text-sm text-gray-900">{formatDate(monthData.contribution!.paidDate)}</div>
                       ) : (
-                        <div className="text-sm text-red-600 font-semibold">Pending</div>
+                        <div className="flex items-center">
+                          <div className="text-sm text-red-600 font-semibold mr-2">Pending</div>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleOpenRecordModal(monthData.month);
+                            }}
+                            className="px-2 py-1 bg-green-600 text-white text-xs rounded hover:bg-green-700 transition duration-300"
+                          >
+                            Record Payment
+                          </button>
+                        </div>
                       )}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
@@ -341,7 +499,10 @@ export default function MemberContributionsPage() {
                         monthData.contribution!.balancePaymentStatus === 'Paid' ? (
                           <div className="text-sm text-green-600 font-semibold">Paid in full</div>
                         ) : monthData.contribution!.balance > 0 ? (
-                          <div className="text-sm text-red-600 font-semibold">{formatCurrency(monthData.contribution!.balance)}</div>
+                          <div className="flex flex-col">
+                            <div className="text-sm text-red-600 font-semibold">{formatCurrency(monthData.contribution!.balance)}</div>
+                            <div className="text-xs text-yellow-600 font-medium">Partial payment</div>
+                          </div>
                         ) : (
                           <div className="text-sm text-green-600 font-semibold">Paid in full</div>
                         )
@@ -369,6 +530,96 @@ export default function MemberContributionsPage() {
           </table>
         </div>
       </div>
+
+      {/* Record Contribution Modal */}
+      {showRecordModal && selectedMonth !== null && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-md">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-bold text-blue-700">Record Contribution for Month {selectedMonth}</h2>
+              <button
+                onClick={() => setShowRecordModal(false)}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            {submitSuccess && (
+              <div className="mb-4 bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded">
+                <p>{submitSuccess}</p>
+              </div>
+            )}
+
+            {submitError && (
+              <div className="mb-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+                <p>{submitError}</p>
+              </div>
+            )}
+
+            <div className="mb-4">
+              <label htmlFor="amount" className="block text-sm font-medium text-gray-700 mb-1">
+                Amount <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="number"
+                id="amount"
+                value={newContribution.amount}
+                onChange={(e) => setNewContribution({...newContribution, amount: e.target.value})}
+                className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                placeholder="Enter amount"
+              />
+            </div>
+
+            <div className="mb-4">
+              <label htmlFor="paidDate" className="block text-sm font-medium text-gray-700 mb-1">
+                Payment Date <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="date"
+                id="paidDate"
+                value={newContribution.paidDate}
+                onChange={(e) => setNewContribution({...newContribution, paidDate: e.target.value})}
+                className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+            </div>
+
+            <div className="mb-6">
+              <label htmlFor="notes" className="block text-sm font-medium text-gray-700 mb-1">
+                Notes
+              </label>
+              <textarea
+                id="notes"
+                value={newContribution.notes}
+                onChange={(e) => setNewContribution({...newContribution, notes: e.target.value})}
+                className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                rows={3}
+                placeholder="Optional notes about this contribution"
+              ></textarea>
+            </div>
+
+            <div className="flex justify-end space-x-4">
+              <button
+                onClick={() => setShowRecordModal(false)}
+                className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition duration-300"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleRecordContribution}
+                disabled={isSubmitting}
+                className={`px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition duration-300 ${
+                  isSubmitting ? 'opacity-50 cursor-not-allowed' : ''
+                }`}
+              >
+                {isSubmitting ? 'Recording...' : 'Record Contribution'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Contribution Detail Modal */}
       {showDetailModal && selectedContribution && (
@@ -434,7 +685,9 @@ export default function MemberContributionsPage() {
                         ? 'text-red-600'
                         : 'text-yellow-600'
                     }`}>
-                      {selectedContribution.balancePaymentStatus || 'Pending'}
+                      {selectedContribution.balancePaymentStatus === 'Pending' && selectedContribution.balance > 0
+                        ? 'Partial Payment'
+                        : selectedContribution.balancePaymentStatus || 'Paid in full'}
                     </p>
                   </div>
 

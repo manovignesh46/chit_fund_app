@@ -64,14 +64,12 @@ export default function MembersPage() {
   const [totalPages, setTotalPages] = useState(1);
   const [pageSize, setPageSize] = useState(10);
 
-  // For assigning members to chit fund
-  const [showAssignModal, setShowAssignModal] = useState(false);
-  const [chitFunds, setChitFunds] = useState<{id: number, name: string, monthlyContribution: number}[]>([]);
-  const [selectedChitFund, setSelectedChitFund] = useState<string>('');
-  const [contribution, setContribution] = useState<string>('');
-  const [isAssigning, setIsAssigning] = useState(false);
-  const [assignError, setAssignError] = useState<string | null>(null);
-  const [assignSuccess, setAssignSuccess] = useState<string | null>(null);
+  // For exporting members
+  const [isExporting, setIsExporting] = useState(false);
+  const [exportingMemberId, setExportingMemberId] = useState<number | null>(null);
+  const [exportError, setExportError] = useState<string | null>(null);
+
+
 
   useEffect(() => {
     fetchMembers();
@@ -302,127 +300,102 @@ export default function MembersPage() {
     }
   };
 
-  // Open assign modal and fetch chit funds
-  const handleOpenAssignModal = async () => {
-    if (selectedMembers.length === 0) return;
-
-    setShowAssignModal(true);
-    setSelectedChitFund('');
-    setContribution('');
-    setAssignError(null);
-    setAssignSuccess(null);
-
+  // Handle exporting a single member
+  const handleExportMember = async (memberId: number) => {
     try {
-      const response = await fetch('/api/chit-funds/consolidated?action=list');
+      setExportingMemberId(memberId);
+      setExportError(null);
+
+      const response = await fetch('/api/members/export', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ memberIds: [memberId] }),
+      });
+
       if (!response.ok) {
-        throw new Error('Failed to fetch chit funds');
+        throw new Error('Failed to export member');
       }
 
-      const data = await response.json();
-      setChitFunds(data.chitFunds || []);
+      // Get the filename from the Content-Disposition header
+      const contentDisposition = response.headers.get('Content-Disposition');
+      const filename = contentDisposition ?
+        contentDisposition.split('filename=')[1].replace(/"/g, '') :
+        'member_export.xlsx';
 
+      // Convert the response to a blob
+      const blob = await response.blob();
+
+      // Create a download link and trigger the download
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.style.display = 'none';
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
     } catch (error: any) {
-      console.error('Error fetching chit funds:', error);
-      setAssignError(error.message || 'Failed to fetch chit funds. Please try again.');
+      console.error('Error exporting member:', error);
+      setExportError(error.message || 'Failed to export member');
+    } finally {
+      setExportingMemberId(null);
     }
   };
 
-  // Handle chit fund selection
-  const handleChitFundChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const fundId = e.target.value;
-    setSelectedChitFund(fundId);
-
-    if (fundId) {
-      const fund = chitFunds.find(f => f.id === parseInt(fundId));
-      if (fund) {
-        setContribution(fund.monthlyContribution.toString());
-      }
-    } else {
-      setContribution('');
-    }
-  };
-
-  // Validate assign form
-  const validateAssignForm = () => {
-    const errors: {[key: string]: string} = {};
-
-    if (!selectedChitFund) {
-      errors.chitFund = 'Please select a chit fund';
-    }
-
-    if (!contribution) {
-      errors.contribution = 'Contribution amount is required';
-    } else if (isNaN(Number(contribution)) || Number(contribution) <= 0) {
-      errors.contribution = 'Contribution must be a positive number';
-    }
-
-    setFormErrors(errors);
-    return Object.keys(errors).length === 0;
-  };
-
-  // Handle assigning members to chit fund
-  const handleAssignMembers = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    if (!validateAssignForm()) {
+  // Handle exporting selected members
+  const handleExportSelectedMembers = async () => {
+    if (selectedMembers.length === 0) {
+      setExportError('Please select at least one member to export');
       return;
     }
 
-    setIsAssigning(true);
-    setAssignError(null);
-    setAssignSuccess(null);
-
     try {
-      let successCount = 0;
-      let errorCount = 0;
+      setIsExporting(true);
+      setExportError(null);
 
-      // Process each selected member
-      for (const memberId of selectedMembers) {
-        const response = await fetch(`/api/chit-funds/${selectedChitFund}/members`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            globalMemberId: memberId,
-            contribution: Number(contribution),
-          }),
-        });
+      const response = await fetch('/api/members/export', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ memberIds: selectedMembers }),
+      });
 
-        if (response.ok) {
-          successCount++;
-        } else {
-          const errorData = await response.json();
-          console.error('Error assigning member:', errorData);
-          errorCount++;
-        }
+      if (!response.ok) {
+        throw new Error('Failed to export members');
       }
 
-      // Show appropriate message
-      if (successCount > 0) {
-        setAssignSuccess(`Successfully assigned ${successCount} member${successCount > 1 ? 's' : ''} to the chit fund.`);
+      // Get the filename from the Content-Disposition header
+      const contentDisposition = response.headers.get('Content-Disposition');
+      const filename = contentDisposition ?
+        contentDisposition.split('filename=')[1].replace(/"/g, '') :
+        'members_export.xlsx';
 
-        // Clear selection after successful assignment
-        setSelectedMembers([]);
-        setSelectAll(false);
+      // Convert the response to a blob
+      const blob = await response.blob();
 
-        // Close modal after a delay
-        setTimeout(() => {
-          setShowAssignModal(false);
-        }, 2000);
-      }
-
-      if (errorCount > 0) {
-        setAssignError(`Failed to assign ${errorCount} member${errorCount > 1 ? 's' : ''}. They may already be part of this chit fund.`);
-      }
-
+      // Create a download link and trigger the download
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.style.display = 'none';
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
     } catch (error: any) {
-      console.error('Error assigning members:', error);
-      setAssignError(error.message || 'Failed to assign members. Please try again.');
+      console.error('Error exporting members:', error);
+      setExportError(error.message || 'Failed to export members');
     } finally {
-      setIsAssigning(false);
+      setIsExporting(false);
     }
   };
+
+
 
   if (loading) {
     return <MembersListSkeleton />;
@@ -457,10 +430,15 @@ export default function MembersPage() {
           {selectedMembers.length > 0 && (
             <>
               <button
-                onClick={handleOpenAssignModal}
-                className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition duration-300"
+                onClick={handleExportSelectedMembers}
+                disabled={isExporting}
+                className={`px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition duration-300 ${
+                  isExporting ? 'opacity-50 cursor-not-allowed' : ''
+                }`}
               >
-                Assign Selected to Chit Fund ({selectedMembers.length})
+                {isExporting
+                  ? 'Exporting...'
+                  : `Export Selected (${selectedMembers.length})`}
               </button>
               <button
                 onClick={handleBulkDeleteClick}
@@ -482,6 +460,13 @@ export default function MembersPage() {
         <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-6">
           <p className="font-bold">Error</p>
           <p>{error}</p>
+        </div>
+      )}
+
+      {exportError && (
+        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-6">
+          <p className="font-bold">Export Error</p>
+          <p>{exportError}</p>
         </div>
       )}
 
@@ -567,6 +552,13 @@ export default function MembersPage() {
                           className="text-green-600 hover:text-green-900"
                         >
                           Edit
+                        </button>
+                        <button
+                          onClick={() => handleExportMember(member.id)}
+                          className={`text-blue-600 hover:text-blue-900 ${exportingMemberId === member.id ? 'opacity-50 cursor-not-allowed' : ''}`}
+                          disabled={exportingMemberId === member.id}
+                        >
+                          {exportingMemberId === member.id ? 'Exporting...' : 'Export'}
                         </button>
                         {member._count.chitFundMembers === 0 && member._count.loans === 0 && (
                           <button
@@ -862,97 +854,7 @@ export default function MembersPage() {
         </div>
       )}
 
-      {/* Assign to Chit Fund Modal */}
-      {showAssignModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-md">
-            <h2 className="text-xl font-bold text-blue-700 mb-4">
-              Assign {selectedMembers.length} Member{selectedMembers.length > 1 ? 's' : ''} to Chit Fund
-            </h2>
 
-            {assignSuccess && (
-              <div className="mb-4 bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded">
-                <p>{assignSuccess}</p>
-              </div>
-            )}
-
-            {assignError && (
-              <div className="mb-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
-                <p>{assignError}</p>
-              </div>
-            )}
-
-            <form onSubmit={handleAssignMembers}>
-              <div className="mb-4">
-                <label htmlFor="chitFund" className="block text-sm font-medium text-gray-700 mb-1">
-                  Select Chit Fund <span className="text-red-500">*</span>
-                </label>
-                <select
-                  id="chitFund"
-                  value={selectedChitFund}
-                  onChange={handleChitFundChange}
-                  className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                    formErrors.chitFund ? 'border-red-500' : 'border-gray-300'
-                  }`}
-                >
-                  <option value="">Select a chit fund</option>
-                  {chitFunds.map((fund) => (
-                    <option key={fund.id} value={fund.id}>
-                      {fund.name} - {new Intl.NumberFormat('en-IN', {
-                        style: 'currency',
-                        currency: 'INR',
-                        maximumFractionDigits: 0,
-                      }).format(fund.monthlyContribution)}
-                    </option>
-                  ))}
-                </select>
-                {formErrors.chitFund && (
-                  <p className="mt-1 text-sm text-red-500">{formErrors.chitFund}</p>
-                )}
-              </div>
-
-              <div className="mb-6">
-                <label htmlFor="contribution" className="block text-sm font-medium text-gray-700 mb-1">
-                  Monthly Contribution <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="number"
-                  id="contribution"
-                  value={contribution}
-                  onChange={(e) => setContribution(e.target.value)}
-                  className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                    formErrors.contribution ? 'border-red-500' : 'border-gray-300'
-                  }`}
-                />
-                {formErrors.contribution && (
-                  <p className="mt-1 text-sm text-red-500">{formErrors.contribution}</p>
-                )}
-              </div>
-
-              <div className="flex justify-end space-x-4">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowAssignModal(false);
-                    setAssignError(null);
-                    setAssignSuccess(null);
-                  }}
-                  className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition duration-300"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={isAssigning}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-300 disabled:opacity-50"
-                >
-                  {isAssigning ? 'Assigning...' : 'Assign Members'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
 
       {/* Bulk Delete Confirmation Modal */}
       {showBulkDeleteModal && (

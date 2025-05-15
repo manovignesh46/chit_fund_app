@@ -21,6 +21,8 @@ interface Member {
   auctionWon: boolean;
   auctionMonth: number | null;
   contribution: number;
+  missedContributions: number;
+  pendingAmount: number;
 }
 
 interface ChitFund {
@@ -79,6 +81,19 @@ export default function ChitFundMembersPage() {
   const [contributionSuccess, setContributionSuccess] = useState<string | null>(null);
   const [contributionError, setContributionError] = useState<string | null>(null);
 
+  // For recording a specific contribution
+  const [showRecordContributionModal, setShowRecordContributionModal] = useState(false);
+  const [selectedMemberForContribution, setSelectedMemberForContribution] = useState<Member | null>(null);
+  const [selectedMonth, setSelectedMonth] = useState<number | null>(null);
+  const [newContribution, setNewContribution] = useState({
+    amount: '',
+    paidDate: new Date().toISOString().split('T')[0],
+    notes: '',
+  });
+  const [isSubmittingContribution, setIsSubmittingContribution] = useState(false);
+  const [submitContributionError, setSubmitContributionError] = useState<string | null>(null);
+  const [submitContributionSuccess, setSubmitContributionSuccess] = useState<string | null>(null);
+
   // For selecting members
   const [selectedMembers, setSelectedMembers] = useState<number[]>([]);
   const [selectAll, setSelectAll] = useState(false);
@@ -87,6 +102,10 @@ export default function ChitFundMembersPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [pageSize, setPageSize] = useState(10);
+
+  // For exporting members
+  const [isExporting, setIsExporting] = useState(false);
+  const [exportError, setExportError] = useState<string | null>(null);
 
   // Fetch global members
   const fetchGlobalMembers = async () => {
@@ -481,6 +500,80 @@ export default function ChitFundMembersPage() {
     }
   };
 
+  // Handle exporting a single member
+  const handleExportMember = async (memberId: number) => {
+    try {
+      setIsExporting(true);
+      setExportError(null);
+
+      // Create a form to submit as POST
+      const form = document.createElement('form');
+      form.method = 'POST';
+      form.action = `/api/chit-funds/${chitFundId}/members/export`;
+      form.target = '_blank'; // Open in new tab
+
+      // Add member ID as hidden input
+      const input = document.createElement('input');
+      input.type = 'hidden';
+      input.name = 'memberIds';
+      input.value = JSON.stringify([memberId]);
+      form.appendChild(input);
+
+      // Add CSRF token if needed
+      // const csrfToken = document.createElement('input');
+      // csrfToken.type = 'hidden';
+      // csrfToken.name = 'csrfToken';
+      // csrfToken.value = 'your-csrf-token';
+      // form.appendChild(csrfToken);
+
+      // Submit the form
+      document.body.appendChild(form);
+      form.submit();
+      document.body.removeChild(form);
+    } catch (error: any) {
+      console.error('Error exporting member:', error);
+      setExportError(error.message || 'Failed to export member');
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  // Handle exporting selected members
+  const handleExportSelectedMembers = async () => {
+    if (selectedMembers.length === 0) {
+      setExportError('Please select at least one member to export');
+      return;
+    }
+
+    try {
+      setIsExporting(true);
+      setExportError(null);
+
+      // Create a form to submit as POST
+      const form = document.createElement('form');
+      form.method = 'POST';
+      form.action = `/api/chit-funds/${chitFundId}/members/export`;
+      form.target = '_blank'; // Open in new tab
+
+      // Add member IDs as hidden input
+      const input = document.createElement('input');
+      input.type = 'hidden';
+      input.name = 'memberIds';
+      input.value = JSON.stringify(selectedMembers);
+      form.appendChild(input);
+
+      // Submit the form
+      document.body.appendChild(form);
+      form.submit();
+      document.body.removeChild(form);
+    } catch (error: any) {
+      console.error('Error exporting members:', error);
+      setExportError(error.message || 'Failed to export members');
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   // Handle adding current month contribution for selected members
   const handleAddCurrentMonthContributionForSelected = async () => {
     if (!chitFund || selectedMembers.length === 0) return;
@@ -698,6 +791,17 @@ export default function ChitFundMembersPage() {
                   : `Add Month ${chitFund.currentMonth} Due for Selected (${selectedMembers.length})`}
               </button>
               <button
+                onClick={handleExportSelectedMembers}
+                disabled={isExporting}
+                className={`px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition duration-300 ${
+                  isExporting ? 'opacity-50 cursor-not-allowed' : ''
+                }`}
+              >
+                {isExporting
+                  ? 'Exporting...'
+                  : `Export Selected (${selectedMembers.length})`}
+              </button>
+              <button
                 onClick={handleBulkDeleteClick}
                 disabled={isBulkDeleting}
                 className={`px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition duration-300 ${
@@ -723,6 +827,12 @@ export default function ChitFundMembersPage() {
       {contributionError && (
         <div className="mb-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative">
           <span className="block sm:inline">{contributionError}</span>
+        </div>
+      )}
+
+      {exportError && (
+        <div className="mb-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative">
+          <span className="block sm:inline">{exportError}</span>
         </div>
       )}
 
@@ -756,6 +866,12 @@ export default function ChitFundMembersPage() {
                   Contribution
                 </th>
                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Missed Contributions
+                </th>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Pending Amount
+                </th>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Auction Status
                 </th>
                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -766,7 +882,7 @@ export default function ChitFundMembersPage() {
             <tbody className="bg-white divide-y divide-gray-200">
               {members.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-6 py-4 text-center text-gray-500">
+                  <td colSpan={9} className="px-6 py-4 text-center text-gray-500">
                     No members found. Add members to this chit fund.
                   </td>
                 </tr>
@@ -794,6 +910,55 @@ export default function ChitFundMembersPage() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm text-gray-900">{formatCurrency(member.contribution)}</div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex flex-col">
+                        <div className={`text-sm ${member.missedContributions > 0 ? 'text-red-600 font-semibold' : 'text-gray-900'}`}>
+                          {member.missedContributions}
+                        </div>
+                        {member.missedContributions > 0 && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              // Find the next missing month
+                              const currentMonth = chitFund?.currentMonth || 1;
+                              const contributedMonths = allContributions
+                                .filter(c => c.memberId === member.id)
+                                .map(c => c.month);
+
+                              // Find the first month that doesn't have a contribution
+                              let missingMonth = 1;
+                              for (let month = 1; month <= currentMonth; month++) {
+                                if (!contributedMonths.includes(month)) {
+                                  missingMonth = month;
+                                  break;
+                                }
+                              }
+
+                              // Open the record contribution modal
+                              handleOpenRecordModal(
+                                member,
+                                missingMonth,
+                                setSelectedMemberForContribution,
+                                setSelectedMonth,
+                                setNewContribution,
+                                chitFund,
+                                setShowRecordContributionModal,
+                                setSubmitContributionError,
+                                setSubmitContributionSuccess
+                              );
+                            }}
+                            className="mt-1 px-2 py-1 bg-green-600 text-white text-xs rounded hover:bg-green-700 transition duration-300"
+                          >
+                            Record Contribution
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className={`text-sm ${member.pendingAmount > 0 ? 'text-red-600 font-semibold' : 'text-gray-900'}`}>
+                        {formatCurrency(member.pendingAmount)}
+                      </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       {member.auctionWon ? (
@@ -826,6 +991,14 @@ export default function ChitFundMembersPage() {
                               : `Add Month ${chitFund.currentMonth} Due`}
                           </button>
                         )}
+                        <button
+                          onClick={() => handleExportMember(member.id)}
+                          className={`text-blue-600 hover:text-blue-900 ${isExporting ? 'opacity-50 cursor-not-allowed' : ''}`}
+                          title="Export member data"
+                          disabled={isExporting}
+                        >
+                          {isExporting ? 'Exporting...' : 'Export'}
+                        </button>
                         <button
                           onClick={() => handleDeleteMember(member.id)}
                           className="text-red-600 hover:text-red-900"
@@ -1220,6 +1393,127 @@ export default function ChitFundMembersPage() {
           </div>
         </div>
       )}
+
+      {/* Record Contribution Modal */}
+      {showRecordContributionModal && selectedMemberForContribution && selectedMonth !== null && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-md">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-bold text-blue-700">Record Contribution for {selectedMemberForContribution.globalMember.name}</h2>
+              <button
+                onClick={() => setShowRecordContributionModal(false)}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <div className="bg-gray-50 p-4 rounded-lg mb-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-sm text-gray-500">Member</p>
+                  <p className="text-md font-semibold">{selectedMemberForContribution.globalMember.name}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-500">Month</p>
+                  <p className="text-md font-semibold">Month {selectedMonth}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-500">Expected Amount</p>
+                  <p className="text-md font-semibold">{formatCurrency(chitFund?.monthlyContribution || 0)}</p>
+                </div>
+              </div>
+            </div>
+
+            {submitContributionSuccess && (
+              <div className="mb-4 bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded">
+                <p>{submitContributionSuccess}</p>
+              </div>
+            )}
+
+            {submitContributionError && (
+              <div className="mb-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+                <p>{submitContributionError}</p>
+              </div>
+            )}
+
+            <div className="mb-4">
+              <label htmlFor="amount" className="block text-sm font-medium text-gray-700 mb-1">
+                Amount <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="number"
+                id="amount"
+                value={newContribution.amount}
+                onChange={(e) => setNewContribution({...newContribution, amount: e.target.value})}
+                className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                placeholder="Enter amount"
+              />
+            </div>
+
+            <div className="mb-4">
+              <label htmlFor="paidDate" className="block text-sm font-medium text-gray-700 mb-1">
+                Payment Date <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="date"
+                id="paidDate"
+                value={newContribution.paidDate}
+                onChange={(e) => setNewContribution({...newContribution, paidDate: e.target.value})}
+                className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+            </div>
+
+            <div className="mb-6">
+              <label htmlFor="notes" className="block text-sm font-medium text-gray-700 mb-1">
+                Notes
+              </label>
+              <textarea
+                id="notes"
+                value={newContribution.notes}
+                onChange={(e) => setNewContribution({...newContribution, notes: e.target.value})}
+                className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                rows={3}
+                placeholder="Optional notes about this contribution"
+              ></textarea>
+            </div>
+
+            <div className="flex justify-end space-x-4">
+              <button
+                onClick={() => setShowRecordContributionModal(false)}
+                className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition duration-300"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleRecordContribution}
+                disabled={isSubmittingContribution}
+                className={`px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition duration-300 ${
+                  isSubmittingContribution ? 'opacity-50 cursor-not-allowed' : ''
+                }`}
+              >
+                {isSubmittingContribution ? 'Recording...' : 'Record Contribution'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
+}
+
+// Handle opening the record contribution modal
+function handleOpenRecordModal(member: any, month: number, setSelectedMemberForContribution: any, setSelectedMonth: any, setNewContribution: any, chitFund: any, setShowRecordContributionModal: any, setSubmitContributionError: any, setSubmitContributionSuccess: any) {
+  setSelectedMemberForContribution(member);
+  setSelectedMonth(month);
+  setNewContribution({
+    amount: chitFund ? chitFund.monthlyContribution.toString() : '',
+    paidDate: new Date().toISOString().split('T')[0],
+    notes: '',
+  });
+  setShowRecordContributionModal(true);
+  setSubmitContributionError(null);
+  setSubmitContributionSuccess(null);
 }
