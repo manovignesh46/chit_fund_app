@@ -4,6 +4,12 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { memberAPI } from '@/lib/api';
+import {
+  ExportButton,
+  EditButton,
+  BackButton,
+  ActionButtonGroup
+} from '@/app/components/buttons/ActionButtons';
 
 interface ChitFundMember {
   id: number;
@@ -202,26 +208,25 @@ export default function MemberDetailPage() {
 
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-3xl font-bold text-blue-700">{member.name}</h1>
-        <div className="flex space-x-4">
-          <Link href="/members" className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition duration-300">
-            Back to Members
-          </Link>
-          <button
+        <ActionButtonGroup>
+          <ExportButton
             onClick={handleExportMember}
             disabled={isExporting}
-            className={`px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition duration-300 ${
-              isExporting ? 'opacity-50 cursor-not-allowed' : ''
-            }`}
+            isExporting={isExporting}
           >
-            {isExporting ? 'Exporting...' : 'Export Member Data'}
-          </button>
-          <Link
+            Export Member Data
+          </ExportButton>
+          <EditButton
             href={`/members/${member.id}/edit`}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-300"
           >
             Edit Member
-          </Link>
-        </div>
+          </EditButton>
+          <BackButton
+            href="/members"
+          >
+            Back to Members
+          </BackButton>
+        </ActionButtonGroup>
       </div>
 
       {/* Member Details */}

@@ -403,7 +403,7 @@ export default function ChitFundsPage() {
           >
             Delete Selected
           </button>
-          <Link href="/chit-funds/new" className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-300">
+          <Link href="/chit-funds/new" className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition duration-300">
             Create New Chit Fund
           </Link>
         </div>
@@ -451,7 +451,7 @@ export default function ChitFundsPage() {
             {statusFilter ? `No chit funds found with status "${statusFilter}".` : "No chit funds found."}
           </p>
           {!statusFilter && (
-            <Link href="/chit-funds/new" className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-300">
+            <Link href="/chit-funds/new" className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition duration-300">
               Create Your First Chit Fund
             </Link>
           )}
@@ -509,7 +509,22 @@ export default function ChitFundsPage() {
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {chitFunds.map((fund) => (
-                  <tr key={fund.id} className="hover:bg-gray-50">
+                  <tr
+                    key={fund.id}
+                    className="hover:bg-gray-50 cursor-pointer"
+                    onClick={(e) => {
+                      // Prevent navigation when clicking on checkbox or action buttons
+                      if (
+                        e.target instanceof HTMLInputElement ||
+                        e.target instanceof HTMLButtonElement ||
+                        (e.target instanceof HTMLElement &&
+                         (e.target.closest('button') || e.target.closest('input')))
+                      ) {
+                        return;
+                      }
+                      window.location.href = `/chit-funds/${fund.id}`;
+                    }}
+                  >
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center">
                         <input
@@ -521,8 +536,8 @@ export default function ChitFundsPage() {
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm font-medium text-blue-600 hover:underline">
-                        <Link href={`/chit-funds/${fund.id}`}>{fund.name}</Link>
+                      <div className="text-sm font-medium text-blue-600">
+                        {fund.name}
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
@@ -547,17 +562,61 @@ export default function ChitFundsPage() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                       <div className="flex space-x-2">
-                        <Link href={`/chit-funds/${fund.id}`} className="text-blue-600 hover:text-blue-900">
-                          View
+                        <Link href={`/chit-funds/${fund.id}/edit`} className="text-green-600 hover:text-green-900">
+                          Edit
                         </Link>
-                        <Link href={`/chit-funds/${fund.id}/members`} className="text-green-600 hover:text-green-900">
-                          Members
-                        </Link>
-                        {fund.status === 'Active' && (
-                          <Link href={`/chit-funds/${fund.id}/auction`} className="text-purple-600 hover:text-purple-900">
-                            Auction
-                          </Link>
-                        )}
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            const exportSingleChitFund = async () => {
+                              try {
+                                setIsExporting(true);
+
+                                // Call the direct export API endpoint
+                                const response = await fetch(`/api/chit-funds/${fund.id}/export`);
+
+                                if (!response.ok) {
+                                  throw new Error('Failed to export chit fund details');
+                                }
+
+                                // Get the blob from the response
+                                const blob = await response.blob();
+
+                                // Create a URL for the blob
+                                const url = window.URL.createObjectURL(blob);
+
+                                // Generate filename
+                                const chitFundName = fund.name.replace(/[^a-zA-Z0-9]/g, '_');
+                                const today = new Date();
+                                const dateStr = today.toISOString().split('T')[0]; // YYYY-MM-DD format
+                                const filename = `${chitFundName}_${dateStr}.xlsx`;
+
+                                // Create a temporary link element
+                                const a = document.createElement('a');
+                                a.href = url;
+                                a.download = filename;
+
+                                // Append to the document and trigger a click
+                                document.body.appendChild(a);
+                                a.click();
+
+                                // Clean up
+                                window.URL.revokeObjectURL(url);
+                                document.body.removeChild(a);
+                              } catch (error) {
+                                console.error('Error exporting chit fund:', error);
+                                alert('Failed to export chit fund. Please try again.');
+                              } finally {
+                                setIsExporting(false);
+                              }
+                            };
+                            exportSingleChitFund();
+                          }}
+                          className="text-blue-600 hover:text-blue-900"
+                          title="Export chit fund data"
+                        >
+                          Export
+                        </button>
                         <button
                           onClick={() => handleDeleteChitFund(fund.id)}
                           className="text-red-600 hover:text-red-900"

@@ -406,9 +406,45 @@ export default function MembersPage() {
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-3xl font-bold text-blue-700">Members</h1>
         <div className="flex space-x-4">
-          <Link href="/dashboard" className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition duration-300">
-            Back to Dashboard
-          </Link>
+          <button
+            onClick={handleExportSelectedMembers}
+            disabled={selectedMembers.length === 0 || isExporting}
+            className={`px-4 py-2 rounded-lg transition duration-300 flex items-center ${
+              selectedMembers.length === 0
+                ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                : 'bg-blue-600 text-white hover:bg-blue-700'
+            }`}
+          >
+            {isExporting ? (
+              <>
+                <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                Exporting...
+              </>
+            ) : (
+              <>
+                <svg className="-ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                Export Selected {selectedMembers.length > 0 ? `(${selectedMembers.length})` : ''}
+              </>
+            )}
+          </button>
+          <button
+            onClick={handleBulkDeleteClick}
+            disabled={selectedMembers.length === 0 || isBulkDeleting}
+            className={`px-4 py-2 rounded-lg transition duration-300 ${
+              selectedMembers.length === 0
+                ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                : 'bg-red-600 text-white hover:bg-red-700'
+            }`}
+          >
+            {isBulkDeleting
+              ? 'Deleting...'
+              : `Delete Selected${selectedMembers.length > 0 ? ` (${selectedMembers.length})` : ''}`}
+          </button>
           <button
             onClick={() => {
               setCurrentMember({
@@ -423,36 +459,10 @@ export default function MembersPage() {
               setShowForm(true);
               setFormErrors({});
             }}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-300"
+            className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition duration-300"
           >
             Add New Member
           </button>
-          {selectedMembers.length > 0 && (
-            <>
-              <button
-                onClick={handleExportSelectedMembers}
-                disabled={isExporting}
-                className={`px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition duration-300 ${
-                  isExporting ? 'opacity-50 cursor-not-allowed' : ''
-                }`}
-              >
-                {isExporting
-                  ? 'Exporting...'
-                  : `Export Selected (${selectedMembers.length})`}
-              </button>
-              <button
-                onClick={handleBulkDeleteClick}
-                disabled={isBulkDeleting}
-                className={`px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition duration-300 ${
-                  isBulkDeleting ? 'opacity-50 cursor-not-allowed' : ''
-                }`}
-              >
-                {isBulkDeleting
-                  ? 'Deleting...'
-                  : `Delete Selected (${selectedMembers.length})`}
-              </button>
-            </>
-          )}
         </div>
       </div>
 
@@ -516,7 +526,22 @@ export default function MembersPage() {
                 </tr>
               ) : (
                 members.map((member) => (
-                  <tr key={member.id} className="hover:bg-gray-50">
+                  <tr
+                    key={member.id}
+                    className="hover:bg-gray-50 cursor-pointer"
+                    onClick={(e) => {
+                      // Prevent navigation when clicking on checkbox or action buttons
+                      if (
+                        e.target instanceof HTMLInputElement ||
+                        e.target instanceof HTMLButtonElement ||
+                        (e.target instanceof HTMLElement &&
+                         (e.target.closest('button') || e.target.closest('input')))
+                      ) {
+                        return;
+                      }
+                      window.location.href = `/members/${member.id}`;
+                    }}
+                  >
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center">
                         <input
@@ -528,7 +553,9 @@ export default function MembersPage() {
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm font-medium text-blue-600">{member.name}</div>
+                      <div className="text-sm font-medium text-blue-600">
+                        {member.name}
+                      </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm text-gray-900">{member.contact}</div>
@@ -543,10 +570,7 @@ export default function MembersPage() {
                       <div className="text-sm text-gray-900">{member._count.loans}</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                      <div className="flex space-x-4">
-                        <Link href={`/members/${member.id}`} className="text-blue-600 hover:text-blue-900">
-                          View
-                        </Link>
+                      <div className="flex space-x-2">
                         <button
                           onClick={() => handleEditMember(member)}
                           className="text-green-600 hover:text-green-900"
@@ -557,17 +581,17 @@ export default function MembersPage() {
                           onClick={() => handleExportMember(member.id)}
                           className={`text-blue-600 hover:text-blue-900 ${exportingMemberId === member.id ? 'opacity-50 cursor-not-allowed' : ''}`}
                           disabled={exportingMemberId === member.id}
+                          title="Export member data"
                         >
                           {exportingMemberId === member.id ? 'Exporting...' : 'Export'}
                         </button>
-                        {member._count.chitFundMembers === 0 && member._count.loans === 0 && (
-                          <button
-                            onClick={() => handleDeleteMember(member.id)}
-                            className="text-red-600 hover:text-red-900"
-                          >
-                            Delete
-                          </button>
-                        )}
+                        <button
+                          onClick={() => handleDeleteMember(member.id)}
+                          className="text-red-600 hover:text-red-900"
+                          title="Delete member"
+                        >
+                          Delete
+                        </button>
                       </div>
                     </td>
                   </tr>
@@ -823,7 +847,14 @@ export default function MembersPage() {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-md">
             <h2 className="text-xl font-bold text-red-700 mb-4">Confirm Deletion</h2>
-            <p className="mb-6">Are you sure you want to delete this member? This action cannot be undone.</p>
+            <p className="mb-4">Are you sure you want to delete this member? This action cannot be undone.</p>
+            <div className="mb-6 bg-yellow-50 border border-yellow-400 text-yellow-700 p-3 rounded">
+              <p className="font-bold">Warning:</p>
+              <ul className="list-disc pl-5 mt-1">
+                <li>Members associated with chit funds or loans cannot be deleted</li>
+                <li>You will need to remove the member from all chit funds and loans first</li>
+              </ul>
+            </div>
             {deleteError && (
               <div className="mb-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
                 <p>{deleteError}</p>

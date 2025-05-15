@@ -460,7 +460,22 @@ export default function LoansPage() {
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {loans.map((loan) => (
-                  <tr key={loan.id} className="hover:bg-gray-50">
+                  <tr
+                    key={loan.id}
+                    className="hover:bg-gray-50 cursor-pointer"
+                    onClick={(e) => {
+                      // Prevent navigation when clicking on checkbox or action buttons
+                      if (
+                        e.target instanceof HTMLInputElement ||
+                        e.target instanceof HTMLButtonElement ||
+                        (e.target instanceof HTMLElement &&
+                         (e.target.closest('button') || e.target.closest('input')))
+                      ) {
+                        return;
+                      }
+                      window.location.href = `/loans/${loan.id}`;
+                    }}
+                  >
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center">
                         <input
@@ -472,8 +487,8 @@ export default function LoansPage() {
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm font-medium text-green-600 hover:underline">
-                        <Link href={`/loans/${loan.id}`}>{loan.borrower?.name || 'Unknown'}</Link>
+                      <div className="text-sm font-medium text-green-600">
+                        {loan.borrower?.name || 'Unknown'}
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
@@ -506,14 +521,30 @@ export default function LoansPage() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                       <div className="flex space-x-2">
-                        <Link href={`/loans/${loan.id}`} className="text-green-600 hover:text-green-900">
-                          View
+                        <Link href={`/loans/${loan.id}/edit`} className="text-green-600 hover:text-green-900">
+                          Edit
                         </Link>
-                        {loan.status === 'Active' && (
-                          <Link href={`/loans/${loan.id}/repayments`} className="text-blue-600 hover:text-blue-900">
-                            Repayments
-                          </Link>
-                        )}
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            const exportSingleLoan = async () => {
+                              try {
+                                setIsExporting(true);
+                                await loanAPI.exportSelectedLoans([loan.id]);
+                              } catch (error) {
+                                console.error('Error exporting loan:', error);
+                                alert('Failed to export loan. Please try again.');
+                              } finally {
+                                setIsExporting(false);
+                              }
+                            };
+                            exportSingleLoan();
+                          }}
+                          className="text-blue-600 hover:text-blue-900"
+                          title="Export loan data"
+                        >
+                          Export
+                        </button>
                         <button
                           onClick={() => handleDeleteLoan(loan.id)}
                           className="text-red-600 hover:text-red-900"
