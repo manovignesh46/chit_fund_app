@@ -2,6 +2,25 @@ import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { getCurrentUserId } from '@/lib/auth';
 
+// Define extended types for the membership object
+interface ChitFundMembershipWithExtras {
+  id: number;
+  chitFundId: number;
+  globalMemberId: number;
+  contribution: number;
+  createdAt: Date;
+  updatedAt: Date;
+  chitFund: {
+    id: number;
+    name: string;
+    status: string;
+    currentMonth: number;
+    duration: number;
+  };
+  missedContributions?: number;
+  pendingAmount?: number;
+}
+
 // Use ISR with a 5-minute revalidation period
 export const revalidate = 300; // 5 minutes
 export const dynamic = 'force-dynamic'; // Ensure the route is not statically optimized
@@ -277,7 +296,7 @@ async function getMemberDetail(request: NextRequest, id: number, currentUserId: 
     const memberWithContributions = { ...member };
 
     // Process each chit fund membership to add missed contributions and pending amount
-    for (const membership of memberWithContributions.chitFundMembers) {
+    for (const membership of memberWithContributions.chitFundMembers as ChitFundMembershipWithExtras[]) {
       // Only calculate for active chit funds
       if (membership.chitFund.status === 'Active') {
         // Get all contributions for this member in this chit fund

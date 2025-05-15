@@ -710,6 +710,67 @@ export default function ChitFundMembersPage() {
     }
   };
 
+  // Handle recording a contribution
+  const handleRecordContribution = () => {
+    if (!selectedMemberForContribution || selectedMonth === null || !chitFund) {
+      setSubmitContributionError('Missing required information');
+      return;
+    }
+
+    // Validate the form
+    if (!newContribution.amount || parseFloat(newContribution.amount) <= 0) {
+      setSubmitContributionError('Please enter a valid amount');
+      return;
+    }
+
+    if (!newContribution.paidDate) {
+      setSubmitContributionError('Please select a payment date');
+      return;
+    }
+
+    setIsSubmittingContribution(true);
+    setSubmitContributionError(null);
+    setSubmitContributionSuccess(null);
+
+    // Create the contribution using the apiPost utility function
+    apiPost(
+      `/api/chit-funds/consolidated?action=add-contribution&id=${chitFundId}`,
+      {
+        memberId: selectedMemberForContribution.id,
+        month: selectedMonth,
+        amount: parseFloat(newContribution.amount),
+        paidDate: newContribution.paidDate,
+        notes: newContribution.notes || null,
+      },
+      'Failed to record contribution'
+    )
+      .then(() => {
+        // Update the contributions list
+        setAllContributions(prev => [...prev, {
+          memberId: selectedMemberForContribution.id,
+          month: selectedMonth
+        }]);
+
+        // Show success message
+        setSubmitContributionSuccess(`Successfully recorded contribution for ${selectedMemberForContribution.globalMember.name} for month ${selectedMonth}`);
+
+        // Close the modal after a delay
+        setTimeout(() => {
+          setShowRecordContributionModal(false);
+
+          // Refresh the page to get updated data
+          window.location.reload();
+        }, 2000);
+      })
+      .catch((error) => {
+        console.error('Error recording contribution:', error);
+        setSubmitContributionError(error.message || 'Failed to record contribution. Please try again.');
+      })
+      .finally(() => {
+        setIsSubmittingContribution(false);
+      });
+  };
+
   if (loading) {
     return (
       <div className="container mx-auto px-4 py-8">
@@ -1503,6 +1564,8 @@ export default function ChitFundMembersPage() {
     </div>
   );
 }
+
+
 
 // Handle opening the record contribution modal
 function handleOpenRecordModal(member: any, month: number, setSelectedMemberForContribution: any, setSelectedMonth: any, setNewContribution: any, chitFund: any, setShowRecordContributionModal: any, setSubmitContributionError: any, setSubmitContributionSuccess: any) {

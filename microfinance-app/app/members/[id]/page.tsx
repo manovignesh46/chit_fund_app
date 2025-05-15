@@ -319,13 +319,13 @@ export default function MemberDetailPage() {
                       <div className="text-sm text-gray-900">{formatCurrency(membership.contribution)}</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className={`text-sm ${membership.missedContributions > 0 ? 'text-red-600 font-semibold' : 'text-gray-900'}`}>
-                        {membership.missedContributions || 0}
+                      <div className={`text-sm ${(membership.missedContributions ?? 0) > 0 ? 'text-red-600 font-semibold' : 'text-gray-900'}`}>
+                        {membership.missedContributions ?? 0}
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className={`text-sm ${membership.pendingAmount > 0 ? 'text-red-600 font-semibold' : 'text-gray-900'}`}>
-                        {formatCurrency(membership.pendingAmount || 0)}
+                      <div className={`text-sm ${(membership.pendingAmount ?? 0) > 0 ? 'text-red-600 font-semibold' : 'text-gray-900'}`}>
+                        {formatCurrency(membership.pendingAmount ?? 0)}
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
