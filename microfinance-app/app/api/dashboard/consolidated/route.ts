@@ -1213,7 +1213,7 @@ async function getUpcomingEventsForDashboard(userId: number, limit: number = 3) 
     const nextThreeMonths = new Date();
     nextThreeMonths.setMonth(today.getMonth() + 3);
 
-    console.log(`Fetching upcoming events from ${today.toISOString()} to ${nextThreeMonths.toISOString()}`);
+    // Fetch upcoming events from today to next three months
 
     // Get upcoming auctions and active loans in parallel
     const [upcomingAuctions, activeLoans] = await Promise.all([
@@ -1291,8 +1291,7 @@ async function getUpcomingEventsForDashboard(userId: number, limit: number = 3) 
       }),
     ];
 
-    console.log(`Found ${upcomingAuctions.length} upcoming auctions`);
-    console.log(`Processing ${activeLoans.length} active loans for payment schedules`);
+    // Process active loans for payment schedules
 
     // Process each active loan to generate payment schedules
     for (const loan of activeLoans) {
@@ -1380,12 +1379,7 @@ async function getUpcomingEventsForDashboard(userId: number, limit: number = 3) 
     // Take only the requested number of events
     const limitedEvents = events.slice(0, limit);
 
-    // Log the events we're returning
-    console.log('Dashboard events (sorted by date):', limitedEvents.map(e => ({
-      title: e.title,
-      date: e.date,
-      isDueTomorrow: e.isDueTomorrow
-    })));
+    // Return the limited events sorted by date
 
     console.timeEnd(timerLabel);
     return limitedEvents;
@@ -1443,8 +1437,6 @@ async function getEventsForMonth(userId: number, year: number, month: number) {
     console.time(timerLabel);
 
     // Create a date range for the specified month
-    console.log(`Filtering events for year: ${year}, month: ${month}`);
-
     // Create start date (first day of the specified month)
     const startDate = new Date(year, month - 1, 1); // Month is 0-indexed in JavaScript Date
 
@@ -1452,21 +1444,13 @@ async function getEventsForMonth(userId: number, year: number, month: number) {
     const endDate = new Date(year, month, 0); // Day 0 of next month = last day of current month
     endDate.setHours(23, 59, 59, 999);
 
-    console.log(`Date range: ${startDate.toISOString()} to ${endDate.toISOString()}`);
-
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
     const tomorrow = new Date(today);
     tomorrow.setDate(tomorrow.getDate() + 1);
 
-    // Log the date range for debugging
-    console.log('Fetching events for date range:', {
-      startDate: startDate.toISOString(),
-      endDate: endDate.toISOString(),
-      year,
-      month
-    });
+    // Fetch events for the specified date range
 
     // Get auctions and active loans in parallel for the specified month
     const [monthAuctions, activeLoans] = await Promise.all([
@@ -1517,9 +1501,7 @@ async function getEventsForMonth(userId: number, year: number, month: number) {
       })
     ]);
 
-    // Log the results for debugging
-    console.log('Found auctions:', monthAuctions.length);
-    console.log('Found active loans:', activeLoans.length);
+    // Process auctions and active loans
 
     // Initialize events array with auctions
     const events = [
@@ -1549,14 +1531,7 @@ async function getEventsForMonth(userId: number, year: number, month: number) {
 
     // Process each active loan to check for payment schedules in this month
     for (const loan of activeLoans) {
-      // Log loan details for debugging
-      console.log('Processing loan:', {
-        id: loan.id,
-        disbursementDate: loan.disbursementDate,
-        repaymentType: loan.repaymentType,
-        duration: loan.duration,
-        borrowerName: loan.borrower?.name
-      });
+      // Process loan payment schedules
 
       // Create a map of repayments by period for quick lookup
       const repaymentsByPeriod = new Map();
@@ -1589,15 +1564,7 @@ async function getEventsForMonth(userId: number, year: number, month: number) {
         // Check if the due date is in the specified month
         const isInMonth = dueDate >= startDate && dueDate <= endDate;
 
-        // Log payment schedule details for debugging
-        console.log(`Loan ${loan.id}, Period ${period}:`, {
-          dueDate: dueDate.toISOString(),
-          isPaid,
-          isInMonth,
-          startDate: startDate.toISOString(),
-          endDate: endDate.toISOString(),
-          repayment: repayment || 'none'
-        });
+        // Check if payment is due in this month
 
         // Only add unpaid schedules that are in the specified month
         if (!isPaid && isInMonth) {
@@ -1629,11 +1596,7 @@ async function getEventsForMonth(userId: number, year: number, month: number) {
       }
     }
 
-    // Log all events before sorting
-    console.log(`Total events found for ${year}-${month} before sorting:`, events.length);
-
-    // Log date range again for clarity
-    console.log(`Filtered events between ${startDate.toISOString()} and ${endDate.toISOString()}`);
+    // Sort events by date
 
     // Sort by date (soonest first)
     events.sort((a, b) => {
@@ -1645,8 +1608,7 @@ async function getEventsForMonth(userId: number, year: number, month: number) {
     // Remove rawDate from the response
     const formattedEvents = events.map(({ rawDate, ...rest }) => rest);
 
-    // Log final events
-    console.log(`Final events for ${year}-${month} after processing:`, formattedEvents);
+    // Return formatted events
 
     console.timeEnd(timerLabel);
     return formattedEvents;

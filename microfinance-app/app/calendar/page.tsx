@@ -36,20 +36,12 @@ export default function CalendarPage() {
         const year = currentMonth.getFullYear();
         const month = currentMonth.getMonth() + 1; // 1-12
 
-        console.log(`Fetching events for year: ${year}, month: ${month}`);
-
         // Fetch events for the specific month
         const data = await fetch(`/api/dashboard/consolidated?action=events&view=calendar&year=${year}&month=${month}`)
           .then(res => res.json());
 
-        // Log the raw data for debugging
-        console.log(`Calendar API response for ${year}-${month}:`, data);
-
         // Convert string dates to Date objects for easier comparison
         const eventsWithDates = data.map((event: Event) => {
-          // Log each event's date parsing for debugging
-          console.log('Event date before parsing:', event.date);
-
           // Parse date in format "19 May 2025" to a Date object
           let parsedDate: Date;
 
@@ -71,7 +63,6 @@ export default function CalendarPage() {
 
             if (!isNaN(day) && month !== undefined && !isNaN(year)) {
               parsedDate = new Date(year, month, day);
-              console.log(`Successfully parsed date: ${event.date} -> ${parsedDate.toISOString()}`);
             } else {
               console.error(`Failed to parse date parts: day=${day}, month=${monthName}(${month}), year=${year}`);
               parsedDate = new Date(); // Fallback to current date
@@ -81,16 +72,13 @@ export default function CalendarPage() {
             parsedDate = new Date(); // Fallback to current date
           }
 
-          console.log('Event date after parsing:', parsedDate);
-
           return {
             ...event,
             rawDate: parsedDate
           };
         });
 
-        // Log the processed events
-        console.log('Processed events:', eventsWithDates);
+        // Set the processed events with parsed dates
 
         setEvents(eventsWithDates);
         setError(null);
@@ -127,12 +115,8 @@ export default function CalendarPage() {
 
   // Get events for a specific day
   const getEventsForDay = (day: Date) => {
-    // Log for debugging
-    console.log(`Getting events for day: ${format(day, 'yyyy-MM-dd')}`);
-
     const dayEvents = events.filter(event => {
       if (!event.rawDate) {
-        console.log('Event has no rawDate:', event);
         return false;
       }
 
@@ -140,20 +124,8 @@ export default function CalendarPage() {
       if (filter !== 'all' && event.type !== filter) return false;
 
       // Check if the dates are the same day
-      const isSame = isSameDay(event.rawDate, day);
-
-      // Log for debugging
-      if (isSame) {
-        console.log(`Found event for ${format(day, 'yyyy-MM-dd')}:`, event);
-      }
-
-      return isSame;
+      return isSameDay(event.rawDate, day);
     });
-
-    // Log the filtered events for this day
-    if (dayEvents.length > 0) {
-      console.log(`Found ${dayEvents.length} events for ${format(day, 'yyyy-MM-dd')}`);
-    }
 
     return dayEvents;
   };

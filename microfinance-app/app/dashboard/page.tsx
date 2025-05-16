@@ -22,6 +22,9 @@ export default function DashboardPage() {
     type: string;
     isDueTomorrow?: boolean;
     totalCount?: number;
+    entityId?: number;
+    entityType?: string;
+    period?: number;
   }
 
   interface OutsideAmountBreakdown {
@@ -585,31 +588,42 @@ export default function DashboardPage() {
                 <p className="text-gray-500 text-center py-4">No upcoming events found.</p>
               ) : (
                 <div className="space-y-4">
-                  {dashboardData.upcomingEvents.map((event: Event) => (
-                    <div
-                      key={event.id}
-                      className={`border-l-4 pl-4 ${event.isDueTomorrow ? 'bg-yellow-50 rounded-r p-2' : ''}`}
-                      style={{
-                        borderColor: event.type === 'Chit Fund' ? '#3b82f6' : '#10b981'
-                      }}
-                    >
-                      <h3 className="font-semibold">{event.title}</h3>
-                      <p className="text-gray-600 text-sm">{event.date}</p>
-                      <div className="flex flex-wrap gap-2 mt-1">
-                        <span className={`inline-block px-2 py-1 rounded-full text-xs ${
-                          event.type === 'Chit Fund' ? 'bg-blue-100 text-blue-800' : 'bg-green-100 text-green-800'
-                        }`}>
-                          {event.type}
-                        </span>
-                        {event.isDueTomorrow && (
-                          <span className="px-2 py-1 text-xs font-semibold rounded-full bg-amber-100 text-amber-800 border border-amber-200"
-                                title="This event is due tomorrow">
-                            Due Tomorrow
+                  {dashboardData.upcomingEvents.map((event: Event) => {
+                    // Generate link based on entity type
+                    let eventLink = '#';
+                    if (event.entityType === 'loan' && event.entityId) {
+                      eventLink = `/loans/${event.entityId}`;
+                    } else if (event.entityType === 'chitFund' && event.entityId) {
+                      eventLink = `/chit-funds/${event.entityId}`;
+                    }
+
+                    return (
+                      <Link
+                        href={eventLink}
+                        key={event.id}
+                        className={`block border-l-4 pl-4 hover:bg-gray-50 transition-colors duration-200 ${event.isDueTomorrow ? 'bg-yellow-50 rounded-r p-2' : ''}`}
+                        style={{
+                          borderColor: event.type === 'Chit Fund' ? '#3b82f6' : '#10b981'
+                        }}
+                      >
+                        <h3 className="font-semibold">{event.title}</h3>
+                        <p className="text-gray-600 text-sm">{event.date}</p>
+                        <div className="flex flex-wrap gap-2 mt-1">
+                          <span className={`inline-block px-2 py-1 rounded-full text-xs ${
+                            event.type === 'Chit Fund' ? 'bg-blue-100 text-blue-800' : 'bg-green-100 text-green-800'
+                          }`}>
+                            {event.type}
                           </span>
-                        )}
-                      </div>
-                    </div>
-                  ))}
+                          {event.isDueTomorrow && (
+                            <span className="px-2 py-1 text-xs font-semibold rounded-full bg-amber-100 text-amber-800 border border-amber-200"
+                                  title="This event is due tomorrow">
+                              Due Tomorrow
+                            </span>
+                          )}
+                        </div>
+                      </Link>
+                    );
+                  })}
                 </div>
               )}
               <div className="mt-6 text-center">
