@@ -326,32 +326,47 @@ export default function CalendarPage() {
                                 : 'bg-blue-50 border border-blue-200'
                             }`}
                           >
-                            <div className="font-semibold truncate">{event.title}</div>
-                            {event.dueAmount !== undefined && (
-                              <div className="text-xs font-medium text-gray-700 mt-1">
-                                Amount: {formatCurrency(event.dueAmount)}
+                            {/* Line 1: Name + Amount */}
+                            <div className="font-semibold truncate">
+                              {/* Extract name from title (remove "Loan Payment (Period X)" part) */}
+                              {event.title.includes('Loan Payment')
+                                ? event.title.split('Loan Payment')[0].trim().replace(/\s+$/, '')
+                                : event.title}
+                              {event.dueAmount !== undefined && (
+                                <span className="font-medium">: {formatCurrency(event.dueAmount)}</span>
+                              )}
+                            </div>
+
+                            {/* Line 2: Type indicator + Status + due period */}
+                            <div className="flex items-center justify-between mt-1">
+                              <div className="flex items-center">
+                                <span
+                                  className={`inline-block w-2 h-2 rounded-full mr-1 ${
+                                    event.type === 'Loan' ? 'bg-green-500' : 'bg-blue-500'
+                                  }`}
+                                ></span>
+                                <span className="text-xs text-gray-600">{event.type}</span>
+
+                                {event.isDueTomorrow && (
+                                  <span className="ml-1 text-xs text-amber-600 font-semibold">
+                                    Due Tomorrow
+                                  </span>
+                                )}
+                                {event.status === 'Paid' && (
+                                  <span className="ml-1 text-xs text-emerald-600 font-semibold">
+                                    Paid
+                                  </span>
+                                )}
+                                {event.status === 'Overdue' && (
+                                  <span className="ml-1 text-xs text-red-600 font-semibold">
+                                    OD
+                                  </span>
+                                )}
                               </div>
-                            )}
-                            <div className="flex items-center mt-1">
-                              <span
-                                className={`inline-block w-2 h-2 rounded-full mr-1 ${
-                                  event.type === 'Loan' ? 'bg-green-500' : 'bg-blue-500'
-                                }`}
-                              ></span>
-                              <span className="text-xs text-gray-600">{event.type}</span>
-                              {event.isDueTomorrow && (
-                                <span className="ml-1 text-xs text-amber-600 font-semibold">
-                                  Due Tomorrow
-                                </span>
-                              )}
-                              {event.status === 'Paid' && (
-                                <span className="ml-1 text-xs text-emerald-600 font-semibold">
-                                  Paid
-                                </span>
-                              )}
-                              {event.status === 'Overdue' && (
-                                <span className="ml-1 text-xs text-red-600 font-semibold">
-                                  Overdue
+
+                              {event.period && (
+                                <span className="text-xs text-gray-600">
+                                  due: {event.period}
                                 </span>
                               )}
                             </div>

@@ -181,13 +181,25 @@ Default admin credentials are stored in environment variables:
 
 The dashboard provides a comprehensive overview of the financial status:
 
-- **Cash Inflow**: Total money received from loan repayments and chit fund contributions
-- **Cash Outflow**: Total money disbursed for loans and chit fund auctions
-- **Profit**: Separate tracking for loan profit and chit fund profit
-- **Outside Amount**: Tracking when cash outflow exceeds inflow in chit funds
-- **Recent Activities**: Latest member additions, auctions, loans, and repayments
-- **Upcoming Events**: Payment schedules and auction dates
-- **Financial Charts**: Visualizations for cash flow, profit, and outside amount
+- **Remaining Loan Balances**: Total pending loan repayments expected to be collected
+- **Chit Fund Outside Amount**: Amount still pending or over-disbursed from chit fund operations
+- **Profit**: Separate tracking for loan profit and chit fund profit with hidden values by default
+- **Financial Charts**: Visualizations for cash flow, profit, and outside amount with selectable time periods (weekly, monthly, yearly)
+- **Recent Activities**: Latest member additions, auctions, loans, and repayments with detailed information and clickable links
+- **Upcoming Events**: Payment schedules and auction dates with due amounts and status indicators
+
+### Dashboard Cards
+The dashboard displays actionable financial metrics through the following cards:
+
+1. **Remaining Loan Balances**: Shows the total amount of pending loan repayments that are expected to be collected, providing a clear view of outstanding receivables.
+
+2. **Chit Fund Outside Amount**: Displays the amount that is still pending or over-disbursed from chit fund operations, helping track financial exposure.
+
+3. **Total Profit**: Shows the combined profit from all operations, with a toggle option to hide/show the value for privacy.
+
+4. **Profit Breakdown** (visible when Total Profit is toggled on):
+   - **Loan Profit**: Profit from loan interest and document charges
+   - **Chit Fund Profit**: Profit from auction commissions
 
 ## Member Management
 
@@ -288,7 +300,8 @@ Each consolidated route handles multiple actions via query parameters to reduce 
 #### Dashboard Endpoints
 - `GET /api/dashboard/consolidated?action=summary`: Get financial summary data
 - `GET /api/dashboard/consolidated?action=activities`: Get recent activities
-- `GET /api/dashboard/consolidated?action=events`: Get upcoming events
+- `GET /api/dashboard/consolidated?action=events`: Get upcoming events for dashboard
+- `GET /api/dashboard/consolidated?action=events&view=calendar&year={year}&month={month}`: Get events for calendar view with status and due amounts
 - `GET /api/dashboard/consolidated?action=financial-data`: Get financial data for charts
 - `GET /api/dashboard/consolidated?action=export`: Export financial data
 
@@ -344,10 +357,29 @@ All entities include data ownership fields to ensure data is only visible to the
 - Clickable table rows for viewing details instead of separate view buttons
 - Consistent button colors and positioning
 
+### Calendar and Upcoming Events
+- **Calendar View**: Monthly calendar showing all events (loan payments and chit fund auctions)
+- **Event Status Indicators**:
+  - **Paid**: Past events that have been paid are highlighted with green background and "Paid" badge
+  - **Overdue**: Past events that haven't been paid are highlighted with red background and "Overdue" badge
+  - **Due Tomorrow**: Events due tomorrow are highlighted with yellow background (#fff3cd) and "Due Tomorrow" badge
+- **Due Amount Display**: Each event shows the payment amount due
+- **Filtering**: Events can be filtered by type (All, Loan, Chit Fund)
+- **Navigation**: Month-to-month navigation with current month indicator
+- **Event Details**: Clicking an event navigates to the relevant loan or chit fund detail page
+
 ### Dashboard UI
-- Financial metrics displayed prominently at the top
+- Financial metrics displayed prominently at the top with actionable insights
 - Only 3 upcoming events shown by default, with "View Calendar" option for more
-- Graphs for cash inflow/outflow, profit, and outside amount with selectable time periods
+- Each upcoming event displays the due amount and status (Paid, Overdue, or Due Tomorrow)
+- Recent activities section shows the latest transactions and actions with:
+  - Activity type indicator (Loan or Chit Fund)
+  - Date and time of the activity
+  - Detailed description of the action
+  - Amount involved (if applicable)
+  - Clickable links to the relevant entity page
+- Graphs for cash inflow/outflow, profit, and outside amount with selectable time periods (weekly, monthly, yearly)
+- Export functionality for financial data based on selected time period
 
 ### Member Management UI
 - Paginated member list with selectable page sizes (5, 10, 20, 50, 100)
