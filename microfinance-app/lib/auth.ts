@@ -1,5 +1,6 @@
 import { NextRequest } from 'next/server';
 import { verify } from 'jsonwebtoken';
+import { cookies } from 'next/headers';
 
 // Interface for decoded JWT token
 export interface DecodedToken {
@@ -12,13 +13,17 @@ export interface DecodedToken {
 
 /**
  * Get the current user ID from the JWT token in the request cookies
- * @param request The Next.js request object
+ * @param request The Next.js request object (optional in App Router)
  * @returns The user ID or null if not authenticated
  */
-export function getCurrentUserId(request: NextRequest): number | null {
+export async function getCurrentUserId(request?: NextRequest): Promise<number | null> {
   try {
-    // Get the token from cookies
-    const token = request.cookies.get('auth_token')?.value;
+    let token: string | undefined;
+
+    // In App Router, we can use the cookies() function from next/headers
+    // This is the preferred method in Next.js 15+
+    const cookieStore = await cookies();
+    token = cookieStore.get('auth_token')?.value;
 
     if (!token) {
       return null;
@@ -43,29 +48,32 @@ export function getCurrentUserId(request: NextRequest): number | null {
 
 /**
  * Check if the current user is the owner of a resource
- * @param request The Next.js request object
+ * @param request The Next.js request object (optional in App Router)
  * @param createdById The ID of the user who created the resource
  * @returns True if the current user is the owner, false otherwise
  */
-export function isResourceOwner(request: NextRequest, createdById: number): boolean {
-  const currentUserId = getCurrentUserId(request);
-  
+export async function isResourceOwner(request: NextRequest | undefined, createdById: number): Promise<boolean> {
+  const currentUserId = await getCurrentUserId(request);
+
   if (!currentUserId) {
     return false;
   }
-  
+
   return currentUserId === createdById;
 }
 
 /**
  * Check if the current user is an admin
- * @param request The Next.js request object
+ * @param request The Next.js request object (optional in App Router)
  * @returns True if the current user is an admin, false otherwise
  */
-export function isAdmin(request: NextRequest): boolean {
+export async function isAdmin(request?: NextRequest): Promise<boolean> {
   try {
-    // Get the token from cookies
-    const token = request.cookies.get('auth_token')?.value;
+    let token: string | undefined;
+
+    // In App Router, we can use the cookies() function from next/headers
+    const cookieStore = await cookies();
+    token = cookieStore.get('auth_token')?.value;
 
     if (!token) {
       return false;

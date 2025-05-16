@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
-import { dashboardAPI, FinancialDataResponse } from '@/lib/api';
+import { dashboardAPI, FinancialDataResponse, FinancialDataPoint } from '@/lib/api';
 import FinancialGraph from '../components/FinancialGraph';
 import { DashboardSkeleton } from '../components/skeletons/DashboardSkeletons';
 
@@ -21,6 +21,7 @@ export default function DashboardPage() {
     date: string;
     type: string;
     isDueTomorrow?: boolean;
+    totalCount?: number;
   }
 
   interface OutsideAmountBreakdown {
@@ -41,44 +42,10 @@ export default function DashboardPage() {
     activeLoans: number;
     recentActivities: Activity[];
     upcomingEvents: Event[];
+    totalUpcomingEvents?: number; // Add this field for the total count
   }
 
-  interface FinancialDataPoint {
-    period: string;
-    cashInflow: number;
-    cashOutflow: number;
-    profit: number;
-    loanProfit: number;
-    chitFundProfit: number;
-    outsideAmount: number;
-    outsideAmountBreakdown: {
-      loanRemainingAmount: number;
-      chitFundOutsideAmount: number;
-    };
-    cashFlowDetails: {
-      contributionInflow: number;
-      repaymentInflow: number;
-      auctionOutflow: number;
-      loanOutflow: number;
-      netCashFlow: number;
-    };
-    profitDetails: {
-      interestPayments: number;
-      documentCharges: number;
-      auctionCommissions: number;
-    };
-    transactionCounts: {
-      loanDisbursements: number;
-      loanRepayments: number;
-      chitFundContributions: number;
-      chitFundAuctions: number;
-      totalTransactions: number;
-    };
-    periodRange: {
-      startDate: string;
-      endDate: string;
-    };
-  }
+  // Using FinancialDataPoint from the API
 
   const [dashboardData, setDashboardData] = useState<DashboardData>({
     totalCashInflow: 0,
@@ -119,20 +86,32 @@ export default function DashboardPage() {
         const data = await dashboardAPI.getSummary();
 
         console.log('Fetched dashboard data:', data);
-        console.log('Loan profit from API:', data.loanProfit);
+        console.log('Loan profit from API:', data.profit?.loans);
 
-        // Ensure we're setting the correct loan profit value
+        // Map API response to dashboard data structure
         setDashboardData({
-          ...data,
-          loanProfit: data.loanProfit || 0, // Ensure it's not undefined
-          chitFundProfit: data.chitFundProfit || 0, // Ensure it's not undefined
-          totalProfit: data.totalProfit || 0 // Ensure it's not undefined
+          totalCashInflow: data.cashInflow || 0,
+          totalCashOutflow: data.cashOutflow || 0,
+          totalProfit: data.profit?.total || 0,
+          loanProfit: data.profit?.loans || 0,
+          chitFundProfit: data.profit?.chitFunds || 0,
+          totalOutsideAmount: data.outsideAmount || 0,
+          outsideAmountBreakdown: {
+            loanRemainingAmount: data.outsideAmountBreakdown?.loanRemainingAmount || 0,
+            chitFundOutsideAmount: data.outsideAmountBreakdown?.chitFundOutsideAmount || 0
+          },
+          activeChitFunds: data.counts?.activeChitFunds || 0,
+          totalMembers: data.counts?.members || 0,
+          activeLoans: data.counts?.activeLoans || 0,
+          recentActivities: data.recentActivities || [],
+          upcomingEvents: data.upcomingEvents || [],
+          totalUpcomingEvents: data.totalUpcomingEvents || 0
         });
 
         console.log('Dashboard data after setting:', {
-          loanProfit: data.loanProfit,
-          chitFundProfit: data.chitFundProfit,
-          totalProfit: data.totalProfit
+          loanProfit: data.profit?.loans,
+          chitFundProfit: data.profit?.chitFunds,
+          totalProfit: data.profit?.total
         });
 
         setError(null);
@@ -273,46 +252,56 @@ export default function DashboardPage() {
             return;
           }
 
-          const transformedData = apiData.labels.map((label: string, index: number) => {
-            // Create a data point object for each period
-            return {
-              period: label,
-              cashInflow: apiData.cashInflow[index] || 0,
-              cashOutflow: apiData.cashOutflow[index] || 0,
-              profit: apiData.profit[index] || 0,
-              outsideAmount: apiData.outsideAmount[index] || 0,
-              // Add default values for other required properties
-              loanProfit: 0, // This data isn't provided in the API response
-              chitFundProfit: 0, // This data isn't provided in the API response
-              outsideAmountBreakdown: {
-                loanRemainingAmount: 0,
-                chitFundOutsideAmount: 0
-              },
-              cashFlowDetails: {
-                contributionInflow: 0,
-                repaymentInflow: 0,
-                auctionOutflow: 0,
-                loanOutflow: 0,
-                netCashFlow: (apiData.cashInflow[index] || 0) - (apiData.cashOutflow[index] || 0)
-              },
-              profitDetails: {
-                interestPayments: 0,
-                documentCharges: 0,
-                auctionCommissions: 0
-              },
-              transactionCounts: {
-                loanDisbursements: 0,
-                loanRepayments: 0,
-                chitFundContributions: 0,
-                chitFundAuctions: 0,
-                totalTransactions: 0
-              },
-              periodRange: {
-                startDate: new Date().toISOString(), // Default value
-                endDate: new Date().toISOString() // Default value
-              }
-            };
-          });
+          // Check if we have detailed period data
+          let transformedData;
+
+          if (apiData.periodsData && Array.isArray(apiData.periodsData)) {
+            console.log('Using detailed period data from API');
+            transformedData = apiData.periodsData;
+          } else {
+            console.log('Detailed period data not available, creating basic data');
+            // Create basic data points if detailed data is not available
+            transformedData = apiData.labels.map((label: string, index: number) => {
+              // Create a data point object for each period
+              return {
+                period: label,
+                cashInflow: apiData.cashInflow[index] || 0,
+                cashOutflow: apiData.cashOutflow[index] || 0,
+                profit: apiData.profit[index] || 0,
+                outsideAmount: apiData.outsideAmount[index] || 0,
+                // Add default values for other required properties
+                loanProfit: 0,
+                chitFundProfit: 0,
+                outsideAmountBreakdown: {
+                  loanRemainingAmount: 0,
+                  chitFundOutsideAmount: 0
+                },
+                cashFlowDetails: {
+                  contributionInflow: 0,
+                  repaymentInflow: 0,
+                  auctionOutflow: 0,
+                  loanOutflow: 0,
+                  netCashFlow: (apiData.cashInflow[index] || 0) - (apiData.cashOutflow[index] || 0)
+                },
+                profitDetails: {
+                  interestPayments: 0,
+                  documentCharges: 0,
+                  auctionCommissions: 0
+                },
+                transactionCounts: {
+                  loanDisbursements: 0,
+                  loanRepayments: 0,
+                  chitFundContributions: 0,
+                  chitFundAuctions: 0,
+                  totalTransactions: 0
+                },
+                periodRange: {
+                  startDate: new Date().toISOString(), // Default value
+                  endDate: new Date().toISOString() // Default value
+                }
+              };
+            });
+          }
 
           console.log('Transformed financial data for graph:', transformedData);
           setFinancialData(transformedData);
@@ -592,7 +581,7 @@ export default function DashboardPage() {
             {/* Upcoming Events */}
             <div className="bg-white rounded-lg shadow-md p-6">
               <h2 className="text-xl font-bold text-blue-700 mb-4">Upcoming Events</h2>
-              {dashboardData.upcomingEvents.length === 0 ? (
+              {!dashboardData.upcomingEvents || dashboardData.upcomingEvents.length === 0 ? (
                 <p className="text-gray-500 text-center py-4">No upcoming events found.</p>
               ) : (
                 <div className="space-y-4">
@@ -623,10 +612,28 @@ export default function DashboardPage() {
                   ))}
                 </div>
               )}
-              <div className="mt-4 text-center">
-                <Link href="/calendar" className="text-blue-600 hover:underline">
-                  View Calendar
-                </Link>
+              <div className="mt-6 text-center">
+                {dashboardData.totalUpcomingEvents && dashboardData.totalUpcomingEvents > 3 ? (
+                  <Link
+                    href="/calendar"
+                    className="inline-flex items-center justify-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-300"
+                  >
+                    <span>View All {dashboardData.totalUpcomingEvents} Events</span>
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 ml-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                  </Link>
+                ) : (
+                  <Link
+                    href="/calendar"
+                    className="inline-flex items-center justify-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-300"
+                  >
+                    <span>View Full Calendar</span>
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 ml-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                  </Link>
+                )}
               </div>
             </div>
           </div>

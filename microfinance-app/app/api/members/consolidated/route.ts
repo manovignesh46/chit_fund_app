@@ -31,8 +31,8 @@ export async function GET(request: NextRequest) {
     const action = searchParams.get('action') || 'list';
     const id = searchParams.get('id') ? parseInt(searchParams.get('id')!) : null;
 
-    // Get the current user ID
-    const currentUserId = getCurrentUserId(request);
+    // Get the current user ID - make sure to await the Promise
+    const currentUserId = await getCurrentUserId(request);
     if (!currentUserId) {
       return NextResponse.json(
         { error: 'Authentication required' },
@@ -72,8 +72,8 @@ export async function POST(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const action = searchParams.get('action') || 'create';
 
-    // Get the current user ID
-    const currentUserId = getCurrentUserId(request);
+    // Get the current user ID - make sure to await the Promise
+    const currentUserId = await getCurrentUserId(request);
     if (!currentUserId) {
       return NextResponse.json(
         { error: 'Authentication required' },
@@ -106,8 +106,8 @@ export async function PUT(request: NextRequest) {
     const action = searchParams.get('action') || 'update';
     const id = searchParams.get('id') ? parseInt(searchParams.get('id')!) : null;
 
-    // Get the current user ID
-    const currentUserId = getCurrentUserId(request);
+    // Get the current user ID - make sure to await the Promise
+    const currentUserId = await getCurrentUserId(request);
     if (!currentUserId) {
       return NextResponse.json(
         { error: 'Authentication required' },
@@ -146,8 +146,8 @@ export async function DELETE(request: NextRequest) {
     const action = searchParams.get('action') || 'delete';
     const id = searchParams.get('id') ? parseInt(searchParams.get('id')!) : null;
 
-    // Get the current user ID
-    const currentUserId = getCurrentUserId(request);
+    // Get the current user ID - make sure to await the Promise
+    const currentUserId = await getCurrentUserId(request);
     if (!currentUserId) {
       return NextResponse.json(
         { error: 'Authentication required' },

@@ -1,0 +1,230 @@
+import { NextRequest, NextResponse } from 'next/server';
+import prisma from '@/lib/prisma';
+import { getCurrentUserId } from '@/lib/auth';
+import { generatePaymentSchedule, calculateNextPaymentDate, updateOverdueAmountFromRepayments } from '@/lib/paymentSchedule';
+import * as XLSX from 'xlsx';
+
+// Use ISR with a 5-minute revalidation period
+export const revalidate = 300; // 5 minutes
+
+// Use type assertion to handle TypeScript type checking
+const prismaAny = prisma as any;
+
+// Main route handler
+export async function GET(request: NextRequest) {
+  try {
+    const timerLabel = `dashboard-api-${Date.now()}`;
+    console.time(timerLabel); // Add timing with unique label
+
+    // Get the current user ID
+    const currentUserId = await getCurrentUserId();
+    if (!currentUserId) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+
+    // Get the action from the query string
+    const { searchParams } = new URL(request.url);
+    const action = searchParams.get('action');
+
+    // Route to the appropriate handler based on the action
+    switch (action) {
+      case 'summary':
+        return await getSummary(request, currentUserId);
+      case 'financial-data':
+        return await getFinancialData(request, currentUserId);
+      case 'events':
+        // Get the view parameter
+        const view = searchParams.get('view');
+        
+        // For dashboard view, get upcoming events
+        if (view === 'dashboard') {
+          const limit = searchParams.get('limit') ? parseInt(searchParams.get('limit') as string, 10) : 3;
+          const dashboardEvents = await getUpcomingEventsForDashboard(currentUserId, limit);
+          
+          // Count total upcoming events for the next 3 months
+          const totalCount = await countUpcomingEvents(currentUserId);
+          
+          // Return dashboard events with count
+          return NextResponse.json({
+            events: dashboardEvents,
+            totalCount
+          });
+        }
+        
+        // For calendar view, get events for the specified month
+        if (view === 'calendar') {
+          const year = parseInt(searchParams.get('year') || new Date().getFullYear().toString(), 10);
+          const month = parseInt(searchParams.get('month') || (new Date().getMonth() + 1).toString(), 10);
+          const calendarEvents = await getEventsForMonth(currentUserId, year, month);
+          return NextResponse.json(calendarEvents);
+        }
+        
+        // Default to upcoming events for dashboard
+        const upcomingEvents = await getUpcomingEventsForDashboard(currentUserId);
+        return NextResponse.json(upcomingEvents);
+      default:
+        return NextResponse.json(
+          { error: 'Invalid action' },
+          { status: 400 }
+        );
+    }
+  } catch (error) {
+    console.error('Error in dashboard API:', error);
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    );
+  }
+}
+
+// Helper function to get dashboard summary
+async function getSummary(request: NextRequest, currentUserId: number) {
+  try {
+    const timerLabel = `getSummary-${Date.now()}`;
+    console.time(timerLabel); // Add timing with unique label
+
+    // Get all data in parallel for better performance
+    const [
+      // Get total cash inflow from chit fund contributions
+      contributionsSum,
+      // Get total cash outflow from auctions
+      auctionsSum,
+      // Get total cash inflow from loan repayments
+      repaymentsSum,
+      // Get total cash outflow from loans
+      loansSum,
+      // Get total document charges from loans
+      documentChargesSum,
+      // Get recent activities and upcoming events in parallel
+      activitiesAndEventsPromise,
+      // Optimize chit fund query to only fetch what's needed
+      chitFundsWithData
+    ] = await Promise.all([
+      // Get total cash inflow from chit fund contributions
+      prisma.contribution.aggregate({
+        _sum: { amount: true },
+        where: { 
+          chitFund: { 
+            createdById: currentUserId 
+          } 
+        }
+      }),
+      
+      // Get total cash outflow from auctions
+      prisma.auction.aggregate({
+        _sum: { amount: true },
+        where: { 
+          chitFund: { 
+            createdById: currentUserId 
+          } 
+        }
+      }),
+      
+      // Get total cash inflow from loan repayments
+      prisma.repayment.aggregate({
+        _sum: { amount: true },
+        where: { 
+          loan: { 
+            createdById: currentUserId 
+          } 
+        }
+      }),
+      
+      // Get total cash outflow from loans
+      prisma.loan.aggregate({
+        _sum: { amount: true },
+        where: { 
+          createdById: currentUserId 
+        }
+      }),
+      
+      // Get total document charges from loans
+      prisma.loan.aggregate({
+        _sum: { documentCharge: true },
+        where: { 
+          createdById: currentUserId 
+        }
+      }),
+      
+      // Get recent activities and upcoming events in parallel
+      Promise.all([
+        getRecentActivitiesData(currentUserId),
+        getUpcomingEventsForDashboard(currentUserId)
+      ]),
+      
+      // Get chit funds with their contributions and auctions
+      prisma.chitFund.findMany({
+        where: { 
+          createdById: currentUserId 
+        },
+        select: {
+          id: true,
+          name: true,
+          amount: true,
+          duration: true,
+          currentMonth: true,
+          status: true,
+          _count: {
+            select: {
+              members: true,
+              auctions: true,
+              contributions: true
+            }
+          }
+        }
+      })
+    ]);
+
+    // Extract values from the aggregations
+    const cashInflow = (contributionsSum._sum.amount || 0) + (repaymentsSum._sum.amount || 0);
+    const cashOutflow = (auctionsSum._sum.amount || 0) + (loansSum._sum.amount || 0);
+    const documentCharges = documentChargesSum._sum.documentCharge || 0;
+
+    // Calculate profits
+    const loanProfit = (repaymentsSum._sum.amount || 0) - (loansSum._sum.amount || 0) + documentCharges;
+    const chitFundProfit = (contributionsSum._sum.amount || 0) - (auctionsSum._sum.amount || 0);
+    const totalProfit = loanProfit + chitFundProfit;
+
+    // Calculate outside amount (when cash outflow exceeds inflow)
+    const outsideAmount = cashOutflow > cashInflow ? cashOutflow - cashInflow : 0;
+
+    // Get recent activities and upcoming events
+    const [recentActivities, upcomingEvents] = await activitiesAndEventsPromise;
+
+    // Get total upcoming events count
+    const totalUpcomingEvents = await countUpcomingEvents(currentUserId);
+
+    console.timeEnd(timerLabel); // End timing with the same unique label
+
+    // Return the dashboard summary
+    return NextResponse.json({
+      cashInflow,
+      cashOutflow,
+      outsideAmount,
+      profit: {
+        total: totalProfit,
+        loans: loanProfit,
+        chitFunds: chitFundProfit
+      },
+      counts: {
+        chitFunds: chitFundsWithData.length,
+        activeChitFunds: chitFundsWithData.filter(cf => cf.status === 'Active').length,
+        members: chitFundsWithData.reduce((sum, cf) => sum + cf._count.members, 0),
+        loans: await prisma.loan.count({ where: { createdById: currentUserId } }),
+        activeLoans: await prisma.loan.count({ where: { createdById: currentUserId, status: 'Active' } })
+      },
+      recentActivities,
+      upcomingEvents,
+      totalUpcomingEvents
+    });
+  } catch (error) {
+    console.error('Error fetching dashboard summary:', error);
+    return NextResponse.json(
+      { error: 'Failed to fetch dashboard summary' },
+      { status: 500 }
+    );
+  }
+}

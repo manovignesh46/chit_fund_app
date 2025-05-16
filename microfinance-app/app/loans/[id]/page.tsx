@@ -81,9 +81,17 @@ const LoanDetailPage = () => {
       setLoadingSchedules(true);
       setScheduleError(null);
 
+      // Ensure ID is a valid number
+      const numericId = typeof id === 'string' ? parseInt(id, 10) : Array.isArray(id) ? parseInt(id[0], 10) : 0;
+
+      if (!numericId || isNaN(numericId)) {
+        console.error(`Invalid loan ID: Unable to parse "${id}" as a number`);
+        throw new Error('Invalid loan ID format');
+      }
+
       // Build the URL with query parameters
       // Explicitly set includeAll=false to maintain original filtering behavior
-      const url = `/api/loans/consolidated?action=payment-schedules&id=${id}&page=${currentPage}&pageSize=${pageSize}&includeAll=false`;
+      const url = `/api/loans/consolidated?action=payment-schedules&id=${numericId}&page=${currentPage}&pageSize=${pageSize}&includeAll=false`;
 
       const response = await fetch(url);
 
@@ -125,13 +133,27 @@ const LoanDetailPage = () => {
       setUpdatingSchedule(period);
       setScheduleError(null);
 
+      // Validate the ID parameter
+      if (!id) {
+        console.error('Invalid loan ID: ID is undefined or null');
+        throw new Error('Invalid loan ID');
+      }
+
+      // Ensure ID is a valid number
+      const numericId = typeof id === 'string' ? parseInt(id, 10) : Array.isArray(id) ? parseInt(id[0], 10) : 0;
+
+      if (!numericId || isNaN(numericId)) {
+        console.error(`Invalid loan ID: Unable to parse "${id}" as a number`);
+        throw new Error('Invalid loan ID format');
+      }
+
       // Get the amount from the loan's installment amount
       const amount = loan?.installmentAmount || 0;
 
       console.log(`Recording payment for period ${period}, amount ${amount}, type ${paymentType}`);
 
       // The API expects scheduleId, not period
-      const response = await fetch(`/api/loans/consolidated?action=add-repayment&id=${id}`, {
+      const response = await fetch(`/api/loans/consolidated?action=add-repayment&id=${numericId}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -200,10 +222,26 @@ const LoanDetailPage = () => {
     try {
       setLoading(true);
 
+      // Validate the ID parameter
+      if (!id) {
+        console.error('Invalid loan ID: ID is undefined or null');
+        throw new Error('Invalid loan ID');
+      }
+
+      // Ensure ID is a valid number
+      const numericId = typeof id === 'string' ? parseInt(id, 10) : Array.isArray(id) ? parseInt(id[0], 10) : 0;
+
+      if (!numericId || isNaN(numericId)) {
+        console.error(`Invalid loan ID: Unable to parse "${id}" as a number`);
+        throw new Error('Invalid loan ID format');
+      }
+
+      console.log(`Fetching loan details for ID: ${numericId}`);
+
       // First, update the overdue amount to ensure it's current
       try {
         console.log('Updating overdue amount...');
-        const overdueResponse = await fetch(`/api/loans/consolidated?action=update-overdue&id=${id}`, {
+        const overdueResponse = await fetch(`/api/loans/consolidated?action=update-overdue&id=${numericId}`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -214,7 +252,8 @@ const LoanDetailPage = () => {
         if (overdueResponse.ok) {
           console.log('Overdue amount updated successfully');
         } else {
-          console.warn('Failed to update overdue amount');
+          const errorText = await overdueResponse.text();
+          console.warn(`Failed to update overdue amount: ${overdueResponse.status} ${overdueResponse.statusText}`, errorText);
         }
       } catch (overdueError) {
         console.error('Error updating overdue amount:', overdueError);
@@ -222,17 +261,21 @@ const LoanDetailPage = () => {
       }
 
       // Fetch loan details
-      const loanResponse = await fetch(`/api/loans/consolidated?action=detail&id=${id}`);
+      const loanResponse = await fetch(`/api/loans/consolidated?action=detail&id=${numericId}`);
       if (!loanResponse.ok) {
-        throw new Error('Failed to fetch loan details');
+        const errorText = await loanResponse.text();
+        console.error(`Failed to fetch loan details: ${loanResponse.status} ${loanResponse.statusText}`, errorText);
+        throw new Error(`Failed to fetch loan details: ${loanResponse.statusText}`);
       }
       const loanData = await loanResponse.json();
 
       console.log('Loan data from API:', loanData);
 
       // Fetch paginated repayments for this loan
-      const repaymentsResponse = await fetch(`/api/loans/consolidated?action=repayments&id=${id}&page=${currentPage}&pageSize=${pageSize}`);
+      const repaymentsResponse = await fetch(`/api/loans/consolidated?action=repayments&id=${numericId}&page=${currentPage}&pageSize=${pageSize}`);
       if (!repaymentsResponse.ok) {
+        const errorText = await repaymentsResponse.text();
+        console.error(`Failed to fetch repayments: ${repaymentsResponse.status} ${repaymentsResponse.statusText}`, errorText);
         throw new Error('Failed to fetch repayments');
       }
       const repaymentsData = await repaymentsResponse.json();
@@ -369,7 +412,21 @@ const LoanDetailPage = () => {
     setDeleteError(null);
 
     try {
-      const response = await fetch(`/api/loans/consolidated?action=delete-repayment&id=${id}`, {
+      // Validate the ID parameter
+      if (!id) {
+        console.error('Invalid loan ID: ID is undefined or null');
+        throw new Error('Invalid loan ID');
+      }
+
+      // Ensure ID is a valid number
+      const numericId = typeof id === 'string' ? parseInt(id, 10) : Array.isArray(id) ? parseInt(id[0], 10) : 0;
+
+      if (!numericId || isNaN(numericId)) {
+        console.error(`Invalid loan ID: Unable to parse "${id}" as a number`);
+        throw new Error('Invalid loan ID format');
+      }
+
+      const response = await fetch(`/api/loans/consolidated?action=delete-repayment&id=${numericId}`, {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',
@@ -402,9 +459,24 @@ const LoanDetailPage = () => {
 
   // Helper function to update the loan's current month
   const updateLoanCurrentMonth = async (monthValue: number) => {
-    console.log(`Updating loan ID ${id} to month ${monthValue}`);
     try {
-      const response = await fetch(`/api/loans/consolidated?action=update&id=${id}`, {
+      // Validate the ID parameter
+      if (!id) {
+        console.error('Invalid loan ID: ID is undefined or null');
+        throw new Error('Invalid loan ID');
+      }
+
+      // Ensure ID is a valid number
+      const numericId = typeof id === 'string' ? parseInt(id, 10) : Array.isArray(id) ? parseInt(id[0], 10) : 0;
+
+      if (!numericId || isNaN(numericId)) {
+        console.error(`Invalid loan ID: Unable to parse "${id}" as a number`);
+        throw new Error('Invalid loan ID format');
+      }
+
+      console.log(`Updating loan ID ${numericId} to month ${monthValue}`);
+
+      const response = await fetch(`/api/loans/consolidated?action=update&id=${numericId}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -478,6 +550,20 @@ const LoanDetailPage = () => {
     try {
       setIsExporting(true);
 
+      // Validate the ID parameter
+      if (!id) {
+        console.error('Invalid loan ID: ID is undefined or null');
+        throw new Error('Invalid loan ID');
+      }
+
+      // Ensure ID is a valid number
+      const numericId = typeof id === 'string' ? parseInt(id, 10) : Array.isArray(id) ? parseInt(id[0], 10) : 0;
+
+      if (!numericId || isNaN(numericId)) {
+        console.error(`Invalid loan ID: Unable to parse "${id}" as a number`);
+        throw new Error('Invalid loan ID format');
+      }
+
       // Generate filename directly from loan data
       const borrowerName = loan.borrower.name.replace(/[^a-zA-Z0-9]/g, '_');
       const loanAmount = Math.round(loan.amount).toString();
@@ -489,7 +575,7 @@ const LoanDetailPage = () => {
       console.log('Generated filename:', filename);
 
       // Call the export API endpoint
-      const response = await fetch(`/api/loans/consolidated?action=export&id=${id}`);
+      const response = await fetch(`/api/loans/consolidated?action=export&id=${numericId}`);
 
       if (!response.ok) {
         throw new Error('Failed to export loan details');
@@ -658,13 +744,21 @@ const LoanDetailPage = () => {
       // Refresh the page data to ensure we have the latest state
       if (id) {
         try {
+          // Ensure ID is a valid number
+          const numericId = typeof id === 'string' ? parseInt(id, 10) : Array.isArray(id) ? parseInt(id[0], 10) : 0;
+
+          if (!numericId || isNaN(numericId)) {
+            console.error(`Invalid loan ID: Unable to parse "${id}" as a number`);
+            throw new Error('Invalid loan ID format');
+          }
+
           // Fetch loan details
-          const refreshResponse = await fetch(`/api/loans/${id}`);
+          const refreshResponse = await fetch(`/api/loans/consolidated?action=detail&id=${numericId}`);
           if (refreshResponse.ok) {
             const refreshedLoanData = await refreshResponse.json();
 
             // Fetch repayments again
-            const refreshRepaymentsResponse = await fetch(`/api/loans/${id}/repayments`);
+            const refreshRepaymentsResponse = await fetch(`/api/loans/consolidated?action=repayments&id=${numericId}&page=${currentPage}&pageSize=${pageSize}`);
             if (refreshRepaymentsResponse.ok) {
               const refreshedRepaymentsData = await refreshRepaymentsResponse.json();
 
@@ -892,11 +986,12 @@ const LoanDetailPage = () => {
 
                       // Sum of all interest-only payments
                       // For interest-only payments, the entire payment amount is interest (profit)
-                      const interestOnlyPayments = loan.repayments
-                        ? loan.repayments
-                            .filter((repayment: any) => repayment.paymentType === 'interestOnly')
-                            .reduce((sum: number, repayment: any) => sum + repayment.amount, 0)
-                        : 0;
+                      // This calculation is no longer used but kept for reference
+                      // const interestOnlyPayments = loan.repayments
+                      //   ? loan.repayments
+                      //       .filter((repayment: any) => repayment.paymentType === 'interestOnly')
+                      //       .reduce((sum: number, repayment: any) => sum + repayment.amount, 0)
+                      //   : 0;
 
                       // Log the interest-only payments for debugging
                       console.log('Interest-only payments:', loan.repayments

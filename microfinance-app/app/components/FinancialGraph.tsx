@@ -14,43 +14,9 @@ import {
   ResponsiveContainer,
 } from 'recharts';
 import { GraphSkeleton } from './skeletons/SkeletonLoader';
+import { FinancialDataPoint } from '@/lib/api';
 
-interface FinancialDataPoint {
-  period: string;
-  cashInflow: number;
-  cashOutflow: number;
-  profit: number;
-  loanProfit: number;
-  chitFundProfit: number;
-  outsideAmount: number;
-  outsideAmountBreakdown: {
-    loanRemainingAmount: number;
-    chitFundOutsideAmount: number;
-  };
-  cashFlowDetails: {
-    contributionInflow: number;
-    repaymentInflow: number;
-    auctionOutflow: number;
-    loanOutflow: number;
-    netCashFlow: number;
-  };
-  profitDetails: {
-    interestPayments: number;
-    documentCharges: number;
-    auctionCommissions: number;
-  };
-  transactionCounts: {
-    loanDisbursements: number;
-    loanRepayments: number;
-    chitFundContributions: number;
-    chitFundAuctions: number;
-    totalTransactions: number;
-  };
-  periodRange: {
-    startDate: string;
-    endDate: string;
-  };
-}
+// Using FinancialDataPoint from the API
 
 interface FinancialGraphProps {
   data: FinancialDataPoint[];

@@ -13,7 +13,7 @@ export async function GET(request: NextRequest) {
     const memberId = searchParams.get('memberId') ? parseInt(searchParams.get('memberId')!) : null;
 
     // Get the current user ID
-    const currentUserId = getCurrentUserId(request);
+    const currentUserId = await getCurrentUserId(request);
     if (!currentUserId) {
       return NextResponse.json(
         { error: 'Authentication required' },
@@ -96,7 +96,7 @@ export async function POST(request: NextRequest) {
     const memberId = searchParams.get('memberId') ? parseInt(searchParams.get('memberId')!) : null;
 
     // Get the current user ID
-    const currentUserId = getCurrentUserId(request);
+    const currentUserId = await getCurrentUserId(request);
     if (!currentUserId) {
       return NextResponse.json(
         { error: 'Authentication required' },
@@ -155,7 +155,7 @@ export async function PUT(request: NextRequest) {
     const memberId = searchParams.get('memberId') ? parseInt(searchParams.get('memberId')!) : null;
 
     // Get the current user ID
-    const currentUserId = getCurrentUserId(request);
+    const currentUserId = await getCurrentUserId(request);
     if (!currentUserId) {
       return NextResponse.json(
         { error: 'Authentication required' },
@@ -220,7 +220,7 @@ export async function DELETE(request: NextRequest) {
     const memberId = searchParams.get('memberId') ? parseInt(searchParams.get('memberId')!) : null;
 
     // Get the current user ID
-    const currentUserId = getCurrentUserId(request);
+    const currentUserId = await getCurrentUserId(request);
     if (!currentUserId) {
       return NextResponse.json(
         { error: 'Authentication required' },

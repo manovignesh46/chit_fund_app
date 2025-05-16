@@ -275,6 +275,44 @@ export const authAPI = {
   }),
 };
 
+// Define the financial data point type
+export interface FinancialDataPoint {
+  period: string;
+  cashInflow: number;
+  cashOutflow: number;
+  profit: number;
+  loanProfit: number;
+  chitFundProfit: number;
+  outsideAmount: number;
+  outsideAmountBreakdown: {
+    loanRemainingAmount: number;
+    chitFundOutsideAmount: number;
+  };
+  cashFlowDetails: {
+    contributionInflow: number;
+    repaymentInflow: number;
+    auctionOutflow: number;
+    loanOutflow: number;
+    netCashFlow: number;
+  };
+  profitDetails: {
+    interestPayments: number;
+    documentCharges: number;
+    auctionCommissions: number;
+  };
+  transactionCounts: {
+    loanDisbursements: number;
+    loanRepayments: number;
+    chitFundContributions: number;
+    chitFundAuctions: number;
+    totalTransactions: number;
+  };
+  periodRange: {
+    startDate: string;
+    endDate: string;
+  };
+}
+
 // Define the financial data response type
 export interface FinancialDataResponse {
   labels: string[];
@@ -282,6 +320,7 @@ export interface FinancialDataResponse {
   cashOutflow: number[];
   profit: number[];
   outsideAmount: number[];
+  periodsData?: FinancialDataPoint[];
 }
 
 // Dashboard API functions (consolidated)
@@ -290,7 +329,7 @@ export const dashboardAPI = {
 
   getActivities: () => fetchAPI<any[]>('/dashboard/consolidated?action=activities'),
 
-  getUpcomingEvents: () => fetchAPI<any[]>('/dashboard/consolidated?action=events'),
+  getUpcomingEvents: () => fetchAPI<any>('/dashboard/consolidated?action=events'),
 
   getFinancialData: (duration: string = 'monthly', limit: number = 12) =>
     fetchAPI<FinancialDataResponse>(`/dashboard/consolidated?action=financial-data&duration=${duration}&limit=${limit}`),

@@ -25,8 +25,16 @@ export default function ChitFundFinancialSummary({
   // Calculate financial metrics
   const totalInflow = contributions.reduce((sum, contribution) => sum + contribution.amount, 0);
   const totalOutflow = auctions.reduce((sum, auction) => sum + auction.amount, 0);
-  const profit = calculateChitFundProfit(chitFund, contributions, auctions);
-  const outsideAmount = calculateChitFundOutsideAmount(chitFund, contributions, auctions);
+
+  // Ensure chitFund has the required properties for the profit calculation functions
+  const chitFundForCalculation = {
+    monthlyContribution: chitFund.monthlyContribution,
+    membersCount: chitFund.membersCount,
+    members: chitFund.members || []
+  };
+
+  const profit = calculateChitFundProfit(chitFundForCalculation, contributions, auctions);
+  const outsideAmount = calculateChitFundOutsideAmount(chitFundForCalculation, contributions, auctions);
 
   return (
     <div className="bg-white rounded-lg shadow-md overflow-hidden">
@@ -48,7 +56,7 @@ export default function ChitFundFinancialSummary({
           <div>
             <div className="flex items-center">
               <p className="text-sm text-gray-500 mr-1">Profit</p>
-              <button 
+              <button
                 onClick={() => setShowProfit(!showProfit)}
                 className="text-gray-400 hover:text-gray-600"
               >
@@ -67,13 +75,13 @@ export default function ChitFundFinancialSummary({
             <p className="text-sm text-gray-500">Outside Amount</p>
             <p className="text-lg font-semibold text-purple-700">{formatCurrency(outsideAmount)}</p>
             <p className="text-xs text-gray-500">
-              {outsideAmount > 0 
-                ? 'Cash outflow exceeds inflow' 
+              {outsideAmount > 0
+                ? 'Cash outflow exceeds inflow'
                 : 'No outside amount'}
             </p>
           </div>
         </div>
-        
+
         <div className="mt-4 p-4 bg-gray-50 rounded-md">
           <h3 className="text-sm font-medium text-gray-700 mb-2">Explanation</h3>
           <ul className="text-xs text-gray-600 space-y-1">

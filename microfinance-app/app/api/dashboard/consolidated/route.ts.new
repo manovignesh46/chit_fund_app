@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { getCurrentUserId } from '@/lib/auth';
 import { generatePaymentSchedule, calculateNextPaymentDate, updateOverdueAmountFromRepayments } from '@/lib/paymentSchedule';
-import { calculateLoanProfit, calculateChitFundProfit, calculateTotalLoanProfit, calculateTotalChitFundProfit } from '@/lib/financialUtils';
 import * as XLSX from 'xlsx';
 
 // Use ISR with a 5-minute revalidation period
@@ -18,7 +17,7 @@ export async function GET(request: NextRequest) {
     console.time(timerLabel); // Add timing with unique label
 
     // Get the current user ID
-    const currentUserId = await getCurrentUserId(request);
+    const currentUserId = await getCurrentUserId();
     if (!currentUserId) {
       return NextResponse.json(
         { error: 'Unauthorized' },
@@ -164,8 +163,7 @@ async function getSummary(request: NextRequest, currentUserId: number) {
         select: {
           id: true,
           name: true,
-          totalAmount: true,
-          monthlyContribution: true,
+          amount: true,
           duration: true,
           currentMonth: true,
           status: true,
@@ -185,122 +183,16 @@ async function getSummary(request: NextRequest, currentUserId: number) {
     const cashOutflow = (auctionsSum._sum.amount || 0) + (loansSum._sum.amount || 0);
     const documentCharges = documentChargesSum._sum.documentCharge || 0;
 
-    // Get all loans with their repayments to calculate profit using the centralized function
-    const loansWithRepayments = await prisma.loan.findMany({
-      where: {
-        createdById: currentUserId
-      },
-      select: {
-        id: true,
-        amount: true,
-        interestRate: true,
-        documentCharge: true,
-        repaymentType: true,
-        repayments: {
-          select: {
-            id: true,
-            amount: true,
-            paymentType: true,
-            paidDate: true,
-            period: true
-          }
-        }
-      }
-    });
-
-    console.log(`Found ${loansWithRepayments.length} loans for profit calculation`);
-
-    // Calculate loan profit using the centralized utility function
-    const loanProfit = calculateTotalLoanProfit(loansWithRepayments);
-
-    // Log individual loan profits for debugging
-    loansWithRepayments.forEach((loan, index) => {
-      const profit = calculateLoanProfit(loan, loan.repayments);
-      console.log(`Loan ${index + 1} (ID: ${loan.id}) profit: ${profit}`, {
-        amount: loan.amount,
-        interestRate: loan.interestRate,
-        documentCharge: loan.documentCharge,
-        repaymentType: loan.repaymentType,
-        repaymentsCount: loan.repayments.length
-      });
-    });
-
-    console.log(`Total loan profit: ${loanProfit}`);
-
-    // Get chit funds with their members, contributions, and auctions for accurate profit calculation
-    const chitFundsWithDetails = await prisma.chitFund.findMany({
-      where: {
-        createdById: currentUserId
-      },
-      select: {
-        id: true,
-        name: true,
-        totalAmount: true,
-        monthlyContribution: true,
-        duration: true,
-        currentMonth: true,
-        status: true,
-        membersCount: true,
-        members: {
-          select: {
-            id: true
-          }
-        },
-        contributions: {
-          select: {
-            id: true,
-            amount: true,
-            month: true,
-            paidDate: true
-          }
-        },
-        auctions: {
-          select: {
-            id: true,
-            amount: true,
-            month: true,
-            date: true
-          }
-        }
-      }
-    });
-
-    console.log(`Found ${chitFundsWithDetails.length} chit funds for profit calculation`);
-
-    // Calculate chit fund profit using the centralized utility function
-    const chitFundProfit = calculateTotalChitFundProfit(chitFundsWithDetails);
-
-    // Log individual chit fund profits for debugging
-    chitFundsWithDetails.forEach((fund, index) => {
-      const profit = calculateChitFundProfit(fund, fund.contributions, fund.auctions);
-      console.log(`Chit Fund ${index + 1} (ID: ${fund.id}) profit: ${profit}`, {
-        name: fund.name,
-        monthlyContribution: fund.monthlyContribution,
-        membersCount: fund.members.length,
-        contributionsCount: fund.contributions.length,
-        auctionsCount: fund.auctions.length,
-        totalInflow: fund.contributions.reduce((sum, contribution) => sum + contribution.amount, 0),
-        totalOutflow: fund.auctions.reduce((sum, auction) => sum + auction.amount, 0)
-      });
-    });
-
-    console.log(`Total chit fund profit: ${chitFundProfit}`);
-
+    // Calculate profits
+    const loanProfit = (repaymentsSum._sum.amount || 0) - (loansSum._sum.amount || 0) + documentCharges;
+    const chitFundProfit = (contributionsSum._sum.amount || 0) - (auctionsSum._sum.amount || 0);
     const totalProfit = loanProfit + chitFundProfit;
 
     // Calculate outside amount (when cash outflow exceeds inflow)
     const outsideAmount = cashOutflow > cashInflow ? cashOutflow - cashInflow : 0;
 
-    // Calculate outside amount breakdown
-    const loanRemainingAmount = (loansSum._sum.amount || 0) - (repaymentsSum._sum.amount || 0);
-    const chitFundOutsideAmount = (auctionsSum._sum.amount || 0) - (contributionsSum._sum.amount || 0);
-    const outsideAmountBreakdown = {
-      loanRemainingAmount: loanRemainingAmount > 0 ? loanRemainingAmount : 0,
-      chitFundOutsideAmount: chitFundOutsideAmount > 0 ? chitFundOutsideAmount : 0
-    };
-
     // Get recent activities and upcoming events
-    const [recentActivities, upcomingEvents] = activitiesAndEventsPromise;
+    const [recentActivities, upcomingEvents] = await activitiesAndEventsPromise;
 
     // Get total upcoming events count
     const totalUpcomingEvents = await countUpcomingEvents(currentUserId);
@@ -312,7 +204,6 @@ async function getSummary(request: NextRequest, currentUserId: number) {
       cashInflow,
       cashOutflow,
       outsideAmount,
-      outsideAmountBreakdown,
       profit: {
         total: totalProfit,
         loans: loanProfit,
@@ -451,13 +342,8 @@ async function getFinancialData(request: NextRequest, currentUserId: number) {
     ]);
 
     // Generate periods based on duration
-    const periods: string[] = [];
-    const periodData: {
-      cashInflow: number[];
-      cashOutflow: number[];
-      profit: number[];
-      outsideAmount: number[];
-    } = {
+    const periods = [];
+    const periodData = {
       cashInflow: [],
       cashOutflow: [],
       profit: [],
@@ -519,161 +405,13 @@ async function getFinancialData(request: NextRequest, currentUserId: number) {
       );
 
       const periodLoanAmount = periodLoans.reduce((sum, l) => sum + l.amount, 0);
-      // Document charges are now calculated as part of the loan profit
-
-      // Get loans with their repayments for this period
-      const periodLoansWithRepayments = await prisma.loan.findMany({
-        where: {
-          createdById: currentUserId,
-          OR: [
-            {
-              disbursementDate: {
-                gte: periodStart,
-                lte: periodEnd
-              }
-            },
-            {
-              repayments: {
-                some: {
-                  paidDate: {
-                    gte: periodStart,
-                    lte: periodEnd
-                  }
-                }
-              }
-            }
-          ]
-        },
-        select: {
-          id: true,
-          amount: true,
-          interestRate: true,
-          documentCharge: true,
-          repaymentType: true,
-          repayments: {
-            where: {
-              paidDate: {
-                gte: periodStart,
-                lte: periodEnd
-              }
-            },
-            select: {
-              id: true,
-              amount: true,
-              paymentType: true,
-              paidDate: true,
-              period: true
-            }
-          }
-        }
-      });
-
-      console.log(`Period ${formatPeriodLabel(periodStart)}: Found ${periodLoansWithRepayments.length} loans`);
-
-      // Calculate loan profit using the centralized utility function
-      const periodLoanProfit = calculateTotalLoanProfit(periodLoansWithRepayments);
-
-      // Log individual loan profits for debugging
-      periodLoansWithRepayments.forEach((loan, index) => {
-        const profit = calculateLoanProfit(loan, loan.repayments);
-        console.log(`Period ${formatPeriodLabel(periodStart)} - Loan ${index + 1} (ID: ${loan.id}) profit: ${profit}`);
-      });
-
-      // We'll use a more detailed query for chit funds below
-
-      // Update the query to get more detailed chit fund data
-      const updatedPeriodChitFunds = await prisma.chitFund.findMany({
-        where: {
-          createdById: currentUserId,
-          OR: [
-            {
-              contributions: {
-                some: {
-                  paidDate: {
-                    gte: periodStart,
-                    lte: periodEnd
-                  }
-                }
-              }
-            },
-            {
-              auctions: {
-                some: {
-                  date: {
-                    gte: periodStart,
-                    lte: periodEnd
-                  }
-                }
-              }
-            }
-          ]
-        },
-        select: {
-          id: true,
-          name: true,
-          totalAmount: true,
-          monthlyContribution: true,
-          duration: true,
-          currentMonth: true,
-          status: true,
-          membersCount: true,
-          members: {
-            select: {
-              id: true
-            }
-          },
-          contributions: {
-            where: {
-              paidDate: {
-                gte: periodStart,
-                lte: periodEnd
-              }
-            },
-            select: {
-              id: true,
-              amount: true,
-              month: true,
-              paidDate: true
-            }
-          },
-          auctions: {
-            where: {
-              date: {
-                gte: periodStart,
-                lte: periodEnd
-              }
-            },
-            select: {
-              id: true,
-              amount: true,
-              month: true,
-              date: true
-            }
-          }
-        }
-      });
-
-      console.log(`Period ${formatPeriodLabel(periodStart)}: Found ${updatedPeriodChitFunds.length} chit funds`);
-
-      // Calculate chit fund profit using the centralized utility function
-      const periodChitFundProfit = calculateTotalChitFundProfit(updatedPeriodChitFunds);
-
-      // Log individual chit fund profits for debugging
-      updatedPeriodChitFunds.forEach((fund, index) => {
-        const profit = calculateChitFundProfit(fund, fund.contributions, fund.auctions);
-        console.log(`Period ${formatPeriodLabel(periodStart)} - Chit Fund ${index + 1} (ID: ${fund.id}) profit: ${profit}`, {
-          name: fund.name,
-          totalInflow: fund.contributions.reduce((sum, contribution) => sum + contribution.amount, 0),
-          totalOutflow: fund.auctions.reduce((sum, auction) => sum + auction.amount, 0)
-        });
-      });
-
-      console.log(`Period ${formatPeriodLabel(periodStart)} - Total chit fund profit: ${periodChitFundProfit}`);
+      const periodDocumentCharges = periodLoans.reduce((sum, l) => sum + (l.documentCharge || 0), 0);
 
       // Calculate totals for the period
       const periodCashInflow = periodContributions + periodRepayments;
       const periodCashOutflow = periodAuctions + periodLoanAmount;
-      const periodProfit = periodLoanProfit + periodChitFundProfit;
+      const periodProfit = (periodRepayments - periodLoanAmount + periodDocumentCharges) +
+                          (periodContributions - periodAuctions);
       const periodOutsideAmount = periodCashOutflow > periodCashInflow ?
                                 periodCashOutflow - periodCashInflow : 0;
 
@@ -696,303 +434,9 @@ async function getFinancialData(request: NextRequest, currentUserId: number) {
 
     console.timeEnd(timerLabel);
 
-    // Prepare detailed data for each period
-    const detailedPeriodsData = periods.map(async (periodLabel, index) => {
-      // Get the period start and end dates
-      let periodStart = new Date(startDate);
-      let periodEnd = new Date(startDate);
-
-      // Adjust based on the current period index
-      if (duration === 'monthly') {
-        periodStart.setMonth(startDate.getMonth() + index);
-        periodEnd.setMonth(startDate.getMonth() + index + 1);
-        periodEnd.setDate(0); // Last day of the month
-      } else if (duration === 'yearly') {
-        periodStart.setFullYear(startDate.getFullYear() + index);
-        periodEnd.setFullYear(startDate.getFullYear() + index + 1);
-        periodEnd.setMonth(0);
-        periodEnd.setDate(0); // Last day of December
-      } else if (duration === 'weekly') {
-        periodStart.setDate(startDate.getDate() + (index * 7));
-        periodEnd.setDate(startDate.getDate() + ((index + 1) * 7) - 1);
-      }
-
-      // Set hours for accurate comparison
-      periodStart.setHours(0, 0, 0, 0);
-      periodEnd.setHours(23, 59, 59, 999);
-
-      // Get the loans and chit funds for this period
-      const periodLoansWithRepayments = prisma.loan.findMany({
-        where: {
-          createdById: currentUserId,
-          OR: [
-            {
-              disbursementDate: {
-                gte: periodStart,
-                lte: periodEnd
-              }
-            },
-            {
-              repayments: {
-                some: {
-                  paidDate: {
-                    gte: periodStart,
-                    lte: periodEnd
-                  }
-                }
-              }
-            }
-          ]
-        },
-        select: {
-          id: true,
-          amount: true,
-          interestRate: true,
-          documentCharge: true,
-          repaymentType: true,
-          disbursementDate: true,
-          repayments: {
-            select: {
-              id: true,
-              amount: true,
-              paymentType: true,
-              paidDate: true,
-              period: true
-            }
-          }
-        }
-      });
-
-      const periodChitFunds = prisma.chitFund.findMany({
-        where: {
-          createdById: currentUserId,
-          OR: [
-            {
-              contributions: {
-                some: {
-                  paidDate: {
-                    gte: periodStart,
-                    lte: periodEnd
-                  }
-                }
-              }
-            },
-            {
-              auctions: {
-                some: {
-                  date: {
-                    gte: periodStart,
-                    lte: periodEnd
-                  }
-                }
-              }
-            }
-          ]
-        },
-        select: {
-          id: true,
-          name: true,
-          totalAmount: true,
-          monthlyContribution: true,
-          duration: true,
-          currentMonth: true,
-          status: true,
-          membersCount: true,
-          members: {
-            select: {
-              id: true
-            }
-          },
-          contributions: {
-            where: {
-              paidDate: {
-                gte: periodStart,
-                lte: periodEnd
-              }
-            },
-            select: {
-              id: true,
-              amount: true,
-              month: true,
-              paidDate: true
-            }
-          },
-          auctions: {
-            where: {
-              date: {
-                gte: periodStart,
-                lte: periodEnd
-              }
-            },
-            select: {
-              id: true,
-              amount: true,
-              month: true,
-              date: true
-            }
-          }
-        }
-      });
-
-      // Get period transactions
-      const periodContributions = prisma.contribution.findMany({
-        where: {
-          chitFund: {
-            createdById: currentUserId
-          },
-          paidDate: {
-            gte: periodStart,
-            lte: periodEnd
-          }
-        },
-        select: {
-          id: true
-        }
-      });
-
-      const periodRepayments = prisma.repayment.findMany({
-        where: {
-          loan: {
-            createdById: currentUserId
-          },
-          paidDate: {
-            gte: periodStart,
-            lte: periodEnd
-          }
-        },
-        select: {
-          id: true
-        }
-      });
-
-      const periodAuctions = prisma.auction.findMany({
-        where: {
-          chitFund: {
-            createdById: currentUserId
-          },
-          date: {
-            gte: periodStart,
-            lte: periodEnd
-          }
-        },
-        select: {
-          id: true
-        }
-      });
-
-      const periodLoanDisbursements = prisma.loan.findMany({
-        where: {
-          createdById: currentUserId,
-          disbursementDate: {
-            gte: periodStart,
-            lte: periodEnd
-          }
-        },
-        select: {
-          id: true
-        }
-      });
-
-      // Execute all queries in parallel
-      return Promise.all([
-        periodLoansWithRepayments,
-        periodChitFunds,
-        periodContributions,
-        periodRepayments,
-        periodAuctions,
-        periodLoanDisbursements
-      ]).then(([
-        loansWithRepayments,
-        chitFunds,
-        contributions,
-        repayments,
-        auctions,
-        loanDisbursements
-      ]) => {
-        // Calculate detailed financial metrics using centralized utility functions
-        const loanProfit = calculateTotalLoanProfit(loansWithRepayments);
-        const chitFundProfit = calculateTotalChitFundProfit(chitFunds);
-
-        // Calculate cash flow details
-        const contributionInflow = chitFunds.reduce((sum, fund) =>
-          sum + fund.contributions.reduce((s, c) => s + c.amount, 0), 0);
-
-        const repaymentInflow = loansWithRepayments.reduce((sum, loan) =>
-          sum + loan.repayments.reduce((s, r) => s + r.amount, 0), 0);
-
-        const auctionOutflow = chitFunds.reduce((sum, fund) =>
-          sum + fund.auctions.reduce((s, a) => s + a.amount, 0), 0);
-
-        const loanOutflow = loanDisbursements.reduce((sum, loan) => sum + loan.amount, 0);
-
-        // Calculate outside amount breakdown
-        const loanRemainingAmount = Math.max(0, loanOutflow - repaymentInflow);
-        const chitFundOutsideAmount = Math.max(0, auctionOutflow - contributionInflow);
-
-        // Calculate profit details
-        const interestPayments = loansWithRepayments.reduce((sum, loan) => {
-          // For monthly loans, interest is part of each payment
-          if (loan.repaymentType === 'Monthly') {
-            return sum + (loan.repayments.length * (loan.interestRate || 0));
-          }
-          return sum;
-        }, 0);
-
-        const documentCharges = loansWithRepayments.reduce((sum, loan) =>
-          sum + (loan.documentCharge || 0), 0);
-
-        const auctionCommissions = chitFundProfit;
-
-        return {
-          period: periods[index],
-          cashInflow: periodData.cashInflow[index],
-          cashOutflow: periodData.cashOutflow[index],
-          profit: periodData.profit[index],
-          outsideAmount: periodData.outsideAmount[index],
-          loanProfit,
-          chitFundProfit,
-          outsideAmountBreakdown: {
-            loanRemainingAmount,
-            chitFundOutsideAmount
-          },
-          cashFlowDetails: {
-            contributionInflow,
-            repaymentInflow,
-            auctionOutflow,
-            loanOutflow,
-            netCashFlow: periodData.cashInflow[index] - periodData.cashOutflow[index]
-          },
-          profitDetails: {
-            interestPayments,
-            documentCharges,
-            auctionCommissions
-          },
-          transactionCounts: {
-            loanDisbursements: loanDisbursements.length,
-            loanRepayments: repayments.length,
-            chitFundContributions: contributions.length,
-            chitFundAuctions: auctions.length,
-            totalTransactions: loanDisbursements.length + repayments.length +
-                              contributions.length + auctions.length
-          },
-          periodRange: {
-            startDate: periodStart.toISOString(),
-            endDate: periodEnd.toISOString()
-          }
-        };
-      });
-    });
-
-    // Wait for all period data to be processed
-    const detailedData = await Promise.all(detailedPeriodsData);
-
     return NextResponse.json({
-      labels: periods,
-      cashInflow: periodData.cashInflow,
-      cashOutflow: periodData.cashOutflow,
-      profit: periodData.profit,
-      outsideAmount: periodData.outsideAmount,
-      periodsData: detailedData
+      periods,
+      data: periodData
     });
   } catch (error) {
     console.error('Error fetching financial data:', error);
@@ -1300,6 +744,7 @@ async function getUpcomingEventsForDashboard(userId: number, limit: number = 3) 
       const disbursementDate = new Date(loanAny.disbursementDate);
       const duration = loanAny.duration;
       const repaymentType = loanAny.repaymentType;
+      const installmentAmount = loanAny.installmentAmount;
 
       // Get borrower name safely
       const borrowerName = loanAny.borrower && loanAny.borrower.name
