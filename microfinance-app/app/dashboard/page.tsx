@@ -13,6 +13,9 @@ export default function DashboardPage() {
     action: string;
     details: string;
     date: string;
+    amount?: number;
+    entityId?: number;
+    entityType?: string;
   }
 
   interface Event {
@@ -45,7 +48,8 @@ export default function DashboardPage() {
     activeLoans: number;
     recentActivities: Activity[];
     upcomingEvents: Event[];
-    totalUpcomingEvents?: number; // Add this field for the total count
+    totalUpcomingEvents?: number; // Total count of upcoming events
+    totalActivities?: number; // Total count of activities
   }
 
   // Using FinancialDataPoint from the API
@@ -558,26 +562,66 @@ export default function DashboardPage() {
                 <p className="text-gray-500 text-center py-4">No recent activities found.</p>
               ) : (
                 <div className="space-y-4">
-                  {dashboardData.recentActivities.map((activity: Activity) => (
-                    <div key={activity.id} className="border-b pb-4 last:border-b-0 last:pb-0">
-                      <div className="flex justify-between">
-                        <span className={`px-2 py-1 rounded-full text-xs ${
-                          activity.type === 'Chit Fund' ? 'bg-blue-100 text-blue-800' : 'bg-green-100 text-green-800'
-                        }`}>
-                          {activity.type}
-                        </span>
-                        <span className="text-gray-500 text-sm">{activity.date}</span>
-                      </div>
-                      <h3 className="font-semibold mt-1">{activity.action}</h3>
-                      <p className="text-gray-600 text-sm">{activity.details}</p>
-                    </div>
-                  ))}
+                  {dashboardData.recentActivities.map((activity: Activity) => {
+                    // Generate link based on entity type
+                    let activityLink = '#';
+                    if (activity.entityType === 'loan' && activity.entityId) {
+                      activityLink = `/loans/${activity.entityId}`;
+                    } else if (activity.entityType === 'chitFund' && activity.entityId) {
+                      activityLink = `/chit-funds/${activity.entityId}`;
+                    }
+
+                    return (
+                      <Link
+                        href={activityLink}
+                        key={activity.id}
+                        className="block border-l-4 pl-4 border-gray-300 hover:bg-gray-50 transition-colors duration-200 pb-4"
+                        style={{
+                          borderColor: activity.type === 'Chit Fund' ? '#3b82f6' : '#10b981'
+                        }}
+                      >
+                        <div className="flex justify-between">
+                          <span className={`px-2 py-1 rounded-full text-xs ${
+                            activity.type === 'Chit Fund' ? 'bg-blue-100 text-blue-800' : 'bg-green-100 text-green-800'
+                          }`}>
+                            {activity.type}
+                          </span>
+                          <span className="text-gray-500 text-sm">{activity.date}</span>
+                        </div>
+                        <h3 className="font-semibold mt-1">{activity.action}</h3>
+                        <p className="text-gray-600 text-sm">{activity.details}</p>
+                        {activity.amount && (
+                          <p className="text-gray-700 text-sm font-medium mt-1">
+                            Amount: {formatCurrency(activity.amount)}
+                          </p>
+                        )}
+                      </Link>
+                    );
+                  })}
                 </div>
               )}
-              <div className="mt-4 text-center">
-                <Link href="/activities" className="text-blue-600 hover:underline">
-                  View All Activities
-                </Link>
+              <div className="mt-6 text-center">
+                {dashboardData.totalActivities && dashboardData.totalActivities > 3 ? (
+                  <Link
+                    href="/activities"
+                    className="inline-flex items-center justify-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-300"
+                  >
+                    <span>View All {dashboardData.totalActivities} Activities</span>
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 ml-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                  </Link>
+                ) : (
+                  <Link
+                    href="/activities"
+                    className="inline-flex items-center justify-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-300"
+                  >
+                    <span>View All Activities</span>
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 ml-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                  </Link>
+                )}
               </div>
             </div>
 

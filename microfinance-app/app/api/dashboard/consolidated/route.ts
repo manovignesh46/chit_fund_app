@@ -38,6 +38,15 @@ export async function GET(request: NextRequest) {
         return await getFinancialData(request, currentUserId);
       case 'export':
         return await exportFinancialData(request, currentUserId);
+      case 'activities':
+        // Get pagination parameters
+        const page = parseInt(searchParams.get('page') || '1', 10);
+        const pageSize = parseInt(searchParams.get('pageSize') || '10', 10);
+        const filter = searchParams.get('filter') || 'all';
+
+        // Get activities with pagination
+        const activitiesData = await getActivitiesWithPagination(currentUserId, page, pageSize, filter);
+        return NextResponse.json(activitiesData);
       case 'events':
         // Get the view parameter
         const view = searchParams.get('view');
@@ -307,6 +316,9 @@ async function getSummary(request: NextRequest, currentUserId: number) {
     // Get total upcoming events count
     const totalUpcomingEvents = await countUpcomingEvents(currentUserId);
 
+    // Get total activities count (using a simple count for now)
+    const totalActivities = recentActivities.length > 3 ? recentActivities.length : 0;
+
     console.timeEnd(timerLabel); // End timing with the same unique label
 
     // Return the dashboard summary
@@ -329,7 +341,8 @@ async function getSummary(request: NextRequest, currentUserId: number) {
       },
       recentActivities,
       upcomingEvents,
-      totalUpcomingEvents
+      totalUpcomingEvents,
+      totalActivities
     });
   } catch (error) {
     console.error('Error fetching dashboard summary:', error);
@@ -1003,6 +1016,212 @@ async function getFinancialData(request: NextRequest, currentUserId: number) {
       { error: 'Failed to fetch financial data' },
       { status: 500 }
     );
+  }
+}
+
+// Import date-fns format function
+import { format } from 'date-fns';
+
+// Helper function to get activities with pagination
+async function getActivitiesWithPagination(userId: number, page: number, pageSize: number, filter: string) {
+  try {
+    const timerLabel = `getActivitiesWithPagination-${Date.now()}`;
+    console.time(timerLabel);
+
+    // Calculate skip value for pagination
+    const skip = (page - 1) * pageSize;
+
+    // Prepare filter conditions
+    const filterCondition = filter !== 'all' ? { type: filter } : {};
+
+    // Get recent loan repayments with pagination
+    const loanRepayments = await prisma.repayment.findMany({
+      where: {
+        loan: {
+          createdById: userId
+        },
+        ...filterCondition
+      },
+      select: {
+        id: true,
+        amount: true,
+        paidDate: true,
+        paymentType: true,
+        period: true,
+        loan: {
+          select: {
+            id: true,
+            borrower: {
+              select: {
+                name: true
+              }
+            }
+          }
+        }
+      },
+      orderBy: {
+        paidDate: 'desc'
+      }
+    });
+
+    // Get recent chit fund contributions with pagination
+    const chitFundContributions = await prisma.contribution.findMany({
+      where: {
+        chitFund: {
+          createdById: userId
+        },
+        ...filterCondition
+      },
+      select: {
+        id: true,
+        amount: true,
+        paidDate: true,
+        month: true,
+        chitFundId: true,
+        chitFund: {
+          select: {
+            id: true,
+            name: true
+          }
+        }
+      },
+      orderBy: {
+        paidDate: 'desc'
+      }
+    });
+
+    // Get recent auctions with pagination
+    const auctions = await prisma.auction.findMany({
+      where: {
+        chitFund: {
+          createdById: userId
+        },
+        ...filterCondition
+      },
+      select: {
+        id: true,
+        amount: true,
+        date: true,
+        month: true,
+        chitFundId: true,
+        chitFund: {
+          select: {
+            id: true,
+            name: true
+          }
+        }
+      },
+      orderBy: {
+        date: 'desc'
+      }
+    });
+
+    // Get recent loan disbursements with pagination
+    const loanDisbursements = await prisma.loan.findMany({
+      where: {
+        createdById: userId,
+        ...filterCondition
+      },
+      select: {
+        id: true,
+        amount: true,
+        disbursementDate: true,
+        borrower: {
+          select: {
+            name: true
+          }
+        }
+      },
+      orderBy: {
+        disbursementDate: 'desc'
+      }
+    });
+
+    // Format loan repayments as activities
+    const repaymentActivities = loanRepayments.map(repayment => ({
+      id: `repayment-${repayment.id}`,
+      type: 'Loan',
+      action: 'Repayment Received',
+      details: `Received payment from ${repayment.loan.borrower?.name || 'Unknown'} for period ${repayment.period}`,
+      date: format(new Date(repayment.paidDate), 'dd MMM yyyy'),
+      amount: repayment.amount,
+      entityId: repayment.loan.id,
+      entityType: 'loan'
+    }));
+
+    // Format chit fund contributions as activities
+    const contributionActivities = chitFundContributions.map(contribution => ({
+      id: `contribution-${contribution.id}`,
+      type: 'Chit Fund',
+      action: 'Contribution Received',
+      details: `Received contribution for ${contribution.chitFund?.name || 'Unknown Fund'} (Month ${contribution.month})`,
+      date: format(new Date(contribution.paidDate), 'dd MMM yyyy'),
+      amount: contribution.amount,
+      entityId: contribution.chitFund?.id,
+      entityType: 'chitFund'
+    }));
+
+    // Format auctions as activities
+    const auctionActivities = auctions.map(auction => ({
+      id: `auction-${auction.id}`,
+      type: 'Chit Fund',
+      action: 'Auction Completed',
+      details: `${auction.chitFund?.name || 'Unknown Fund'} auction for Month ${auction.month}`,
+      date: format(new Date(auction.date), 'dd MMM yyyy'),
+      amount: auction.amount,
+      entityId: auction.chitFund?.id,
+      entityType: 'chitFund'
+    }));
+
+    // Format loan disbursements as activities
+    const loanActivities = loanDisbursements.map(loan => ({
+      id: `loan-${loan.id}`,
+      type: 'Loan',
+      action: 'Loan Disbursed',
+      details: `Disbursed loan to ${loan.borrower?.name || 'Unknown'}`,
+      date: format(new Date(loan.disbursementDate), 'dd MMM yyyy'),
+      amount: loan.amount,
+      entityId: loan.id,
+      entityType: 'loan'
+    }));
+
+    // Combine all activities
+    const allActivities = [
+      ...repaymentActivities,
+      ...contributionActivities,
+      ...auctionActivities,
+      ...loanActivities
+    ];
+
+    // Apply type filter if needed
+    const filteredActivities = filter !== 'all'
+      ? allActivities.filter(activity => activity.type === filter)
+      : allActivities;
+
+    // Sort by date (newest first)
+    const sortedActivities = filteredActivities.sort((a, b) => {
+      return new Date(b.date).getTime() - new Date(a.date).getTime();
+    });
+
+    // Get total count for pagination
+    const totalCount = sortedActivities.length;
+
+    // Apply pagination
+    const paginatedActivities = sortedActivities.slice(skip, skip + pageSize);
+
+    console.timeEnd(timerLabel);
+
+    // Return paginated activities with total count
+    return {
+      activities: paginatedActivities,
+      totalCount,
+      page,
+      pageSize,
+      totalPages: Math.ceil(totalCount / pageSize)
+    };
+  } catch (error) {
+    console.error('Error fetching activities with pagination:', error);
+    throw error;
   }
 }
 
