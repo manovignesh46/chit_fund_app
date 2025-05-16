@@ -891,7 +891,8 @@ async function getFinancialData(request: NextRequest, currentUserId: number) {
           }
         },
         select: {
-          id: true
+          id: true,
+          amount: true
         }
       });
 
