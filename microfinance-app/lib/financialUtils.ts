@@ -32,15 +32,15 @@ export function calculateLoanProfit(
     // Total profit is interest from all payments plus document charge
     const totalProfit = interestOnlyProfit + regularPaymentsProfit + documentCharge;
 
-    console.log('Monthly loan profit calculation:', {
-      documentCharge,
-      interestRate: loan.interestRate,
-      interestOnlyPayments,
-      interestOnlyProfit,
-      regularPayments,
-      regularPaymentsProfit,
-      totalProfit
-    });
+    // console.log('Monthly loan profit calculation:', {
+    //   documentCharge,
+    //   interestRate: loan.interestRate,
+    //   interestOnlyPayments,
+    //   interestOnlyProfit,
+    //   regularPayments,
+    //   regularPaymentsProfit,
+    //   totalProfit
+    // });
 
     return totalProfit;
   } else if (loan.repaymentType === 'Weekly') {
@@ -52,13 +52,13 @@ export function calculateLoanProfit(
     const profitFromPayments = totalPaid > loanAmount ? totalPaid - loanAmount : 0;
     const totalProfit = profitFromPayments + documentCharge;
 
-    console.log('Weekly loan profit calculation:', {
-      documentCharge,
-      totalPaid,
-      loanAmount,
-      profitFromPayments,
-      totalProfit
-    });
+    // console.log('Weekly loan profit calculation:', {
+    //   documentCharge,
+    //   totalPaid,
+    //   loanAmount,
+    //   profitFromPayments,
+    //   totalProfit
+    // });
 
     return totalProfit;
   }

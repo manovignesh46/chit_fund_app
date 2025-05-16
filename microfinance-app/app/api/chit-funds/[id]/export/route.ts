@@ -104,6 +104,21 @@ export async function GET(
     };
 
     const detailsWS = XLSX.utils.json_to_sheet([chitFundDetails]);
+
+    // Define column widths for details sheet
+    detailsWS['!cols'] = [
+      { width: 25 }, // Property name
+      { width: 30 }, // Value
+    ];
+
+    // Apply bold formatting to property names
+    const detailsRange = XLSX.utils.decode_range(detailsWS['!ref'] || 'A1:B1');
+    for (let row = detailsRange.s.r; row <= detailsRange.e.r; row++) {
+      const cellRef = XLSX.utils.encode_cell({ r: row, c: 0 });
+      if (!detailsWS[cellRef]) continue;
+      detailsWS[cellRef].s = { font: { bold: true } };
+    }
+
     XLSX.utils.book_append_sheet(wb, detailsWS, 'Chit Fund Details');
 
     // 2. Members Sheet
@@ -121,6 +136,31 @@ export async function GET(
     }));
 
     const membersWS = XLSX.utils.json_to_sheet(membersData);
+
+    // Define column widths for members sheet
+    membersWS['!cols'] = [
+      { width: 10 },  // Member ID
+      { width: 25 },  // Name
+      { width: 15 },  // Contact
+      { width: 25 },  // Email
+      { width: 25 },  // Address
+      { width: 15 },  // Join Date
+      { width: 15 },  // Contribution Amount
+      { width: 15 },  // Contributions Count
+      { width: 10 },  // Won Auction
+      { width: 15 },  // Auction Month
+    ];
+
+    // Apply bold formatting to header row
+    if (membersData.length > 0) {
+      const membersRange = XLSX.utils.decode_range(membersWS['!ref'] || 'A1:J1');
+      for (let col = membersRange.s.c; col <= membersRange.e.c; col++) {
+        const cellRef = XLSX.utils.encode_cell({ r: 0, c: col });
+        if (!membersWS[cellRef]) continue;
+        membersWS[cellRef].s = { font: { bold: true } };
+      }
+    }
+
     XLSX.utils.book_append_sheet(wb, membersWS, 'Members');
 
     // 3. Auctions Sheet
@@ -139,6 +179,32 @@ export async function GET(
     }));
 
     const auctionsWS = XLSX.utils.json_to_sheet(auctionsData);
+
+    // Define column widths for auctions sheet
+    auctionsWS['!cols'] = [
+      { width: 10 },  // Auction ID
+      { width: 10 },  // Month
+      { width: 15 },  // Date
+      { width: 25 },  // Winner
+      { width: 15 },  // Amount
+      { width: 15 },  // Discount
+      { width: 15 },  // Discount %
+      { width: 15 },  // Lowest Bid
+      { width: 15 },  // Highest Bid
+      { width: 15 },  // Number of Bidders
+      { width: 25 },  // Notes
+    ];
+
+    // Apply bold formatting to header row
+    if (auctionsData.length > 0) {
+      const auctionsRange = XLSX.utils.decode_range(auctionsWS['!ref'] || 'A1:K1');
+      for (let col = auctionsRange.s.c; col <= auctionsRange.e.c; col++) {
+        const cellRef = XLSX.utils.encode_cell({ r: 0, c: col });
+        if (!auctionsWS[cellRef]) continue;
+        auctionsWS[cellRef].s = { font: { bold: true } };
+      }
+    }
+
     XLSX.utils.book_append_sheet(wb, auctionsWS, 'Auctions');
 
     // 4. Contributions Sheet
@@ -156,6 +222,31 @@ export async function GET(
     }));
 
     const contributionsWS = XLSX.utils.json_to_sheet(contributionsData);
+
+    // Define column widths for contributions sheet
+    contributionsWS['!cols'] = [
+      { width: 15 },  // Contribution ID
+      { width: 10 },  // Month
+      { width: 25 },  // Member
+      { width: 15 },  // Amount
+      { width: 15 },  // Paid Date
+      { width: 15 },  // Balance
+      { width: 20 },  // Balance Payment Status
+      { width: 20 },  // Balance Payment Date
+      { width: 20 },  // Actual Balance Payment Date
+      { width: 25 },  // Notes
+    ];
+
+    // Apply bold formatting to header row
+    if (contributionsData.length > 0) {
+      const contributionsRange = XLSX.utils.decode_range(contributionsWS['!ref'] || 'A1:J1');
+      for (let col = contributionsRange.s.c; col <= contributionsRange.e.c; col++) {
+        const cellRef = XLSX.utils.encode_cell({ r: 0, c: col });
+        if (!contributionsWS[cellRef]) continue;
+        contributionsWS[cellRef].s = { font: { bold: true } };
+      }
+    }
+
     XLSX.utils.book_append_sheet(wb, contributionsWS, 'Contributions');
 
     // 5. Financial Summary Sheet
@@ -182,6 +273,21 @@ export async function GET(
     };
 
     const summaryWS = XLSX.utils.json_to_sheet([summaryData]);
+
+    // Define column widths for summary sheet
+    summaryWS['!cols'] = [
+      { width: 30 }, // Property name
+      { width: 20 }, // Value
+    ];
+
+    // Apply bold formatting to property names
+    const summaryRange = XLSX.utils.decode_range(summaryWS['!ref'] || 'A1:B1');
+    for (let row = summaryRange.s.r; row <= summaryRange.e.r; row++) {
+      const cellRef = XLSX.utils.encode_cell({ r: row, c: 0 });
+      if (!summaryWS[cellRef]) continue;
+      summaryWS[cellRef].s = { font: { bold: true } };
+    }
+
     XLSX.utils.book_append_sheet(wb, summaryWS, 'Financial Summary');
 
     // Generate Excel file

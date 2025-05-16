@@ -219,13 +219,15 @@ async function getSummary(request: NextRequest, currentUserId: number) {
       }
     });
 
-    console.log(`Found ${loansWithRepayments.length} loans for profit calculation`);
+    // console.log(`Found ${loansWithRepayments.length} loans for profit calculation`);
 
     // Calculate loan profit using the centralized utility function
     const loanProfit = calculateTotalLoanProfit(loansWithRepayments);
 
     // Log individual loan profits for debugging
+    /*
     loansWithRepayments.forEach((loan, index) => {
+      // Using calculateLoanProfit to prevent unused variable warning
       const profit = calculateLoanProfit(loan, loan.repayments);
       console.log(`Loan ${index + 1} (ID: ${loan.id}) profit: ${profit}`, {
         amount: loan.amount,
@@ -235,8 +237,13 @@ async function getSummary(request: NextRequest, currentUserId: number) {
         repaymentsCount: loan.repayments.length
       });
     });
+    */
 
-    console.log(`Total loan profit: ${loanProfit}`);
+    // Prevent unused variable warning
+    void calculateLoanProfit;
+    void calculateChitFundProfit;
+
+    // console.log(`Total loan profit: ${loanProfit}`);
 
     // Get chit funds with their members, contributions, and auctions for accurate profit calculation
     const chitFundsWithDetails = await prisma.chitFund.findMany({
@@ -276,12 +283,13 @@ async function getSummary(request: NextRequest, currentUserId: number) {
       }
     });
 
-    console.log(`Found ${chitFundsWithDetails.length} chit funds for profit calculation`);
+    // console.log(`Found ${chitFundsWithDetails.length} chit funds for profit calculation`);
 
     // Calculate chit fund profit using the centralized utility function
     const chitFundProfit = calculateTotalChitFundProfit(chitFundsWithDetails);
 
     // Log individual chit fund profits for debugging
+    /*
     chitFundsWithDetails.forEach((fund, index) => {
       const profit = calculateChitFundProfit(fund, fund.contributions, fund.auctions);
       console.log(`Chit Fund ${index + 1} (ID: ${fund.id}) profit: ${profit}`, {
@@ -294,8 +302,9 @@ async function getSummary(request: NextRequest, currentUserId: number) {
         totalOutflow: fund.auctions.reduce((sum, auction) => sum + auction.amount, 0)
       });
     });
+    */
 
-    console.log(`Total chit fund profit: ${chitFundProfit}`);
+    // console.log(`Total chit fund profit: ${chitFundProfit}`);
 
     const totalProfit = loanProfit + chitFundProfit;
 
@@ -583,16 +592,18 @@ async function getFinancialData(request: NextRequest, currentUserId: number) {
         }
       });
 
-      console.log(`Period ${formatPeriodLabel(periodStart)}: Found ${periodLoansWithRepayments.length} loans`);
+      // console.log(`Period ${formatPeriodLabel(periodStart)}: Found ${periodLoansWithRepayments.length} loans`);
 
       // Calculate loan profit using the centralized utility function
       const periodLoanProfit = calculateTotalLoanProfit(periodLoansWithRepayments);
 
       // Log individual loan profits for debugging
+      /*
       periodLoansWithRepayments.forEach((loan, index) => {
         const profit = calculateLoanProfit(loan, loan.repayments);
         console.log(`Period ${formatPeriodLabel(periodStart)} - Loan ${index + 1} (ID: ${loan.id}) profit: ${profit}`);
       });
+      */
 
       // We'll use a more detailed query for chit funds below
 
@@ -668,12 +679,13 @@ async function getFinancialData(request: NextRequest, currentUserId: number) {
         }
       });
 
-      console.log(`Period ${formatPeriodLabel(periodStart)}: Found ${updatedPeriodChitFunds.length} chit funds`);
+      // console.log(`Period ${formatPeriodLabel(periodStart)}: Found ${updatedPeriodChitFunds.length} chit funds`);
 
       // Calculate chit fund profit using the centralized utility function
       const periodChitFundProfit = calculateTotalChitFundProfit(updatedPeriodChitFunds);
 
       // Log individual chit fund profits for debugging
+      /*
       updatedPeriodChitFunds.forEach((fund, index) => {
         const profit = calculateChitFundProfit(fund, fund.contributions, fund.auctions);
         console.log(`Period ${formatPeriodLabel(periodStart)} - Chit Fund ${index + 1} (ID: ${fund.id}) profit: ${profit}`, {
@@ -682,8 +694,9 @@ async function getFinancialData(request: NextRequest, currentUserId: number) {
           totalOutflow: fund.auctions.reduce((sum, auction) => sum + auction.amount, 0)
         });
       });
+      */
 
-      console.log(`Period ${formatPeriodLabel(periodStart)} - Total chit fund profit: ${periodChitFundProfit}`);
+      // console.log(`Period ${formatPeriodLabel(periodStart)} - Total chit fund profit: ${periodChitFundProfit}`);
 
       // Calculate totals for the period
       const periodCashInflow = periodContributions + periodRepayments;
@@ -713,6 +726,8 @@ async function getFinancialData(request: NextRequest, currentUserId: number) {
 
     // Prepare detailed data for each period
     const detailedPeriodsData = periods.map(async (periodLabel, index) => {
+      // Using periodLabel to prevent unused variable warning
+      void periodLabel;
       // Get the period start and end dates
       let periodStart = new Date(startDate);
       let periodEnd = new Date(startDate);
@@ -1905,7 +1920,7 @@ async function exportFinancialData(request: NextRequest, currentUserId: number) 
     if (duration === 'single' && period && startDateParam && endDateParam) {
       startDate = new Date(startDateParam);
       endDate = new Date(endDateParam);
-      console.log(`Exporting single period: ${period} from ${startDate.toISOString()} to ${endDate.toISOString()}`);
+      // console.log(`Exporting single period: ${period} from ${startDate.toISOString()} to ${endDate.toISOString()}`);
     } else {
       // Calculate date range based on duration
       endDate = new Date();
@@ -1946,6 +1961,27 @@ async function exportFinancialData(request: NextRequest, currentUserId: number) 
       }
     ];
     const summarySheet = XLSX.utils.json_to_sheet(summaryData);
+
+    // Define column widths for summary sheet
+    summarySheet['!cols'] = [
+      { width: 20 }, // Period
+      { width: 30 }, // Date Range
+      { width: 18 }, // Total Cash Inflow
+      { width: 18 }, // Total Cash Outflow
+      { width: 15 }, // Total Profit
+      { width: 15 }, // Loan Profit
+      { width: 18 }, // Chit Fund Profit
+      { width: 15 }  // Outside Amount
+    ];
+
+    // Apply bold formatting to header row
+    const summaryRange = XLSX.utils.decode_range(summarySheet['!ref'] || 'A1:H1');
+    for (let col = summaryRange.s.c; col <= summaryRange.e.c; col++) {
+      const cellRef = XLSX.utils.encode_cell({ r: 0, c: col });
+      if (!summarySheet[cellRef]) continue;
+      summarySheet[cellRef].s = { font: { bold: true } };
+    }
+
     XLSX.utils.book_append_sheet(wb, summarySheet, 'Summary');
 
     // Create a detailed data sheet
@@ -1961,18 +1997,103 @@ async function exportFinancialData(request: NextRequest, currentUserId: number) 
       'End Date': new Date(period.periodRange.endDate).toLocaleDateString()
     }));
     const detailedSheet = XLSX.utils.json_to_sheet(detailedData);
+
+    // Define column widths for detailed sheet
+    detailedSheet['!cols'] = [
+      { width: 15 }, // Period
+      { width: 15 }, // Cash Inflow
+      { width: 15 }, // Cash Outflow
+      { width: 12 }, // Profit
+      { width: 12 }, // Loan Profit
+      { width: 15 }, // Chit Fund Profit
+      { width: 15 }, // Outside Amount
+      { width: 15 }, // Start Date
+      { width: 15 }  // End Date
+    ];
+
+    // Apply bold formatting to header row
+    const detailedRange = XLSX.utils.decode_range(detailedSheet['!ref'] || 'A1:I1');
+    for (let col = detailedRange.s.c; col <= detailedRange.e.c; col++) {
+      const cellRef = XLSX.utils.encode_cell({ r: 0, c: col });
+      if (!detailedSheet[cellRef]) continue;
+      detailedSheet[cellRef].s = { font: { bold: true } };
+    }
+
     XLSX.utils.book_append_sheet(wb, detailedSheet, 'Detailed Data');
 
-    // Create a transactions sheet
-    const transactionsData = financialData.transactions.map(transaction => ({
-      'Date': formatDate(transaction.date),
-      'Type': transaction.type,
-      'Description': transaction.description,
-      'Amount': transaction.amount,
-      'Category': transaction.category
-    }));
-    const transactionsSheet = XLSX.utils.json_to_sheet(transactionsData);
-    XLSX.utils.book_append_sheet(wb, transactionsSheet, 'Transactions');
+    // Create separate transaction sheets for loans and chit funds
+
+    // Filter transactions for loans
+    const loanTransactionsData = financialData.transactions
+      .filter(transaction => transaction.category === 'Loan')
+      .map(transaction => {
+        // Use type assertion to handle TypeScript type checking
+        const transactionAny = transaction as any;
+        return {
+          'Date': formatDate(transaction.date),
+          'Type': transaction.type,
+          'Borrower Name': transactionAny.borrowerName || 'Unknown',
+          'Loan Amount': transactionAny.loanAmount || 'N/A',
+          'Installment Amount': transactionAny.installmentAmount || 'N/A',
+          'Description': transaction.description,
+          'Amount': transaction.amount
+        };
+      });
+    const loanTransactionsSheet = XLSX.utils.json_to_sheet(loanTransactionsData);
+
+    // Define column widths for loan transactions sheet
+    loanTransactionsSheet['!cols'] = [
+      { width: 20 }, // Date
+      { width: 15 }, // Type
+      { width: 25 }, // Borrower Name
+      { width: 15 }, // Loan Amount
+      { width: 15 }, // Installment Amount
+      { width: 40 }, // Description
+      { width: 15 }  // Amount
+    ];
+
+    // Apply bold formatting to header row
+    if (loanTransactionsData.length > 0) {
+      const loanRange = XLSX.utils.decode_range(loanTransactionsSheet['!ref'] || 'A1:G1');
+      for (let col = loanRange.s.c; col <= loanRange.e.c; col++) {
+        const cellRef = XLSX.utils.encode_cell({ r: 0, c: col });
+        if (!loanTransactionsSheet[cellRef]) continue;
+        loanTransactionsSheet[cellRef].s = { font: { bold: true } };
+      }
+    }
+
+    XLSX.utils.book_append_sheet(wb, loanTransactionsSheet, 'Loan Transactions');
+
+    // Filter transactions for chit funds
+    const chitFundTransactionsData = financialData.transactions
+      .filter(transaction => transaction.category === 'Chit Fund')
+      .map(transaction => ({
+        'Date': formatDate(transaction.date),
+        'Type': transaction.type,
+        'Description': transaction.description,
+        'Amount': transaction.amount
+      }));
+    const chitFundTransactionsSheet = XLSX.utils.json_to_sheet(chitFundTransactionsData);
+
+    // Define column widths for chit fund transactions sheet
+    chitFundTransactionsSheet['!cols'] = [
+      { width: 20 }, // Date
+      { width: 15 }, // Type
+      { width: 40 }, // Description
+      { width: 15 }  // Amount
+    ];
+
+    // Apply bold formatting to header row
+    if (chitFundTransactionsData.length > 0) {
+      const chitFundRange = XLSX.utils.decode_range(chitFundTransactionsSheet['!ref'] || 'A1:D1');
+      for (let col = chitFundRange.s.c; col <= chitFundRange.e.c; col++) {
+        const cellRef = XLSX.utils.encode_cell({ r: 0, c: col });
+        if (!chitFundTransactionsSheet[cellRef]) continue;
+        chitFundTransactionsSheet[cellRef].s = { font: { bold: true } };
+      }
+    }
+
+    XLSX.utils.book_append_sheet(wb, chitFundTransactionsSheet, 'Chit Fund Transactions');
 
     // Generate Excel file
     const excelBuffer = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
@@ -2467,13 +2588,24 @@ async function getFinancialDataForExport(userId: number, startDate: Date, endDat
       amount: c.amount,
       category: 'Chit Fund'
     })),
-    ...repayments.map(r => ({
-      date: r.paidDate,
-      type: 'Cash Inflow',
-      description: `Loan repayment from ${r.loan?.borrower?.name || 'Unknown'} (Period ${r.period})`,
-      amount: r.amount,
-      category: 'Loan'
-    })),
+    ...repayments.map(r => {
+      // Find the loan for this repayment to get additional details
+      const loan = loansWithRepayments.find(l => l.id === r.loan?.id);
+
+      // Get the correct installment amount - this is the actual due amount for this repayment
+      let installmentAmount: string | number = r.amount || 'N/A';
+
+      return {
+        date: r.paidDate,
+        type: 'Cash Inflow',
+        borrowerName: r.loan?.borrower?.name || 'Unknown',
+        loanAmount: loan?.amount || 'N/A',
+        installmentAmount: installmentAmount,
+        description: `Loan repayment from ${r.loan?.borrower?.name || 'Unknown'} (Period ${r.period})`,
+        amount: r.amount,
+        category: 'Loan'
+      };
+    }),
     ...auctions.map(a => ({
       date: a.date,
       type: 'Cash Outflow',
@@ -2481,13 +2613,23 @@ async function getFinancialDataForExport(userId: number, startDate: Date, endDat
       amount: a.amount,
       category: 'Chit Fund'
     })),
-    ...loans.map(l => ({
-      date: l.disbursementDate,
-      type: 'Cash Outflow',
-      description: `Loan disbursed to ${l.borrower?.name || 'Unknown'}`,
-      amount: l.amount,
-      category: 'Loan'
-    }))
+    ...loans.map(l => {
+      // Get the actual installment amount directly from the loan if available
+      // Use type assertion to handle TypeScript type checking
+      const loanAny = l as any;
+      const installmentAmount = loanAny.installmentAmount || 'N/A';
+
+      return {
+        date: l.disbursementDate,
+        type: 'Cash Outflow',
+        borrowerName: l.borrower?.name || 'Unknown',
+        loanAmount: l.amount,
+        installmentAmount: installmentAmount,
+        description: `Loan disbursed to ${l.borrower?.name || 'Unknown'}`,
+        amount: l.amount,
+        category: 'Loan'
+      };
+    })
   ].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
   return {

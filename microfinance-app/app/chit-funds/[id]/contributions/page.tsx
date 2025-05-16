@@ -662,77 +662,23 @@ export default function ChitFundContributionsPage() {
         </div>
       </div>
 
-      {/* View Mode Toggle */}
-      <div className="bg-white rounded-lg shadow-md p-4 mb-6">
-        <div className="flex justify-center space-x-4 mb-4">
-          <button
-            onClick={() => {
-              setSelectedMonth("all")
-              setMemberDetail(false);
-              setViewMode("month");
-            }}
-            className={`px-4 py-2 rounded-lg transition duration-300 bg-gray-200 text-gray-700 hover:bg-gray-300"`}
-          >
-            Back
-          </button>
-          <button
-            onClick={() => setViewMode("month")}
-            className={`px-4 py-2 rounded-lg transition duration-300 ${
-              viewMode === "month"
-                ? "bg-blue-600 text-white"
-                : "bg-gray-200 text-gray-700 hover:bg-gray-300"
-            }`}
-          >
-            Month View
-          </button>
+      {/* View Mode Toggle - Only show Back button when in member detail view */}
+      {memberDetail && (
+        <div className="bg-white rounded-lg shadow-md p-4 mb-6">
+          <div className="flex justify-center space-x-4 mb-4">
+            <button
+              onClick={() => {
+                setSelectedMonth("all");
+                setMemberDetail(false);
+                setViewMode("month");
+              }}
+              className="px-4 py-2 rounded-lg transition duration-300 bg-gray-200 text-gray-700 hover:bg-gray-300"
+            >
+              Back
+            </button>
+          </div>
         </div>
-
-        {/* Filters */}
-        {/* <div className="flex flex-wrap gap-4">
-          <div className="flex-1 min-w-[200px]">
-            <label
-              htmlFor="monthFilter"
-              className="block text-sm font-medium text-gray-700 mb-1"
-            >
-              Filter by Month
-            </label>
-            <select
-              id="monthFilter"
-              value={selectedMonth}
-              onChange={(e) => setSelectedMonth(e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            >
-              <option value="all">All Months</option>
-              {months.map((month) => (
-                <option key={month} value={month}>
-                  Month {month}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="flex-1 min-w-[200px]">
-            <label
-              htmlFor="memberFilter"
-              className="block text-sm font-medium text-gray-700 mb-1"
-            >
-              Filter by Member
-            </label>
-            <select
-              id="memberFilter"
-              value={selectedMember}
-              onChange={(e) => setSelectedMember(e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            >
-              <option value="all">All Members</option>
-              {members.map((member) => (
-                <option key={member.id} value={member.id}>
-                  {member.globalMember.name}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div> */}
-      </div>
+      )}
 
       {/* Contributions Table */}
       <div className="bg-white rounded-lg shadow-md overflow-hidden mb-8">

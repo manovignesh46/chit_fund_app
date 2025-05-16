@@ -888,18 +888,111 @@ const LoanDetailPage = () => {
                 <div className="text-sm text-gray-500">Current {loan.loanType === 'Weekly' ? 'Week' : 'Month'}</div>
                 <div className="flex items-center">
                   <div className="text-xl font-bold text-green-700 mr-2">
-                    {loan.currentMonth === 0 ?
-                      <span className="text-yellow-600">Not Started</span> :
-                      <>{loan.currentMonth} <span className="text-sm text-gray-500">/ {loan.duration}</span></>
-                    }
+                    {(() => {
+                      // Calculate the current period based on disbursement date
+                      const startDate = new Date(loan.disbursementDate);
+                      const currentDate = new Date();
+
+                      // Check if disbursement date is in the future
+                      if (startDate > currentDate) {
+                        return <span className="text-yellow-600">Not Started</span>;
+                      }
+
+                      let calculatedPeriod;
+
+                      if (loan.loanType === 'Weekly') {
+                        // Calculate weeks difference for weekly loans
+                        const startDateClean = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate());
+                        const currentDateClean = new Date(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate());
+
+                        // Calculate days difference
+                        const daysDiff = Math.floor((currentDateClean.getTime() - startDateClean.getTime()) / (24 * 60 * 60 * 1000));
+
+                        // Calculate the week number
+                        const isExactMultipleOfSeven = daysDiff % 7 === 0;
+                        const currentWeek = Math.floor(daysDiff / 7) + (isExactMultipleOfSeven ? 0 : 1);
+
+                        // Ensure we don't exceed the duration
+                        calculatedPeriod = Math.min(Math.max(1, currentWeek), loan.duration);
+                      } else {
+                        // Calculate months difference for monthly loans
+                        let monthsDiff = (currentDate.getFullYear() - startDate.getFullYear()) * 12 +
+                                        (currentDate.getMonth() - startDate.getMonth()) + 1;
+
+                        // Adjust if we haven't reached the same day of the month yet
+                        if (currentDate.getDate() < startDate.getDate()) {
+                          monthsDiff--;
+                        }
+
+                        // Ensure we don't exceed the duration
+                        calculatedPeriod = Math.min(Math.max(1, monthsDiff), loan.duration);
+                      }
+
+                      return (
+                        <>{calculatedPeriod} <span className="text-sm text-gray-500">/ {loan.duration}</span></>
+                      );
+                    })()}
                   </div>
-                  <button
-                    onClick={updateCurrentMonth}
-                    disabled={updating}
-                    className="text-xs px-2 py-1 bg-green-100 text-green-800 rounded hover:bg-green-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {updating ? 'Updating...' : 'Update'}
-                  </button>
+                  {(() => {
+                    // Calculate the current period to check if update is needed
+                    const startDate = new Date(loan.disbursementDate);
+                    const currentDate = new Date();
+
+                    // Check if disbursement date is in the future
+                    if (startDate > currentDate) {
+                      // Should be "Not Started" (period 0)
+                      return loan.currentMonth !== 0 && (
+                        <button
+                          onClick={updateCurrentMonth}
+                          disabled={updating}
+                          className="text-xs px-2 py-1 bg-green-100 text-green-800 rounded hover:bg-green-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          {updating ? 'Updating...' : 'Update'}
+                        </button>
+                      );
+                    }
+
+                    let calculatedPeriod;
+
+                    if (loan.loanType === 'Weekly') {
+                      // Calculate weeks difference for weekly loans
+                      const startDateClean = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate());
+                      const currentDateClean = new Date(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate());
+
+                      // Calculate days difference
+                      const daysDiff = Math.floor((currentDateClean.getTime() - startDateClean.getTime()) / (24 * 60 * 60 * 1000));
+
+                      // Calculate the week number
+                      const isExactMultipleOfSeven = daysDiff % 7 === 0;
+                      const currentWeek = Math.floor(daysDiff / 7) + (isExactMultipleOfSeven ? 0 : 1);
+
+                      // Ensure we don't exceed the duration
+                      calculatedPeriod = Math.min(Math.max(1, currentWeek), loan.duration);
+                    } else {
+                      // Calculate months difference for monthly loans
+                      let monthsDiff = (currentDate.getFullYear() - startDate.getFullYear()) * 12 +
+                                      (currentDate.getMonth() - startDate.getMonth()) + 1;
+
+                      // Adjust if we haven't reached the same day of the month yet
+                      if (currentDate.getDate() < startDate.getDate()) {
+                        monthsDiff--;
+                      }
+
+                      // Ensure we don't exceed the duration
+                      calculatedPeriod = Math.min(Math.max(1, monthsDiff), loan.duration);
+                    }
+
+                    // Only show update button if the calculated period differs from the current period
+                    return loan.currentMonth !== calculatedPeriod && (
+                      <button
+                        onClick={updateCurrentMonth}
+                        disabled={updating}
+                        className="text-xs px-2 py-1 bg-green-100 text-green-800 rounded hover:bg-green-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {updating ? 'Updating...' : 'Update'}
+                      </button>
+                    );
+                  })()}
                 </div>
               </div>
               <span className="px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm font-semibold">
@@ -920,16 +1013,11 @@ const LoanDetailPage = () => {
               <p className="text-xl font-semibold">{formatCurrency(loan.remainingAmount)}</p>
             </div>
             <div>
-              <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-2 flex items-center">
-                Overdue Amount
-                {loan.overdueAmount > 0 && (
-                  <span className="ml-2 px-2 py-0.5 text-xs font-semibold rounded-full bg-red-100 text-red-800">
-                    {loan.missedPayments} {loan.missedPayments === 1 ? 'payment' : 'payments'} missed
-                  </span>
-                )}
+              <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-2">
+                Overdue
               </h3>
-              <p className={`text-xl font-semibold ${loan.overdueAmount > 0 ? 'text-red-600' : 'text-gray-500'}`}>
-                {formatCurrency(loan.overdueAmount)}
+              <p className={`text-xl font-semibold ${loan.missedPayments > 0 ? 'text-red-600' : 'text-green-600'}`}>
+                {loan.missedPayments > 0 ? `${loan.missedPayments} ${loan.missedPayments === 1 ? 'payment' : 'payments'}` : 'None'}
               </p>
             </div>
             {loan.repaymentType === 'Monthly' && (
@@ -1201,10 +1289,6 @@ const LoanDetailPage = () => {
               <p className="text-xl font-semibold">{loan.loanType}</p>
             </div>
             <div>
-              <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-2">Repayment Type</h3>
-              <p className="text-xl font-semibold">{loan.repaymentType}</p>
-            </div>
-            <div>
               <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-2">Duration</h3>
               <p className="text-xl font-semibold">{loan.duration} {loan.loanType === 'Weekly' ? 'weeks' : 'months'}</p>
             </div>
@@ -1313,7 +1397,8 @@ const LoanDetailPage = () => {
                   gracePeriodDate.setDate(gracePeriodDate.getDate() + 3);
 
                   // Only mark as overdue if it's past the grace period (3 days after due date)
-                  const isOverdue = dueDate < today && today >= gracePeriodDate && schedule.status === 'Pending';
+                  const isOverdue = dueDate < today && today >= gracePeriodDate &&
+                    (schedule.status === 'Pending' || schedule.status === 'Overdue');
 
                   return (
                     <tr key={schedule.id} className={`hover:bg-gray-50 ${
@@ -1335,12 +1420,15 @@ const LoanDetailPage = () => {
                       <div className="flex flex-col space-y-1">
                         <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
                           schedule.status === 'Paid' ? 'bg-green-100 text-green-800' :
-                          schedule.status === 'Pending' ? 'bg-yellow-100 text-yellow-800' :
+                          schedule.status === 'Pending' ? (
+                            isOverdue ? 'bg-red-100 text-red-800' : 'bg-yellow-100 text-yellow-800'
+                          ) :
+                          schedule.status === 'Overdue' ? 'bg-red-100 text-red-800' :
                           schedule.status === 'Missed' ? 'bg-red-100 text-red-800' :
                           schedule.status === 'InterestOnly' ? 'bg-blue-100 text-blue-800' :
                           'bg-gray-100 text-gray-800'
                         }`}>
-                          {schedule.status}
+                          {isOverdue ? 'Overdue' : schedule.status}
                         </span>
 
                         {isDueTomorrow && (

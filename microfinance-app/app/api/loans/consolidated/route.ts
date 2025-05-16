@@ -523,14 +523,14 @@ async function getPaymentSchedules(request: NextRequest, id: number, currentUser
 
       // For debugging
       if (period === 1) {
-        console.log('Next payment date check:', {
-          nextPaymentDate: nextPaymentDate ? nextPaymentDate.toISOString() : null,
-          dueDate: dueDate.toISOString(),
-          isNextPayment,
-          nextPaymentDateString: nextPaymentDate ? nextPaymentDate.toDateString() : null,
-          dueDateString: dueDate.toDateString(),
-          stringsEqual: nextPaymentDate ? nextPaymentDate.toDateString() === dueDate.toDateString() : false
-        });
+        // console.log('Next payment date check:', {
+        //   nextPaymentDate: nextPaymentDate ? nextPaymentDate.toISOString() : null,
+        //   dueDate: dueDate.toISOString(),
+        //   isNextPayment,
+        //   nextPaymentDateString: nextPaymentDate ? nextPaymentDate.toDateString() : null,
+        //   dueDateString: dueDate.toDateString(),
+        //   stringsEqual: nextPaymentDate ? nextPaymentDate.toDateString() === dueDate.toDateString() : false
+        // });
       }
 
       // ALWAYS include the first payment if it's not paid yet
@@ -619,11 +619,15 @@ async function exportLoan(request: NextRequest, id: number, currentUserId: numbe
     const workbook = await generateLoansExcel([loan]);
     const buffer = await workbook.xlsx.writeBuffer();
 
+    // Format current date for filename
+    const today = new Date();
+    const dateStr = today.toISOString().split('T')[0]; // YYYY-MM-DD format
+
     // Set response headers for file download
     return new NextResponse(buffer, {
       headers: {
         'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        'Content-Disposition': `attachment; filename=loan_${id}.xlsx`
+        'Content-Disposition': `attachment; filename=loan_${id}_${dateStr}.xlsx`
       }
     });
   } catch (error) {
@@ -650,11 +654,15 @@ async function exportAllLoans(request: NextRequest, currentUserId: number) {
     const workbook = await generateLoansExcel(loans);
     const buffer = await workbook.xlsx.writeBuffer();
 
+    // Format current date for filename
+    const today = new Date();
+    const dateStr = today.toISOString().split('T')[0]; // YYYY-MM-DD format
+
     // Set response headers for file download
     return new NextResponse(buffer, {
       headers: {
         'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        'Content-Disposition': 'attachment; filename=all_loans.xlsx'
+        'Content-Disposition': `attachment; filename=all_loans_${dateStr}.xlsx`
       }
     });
   } catch (error) {
@@ -690,11 +698,15 @@ async function exportSelectedLoans(request: NextRequest, loanIds: number[], curr
     const workbook = await generateLoansExcel(loans);
     const buffer = await workbook.xlsx.writeBuffer();
 
+    // Format current date for filename
+    const today = new Date();
+    const dateStr = today.toISOString().split('T')[0]; // YYYY-MM-DD format
+
     // Set response headers for file download
     return new NextResponse(buffer, {
       headers: {
         'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        'Content-Disposition': 'attachment; filename=selected_loans.xlsx'
+        'Content-Disposition': `attachment; filename=selected_loans_${dateStr}.xlsx`
       }
     });
   } catch (error) {
@@ -714,28 +726,28 @@ async function generateLoansExcel(loans: any[]) {
   // Add a worksheet for loan details
   const worksheet = workbook.addWorksheet('Loan Details');
 
-  // Define columns
+  // Define columns with optimized widths for better readability
   worksheet.columns = [
     { header: 'Loan ID', key: 'id', width: 10 },
-    { header: 'Borrower Name', key: 'borrowerName', width: 20 },
+    { header: 'Borrower Name', key: 'borrowerName', width: 25 },
     { header: 'Contact', key: 'contact', width: 15 },
-    { header: 'Loan Type', key: 'loanType', width: 15 },
+    { header: 'Loan Type', key: 'loanType', width: 12 },
     { header: 'Amount', key: 'amount', width: 15 },
-    { header: 'Interest Rate', key: 'interestRate', width: 15 },
+    { header: 'Interest Rate', key: 'interestRate', width: 12 },
     { header: 'Document Charge', key: 'documentCharge', width: 15 },
-    { header: 'Installment Amount', key: 'installmentAmount', width: 15 },
+    { header: 'Installment Amount', key: 'installmentAmount', width: 18 },
     { header: 'Duration', key: 'duration', width: 10 },
     { header: 'Disbursement Date', key: 'disbursementDate', width: 20 },
-    { header: 'Remaining Amount', key: 'remainingAmount', width: 15 },
-    { header: 'Status', key: 'status', width: 15 },
-    { header: 'Overdue Amount', key: 'overdueAmount', width: 15 },
-    { header: 'Missed Payments', key: 'missedPayments', width: 15 },
+    { header: 'Remaining Amount', key: 'remainingAmount', width: 18 },
+    { header: 'Status', key: 'status', width: 12 },
+    { header: 'Overdue', key: 'overdue', width: 15 },
     { header: 'Next Payment Date', key: 'nextPaymentDate', width: 20 },
-    { header: 'Purpose', key: 'purpose', width: 30 },
+    { header: 'Purpose', key: 'purpose', width: 35 },
   ];
 
-  // Format header row
+  // Format header row with bold font
   worksheet.getRow(1).font = { bold: true };
+  worksheet.getRow(1).alignment = { vertical: 'middle', horizontal: 'center' };
 
   // Add data
   loans.forEach(loan => {
@@ -752,8 +764,7 @@ async function generateLoansExcel(loans: any[]) {
       disbursementDate: loan.disbursementDate ? new Date(loan.disbursementDate).toLocaleDateString() : 'Unknown',
       remainingAmount: loan.remainingAmount,
       status: loan.status,
-      overdueAmount: loan.overdueAmount || 0,
-      missedPayments: loan.missedPayments || 0,
+      overdue: loan.missedPayments > 0 ? `${loan.missedPayments} ${loan.missedPayments === 1 ? 'payment' : 'payments'}` : 'None',
       nextPaymentDate: loan.nextPaymentDate ? new Date(loan.nextPaymentDate).toLocaleDateString() : 'N/A',
       purpose: loan.purpose || 'N/A',
     });
@@ -762,10 +773,10 @@ async function generateLoansExcel(loans: any[]) {
   // Add a worksheet for repayments
   const repaymentsWorksheet = workbook.addWorksheet('Repayments');
 
-  // Define columns for repayments
+  // Define columns for repayments with optimized widths
   repaymentsWorksheet.columns = [
     { header: 'Loan ID', key: 'loanId', width: 10 },
-    { header: 'Borrower Name', key: 'borrowerName', width: 20 },
+    { header: 'Borrower Name', key: 'borrowerName', width: 25 },
     { header: 'Repayment ID', key: 'repaymentId', width: 15 },
     { header: 'Amount', key: 'amount', width: 15 },
     { header: 'Paid Date', key: 'paidDate', width: 20 },
@@ -773,8 +784,9 @@ async function generateLoansExcel(loans: any[]) {
     { header: 'Period', key: 'period', width: 10 },
   ];
 
-  // Format header row
+  // Format header row with bold font and center alignment
   repaymentsWorksheet.getRow(1).font = { bold: true };
+  repaymentsWorksheet.getRow(1).alignment = { vertical: 'middle', horizontal: 'center' };
 
   // Add repayment data
   loans.forEach(loan => {

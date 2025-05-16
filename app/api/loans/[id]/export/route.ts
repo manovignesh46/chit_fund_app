@@ -99,22 +99,77 @@ export async function GET(
 
         // Add loan details sheet
         const loanDetailsWS = XLSX.utils.json_to_sheet([loanDetails]);
+
+        // Define column widths for loan details sheet
+        loanDetailsWS['!cols'] = [
+            { width: 25 }, // Property name
+            { width: 30 }, // Value
+        ];
+
+        // Apply bold formatting to property names
+        const detailsRange = XLSX.utils.decode_range(loanDetailsWS['!ref'] || 'A1:B1');
+        for (let row = detailsRange.s.r; row <= detailsRange.e.r; row++) {
+            const cellRef = XLSX.utils.encode_cell({ r: row, c: 0 });
+            if (!loanDetailsWS[cellRef]) continue;
+            loanDetailsWS[cellRef].s = { font: { bold: true } };
+        }
+
         XLSX.utils.book_append_sheet(wb, loanDetailsWS, 'Loan Details');
 
         // Add repayments sheet
         const repaymentsWS = XLSX.utils.json_to_sheet(repayments);
+
+        // Define column widths for repayments sheet
+        repaymentsWS['!cols'] = [
+            { width: 5 },   // No.
+            { width: 12 },  // Payment ID
+            { width: 20 },  // Paid Date
+            { width: 15 },  // Amount
+            { width: 15 },  // Payment Type
+            { width: 20 },  // Created At
+        ];
+
+        // Apply bold formatting to header row
+        if (repayments.length > 0) {
+            const repaymentsRange = XLSX.utils.decode_range(repaymentsWS['!ref'] || 'A1:F1');
+            for (let col = repaymentsRange.s.c; col <= repaymentsRange.e.c; col++) {
+                const cellRef = XLSX.utils.encode_cell({ r: 0, c: col });
+                if (!repaymentsWS[cellRef]) continue;
+                repaymentsWS[cellRef].s = { font: { bold: true } };
+            }
+        }
+
         XLSX.utils.book_append_sheet(wb, repaymentsWS, 'Repayments');
 
         // Add summary sheet
         const summaryWS = XLSX.utils.json_to_sheet([summary]);
+
+        // Define column widths for summary sheet
+        summaryWS['!cols'] = [
+            { width: 25 }, // Property name
+            { width: 20 }, // Value
+        ];
+
+        // Apply bold formatting to property names
+        const summaryRange = XLSX.utils.decode_range(summaryWS['!ref'] || 'A1:B1');
+        for (let row = summaryRange.s.r; row <= summaryRange.e.r; row++) {
+            const cellRef = XLSX.utils.encode_cell({ r: row, c: 0 });
+            if (!summaryWS[cellRef]) continue;
+            summaryWS[cellRef].s = { font: { bold: true } };
+        }
+
         XLSX.utils.book_append_sheet(wb, summaryWS, 'Summary');
 
         // Generate Excel file
         const excelBuffer = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
 
+        // Format current date for filename
+        const today = new Date();
+        const dateStr = today.toISOString().split('T')[0]; // YYYY-MM-DD format
+
         // Set response headers for file download
         const headers = new Headers();
-        headers.append('Content-Disposition', `attachment; filename="loan_${loan.id}_details.xlsx"`);
+        headers.append('Content-Disposition', `attachment; filename="loan_${loan.id}_details_${dateStr}.xlsx"`);
         headers.append('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
 
         return new NextResponse(excelBuffer, {

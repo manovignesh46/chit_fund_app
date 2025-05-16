@@ -12,7 +12,7 @@ async function fetchAPI<T>(
   const url = `${API_BASE_URL}${endpoint}`;
 
   try {
-    console.log(`Fetching from: ${url} with method: ${options.method || 'GET'}`);
+    // console.log(`Fetching from: ${url} with method: ${options.method || 'GET'}`);
 
     // Create fetch options with defaults that work well in Next.js
     const fetchOptions: RequestInit = {
@@ -28,7 +28,7 @@ async function fetchAPI<T>(
       cache: 'no-store',
     };
 
-    console.log('Fetch options:', JSON.stringify(fetchOptions, null, 2));
+    // console.log('Fetch options:', JSON.stringify(fetchOptions, null, 2));
 
     // Add timeout to fetch request
     const controller = new AbortController();
@@ -42,7 +42,7 @@ async function fetchAPI<T>(
 
       clearTimeout(timeoutId); // Clear the timeout if fetch completes
 
-      console.log(`Response status: ${response.status} ${response.statusText}`);
+      // console.log(`Response status: ${response.status} ${response.statusText}`);
 
       if (!response.ok) {
         let errorMessage = 'An error occurred while fetching data';
@@ -57,7 +57,7 @@ async function fetchAPI<T>(
       }
 
       const data = await response.json();
-      console.log('Response data received successfully');
+      // console.log('Response data received successfully');
       return data;
     } catch (fetchError: any) {
       if (fetchError.name === 'AbortError') {
@@ -66,17 +66,17 @@ async function fetchAPI<T>(
       throw fetchError;
     }
   } catch (error: any) {
-    console.error(`Error fetching ${url}:`, error);
+    // console.error(`Error fetching ${url}:`, error);
 
     // Add more detailed error information
     if (error instanceof TypeError && error.message === 'Failed to fetch') {
-      console.error('Network error: This could be due to CORS, network connectivity, or server unavailability');
+      // console.error('Network error: This could be due to CORS, network connectivity, or server unavailability');
       throw new Error('Network error: Unable to connect to the server. Please check your internet connection and try again.');
     }
 
     throw error;
   } finally {
-    console.log(`Fetch operation completed for ${url}`);
+    // console.log(`Fetch operation completed for ${url}`);
   }
 }
 

@@ -26,6 +26,7 @@ interface Loan {
   nextPaymentDate: string | null;
   status: string;
   overdueAmount: number;
+  missedPayments: number;
 }
 
 interface PaginatedResponse {
@@ -445,7 +446,7 @@ export default function LoansPage() {
                     Remaining
                   </th>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Overdue
+                    Missed Payments
                   </th>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Next Payment
@@ -501,14 +502,14 @@ export default function LoansPage() {
                       <div className="text-sm text-gray-900">{formatCurrency(loan.interestRate)}</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">{loan.duration} months</div>
+                      <div className="text-sm text-gray-900">{loan.duration} {loan.loanType === 'Weekly' ? 'weeks' : 'months'}</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm text-gray-900">{formatCurrency(loan.remainingAmount)}</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className={`text-sm ${loan.overdueAmount > 0 ? 'text-red-600 font-medium' : 'text-green-600'}`}>
-                        {loan.overdueAmount > 0 ? formatCurrency(loan.overdueAmount) : 'No Dues'}
+                      <div className={`text-sm ${loan.missedPayments > 0 ? 'text-red-600 font-medium' : 'text-green-600'}`}>
+                        {loan.missedPayments > 0 ? `${loan.missedPayments} ${loan.missedPayments === 1 ? 'payment' : 'payments'}` : 'None'}
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">

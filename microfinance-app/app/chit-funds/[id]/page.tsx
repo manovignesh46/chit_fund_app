@@ -461,9 +461,28 @@ const ChitFundDetails = () => {
             <div className="p-6 border-b">
               <div className="flex justify-between items-start">
                 <h2 className="text-xl font-semibold">Chit Fund Overview</h2>
-                <span className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm font-semibold">
-                  {chitFund.status}
-                </span>
+                <div className="flex items-center space-x-3">
+                  <div className="text-right flex flex-col items-end">
+                    <div className="text-sm text-gray-500">Current Month</div>
+                    <div className="flex items-center">
+                      <div className="text-xl font-bold text-green-700 mr-2">
+                        {calculateCurrentMonth(chitFund.startDate)} <span className="text-sm text-gray-500">/ {chitFund.duration}</span>
+                      </div>
+                      {chitFund.currentMonth !== calculateCurrentMonth(chitFund.startDate) && (
+                        <button
+                          onClick={handleUpdateCurrentMonth}
+                          className="text-xs px-2 py-1 bg-green-100 text-green-800 rounded hover:bg-green-200 transition-colors"
+                          title="Update current month based on start date"
+                        >
+                          Update
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                  <span className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm font-semibold">
+                    {chitFund.status}
+                  </span>
+                </div>
               </div>
             </div>
             <div className="p-6">
@@ -562,21 +581,7 @@ const ChitFundDetails = () => {
                   <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-2">Members</h3>
                   <p className="text-xl font-semibold">{chitFund.membersCount}</p>
                 </div>
-                <div>
-                  <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-2">Current Month</h3>
-                  <div className="flex items-center space-x-3">
-                    <p className="text-xl font-semibold">{calculateCurrentMonth(chitFund.startDate)} of {chitFund.duration}</p>
-                    {chitFund.currentMonth !== calculateCurrentMonth(chitFund.startDate) && (
-                      <button
-                        onClick={handleUpdateCurrentMonth}
-                        className="px-2 py-1 bg-yellow-600 text-white text-xs rounded hover:bg-yellow-700 transition duration-300"
-                        title="Update current month based on start date"
-                      >
-                        Update
-                      </button>
-                    )}
-                  </div>
-                </div>
+
                 <div>
                   <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-2">Next Auction Date</h3>
                   <p className="text-xl font-semibold">{formatDate(chitFund.nextAuctionDate)}</p>
