@@ -36,6 +36,8 @@ export async function GET(request: NextRequest) {
         return await getSummary(request, currentUserId);
       case 'financial-data':
         return await getFinancialData(request, currentUserId);
+      case 'export':
+        return await exportFinancialData(request, currentUserId);
       case 'events':
         // Get the view parameter
         const view = searchParams.get('view');
@@ -1673,6 +1675,625 @@ function formatRelativeTime(date: Date | string): string {
   } else {
     return formatDate(date);
   }
+}
+
+// Helper function to export financial data
+async function exportFinancialData(request: NextRequest, currentUserId: number) {
+  try {
+    const timerLabel = `exportFinancialData-${Date.now()}`;
+    console.time(timerLabel);
+
+    // Get parameters from query string
+    const { searchParams } = new URL(request.url);
+    const duration = searchParams.get('duration') || 'monthly';
+    const limit = parseInt(searchParams.get('limit') || '12', 10);
+
+    // For single period export
+    const period = searchParams.get('period');
+    const startDateParam = searchParams.get('startDate');
+    const endDateParam = searchParams.get('endDate');
+
+    // If it's a single period export, use the provided dates
+    let startDate: Date, endDate: Date;
+
+    if (duration === 'single' && period && startDateParam && endDateParam) {
+      startDate = new Date(startDateParam);
+      endDate = new Date(endDateParam);
+      console.log(`Exporting single period: ${period} from ${startDate.toISOString()} to ${endDate.toISOString()}`);
+    } else {
+      // Calculate date range based on duration
+      endDate = new Date();
+      startDate = new Date();
+
+      if (duration === 'monthly') {
+        startDate.setMonth(endDate.getMonth() - limit + 1);
+        startDate.setDate(1);
+      } else if (duration === 'yearly') {
+        startDate.setFullYear(endDate.getFullYear() - limit + 1);
+        startDate.setMonth(0);
+        startDate.setDate(1);
+      } else if (duration === 'weekly') {
+        startDate.setDate(endDate.getDate() - (limit * 7) + 1);
+      }
+    }
+
+    startDate.setHours(0, 0, 0, 0);
+    endDate.setHours(23, 59, 59, 999);
+
+    // Get financial data for the specified period
+    const financialData = await getFinancialDataForExport(currentUserId, startDate, endDate, duration);
+
+    // Create a workbook
+    const wb = XLSX.utils.book_new();
+
+    // Create a summary sheet
+    const summaryData = [
+      {
+        'Period': duration === 'single' ? period : `${duration.charAt(0).toUpperCase() + duration.slice(1)} (Last ${limit})`,
+        'Date Range': `${formatDate(startDate)} to ${formatDate(endDate)}`,
+        'Total Cash Inflow': financialData.totalCashInflow,
+        'Total Cash Outflow': financialData.totalCashOutflow,
+        'Total Profit': financialData.totalProfit,
+        'Loan Profit': financialData.loanProfit,
+        'Chit Fund Profit': financialData.chitFundProfit,
+        'Outside Amount': financialData.outsideAmount
+      }
+    ];
+    const summarySheet = XLSX.utils.json_to_sheet(summaryData);
+    XLSX.utils.book_append_sheet(wb, summarySheet, 'Summary');
+
+    // Create a detailed data sheet
+    const detailedData = financialData.periodsData.map(period => ({
+      'Period': period.period,
+      'Cash Inflow': period.cashInflow,
+      'Cash Outflow': period.cashOutflow,
+      'Profit': period.profit,
+      'Loan Profit': period.loanProfit,
+      'Chit Fund Profit': period.chitFundProfit,
+      'Outside Amount': period.outsideAmount,
+      'Start Date': new Date(period.periodRange.startDate).toLocaleDateString(),
+      'End Date': new Date(period.periodRange.endDate).toLocaleDateString()
+    }));
+    const detailedSheet = XLSX.utils.json_to_sheet(detailedData);
+    XLSX.utils.book_append_sheet(wb, detailedSheet, 'Detailed Data');
+
+    // Create a transactions sheet
+    const transactionsData = financialData.transactions.map(transaction => ({
+      'Date': formatDate(transaction.date),
+      'Type': transaction.type,
+      'Description': transaction.description,
+      'Amount': transaction.amount,
+      'Category': transaction.category
+    }));
+    const transactionsSheet = XLSX.utils.json_to_sheet(transactionsData);
+    XLSX.utils.book_append_sheet(wb, transactionsSheet, 'Transactions');
+
+    // Generate Excel file
+    const excelBuffer = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
+
+    // Format current date for filename
+    const today = new Date();
+    const dateStr = today.toISOString().split('T')[0]; // YYYY-MM-DD format
+
+    // Set filename based on export type
+    let fileName;
+    if (duration === 'single' && period) {
+      fileName = `Financial_Data_${period.replace(/\s+/g, '_')}_${dateStr}.xlsx`;
+    } else {
+      fileName = `Financial_Data_${duration}_${dateStr}.xlsx`;
+    }
+
+    // Set response headers for file download
+    const headers = new Headers();
+    headers.append('Content-Disposition', `attachment; filename="${fileName}"`);
+    headers.append('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+
+    console.timeEnd(timerLabel);
+
+    return new NextResponse(excelBuffer, {
+      status: 200,
+      headers: headers
+    });
+  } catch (error) {
+    console.error('Error exporting financial data:', error);
+    return NextResponse.json(
+      { error: 'Failed to export financial data' },
+      { status: 500 }
+    );
+  }
+}
+
+// Helper function to get financial data for export
+async function getFinancialDataForExport(userId: number, startDate: Date, endDate: Date, duration: string) {
+  // Get all financial data for the period
+  const [
+    // Get contributions in the date range
+    contributions,
+    // Get repayments in the date range
+    repayments,
+    // Get auctions in the date range
+    auctions,
+    // Get loans disbursed in the date range
+    loans,
+    // Get all loans with repayments for profit calculation
+    loansWithRepayments,
+    // Get all chit funds with contributions and auctions for profit calculation
+    chitFundsWithDetails
+  ] = await Promise.all([
+    // Get contributions
+    prisma.contribution.findMany({
+      where: {
+        chitFund: {
+          createdById: userId
+        },
+        paidDate: {
+          gte: startDate,
+          lte: endDate
+        }
+      },
+      select: {
+        id: true,
+        amount: true,
+        paidDate: true,
+        month: true,
+        chitFund: {
+          select: {
+            name: true
+          }
+        },
+        member: {
+          select: {
+            globalMember: {
+              select: {
+                name: true
+              }
+            }
+          }
+        }
+      },
+      orderBy: {
+        paidDate: 'asc'
+      }
+    }),
+
+    // Get repayments
+    prisma.repayment.findMany({
+      where: {
+        loan: {
+          createdById: userId
+        },
+        paidDate: {
+          gte: startDate,
+          lte: endDate
+        }
+      },
+      select: {
+        id: true,
+        amount: true,
+        paidDate: true,
+        period: true,
+        paymentType: true,
+        loan: {
+          select: {
+            id: true,
+            borrower: {
+              select: {
+                name: true
+              }
+            }
+          }
+        }
+      },
+      orderBy: {
+        paidDate: 'asc'
+      }
+    }),
+
+    // Get auctions
+    prisma.auction.findMany({
+      where: {
+        chitFund: {
+          createdById: userId
+        },
+        date: {
+          gte: startDate,
+          lte: endDate
+        }
+      },
+      select: {
+        id: true,
+        amount: true,
+        date: true,
+        month: true,
+        chitFund: {
+          select: {
+            name: true
+          }
+        },
+        winner: {
+          select: {
+            globalMember: {
+              select: {
+                name: true
+              }
+            }
+          }
+        }
+      },
+      orderBy: {
+        date: 'asc'
+      }
+    }),
+
+    // Get loans
+    prisma.loan.findMany({
+      where: {
+        createdById: userId,
+        disbursementDate: {
+          gte: startDate,
+          lte: endDate
+        }
+      },
+      select: {
+        id: true,
+        amount: true,
+        documentCharge: true,
+        disbursementDate: true,
+        borrower: {
+          select: {
+            name: true
+          }
+        }
+      },
+      orderBy: {
+        disbursementDate: 'asc'
+      }
+    }),
+
+    // Get all loans with their repayments for profit calculation
+    prisma.loan.findMany({
+      where: {
+        createdById: userId,
+        OR: [
+          {
+            disbursementDate: {
+              gte: startDate,
+              lte: endDate
+            }
+          },
+          {
+            repayments: {
+              some: {
+                paidDate: {
+                  gte: startDate,
+                  lte: endDate
+                }
+              }
+            }
+          }
+        ]
+      },
+      select: {
+        id: true,
+        amount: true,
+        interestRate: true,
+        documentCharge: true,
+        repaymentType: true,
+        repayments: {
+          select: {
+            id: true,
+            amount: true,
+            paymentType: true,
+            paidDate: true,
+            period: true
+          }
+        }
+      }
+    }),
+
+    // Get all chit funds with their contributions and auctions for profit calculation
+    prisma.chitFund.findMany({
+      where: {
+        createdById: userId,
+        OR: [
+          {
+            contributions: {
+              some: {
+                paidDate: {
+                  gte: startDate,
+                  lte: endDate
+                }
+              }
+            }
+          },
+          {
+            auctions: {
+              some: {
+                date: {
+                  gte: startDate,
+                  lte: endDate
+                }
+              }
+            }
+          }
+        ]
+      },
+      select: {
+        id: true,
+        name: true,
+        totalAmount: true,
+        monthlyContribution: true,
+        duration: true,
+        currentMonth: true,
+        status: true,
+        membersCount: true,
+        members: {
+          select: {
+            id: true
+          }
+        },
+        contributions: {
+          select: {
+            id: true,
+            amount: true,
+            month: true,
+            paidDate: true
+          }
+        },
+        auctions: {
+          select: {
+            id: true,
+            amount: true,
+            month: true,
+            date: true
+          }
+        }
+      }
+    })
+  ]);
+
+  // Calculate totals
+  const totalCashInflow = contributions.reduce((sum, c) => sum + c.amount, 0) +
+                         repayments.reduce((sum, r) => sum + r.amount, 0);
+
+  const totalCashOutflow = auctions.reduce((sum, a) => sum + a.amount, 0) +
+                          loans.reduce((sum, l) => sum + l.amount, 0);
+
+  // Calculate profits using centralized utility functions
+  const loanProfit = calculateTotalLoanProfit(loansWithRepayments);
+  const chitFundProfit = calculateTotalChitFundProfit(chitFundsWithDetails);
+  const totalProfit = loanProfit + chitFundProfit;
+
+  // Calculate outside amount
+  const outsideAmount = totalCashOutflow > totalCashInflow ? totalCashOutflow - totalCashInflow : 0;
+
+  // Generate periods based on duration
+  const periods: string[] = [];
+  const periodsData: any[] = [];
+
+  // Helper function to format period label
+  const formatPeriodLabel = (date: Date) => {
+    if (duration === 'monthly') {
+      return date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+    } else if (duration === 'yearly') {
+      return date.getFullYear().toString();
+    } else if (duration === 'weekly') {
+      return `Week ${Math.ceil(date.getDate() / 7)} ${date.toLocaleDateString('en-US', { month: 'short' })}`;
+    } else if (duration === 'single') {
+      return 'Custom Period';
+    }
+    return '';
+  };
+
+  // Helper function to check if a date falls within a period
+  const isInPeriod = (date: Date, periodStart: Date, periodEnd: Date) => {
+    return date >= periodStart && date <= periodEnd;
+  };
+
+  // If it's a single period, just use the entire date range
+  if (duration === 'single') {
+    const periodLabel = 'Custom Period';
+
+    // Calculate financial data for this period
+    const periodContributions = contributions.reduce((sum, c) => sum + c.amount, 0);
+    const periodRepayments = repayments.reduce((sum, r) => sum + r.amount, 0);
+    const periodAuctions = auctions.reduce((sum, a) => sum + a.amount, 0);
+    const periodLoanAmount = loans.reduce((sum, l) => sum + l.amount, 0);
+
+    // Calculate totals for the period
+    const periodCashInflow = periodContributions + periodRepayments;
+    const periodCashOutflow = periodAuctions + periodLoanAmount;
+    const periodLoanProfit = loanProfit;
+    const periodChitFundProfit = chitFundProfit;
+    const periodProfit = periodLoanProfit + periodChitFundProfit;
+    const periodOutsideAmount = periodCashOutflow > periodCashInflow ? periodCashOutflow - periodCashInflow : 0;
+
+    // Add period data
+    periods.push(periodLabel);
+    periodsData.push({
+      period: periodLabel,
+      cashInflow: periodCashInflow,
+      cashOutflow: periodCashOutflow,
+      profit: periodProfit,
+      loanProfit: periodLoanProfit,
+      chitFundProfit: periodChitFundProfit,
+      outsideAmount: periodOutsideAmount,
+      periodRange: {
+        startDate: startDate.toISOString(),
+        endDate: endDate.toISOString()
+      }
+    });
+  } else {
+    // Generate periods and calculate data for each period
+    let currentDate = new Date(startDate);
+    let limit = 0;
+
+    if (duration === 'monthly') {
+      limit = Math.ceil((endDate.getTime() - startDate.getTime()) / (30 * 24 * 60 * 60 * 1000));
+    } else if (duration === 'yearly') {
+      limit = Math.ceil((endDate.getTime() - startDate.getTime()) / (365 * 24 * 60 * 60 * 1000));
+    } else if (duration === 'weekly') {
+      limit = Math.ceil((endDate.getTime() - startDate.getTime()) / (7 * 24 * 60 * 60 * 1000));
+    }
+
+    for (let i = 0; i < limit; i++) {
+      let periodStart = new Date(currentDate);
+      let periodEnd = new Date(currentDate);
+
+      if (duration === 'monthly') {
+        periodEnd.setMonth(periodStart.getMonth() + 1);
+        periodEnd.setDate(0); // Last day of the month
+        periodEnd.setHours(23, 59, 59, 999);
+      } else if (duration === 'yearly') {
+        periodEnd.setFullYear(periodStart.getFullYear() + 1);
+        periodEnd.setMonth(0);
+        periodEnd.setDate(0); // Last day of December
+        periodEnd.setHours(23, 59, 59, 999);
+      } else if (duration === 'weekly') {
+        periodEnd.setDate(periodStart.getDate() + 6);
+        periodEnd.setHours(23, 59, 59, 999);
+      }
+
+      // If period end is after the overall end date, adjust it
+      if (periodEnd > endDate) {
+        periodEnd = new Date(endDate);
+      }
+
+      // Calculate financial data for this period
+      const periodContributions = contributions.filter(c =>
+        isInPeriod(new Date(c.paidDate), periodStart, periodEnd)
+      ).reduce((sum, c) => sum + c.amount, 0);
+
+      const periodRepayments = repayments.filter(r =>
+        isInPeriod(new Date(r.paidDate), periodStart, periodEnd)
+      ).reduce((sum, r) => sum + r.amount, 0);
+
+      const periodAuctions = auctions.filter(a =>
+        isInPeriod(new Date(a.date), periodStart, periodEnd)
+      ).reduce((sum, a) => sum + a.amount, 0);
+
+      const periodLoans = loans.filter(l =>
+        isInPeriod(new Date(l.disbursementDate), periodStart, periodEnd)
+      );
+
+      const periodLoanAmount = periodLoans.reduce((sum, l) => sum + l.amount, 0);
+
+      // Filter loans and chit funds for this period
+      const periodLoansWithRepayments = loansWithRepayments.filter(loan => {
+        // Check if loan was disbursed in this period
+        const disbursementDate = loan.repayments.length > 0 ?
+          new Date(loan.repayments[0].paidDate) : null;
+
+        if (disbursementDate && isInPeriod(disbursementDate, periodStart, periodEnd)) {
+          return true;
+        }
+
+        // Check if any repayments were made in this period
+        return loan.repayments.some(r =>
+          isInPeriod(new Date(r.paidDate), periodStart, periodEnd)
+        );
+      });
+
+      const periodChitFunds = chitFundsWithDetails.filter(fund => {
+        // Check if any contributions were made in this period
+        if (fund.contributions.some(c =>
+          isInPeriod(new Date(c.paidDate), periodStart, periodEnd)
+        )) {
+          return true;
+        }
+
+        // Check if any auctions were held in this period
+        return fund.auctions.some(a =>
+          isInPeriod(new Date(a.date), periodStart, periodEnd)
+        );
+      });
+
+      // Calculate profits for this period
+      const periodLoanProfit = calculateTotalLoanProfit(periodLoansWithRepayments);
+      const periodChitFundProfit = calculateTotalChitFundProfit(periodChitFunds);
+
+      // Calculate totals for the period
+      const periodCashInflow = periodContributions + periodRepayments;
+      const periodCashOutflow = periodAuctions + periodLoanAmount;
+      const periodProfit = periodLoanProfit + periodChitFundProfit;
+      const periodOutsideAmount = periodCashOutflow > periodCashInflow ?
+                                periodCashOutflow - periodCashInflow : 0;
+
+      // Add period data
+      const periodLabel = formatPeriodLabel(periodStart);
+      periods.push(periodLabel);
+      periodsData.push({
+        period: periodLabel,
+        cashInflow: periodCashInflow,
+        cashOutflow: periodCashOutflow,
+        profit: periodProfit,
+        loanProfit: periodLoanProfit,
+        chitFundProfit: periodChitFundProfit,
+        outsideAmount: periodOutsideAmount,
+        periodRange: {
+          startDate: periodStart.toISOString(),
+          endDate: periodEnd.toISOString()
+        }
+      });
+
+      // Move to next period
+      if (duration === 'monthly') {
+        currentDate.setMonth(currentDate.getMonth() + 1);
+      } else if (duration === 'yearly') {
+        currentDate.setFullYear(currentDate.getFullYear() + 1);
+      } else if (duration === 'weekly') {
+        currentDate.setDate(currentDate.getDate() + 7);
+      }
+
+      // If we've passed the end date, break
+      if (currentDate > endDate) {
+        break;
+      }
+    }
+  }
+
+  // Create transactions list for the transactions sheet
+  const transactions = [
+    ...contributions.map(c => ({
+      date: c.paidDate,
+      type: 'Cash Inflow',
+      description: `Contribution from ${c.member?.globalMember?.name || 'Unknown'} for ${c.chitFund?.name || 'Unknown Chit Fund'}`,
+      amount: c.amount,
+      category: 'Chit Fund'
+    })),
+    ...repayments.map(r => ({
+      date: r.paidDate,
+      type: 'Cash Inflow',
+      description: `Loan repayment from ${r.loan?.borrower?.name || 'Unknown'} (Period ${r.period})`,
+      amount: r.amount,
+      category: 'Loan'
+    })),
+    ...auctions.map(a => ({
+      date: a.date,
+      type: 'Cash Outflow',
+      description: `Auction amount to ${a.winner?.globalMember?.name || 'Unknown'} for ${a.chitFund?.name || 'Unknown Chit Fund'}`,
+      amount: a.amount,
+      category: 'Chit Fund'
+    })),
+    ...loans.map(l => ({
+      date: l.disbursementDate,
+      type: 'Cash Outflow',
+      description: `Loan disbursed to ${l.borrower?.name || 'Unknown'}`,
+      amount: l.amount,
+      category: 'Loan'
+    }))
+  ].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+  return {
+    totalCashInflow,
+    totalCashOutflow,
+    totalProfit,
+    loanProfit,
+    chitFundProfit,
+    outsideAmount,
+    periodsData,
+    transactions
+  };
 }
 
 // Helper function to format date
