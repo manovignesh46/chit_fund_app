@@ -1557,6 +1557,9 @@ async function getUpcomingEventsForDashboard(userId: number, limit: number = 3) 
           dueDateNormalized.setHours(0, 0, 0, 0);
           const isDueTomorrow = dueDateNormalized.getTime() === tomorrow.getTime();
 
+          // Get the installment amount
+          const installmentAmount = loanAny.installmentAmount || 0;
+
           // Create event object
           const eventObj: any = {
             id: `schedule-${loanId}-${period}`,
@@ -1566,7 +1569,8 @@ async function getUpcomingEventsForDashboard(userId: number, limit: number = 3) 
             isDueTomorrow: isDueTomorrow,
             entityId: loanId,
             entityType: 'loan',
-            rawDate: dueDate
+            rawDate: dueDate,
+            dueAmount: installmentAmount
           };
 
           // Add optional properties
@@ -1704,6 +1708,7 @@ async function getEventsForMonth(userId: number, year: number, month: number) {
           disbursementDate: true,
           duration: true,
           repaymentType: true,
+          installmentAmount: true,
           borrower: {
             select: {
               id: true,
@@ -1713,7 +1718,8 @@ async function getEventsForMonth(userId: number, year: number, month: number) {
           repayments: {
             select: {
               period: true,
-              paidDate: true
+              paidDate: true,
+              paymentType: true
             }
           }
         }
@@ -1779,17 +1785,28 @@ async function getEventsForMonth(userId: number, year: number, month: number) {
         // Check if this period has been paid
         const repayment = repaymentsByPeriod.get(period);
         const isPaid = !!repayment && repayment.paidDate;
+        const paymentType = repayment ? repayment.paymentType : null;
 
         // Check if the due date is in the specified month
         const isInMonth = dueDate >= startDate && dueDate <= endDate;
 
-        // Check if payment is due in this month
-
-        // Only add unpaid schedules that are in the specified month
-        if (!isPaid && isInMonth) {
+        // Only process events that are in the specified month
+        if (isInMonth) {
           const dueDateNormalized = new Date(dueDate);
           dueDateNormalized.setHours(0, 0, 0, 0);
           const isDueTomorrow = dueDateNormalized.getTime() === tomorrow.getTime();
+          const isPastDue = dueDateNormalized < today;
+
+          // Determine status for the event
+          let status = null;
+          if (isPaid) {
+            status = 'Paid';
+          } else if (isPastDue) {
+            status = 'Overdue';
+          }
+
+          // Get the installment amount for this loan
+          const installmentAmount = loan.installmentAmount || 0;
 
           // Create event object with type assertion to allow additional properties
           const eventObj: any = {
@@ -1800,15 +1817,25 @@ async function getEventsForMonth(userId: number, year: number, month: number) {
             rawDate: dueDate,
             isDueTomorrow: isDueTomorrow,
             entityId: loan.id,
-            entityType: 'loan'
+            entityType: 'loan',
+            period: period,
+            dueAmount: installmentAmount
           };
+
+          // Add status information for past events
+          if (status) {
+            eventObj.status = status;
+          }
 
           // Add optional properties
           if (borrowerId) {
             eventObj.borrowerId = borrowerId;
           }
 
-          eventObj.period = period;
+          // Add payment type information if available
+          if (paymentType) {
+            eventObj.paymentType = paymentType;
+          }
 
           events.push(eventObj);
         }
@@ -1816,8 +1843,6 @@ async function getEventsForMonth(userId: number, year: number, month: number) {
     }
 
     // Sort events by date
-
-    // Sort by date (soonest first)
     events.sort((a, b) => {
       if (!a.rawDate) return 1;
       if (!b.rawDate) return -1;
@@ -1828,7 +1853,6 @@ async function getEventsForMonth(userId: number, year: number, month: number) {
     const formattedEvents = events.map(({ rawDate, ...rest }) => rest);
 
     // Return formatted events
-
     console.timeEnd(timerLabel);
     return formattedEvents;
   } catch (error) {

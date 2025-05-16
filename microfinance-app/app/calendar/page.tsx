@@ -5,6 +5,17 @@ import Link from 'next/link';
 import { dashboardAPI } from '@/lib/api';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, addMonths, subMonths, parseISO } from 'date-fns';
 
+// Helper function to format currency
+const formatCurrency = (amount: number | undefined) => {
+  if (amount === undefined) return '';
+  return new Intl.NumberFormat('en-IN', {
+    style: 'currency',
+    currency: 'INR',
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0
+  }).format(amount);
+};
+
 // Define event interface
 interface Event {
   id: string;
@@ -16,6 +27,9 @@ interface Event {
   entityId?: number;
   entityType?: string;
   period?: number;
+  status?: 'Paid' | 'Overdue';
+  paymentType?: string;
+  dueAmount?: number;
 }
 
 export default function CalendarPage() {
@@ -301,7 +315,11 @@ export default function CalendarPage() {
                             href={eventLink}
                             key={event.id}
                             className={`block p-1 text-xs rounded hover:opacity-80 transition-opacity ${
-                              event.isDueTomorrow
+                              event.status === 'Overdue'
+                                ? 'bg-red-50 border border-red-200'
+                                : event.status === 'Paid'
+                                ? 'bg-emerald-50 border border-emerald-200'
+                                : event.isDueTomorrow
                                 ? 'bg-yellow-50 border border-yellow-200'
                                 : event.type === 'Loan'
                                 ? 'bg-green-50 border border-green-200'
@@ -309,6 +327,11 @@ export default function CalendarPage() {
                             }`}
                           >
                             <div className="font-semibold truncate">{event.title}</div>
+                            {event.dueAmount !== undefined && (
+                              <div className="text-xs font-medium text-gray-700 mt-1">
+                                Amount: {formatCurrency(event.dueAmount)}
+                              </div>
+                            )}
                             <div className="flex items-center mt-1">
                               <span
                                 className={`inline-block w-2 h-2 rounded-full mr-1 ${
@@ -319,6 +342,16 @@ export default function CalendarPage() {
                               {event.isDueTomorrow && (
                                 <span className="ml-1 text-xs text-amber-600 font-semibold">
                                   Due Tomorrow
+                                </span>
+                              )}
+                              {event.status === 'Paid' && (
+                                <span className="ml-1 text-xs text-emerald-600 font-semibold">
+                                  Paid
+                                </span>
+                              )}
+                              {event.status === 'Overdue' && (
+                                <span className="ml-1 text-xs text-red-600 font-semibold">
+                                  Overdue
                                 </span>
                               )}
                             </div>

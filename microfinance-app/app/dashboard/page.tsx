@@ -28,6 +28,9 @@ export default function DashboardPage() {
     entityId?: number;
     entityType?: string;
     period?: number;
+    dueAmount?: number;
+    status?: 'Paid' | 'Overdue';
+    paymentType?: string;
   }
 
   interface OutsideAmountBreakdown {
@@ -652,6 +655,11 @@ export default function DashboardPage() {
                       >
                         <h3 className="font-semibold">{event.title}</h3>
                         <p className="text-gray-600 text-sm">{event.date}</p>
+                        {event.dueAmount !== undefined && (
+                          <p className="text-gray-700 text-sm font-medium mt-1">
+                            Amount: {formatCurrency(event.dueAmount)}
+                          </p>
+                        )}
                         <div className="flex flex-wrap gap-2 mt-1">
                           <span className={`inline-block px-2 py-1 rounded-full text-xs ${
                             event.type === 'Chit Fund' ? 'bg-blue-100 text-blue-800' : 'bg-green-100 text-green-800'
@@ -662,6 +670,18 @@ export default function DashboardPage() {
                             <span className="px-2 py-1 text-xs font-semibold rounded-full bg-amber-100 text-amber-800 border border-amber-200"
                                   title="This event is due tomorrow">
                               Due Tomorrow
+                            </span>
+                          )}
+                          {event.status === 'Paid' && (
+                            <span className="px-2 py-1 text-xs font-semibold rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200"
+                                  title="This payment has been made">
+                              Paid
+                            </span>
+                          )}
+                          {event.status === 'Overdue' && (
+                            <span className="px-2 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-800 border border-red-200"
+                                  title="This payment is overdue">
+                              Overdue
                             </span>
                           )}
                         </div>
