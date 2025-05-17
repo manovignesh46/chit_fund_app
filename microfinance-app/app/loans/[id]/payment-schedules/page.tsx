@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useEffect, useState  } from '@types/react';
-import { useParams, useRouter } from 'next/navigation';
+import React, { useEffect, useState } from 'react';
+import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { loanAPI } from '../../../../lib/api';
 
@@ -34,25 +34,16 @@ interface PaymentSchedule {
   };
 }
 
-interface PaginatedResponse {
-  schedules: PaymentSchedule[];
-  totalCount: number;
-  page: number;
-  pageSize: number;
-  totalPages: number;
-}
-
 const PaymentSchedulesPage = () => {
   const params = useParams();
-  const router = useRouter();
   const id = params.id;
 
   // State variables
-  const [loan, setLoan] = useState<Loan | null>(null);
-  const [schedules, setSchedules] = useState<PaymentSchedule[]>([]);
+  const [loan, setLoan] = useState(null);
+  const [schedules, setSchedules] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [updating, setUpdating] = useState<number | null>(null);
+  const [error, setError] = useState(null);
+  const [updating, setUpdating] = useState(null);
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
@@ -61,7 +52,7 @@ const PaymentSchedulesPage = () => {
   const [totalCount, setTotalCount] = useState(0);
 
   // Filter state
-  const [statusFilter, setStatusFilter] = useState<string | null>(null);
+  const [statusFilter, setStatusFilter] = useState(null);
 
   // Fetch data
   const fetchData = async () => {
@@ -107,7 +98,7 @@ const PaymentSchedulesPage = () => {
       const paymentType = status === 'InterestOnly' ? 'interestOnly' : 'full';
 
       // Get the amount from the schedule
-      const amount = schedules.find(s => s.period === period)?.amount || 0;
+      const amount = schedules.find((s: PaymentSchedule) => s.period === period)?.amount || 0;
 
       console.log(`Recording payment for period ${period}, amount ${amount}, type ${paymentType}`);
 
@@ -166,13 +157,13 @@ const PaymentSchedulesPage = () => {
   };
 
   // Handle page size change
-  const handlePageSizeChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+  const handlePageSizeChange = (e: React.BaseSyntheticEvent) => {
     setPageSize(Number(e.target.value));
     setCurrentPage(1);
   };
 
   // Handle status filter change
-  const handleStatusFilterChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+  const handleStatusFilterChange = (e: React.BaseSyntheticEvent) => {
     setStatusFilter(e.target.value === 'all' ? null : e.target.value);
     setCurrentPage(1);
   };
@@ -343,7 +334,7 @@ const PaymentSchedulesPage = () => {
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {schedules.map((schedule) => (
+                  {schedules.map((schedule: PaymentSchedule) => (
                     <tr key={schedule.id} className="hover:bg-gray-50">
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="text-sm text-gray-900">
@@ -447,7 +438,7 @@ const PaymentSchedulesPage = () => {
                       </button>
                       {/* Page numbers */}
                       {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                        let pageNum;
+                        let pageNum: number;
                         if (totalPages <= 5) {
                           pageNum = i + 1;
                         } else if (currentPage <= 3) {
