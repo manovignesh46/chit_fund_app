@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import prisma from '@/lib/prisma';
-import { getCurrentUserId } from '@/lib/auth';
+import prisma from '../../../../../lib/prisma';
+import { getCurrentUserId } from '../../../../../lib/auth';
 import * as XLSX from 'xlsx';
 
 // Use type assertion to handle TypeScript type checking

@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { LoansListSkeleton } from '../components/skeletons/ListSkeletons';
-import { loanAPI } from '@/lib/api';
+import { loanAPI } from '../../lib/api';
 
 // Define interfaces for Loan type
 interface GlobalMember {

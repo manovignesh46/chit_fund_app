@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { memberAPI, chitFundAPI } from '@/lib/api';
+import { memberAPI, chitFundAPI } from '../../../../lib/api';
 
 interface GlobalMember {
   id: number;

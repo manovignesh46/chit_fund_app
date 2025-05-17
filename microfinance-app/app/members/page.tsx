@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { memberAPI } from '@/lib/api';
+import { memberAPI } from '../../lib/api';
 import dynamic from 'next/dynamic';
 import { MembersListSkeleton } from '../components/skeletons/ListSkeletons';
 

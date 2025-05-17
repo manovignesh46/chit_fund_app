@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import prisma from '@/lib/prisma';
-import { getCurrentUserId } from '@/lib/auth';
-import { generatePaymentSchedule, calculateNextPaymentDate, updateOverdueAmountFromRepayments } from '@/lib/paymentSchedule';
-import { calculateLoanProfit, calculateChitFundProfit, calculateTotalLoanProfit, calculateTotalChitFundProfit } from '@/lib/financialUtils';
+import prisma from '../../../../lib/prisma';
+import { getCurrentUserId } from '../../../../lib/auth';
+import { generatePaymentSchedule, calculateNextPaymentDate, updateOverdueAmountFromRepayments } from '../../../../lib/paymentSchedule';
+import { calculateLoanProfit, calculateChitFundProfit, calculateTotalLoanProfit, calculateTotalChitFundProfit } from '../../../../lib/financialUtils';
 import * as XLSX from 'xlsx';
 
 // Use ISR with a 5-minute revalidation period

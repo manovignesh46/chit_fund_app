@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { loanAPI } from '@/lib/api';
+import { loanAPI } from '../../../../lib/api';
 
 // Define interfaces
 interface Loan {

@@ -1,4 +1,4 @@
-import prisma from '@/lib/prisma';
+import prisma from './/prisma';
 
 // Use type assertion to handle TypeScript type checking
 const prismaAny = prisma as any;

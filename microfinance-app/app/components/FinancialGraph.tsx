@@ -14,7 +14,7 @@ import {
   ResponsiveContainer,
 } from 'recharts';
 import { GraphSkeleton } from './skeletons/SkeletonLoader';
-import { FinancialDataPoint } from '@/lib/api';
+import { FinancialDataPoint } from '../../lib/api';
 
 // Using FinancialDataPoint from the API
 

@@ -2,8 +2,8 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { ChitFund } from '@/lib/interfaces';
-import { formatCurrency, formatDate } from '@/lib/formatUtils';
+import { ChitFund } from '../../lib/interfaces';
+import { formatCurrency, formatDate } from '../../lib/formatUtils';
 
 interface ChitFundCardProps {
   chitFund: ChitFund;

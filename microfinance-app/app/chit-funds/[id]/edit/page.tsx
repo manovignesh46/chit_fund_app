@@ -3,8 +3,8 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ChitFund } from '@/lib/interfaces';
-import { chitFundAPI } from '@/lib/api';
+import { ChitFund } from '../../../../lib/interfaces';
+import { chitFundAPI } from '../../../../lib/api';
 
 export default function EditChitFundPage() {
   const params = useParams();

@@ -1,8 +1,8 @@
 'use client';
 
 import React from 'react';
-import { ChitFundMember, GlobalMember } from '@/lib/interfaces';
-import { formatCurrency, formatDate } from '@/lib/formatUtils';
+import { ChitFundMember, GlobalMember } from '../../lib/interfaces';
+import { formatCurrency, formatDate } from '../../lib/formatUtils';
 
 interface ChitFundMembersListProps {
   members: ChitFundMember[];

@@ -1,8 +1,8 @@
 'use client';
 
 import React, { useState } from 'react';
-import { ChitFund, Contribution, Auction } from '@/lib/interfaces';
-import { formatCurrency, calculateChitFundProfit, calculateChitFundOutsideAmount } from '@/lib/formatUtils';
+import { ChitFund, Contribution, Auction } from '../../lib/interfaces';
+import { formatCurrency, calculateChitFundProfit, calculateChitFundOutsideAmount } from '../../lib/formatUtils';
 
 interface ChitFundFinancialSummaryProps {
   chitFund: ChitFund;

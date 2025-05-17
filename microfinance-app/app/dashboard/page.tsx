@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { dashboardAPI, FinancialDataPoint } from '@/lib/api';
+import { dashboardAPI, FinancialDataPoint } from '../../lib/api';
 import FinancialGraph from '../components/FinancialGraph';
 import { DashboardSkeleton } from '../components/skeletons/DashboardSkeletons';
 

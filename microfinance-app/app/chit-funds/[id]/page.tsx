@@ -3,12 +3,12 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
-import { ChitFund, ChitFundMember, Auction, Contribution } from '@/lib/interfaces';
-import { formatCurrency, formatDate, calculateChitFundProfit, calculateChitFundOutsideAmount } from '@/lib/formatUtils';
-import ChitFundCard from '@/components/chit-funds/ChitFundCard';
-// import ChitFundMembersList from '@/components/chit-funds/ChitFundMembersList';
+import { ChitFund, ChitFundMember, Auction, Contribution } from '../../../lib/interfaces';
+import { formatCurrency, formatDate, calculateChitFundProfit, calculateChitFundOutsideAmount } from '../../../lib/formatUtils';
+import ChitFundCard from '../../../components/chit-funds/ChitFundCard';
+// import ChitFundMembersList from '../../../components/chit-funds/ChitFundMembersList';
 import ChitFundMembersList from './../../../components/chit-funds/ChitFundMembersList';
-import ChitFundFinancialSummary from '@/components/chit-funds/ChitFundFinancialSummary';
+import ChitFundFinancialSummary from '../../../components/chit-funds/ChitFundFinancialSummary';
 import dynamic from 'next/dynamic';
 import { ChitFundDetailSkeleton } from '../../components/skeletons/DetailSkeletons';
 import {
@@ -17,7 +17,7 @@ import {
   BackButton,
   DeleteButton,
   ActionButtonGroup
-} from '@/app/components/buttons/ActionButtons';
+} from '../../components/buttons/ActionButtons';
 
 // Define Member type
 type Member = ChitFundMember;

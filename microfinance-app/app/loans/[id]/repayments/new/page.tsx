@@ -3,7 +3,7 @@
 import React, { useState, useEffect, FormEvent, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { loanAPI } from '@/lib/api';
+import { loanAPI } from '../../../../../lib/api';
 
 interface Loan {
   id: number;

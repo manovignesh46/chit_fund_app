@@ -3,7 +3,7 @@
 import React, { useState, useEffect, ChangeEvent, FormEvent } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { loanAPI } from '@/lib/api';
+import { loanAPI } from '../../../../lib/api';
 
 // Define interfaces for form data and errors
 interface LoanFormData {

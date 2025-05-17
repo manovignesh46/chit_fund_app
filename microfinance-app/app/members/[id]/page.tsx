@@ -3,13 +3,13 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { memberAPI } from '@/lib/api';
+import { memberAPI } from '../../../lib/api';
 import {
   ExportButton,
   EditButton,
   BackButton,
   ActionButtonGroup
-} from '@/app/components/buttons/ActionButtons';
+} from '../../components/buttons/ActionButtons';
 
 interface ChitFundMember {
   id: number;

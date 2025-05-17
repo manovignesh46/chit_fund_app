@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { formatCurrency } from '@/lib/formatUtils';
+import { formatCurrency } from '../../lib/formatUtils';
 
 // Define activity interface
 interface Activity {

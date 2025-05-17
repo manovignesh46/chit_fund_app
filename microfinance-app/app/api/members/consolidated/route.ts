@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import prisma from '@/lib/prisma';
-import { getCurrentUserId } from '@/lib/auth';
+import prisma from '../../../../lib/prisma';
+import { getCurrentUserId } from '../../../../lib/auth';
 
 // Define extended types for the membership object
 interface ChitFundMembershipWithExtras {

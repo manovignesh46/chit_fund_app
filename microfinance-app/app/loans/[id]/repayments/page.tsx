@@ -3,8 +3,8 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
-import { Loan, Repayment, PaginatedResponse } from '@/lib/interfaces';
-import { formatCurrency, formatDate } from '@/lib/formatUtils';
+import { Loan, Repayment, PaginatedResponse } from '../../../../lib/interfaces';
+import { formatCurrency, formatDate } from '../../../../lib/formatUtils';
 
 const RepaymentsPage = () => {
   const params = useParams();

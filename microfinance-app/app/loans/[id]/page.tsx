@@ -3,8 +3,8 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
-import { Loan, Repayment, PaymentSchedule } from '@/lib/interfaces';
-import { formatCurrency, formatDate, calculateLoanProfit } from '@/lib/formatUtils';
+import { Loan, Repayment, PaymentSchedule } from '../../../lib/interfaces';
+import { formatCurrency, formatDate, calculateLoanProfit } from '../../../lib/formatUtils';
 import dynamic from 'next/dynamic';
 import { LoanDetailSkeleton } from '../../components/skeletons/DetailSkeletons';
 import {
@@ -13,7 +13,7 @@ import {
   BackButton,
   DeleteButton,
   ActionButtonGroup
-} from '@/app/components/buttons/ActionButtons';
+} from '../../components/buttons/ActionButtons';
 
 const LoanDetailPage = () => {
   const params = useParams();
