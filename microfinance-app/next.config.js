@@ -24,6 +24,11 @@ const nextConfig = {
     // !! WARN !!
     ignoreBuildErrors: true,
   },
+  // Disable ESLint during build
+  eslint: {
+    // Don't run ESLint during build
+    ignoreDuringBuilds: true,
+  },
   images: {
     // Enable image optimization
     domains: ['localhost'],

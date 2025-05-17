@@ -15,9 +15,7 @@
     "incremental": true,
     "baseUrl": ".",
     "paths": {
-      "@/*": [
-        "./*"
-      ]
+      "@/*": ["./*"]
     },
     "plugins": [
       {
@@ -34,21 +32,15 @@
     "noImplicitReturns": false,
     "noUnusedLocals": false,
     "noUnusedParameters": false,
-    "checkJs": false,
-    "lib": [
-      "dom",
-      "dom.iterable",
-      "esnext"
-    ]
+    "checkJs": false
   },
   "include": [
+    "next-env.d.ts",
     "**/*.ts",
     "**/*.tsx",
-    "global.d.ts",
-    "jsx-namespace.d.ts",
-    "next-env.d.ts",
     "react-types.d.ts",
-    ".next/types/**/*.ts"
+    "jsx-namespace.d.ts",
+    "global.d.ts"
   ],
   "exclude": [
     "node_modules"

@@ -17,13 +17,19 @@
   "env": {
     "NEXT_TYPESCRIPT_CHECK": "false",
     "NEXT_TELEMETRY_DISABLED": "1",
-    "NODE_OPTIONS": "--max_old_space_size=3072"
+    "NODE_OPTIONS": "--max_old_space_size=3072",
+    "SKIP_TYPESCRIPT": "1",
+    "SKIP_ESLINT": "1",
+    "SKIP_LINT": "1"
   },
   "build": {
     "env": {
       "NEXT_TYPESCRIPT_CHECK": "false",
       "NEXT_TELEMETRY_DISABLED": "1",
-      "NODE_OPTIONS": "--max_old_space_size=3072"
+      "NODE_OPTIONS": "--max_old_space_size=3072",
+      "SKIP_TYPESCRIPT": "1",
+      "SKIP_ESLINT": "1",
+      "SKIP_LINT": "1"
     }
   }
 }

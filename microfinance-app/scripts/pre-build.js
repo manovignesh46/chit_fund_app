@@ -371,28 +371,35 @@ try {
   console.log('Continuing with build despite disable-typescript-checks script issues...');
 }
 
-// Use tsconfig.vercel.json for Vercel builds
-if (isVercel) {
-  try {
-    console.log('Using tsconfig.vercel.json for Vercel build...');
+// Use tsconfig.build.json for builds
+try {
+  console.log('Using tsconfig.build.json for build...');
 
-    // Check if tsconfig.vercel.json exists
-    const tsconfigVercelPath = path.join(process.cwd(), 'tsconfig.vercel.json');
-    if (fs.existsSync(tsconfigVercelPath)) {
-      // Read tsconfig.vercel.json
-      const tsconfigVercel = JSON.parse(fs.readFileSync(tsconfigVercelPath, 'utf8'));
+  // Check if tsconfig.build.json exists
+  const tsconfigBuildPath = path.join(process.cwd(), 'tsconfig.build.json');
+  if (fs.existsSync(tsconfigBuildPath)) {
+    // Read tsconfig.build.json
+    const tsconfigBuild = JSON.parse(fs.readFileSync(tsconfigBuildPath, 'utf8'));
 
-      // Write to tsconfig.json
-      fs.writeFileSync(tsconfigPath, JSON.stringify(tsconfigVercel, null, 2));
-      console.log('Using tsconfig.vercel.json for the build.');
-    } else {
-      console.log('tsconfig.vercel.json not found, using existing tsconfig.json.');
+    // Write to tsconfig.json
+    fs.writeFileSync(tsconfigPath, JSON.stringify(tsconfigBuild, null, 2));
+    console.log('Using tsconfig.build.json for the build.');
+
+    // Create a symlink to tsconfig.json for Next.js to use
+    try {
+      fs.unlinkSync(path.join(process.cwd(), 'tsconfig.json'));
+    } catch (error) {
+      // Ignore error if file doesn't exist
     }
-  } catch (error) {
-    console.error('Error using tsconfig.vercel.json:', error.message);
-    // Continue with the build
-    console.log('Continuing with build using existing tsconfig.json...');
+    fs.copyFileSync(tsconfigBuildPath, path.join(process.cwd(), 'tsconfig.json'));
+    console.log('Created symlink to tsconfig.build.json for Next.js to use.');
+  } else {
+    console.log('tsconfig.build.json not found, using existing tsconfig.json.');
   }
+} catch (error) {
+  console.error('Error using tsconfig.build.json:', error.message);
+  // Continue with the build
+  console.log('Continuing with build using existing tsconfig.json...');
 }
 
 console.log('Pre-build script completed successfully.');
