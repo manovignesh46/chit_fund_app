@@ -1,7 +1,6 @@
 'use client';
 
-import React from 'react';
-const { useEffect, useState } = React;
+import React, { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { loanAPI } from '../../../../lib/api';
@@ -158,13 +157,13 @@ const PaymentSchedulesPage = () => {
   };
 
   // Handle page size change
-  const handlePageSizeChange = (e: any) => {
+  const handlePageSizeChange = (e: React.BaseSyntheticEvent) => {
     setPageSize(Number(e.target.value));
     setCurrentPage(1);
   };
 
   // Handle status filter change
-  const handleStatusFilterChange = (e: any) => {
+  const handleStatusFilterChange = (e: React.BaseSyntheticEvent) => {
     setStatusFilter(e.target.value === 'all' ? null : e.target.value);
     setCurrentPage(1);
   };

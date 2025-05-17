@@ -94,6 +94,15 @@ declare module 'react' {
     export type ChangeEvent<T = Element> = any;
     export type FormEvent<T = Element> = any;
     export type MouseEvent<T = Element> = any;
+    export type KeyboardEvent<T = Element> = any;
+    export type FocusEvent<T = Element> = any;
+    export type ReactNode = any;
+    export type CSSProperties = any;
+    export type RefObject<T> = any;
+    export type Ref<T> = any;
+    export type MutableRefObject<T> = any;
+    export type FC<P = {}> = any;
+    export type FunctionComponent<P = {}> = any;
   }
   export default any;
 }
@@ -135,6 +144,19 @@ if (fs.existsSync(tsconfigPath)) {
 
   fs.writeFileSync(tsconfigPath, JSON.stringify(tsconfig, null, 2));
   console.log('tsconfig.json updated successfully.');
+}
+
+// Run the fix-react-imports script
+try {
+  console.log('Running fix-react-imports script...');
+  execSync('node scripts/fix-react-imports.js', {
+    stdio: 'inherit'
+  });
+  console.log('fix-react-imports script completed successfully.');
+} catch (error) {
+  console.error('Error running fix-react-imports script:', error.message);
+  // Continue with the build
+  console.log('Continuing with build despite fix-react-imports script issues...');
 }
 
 console.log('Pre-build script completed successfully.');

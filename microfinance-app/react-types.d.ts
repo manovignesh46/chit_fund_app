@@ -10,6 +10,18 @@ declare module 'react' {
   export const Fragment: any;
   export namespace React {
     export type BaseSyntheticEvent = any;
+    export type ChangeEvent<T = Element> = any;
+    export type FormEvent<T = Element> = any;
+    export type MouseEvent<T = Element> = any;
+    export type KeyboardEvent<T = Element> = any;
+    export type FocusEvent<T = Element> = any;
+    export type ReactNode = any;
+    export type CSSProperties = any;
+    export type RefObject<T> = any;
+    export type Ref<T> = any;
+    export type MutableRefObject<T> = any;
+    export type FC<P = {}> = any;
+    export type FunctionComponent<P = {}> = any;
   }
   export default any;
 }
