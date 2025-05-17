@@ -8,6 +8,9 @@ declare module 'react' {
   export const useContext: any;
   export const createContext: any;
   export const Fragment: any;
+  export namespace React {
+    export type BaseSyntheticEvent = any;
+  }
   export default any;
 }
 
