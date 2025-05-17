@@ -1,7 +1,6 @@
-// @ts-nocheck
 'use client';
 
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState  } from '@types/react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { loanAPI } from '../../../../lib/api';
