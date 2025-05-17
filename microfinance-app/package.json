@@ -11,8 +11,8 @@
     "seed": "ts-node --compiler-options {\\\"module\\\":\\\"CommonJS\\\"} prisma/seed.ts",
     "analyze": "ANALYZE=true next build",
     "postinstall": "node scripts/setup-prisma.js",
-    "vercel-build": "node scripts/setup-prisma.js && node scripts/cleanup-prisma.js && NODE_OPTIONS='--max_old_space_size=3072' next build && node scripts/optimize-vercel-output.js",
-    "vercel-install": "npm ci --no-audit",
+    "vercel-build": "node scripts/setup-prisma.js && node scripts/pre-build.js && NODE_OPTIONS='--max_old_space_size=3072' next build && node scripts/cleanup-prisma.js && node scripts/optimize-vercel-output.js",
+    "vercel-install": "npm ci --no-audit && npm install --save-dev typescript@latest @types/react@latest @types/react-dom@latest @types/node@latest",
     "cleanup-prisma": "node scripts/cleanup-prisma.js",
     "optimize-vercel": "node scripts/optimize-vercel-output.js"
   },

@@ -175,8 +175,9 @@ if (isVercel) {
 
   // Remove development dependencies
   const devDependenciesToRemove = [
-    '@types',
-    'typescript',
+    // IMPORTANT: DO NOT REMOVE TYPESCRIPT OR TYPE DEFINITIONS
+    // '@types',
+    // 'typescript',
     'ts-node',
     'eslint',
     'prettier',
@@ -190,9 +191,10 @@ if (isVercel) {
     }
   });
 
-  // Remove source maps and type definitions
+  // Remove source maps only, keep type definitions
   removeFilesByPattern(nodeModulesPath, /\.map$/);
-  removeFilesByPattern(nodeModulesPath, /\.d\.ts$/);
+  // IMPORTANT: DO NOT REMOVE TYPE DEFINITIONS
+  // removeFilesByPattern(nodeModulesPath, /\.d\.ts$/);
 
   // Remove test files and directories
   removeFilesByPattern(nodeModulesPath, /test/);
