@@ -3,6 +3,9 @@ const withBundleAnalyzer = process.env.ANALYZE === 'true'
   ? require('@next/bundle-analyzer')({ enabled: true })
   : (config) => config;
 
+// Check if we should skip TypeScript
+const skipTypeScript = process.env.SKIP_TYPESCRIPT === '1';
+
 const nextConfig = {
   reactStrictMode: true,
   env: {

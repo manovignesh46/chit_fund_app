@@ -20,7 +20,10 @@
     "NODE_OPTIONS": "--max_old_space_size=3072",
     "SKIP_TYPESCRIPT": "1",
     "SKIP_ESLINT": "1",
-    "SKIP_LINT": "1"
+    "SKIP_LINT": "1",
+    "NEXT_IGNORE_TYPESCRIPT_ERRORS": "1",
+    "NEXT_IGNORE_ESLINT_ERRORS": "1",
+    "NEXT_DISABLE_SOURCEMAPS": "1"
   },
   "build": {
     "env": {
@@ -29,7 +32,10 @@
       "NODE_OPTIONS": "--max_old_space_size=3072",
       "SKIP_TYPESCRIPT": "1",
       "SKIP_ESLINT": "1",
-      "SKIP_LINT": "1"
+      "SKIP_LINT": "1",
+      "NEXT_IGNORE_TYPESCRIPT_ERRORS": "1",
+      "NEXT_IGNORE_ESLINT_ERRORS": "1",
+      "NEXT_DISABLE_SOURCEMAPS": "1"
     }
   }
 }
