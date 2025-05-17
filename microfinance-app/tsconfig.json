@@ -47,6 +47,7 @@
     "next-env.d.ts",
     "react-types.d.ts",
     "jsx-namespace.d.ts",
+    "global.d.ts",
     ".next/types/**/*.ts"
   ],
   "exclude": [

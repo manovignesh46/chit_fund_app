@@ -12,7 +12,7 @@
     "analyze": "ANALYZE=true next build",
     "postinstall": "node scripts/setup-prisma.js",
     "vercel-install": "npm install --legacy-peer-deps --no-audit",
-    "vercel-build": "node scripts/setup-prisma.js && node scripts/pre-build.js && NEXT_TYPESCRIPT_CHECK=false NODE_OPTIONS='--max_old_space_size=3072' next build && node scripts/cleanup-prisma.js && node scripts/optimize-vercel-output.js",
+    "vercel-build": "npm install --no-save typescript@5.3.3 @types/react@18.2.48 @types/react-dom@18.2.18 @types/node@20.11.5 && node scripts/setup-prisma.js && node scripts/pre-build.js && NEXT_TYPESCRIPT_CHECK=false NODE_OPTIONS='--max_old_space_size=3072' next build && node scripts/cleanup-prisma.js && node scripts/optimize-vercel-output.js",
     "cleanup-prisma": "node scripts/cleanup-prisma.js",
     "optimize-vercel": "node scripts/optimize-vercel-output.js"
   },
@@ -39,14 +39,14 @@
     "@next/bundle-analyzer": "^14.1.0",
     "@types/bcrypt": "^5.0.2",
     "@types/jsonwebtoken": "^9.0.9",
-    "@types/node": "^22.15.18",
-    "@types/react": "^19.1.4",
-    "@types/react-dom": "^19.1.5",
+    "@types/node": "^20.11.5",
+    "@types/react": "^18.2.48",
+    "@types/react-dom": "^18.2.18",
     "eslint": "^7.0.0",
     "eslint-config-next": "latest",
     "prettier": "^2.0.0",
     "ts-node": "^10.9.2",
-    "typescript": "^5.8.3"
+    "typescript": "^5.3.3"
   },
   "engines": {
     "node": ">=18.0.0"

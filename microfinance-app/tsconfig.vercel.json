@@ -4,6 +4,6 @@
     "noEmit": true,
     "incremental": false
   },
-  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx"],
+  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", "react-types.d.ts", "jsx-namespace.d.ts", "global.d.ts"],
   "exclude": ["node_modules"]
 }
