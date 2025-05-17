@@ -2,7 +2,7 @@
 
 /**
  * Script to bypass TypeScript during the build process
- * 
+ *
  * This script:
  * 1. Renames tsconfig.json to tsconfig.json.bak
  * 2. Creates a minimal jsconfig.json file
@@ -31,25 +31,43 @@ try {
   console.error('Error renaming tsconfig.json:', error.message);
 }
 
-// Create a minimal jsconfig.json file
+// Create a minimal jsconfig.json file that mimics tsconfig.json
 const jsconfigPath = path.join(projectRoot, 'jsconfig.json');
 const jsconfigContent = {
   compilerOptions: {
-    baseUrl: '.',
-    paths: {
-      '@/*': ['./*']
-    },
-    jsx: 'preserve',
+    target: "esnext",
+    lib: ["dom", "dom.iterable", "esnext"],
     allowJs: true,
     skipLibCheck: true,
+    strict: false,
+    forceConsistentCasingInFileNames: true,
+    noEmit: true,
     esModuleInterop: true,
-    moduleResolution: 'node',
+    module: "esnext",
+    moduleResolution: "node",
     resolveJsonModule: true,
     isolatedModules: true,
-    incremental: true
+    jsx: "preserve",
+    incremental: true,
+    baseUrl: ".",
+    paths: {
+      "@/*": ["./*"]
+    },
+    plugins: [
+      {
+        name: "next"
+      }
+    ]
   },
-  include: ['**/*.js', '**/*.jsx'],
-  exclude: ['node_modules']
+  include: [
+    "**/*.js",
+    "**/*.jsx",
+    "**/*.ts",
+    "**/*.tsx",
+    "next-env.d.ts",
+    ".next/types/**/*.ts"
+  ],
+  exclude: ["node_modules"]
 };
 
 try {
