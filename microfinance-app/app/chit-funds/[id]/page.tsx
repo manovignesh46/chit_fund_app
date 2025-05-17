@@ -13,7 +13,8 @@ import ChitFundFinancialSummary from '../../../components/chit-funds/ChitFundFin
 import dynamic from 'next/dynamic';
 import { ChitFundDetailSkeleton } from '../../components/skeletons/DetailSkeletons';
 import {
-  ExportButton,
+
+ExportButton,
   EditButton,
   BackButton,
   DeleteButton,

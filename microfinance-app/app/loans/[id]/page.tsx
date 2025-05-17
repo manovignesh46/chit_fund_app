@@ -9,7 +9,8 @@ import { formatCurrency, formatDate, calculateLoanProfit } from '../../../lib/fo
 import dynamic from 'next/dynamic';
 import { LoanDetailSkeleton } from '../../components/skeletons/DetailSkeletons';
 import {
-  ExportButton,
+
+ExportButton,
   EditButton,
   BackButton,
   DeleteButton,

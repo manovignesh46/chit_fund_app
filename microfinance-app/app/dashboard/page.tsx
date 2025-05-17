@@ -137,7 +137,7 @@ export default function DashboardPage() {
 
   // No need to import FinancialDataResponse here as it's already imported at the top
 
-  // Fetch financial data for the graph based on selected duration
+// Fetch financial data for the graph based on selected duration
   useEffect(() => {
     const fetchFinancialData = async () => {
       try {

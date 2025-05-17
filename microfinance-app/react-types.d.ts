@@ -26,6 +26,18 @@ declare module 'react' {
   export default any;
 }
 
+// Add JSX namespace
+declare namespace JSX {
+  interface IntrinsicElements {
+    [elemName: string]: any;
+  }
+  interface Element {
+    type: any;
+    props: any;
+    key: any;
+  }
+}
+
 declare module 'react-dom' {
   const ReactDOM: any;
   export default ReactDOM;

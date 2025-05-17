@@ -292,7 +292,7 @@ export default function MemberContributionsPage() {
       // Use the apiPost function from apiUtils
       const { apiPost } = await import('./apiUtils');
 
-      // Check if it's a partial payment
+// Check if it's a partial payment
       const paidAmount = parseFloat(newContribution.amount);
       const expectedAmount = chitFund.monthlyContribution;
       const isPartialPayment = paidAmount < expectedAmount;

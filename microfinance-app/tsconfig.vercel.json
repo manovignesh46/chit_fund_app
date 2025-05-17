@@ -29,6 +29,7 @@
         "name": "next"
       }
     ],
+    "checkJs": false,
     "noImplicitAny": false,
     "noImplicitThis": false,
     "strictNullChecks": false,
@@ -38,20 +39,17 @@
     "noFallthroughCasesInSwitch": false,
     "noImplicitReturns": false,
     "noUnusedLocals": false,
-    "noUnusedParameters": false,
-    "checkJs": false
+    "noUnusedParameters": false
   },
   "include": [
     "**/*.ts",
     "**/*.tsx",
     "next-env.d.ts",
+    ".next/types/**/*.ts",
     "react-types.d.ts",
-    "jsx-namespace.d.ts",
-    ".next/types/**/*.ts"
+    "jsx-namespace.d.ts"
   ],
   "exclude": [
-    "node_modules",
-    ".next",
-    "out"
+    "node_modules"
   ]
 }
