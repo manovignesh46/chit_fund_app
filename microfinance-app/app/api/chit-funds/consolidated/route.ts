@@ -221,6 +221,7 @@ export async function DELETE(request: NextRequest) {
 
     // Get the current user ID
     const currentUserId = await getCurrentUserId(request);
+    console.log("id, memberId, currentUserId->", id, memberId, currentUserId)
     if (!currentUserId) {
       return NextResponse.json(
         { error: 'Authentication required' },
@@ -246,6 +247,14 @@ export async function DELETE(request: NextRequest) {
           );
         }
         return await deleteMember(request, id, memberId, currentUserId);
+      case 'remove-member':
+        if (!id || !memberId) {
+          return NextResponse.json(
+            { error: 'Chit fund ID and member ID are required' },
+            { status: 400 }
+          );
+        }
+        return await removeMemberFromChitFund(request, id, memberId, currentUserId);
       case 'delete-contribution':
         if (!id) {
           return NextResponse.json(
@@ -1225,34 +1234,74 @@ async function updateAuction(request: NextRequest, id: number, currentUserId: nu
 }
 
 // Handler for deleting a chit fund
+// async function deleteChitFund(request: NextRequest, id: number, currentUserId: number) {
+//   // Check if the chit fund exists
+//   const chitFund = await prisma.chitFund.findUnique({
+//     where: { id },
+//   });
+
+//   if (!chitFund) {
+//     return NextResponse.json(
+//       { error: 'Chit fund not found' },
+//       { status: 404 }
+//     );
+//   }
+
+//   // Check if the current user is the owner
+//   if (chitFund.createdById !== currentUserId) {
+//     return NextResponse.json(
+//       { error: 'You do not have permission to delete this chit fund' },
+//       { status: 403 }
+//     );
+//   }
+
+//   console.log("chitFund->", chitFund)
+
+//   // Delete the chit fund
+//   await prisma.chitFund.delete({
+//     where: { id },
+//   });
+
+//   return NextResponse.json({ success: true });
+// }
+
 async function deleteChitFund(request: NextRequest, id: number, currentUserId: number) {
-  // Check if the chit fund exists
-  const chitFund = await prisma.chitFund.findUnique({
-    where: { id },
-  });
+  const chitFund = await prisma.chitFund.findUnique({ where: { id } });
 
   if (!chitFund) {
-    return NextResponse.json(
-      { error: 'Chit fund not found' },
-      { status: 404 }
-    );
+    return NextResponse.json({ error: 'Chit fund not found' }, { status: 404 });
   }
 
-  // Check if the current user is the owner
   if (chitFund.createdById !== currentUserId) {
-    return NextResponse.json(
-      { error: 'You do not have permission to delete this chit fund' },
-      { status: 403 }
-    );
+    return NextResponse.json({ error: 'You do not have permission to delete this chit fund' }, { status: 403 });
   }
 
-  // Delete the chit fund
-  await prisma.chitFund.delete({
-    where: { id },
-  });
+  // Deletion order matters!
+  await prisma.$transaction([
+    // First, delete all contributions tied to the chit fund
+    prisma.contribution.deleteMany({
+      where: { chitFundId: id },
+    }),
+
+    // Then, delete auctions if they exist
+    prisma.auction.deleteMany({
+      where: { chitFundId: id },
+    }),
+
+    // Then, delete members
+    prisma.member.deleteMany({
+      where: { chitFundId: id },
+    }),
+
+    // Finally, delete the chit fund
+    prisma.chitFund.delete({
+      where: { id },
+    }),
+  ]);
 
   return NextResponse.json({ success: true });
 }
+
 
 // Handler for deleting a member
 async function deleteMember(request: NextRequest, id: number, memberId: number, currentUserId: number) {
@@ -1260,6 +1309,8 @@ async function deleteMember(request: NextRequest, id: number, memberId: number, 
   const chitFund = await prisma.chitFund.findUnique({
     where: { id },
   });
+
+  console.log("chitFund->", chitFund)
 
   if (!chitFund) {
     return NextResponse.json(
@@ -1283,6 +1334,8 @@ async function deleteMember(request: NextRequest, id: number, memberId: number, 
       chitFundId: id,
     },
   });
+
+  console.log("member->", member)
 
   if (!member) {
     return NextResponse.json(
@@ -1319,6 +1372,60 @@ async function deleteMember(request: NextRequest, id: number, memberId: number, 
 
   return NextResponse.json({ success: true });
 }
+
+// Handler for removing a member from a chit fund
+async function removeMemberFromChitFund(request: NextRequest, id: number, memberId: number, currentUserId: number) {
+  const chitFund = await prisma.chitFund.findUnique({
+    where: { id },
+  });
+
+  if (!chitFund) {
+    return NextResponse.json({ error: 'Chit fund not found' }, { status: 404 });
+  }
+
+  if (chitFund.createdById !== currentUserId) {
+    return NextResponse.json(
+      { error: 'You do not have permission to modify this chit fund' },
+      { status: 403 }
+    );
+  }
+
+  const member = await prisma.member.findFirst({
+    where: {
+      id: memberId,
+      chitFundId: id,
+    },
+  });
+
+  if (!member) {
+    return NextResponse.json(
+      { error: 'Member not found or does not belong to this chit fund' },
+      { status: 404 }
+    );
+  }
+
+  const [contributionsCount, auctionsCount] = await Promise.all([
+    prisma.contribution.count({ where: { memberId } }),
+    prisma.auction.count({ where: { winnerId: memberId } }),
+  ]);
+
+  if (contributionsCount > 0 || auctionsCount > 0) {
+    return NextResponse.json(
+      { error: 'Cannot remove member with contributions or auctions' },
+      { status: 400 }
+    );
+  }
+
+  // Remove association to chit fund (not deleting the member)
+  await prisma.member.update({
+    where: { id: memberId },
+    data: { chitFundId: id },
+  });
+
+  return NextResponse.json({ success: true });
+}
+
+
 
 // Handler for deleting a contribution
 async function deleteContribution(request: NextRequest, id: number, currentUserId: number) {
