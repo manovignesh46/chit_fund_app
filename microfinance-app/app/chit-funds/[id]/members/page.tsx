@@ -307,12 +307,10 @@ export default function ChitFundMembersPage() {
     try {
       // Use the apiDelete utility function
       await apiDelete(
-        `/api/chit-funds/consolidated?action=remove-member&id=${chitFundId}`,
-        {
-          memberId: memberToDelete
-        },
+        `/api/chit-funds/consolidated?action=remove-member&id=${chitFundId}&memberId=${memberToDelete}`,
+        {},
         'Failed to delete member'
-      );
+      );  
 
       // Remove the deleted member from the state
       setMembers(members.filter(m => m.id !== memberToDelete));
@@ -359,12 +357,10 @@ export default function ChitFundMembersPage() {
         try {
           // Use the apiDelete utility function
           await apiDelete(
-            `/api/chit-funds/consolidated?action=remove-member&id=${chitFundId}`,
-            {
-              memberId: memberId
-            },
+            `/api/chit-funds/consolidated?action=remove-member&id=${chitFundId}&memberId=${memberId}`,
+            {},
             'Failed to delete member'
-          );
+          );  
           successCount++;
         } catch (error) {
           console.error(`Error removing member ${memberId}:`, error);
