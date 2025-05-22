@@ -1,5 +1,8 @@
 # Microfinance and Chit Fund Management Application
 
+# Docker build
+docker build -t my-microfinance-app .
+
 ## Overview
 
 This application is a full-stack solution for managing microfinance operations and chit funds. It provides comprehensive tools for tracking loans, chit funds, members, and financial metrics through an intuitive dashboard.
