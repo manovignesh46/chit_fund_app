@@ -24,7 +24,7 @@ const nextConfig = {
   // Enable React Server Components
   experimental: {
     serverActions: {
-      allowedOrigins: ['localhost:3000', 'localhost:3003'],
+      allowedOrigins: ['localhost:3000', 'localhost:3003', '47e5-2401-4900-608c-31f0-208f-2cde-9a71-a9db.ngrok-free.app'],
     },
   },
   // Enable output file tracing for serverless functions

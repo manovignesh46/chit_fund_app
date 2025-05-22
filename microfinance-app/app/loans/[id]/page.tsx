@@ -45,34 +45,8 @@ const LoanDetailPage = () => {
   // Export state
   const [isExporting, setIsExporting] = useState(false);
 
-  // Mock data for loan details
-  const mockLoan = {
-    id: id,
-    borrowerId: 1,
-    borrower: {
-      id: 1,
-      name: 'Rahul Sharma',
-      contact: '+91 9876543210',
-      email: 'rahul@example.com',
-      address: 'Delhi, India'
-    },
-    amount: 50000,
-    interestRate: 12000, // Now as amount instead of percentage
-    documentCharge: 1000,
-    loanType: 'Business',
-    disbursementDate: '2023-01-15',
-    duration: 12,
-    currentMonth: 5,
-    repaymentType: 'Monthly',
-    remainingBalance: 35000,
-    nextPaymentDate: '2023-05-15',
-    status: 'Active',
-    repayments: [
-      { id: 1, paidDate: '2023-02-15', amount: 5000 },
-      { id: 2, paidDate: '2023-03-15', amount: 5000 },
-      { id: 3, paidDate: '2023-04-15', amount: 5000 },
-    ]
-  };
+  const [showProfit, setShowProfit] = useState(false); // default is hidden
+
 
   // Fetch payment schedules
   const fetchPaymentSchedules = async () => {
@@ -795,6 +769,10 @@ const LoanDetailPage = () => {
     }
   };
 
+  const toggleProfit = () => {
+    setShowProfit(!showProfit);
+  };
+
   if (loading) {
     return <LoanDetailSkeleton />;
   }
@@ -1039,12 +1017,14 @@ const LoanDetailPage = () => {
                 onClick={() => {
                   const profitElement = document.getElementById('loan-profit');
                   const profitExplanation = document.getElementById('loan-profit-explanation');
-                  if (profitElement) {
-                    profitElement.classList.toggle('hidden');
-                  }
-                  if (profitExplanation) {
-                    profitExplanation.classList.toggle('hidden');
-                  }
+                  // if (profitElement) {
+                  //   profitElement.classList.toggle('hidden');
+                  // }
+                  // if (profitExplanation) {
+                  //   profitExplanation.classList.toggle('hidden');
+                  // }
+                  toggleProfit
+                console.log("showProfit->", showProfit)
                 }}
               >
                 Total Profit
@@ -1053,7 +1033,7 @@ const LoanDetailPage = () => {
                 </svg>
               </h3>
               <div>
-                <p id="loan-profit" className="text-xl font-semibold text-green-600 hidden">
+              {showProfit && <p id="loan-profit" className="text-xl font-semibold text-green-600">
                   {loan.repaymentType === 'Monthly' ? (
                     (() => {
                       // SPECIAL CASE: For loans with only interest-only payments
@@ -1216,7 +1196,7 @@ const LoanDetailPage = () => {
                     // For weekly loans, profit is 10% of principal
                     formatCurrency(loan.amount * 0.1)
                   )}
-                </p>
+                </p>}
                 <p id="loan-profit-explanation" className="text-xs text-gray-500 mt-1 hidden">
                   {loan.repaymentType === 'Monthly' ? (
                     (() => {
