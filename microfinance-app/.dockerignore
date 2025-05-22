@@ -1,0 +1,29 @@
+# Node modules and dependencies
+node_modules
+npm-debug.log
+yarn-error.log
+
+# Prisma generated files (optional, if you want to re-generate inside Docker)
+node_modules/@prisma/client
+
+# Logs
+*.log
+
+# Environment files
+# .env
+
+# Git files
+.git
+.gitignore
+
+# Docker files themselves (optional)
+Dockerfile
+.dockerignore
+
+# VSCode and other editors
+.vscode
+.idea
+
+# Build outputs (if any)
+dist
+build

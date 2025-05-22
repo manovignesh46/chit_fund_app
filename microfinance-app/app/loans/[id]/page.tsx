@@ -46,8 +46,6 @@ const LoanDetailPage = () => {
   // Export state
   const [isExporting, setIsExporting] = useState(false);
 
-  const [showProfit, setShowProfit] = useState(false); // default is hidden
-
 
   // Fetch payment schedules
   const fetchPaymentSchedules = async () => {
@@ -770,10 +768,6 @@ const LoanDetailPage = () => {
     }
   };
 
-  const toggleProfit = () => {
-    setShowProfit(!showProfit);
-  };
-
   if (loading) {
     return <LoanDetailSkeleton />;
   }
@@ -1018,14 +1012,12 @@ const LoanDetailPage = () => {
                 onClick={() => {
                   const profitElement = document.getElementById('loan-profit');
                   const profitExplanation = document.getElementById('loan-profit-explanation');
-                  // if (profitElement) {
-                  //   profitElement.classList.toggle('hidden');
-                  // }
-                  // if (profitExplanation) {
-                  //   profitExplanation.classList.toggle('hidden');
-                  // }
-                  toggleProfit
-                console.log("showProfit->", showProfit)
+                  if (profitElement) {
+                    profitElement.classList.toggle('hidden');
+                  }
+                  if (profitExplanation) {
+                    profitExplanation.classList.toggle('hidden');
+                  }
                 }}
               >
                 Total Profit
@@ -1034,7 +1026,7 @@ const LoanDetailPage = () => {
                 </svg>
               </h3>
               <div>
-              {showProfit && <p id="loan-profit" className="text-xl font-semibold text-green-600">
+              <p id="loan-profit" className="text-xl font-semibold text-green-600 hidden">
                   {loan.repaymentType === 'Monthly' ? (
                     (() => {
                       // SPECIAL CASE: For loans with only interest-only payments
@@ -1197,7 +1189,7 @@ const LoanDetailPage = () => {
                     // For weekly loans, profit is 10% of principal
                     formatCurrency(loan.amount * 0.1)
                   )}
-                </p>}
+                </p>
                 <p id="loan-profit-explanation" className="text-xs text-gray-500 mt-1 hidden">
                   {loan.repaymentType === 'Monthly' ? (
                     (() => {
