@@ -29,6 +29,23 @@ export default function ChitFundCard({ chitFund, showActions = true }: ChitFundC
     }
   };
 
+  // Calculate next auction date if not set
+  const getNextAuctionDate = (): string | null => {
+    if (chitFund.nextAuctionDate) {
+      return chitFund.nextAuctionDate as string;
+    }
+
+    // If no next auction date is set and chit fund is active, calculate it
+    if (chitFund.status === 'Active' && chitFund.currentMonth < chitFund.duration) {
+      const startDate = new Date(chitFund.startDate);
+      const nextAuctionDate = new Date(startDate);
+      nextAuctionDate.setMonth(startDate.getMonth() + chitFund.currentMonth);
+      return nextAuctionDate.toISOString();
+    }
+
+    return null;
+  };
+
   return (
     <div className="bg-white rounded-lg shadow-md overflow-hidden">
       <div className="p-6 border-b">
@@ -39,7 +56,7 @@ export default function ChitFundCard({ chitFund, showActions = true }: ChitFundC
           </span>
         </div>
       </div>
-      
+
       <div className="p-6">
         <div className="grid grid-cols-2 gap-4 mb-4">
           <div>
@@ -64,30 +81,30 @@ export default function ChitFundCard({ chitFund, showActions = true }: ChitFundC
           </div>
           <div>
             <p className="text-sm text-gray-500">Next Auction</p>
-            <p className="text-lg font-semibold">{formatDate(chitFund.nextAuctionDate)}</p>
+            <p className="text-lg font-semibold">{formatDate(getNextAuctionDate())}</p>
           </div>
           <div>
             <p className="text-sm text-gray-500">Members</p>
             <p className="text-lg font-semibold">{chitFund._count?.members || chitFund.members?.length || 0} of {chitFund.membersCount}</p>
           </div>
         </div>
-        
+
         {showActions && (
           <div className="flex justify-end space-x-2 mt-4">
-            <Link 
-              href={`/chit-funds/${chitFund.id}`} 
+            <Link
+              href={`/chit-funds/${chitFund.id}`}
               className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
             >
               View Details
             </Link>
-            <Link 
-              href={`/chit-funds/${chitFund.id}/contributions`} 
+            <Link
+              href={`/chit-funds/${chitFund.id}/contributions`}
               className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors"
             >
               Contributions
             </Link>
-            <Link 
-              href={`/chit-funds/${chitFund.id}/auctions`} 
+            <Link
+              href={`/chit-funds/${chitFund.id}/auctions`}
               className="px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition-colors"
             >
               Auctions

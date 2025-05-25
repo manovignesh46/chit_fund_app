@@ -311,22 +311,7 @@ const LoanDetailPage = () => {
     }
   }, [id, currentPage, pageSize]);
 
-  // Effect to show profit elements
-  useEffect(() => {
-    if (!loading && loan) {
-      // Show profit elements
-      const profitElement = document.getElementById('loan-profit');
-      const profitExplanationElement = document.getElementById('loan-profit-explanation');
 
-      if (profitElement) {
-        profitElement.classList.remove('hidden');
-      }
-
-      if (profitExplanationElement) {
-        profitExplanationElement.classList.remove('hidden');
-      }
-    }
-  }, [loading, loan]);
 
   // Format currency
   const formatCurrency = (amount: number): string => {

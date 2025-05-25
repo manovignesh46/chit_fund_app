@@ -188,6 +188,16 @@ const ChitFundDetails = () => {
           totalOutflow = auctionsArray.reduce((sum: number, auction: any) => sum + auction.amount, 0);
         }
 
+        // Calculate next auction date if not set
+        if (!chitFundData.nextAuctionDate && chitFundData.status === 'Active' && chitFundData.currentMonth < chitFundData.duration) {
+          const startDate = new Date(chitFundData.startDate);
+          const nextAuctionDate = new Date(startDate);
+          nextAuctionDate.setMonth(startDate.getMonth() + chitFundData.currentMonth);
+          chitFundData.nextAuctionDate = nextAuctionDate.toISOString();
+        }
+
+        setChitFund(chitFundData);
+
         // Calculate profit and outside amount using centralized utility functions
         const profitAmount = calculateChitFundProfit(chitFundData, contributionsArray, auctionsArray);
         const outsideAmountValue = calculateChitFundOutsideAmount(chitFundData, contributionsArray, auctionsArray);

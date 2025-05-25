@@ -368,6 +368,14 @@ async function getChitFundDetail(request: NextRequest, id: number, currentUserId
     );
   }
 
+  // Calculate next auction date if not set and chit fund is active
+  if (!chitFund.nextAuctionDate && chitFund.status === 'Active' && chitFund.currentMonth < chitFund.duration) {
+    const startDate = new Date(chitFund.startDate);
+    const nextAuctionDate = new Date(startDate);
+    nextAuctionDate.setMonth(startDate.getMonth() + chitFund.currentMonth);
+    chitFund.nextAuctionDate = nextAuctionDate;
+  }
+
   return NextResponse.json(chitFund);
 }
 
@@ -1416,10 +1424,9 @@ async function removeMemberFromChitFund(request: NextRequest, id: number, member
     );
   }
 
-  // Remove association to chit fund (not deleting the member)
-  await prisma.member.update({
+  // Delete the member from the chit fund
+  await prisma.member.delete({
     where: { id: memberId },
-    data: { chitFundId: id },
   });
 
   return NextResponse.json({ success: true });
