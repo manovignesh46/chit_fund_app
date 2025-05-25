@@ -1,6 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
 generator client {
   provider      = "prisma-client-js"
   binaryTargets = ["native", "linux-musl", "debian-openssl-3.0.x"]
@@ -12,171 +9,174 @@ datasource db {
 }
 
 model User {
-  id            Int       @id @default(autoincrement())
+  id            Int            @id @default(autoincrement())
   name          String
-  email         String    @unique
+  email         String         @unique
   password      String
-  role          String    @default("user") // admin, user
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-
-  // Relations for data ownership
+  role          String         @default("user")
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
   chitFunds     ChitFund[]
   globalMembers GlobalMember[]
   loans         Loan[]
 }
 
 model ChitFund {
-  id                  Int           @id @default(autoincrement())
+  id                  Int            @id @default(autoincrement())
   name                String
   totalAmount         Float
   monthlyContribution Float
-  duration            Int           // in months
+  duration            Int
   membersCount        Int
-  status              String        @default("Active") // Active, Completed, Upcoming
+  status              String         @default("Active")
   startDate           DateTime
-  currentMonth        Int           @default(1)
+  currentMonth        Int            @default(1)
   nextAuctionDate     DateTime?
   description         String?
-  createdAt           DateTime      @default(now())
-  updatedAt           DateTime      @updatedAt
-
-  // Data ownership
+  createdAt           DateTime       @default(now())
+  updatedAt           DateTime       @updatedAt
   createdById         Int
-  createdBy           User          @relation(fields: [createdById], references: [id])
-
-  // Relations
-  members             Member[]
-  contributions       Contribution[]
   auctions            Auction[]
+  createdBy           User           @relation(fields: [createdById], references: [id])
+  contributions       Contribution[]
+  members             Member[]
+
+  @@index([createdById], map: "ChitFund_createdById_fkey")
 }
 
 model GlobalMember {
-  id              Int           @id @default(autoincrement())
+  id              Int      @id @default(autoincrement())
   name            String
   contact         String
   email           String?
   address         String?
   notes           String?
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
-
-  // Data ownership
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
   createdById     Int
-  createdBy       User          @relation(fields: [createdById], references: [id])
-
-  // Relations
+  createdBy       User     @relation(fields: [createdById], references: [id])
+  loans           Loan[]   @relation("BorrowerToLoan")
   chitFundMembers Member[]
-  loans           Loan[]        @relation("BorrowerToLoan")
+
+  @@index([createdById], map: "GlobalMember_createdById_fkey")
 }
 
 model Member {
-  id              Int           @id @default(autoincrement())
-  globalMemberId  Int
-  chitFundId      Int
-  joinDate        DateTime      @default(now())
-  auctionWon      Boolean       @default(false)
-  auctionMonth    Int?
-  contribution    Float
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
-  globalMember    GlobalMember  @relation(fields: [globalMemberId], references: [id])
-  chitFund        ChitFund      @relation(fields: [chitFundId], references: [id])
-  contributions   Contribution[]
-  auctions        Auction[]
+  id             Int            @id @default(autoincrement())
+  globalMemberId Int
+  chitFundId     Int
+  joinDate       DateTime       @default(now())
+  auctionWon     Boolean        @default(false)
+  auctionMonth   Int?
+  contribution   Float
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  auctions       Auction[]
+  contributions  Contribution[]
+  chitFund       ChitFund       @relation(fields: [chitFundId], references: [id])
+  globalMember   GlobalMember   @relation(fields: [globalMemberId], references: [id])
+
+  @@index([chitFundId], map: "Member_chitFundId_fkey")
+  @@index([globalMemberId], map: "Member_globalMemberId_fkey")
 }
 
 model Contribution {
-  id                     Int           @id @default(autoincrement())
-  amount                 Float
-  month                  Int
-  paidDate               DateTime
-  memberId               Int
-  chitFundId             Int
-  balance                Float         @default(0)  // Track remaining balance if partial payment
-  balancePaymentDate     DateTime?     // Expected date when the balance will be paid
-  balancePaymentStatus   String?       @default("Pending") // Status of balance payment: "Pending", "Paid", "Overdue"
-  actualBalancePaymentDate DateTime?   // Actual date when the balance was paid
-  notes                  String?       // Additional notes about the contribution
-  createdAt              DateTime      @default(now())
-  updatedAt              DateTime      @updatedAt
-  member                 Member        @relation(fields: [memberId], references: [id])
-  chitFund               ChitFund      @relation(fields: [chitFundId], references: [id])
+  id                       Int       @id @default(autoincrement())
+  amount                   Float
+  month                    Int
+  paidDate                 DateTime
+  memberId                 Int
+  chitFundId               Int
+  balance                  Float     @default(0)
+  balancePaymentDate       DateTime?
+  balancePaymentStatus     String?   @default("Pending")
+  actualBalancePaymentDate DateTime?
+  notes                    String?
+  createdAt                DateTime  @default(now())
+  updatedAt                DateTime  @updatedAt
+  chitFund                 ChitFund  @relation(fields: [chitFundId], references: [id])
+  member                   Member    @relation(fields: [memberId], references: [id])
+
+  @@index([chitFundId], map: "Contribution_chitFundId_fkey")
+  @@index([memberId], map: "Contribution_memberId_fkey")
 }
 
 model Auction {
-  id              Int           @id @default(autoincrement())
+  id              Int      @id @default(autoincrement())
   chitFundId      Int
   month           Int
   date            DateTime
   winnerId        Int
   amount          Float
-  lowestBid       Float?        // Lowest bid amount in the auction
-  highestBid      Float?        // Highest bid amount in the auction
-  numberOfBidders Int?          // Number of members who participated in bidding
-  notes           String?       // Additional notes about the auction
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
-  chitFund        ChitFund      @relation(fields: [chitFundId], references: [id])
-  winner          Member        @relation(fields: [winnerId], references: [id])
+  lowestBid       Float?
+  highestBid      Float?
+  numberOfBidders Int?
+  notes           String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  chitFund        ChitFund @relation(fields: [chitFundId], references: [id])
+  winner          Member   @relation(fields: [winnerId], references: [id])
+
+  @@index([chitFundId], map: "Auction_chitFundId_fkey")
+  @@index([winnerId], map: "Auction_winnerId_fkey")
 }
 
 model Loan {
-  id                Int           @id @default(autoincrement())
+  id                Int               @id @default(autoincrement())
   borrowerId        Int
-  loanType          String        // Business, Personal, Education, etc.
+  loanType          String
   amount            Float
   interestRate      Float
-  documentCharge    Float         @default(0)  // Document processing charge
-  currentMonth      Int           @default(0)  // Current month of the loan (0 for future loans, 1+ for active loans)
-  installmentAmount   Float      @default(0)  // Payment installment amount
-  duration          Int           // in months
+  documentCharge    Float             @default(0)
+  currentMonth      Int               @default(0)
+  installmentAmount Float             @default(0)
+  duration          Int
   disbursementDate  DateTime
-  repaymentType     String        // Monthly, Weekly, etc.
+  repaymentType     String
   remainingAmount   Float
-  overdueAmount     Float         @default(0)  // Amount that is overdue
-  missedPayments    Int           @default(0)  // Number of missed payments
+  overdueAmount     Float             @default(0)
+  missedPayments    Int               @default(0)
   nextPaymentDate   DateTime?
-  status            String        @default("Active") // Active, Completed, Defaulted
+  status            String            @default("Active")
   purpose           String?
-  createdAt         DateTime      @default(now())
-  updatedAt         DateTime      @updatedAt
-
-  // Data ownership
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
   createdById       Int
-  createdBy         User          @relation(fields: [createdById], references: [id])
-
-  // Relations
-  borrower          GlobalMember  @relation("BorrowerToLoan", fields: [borrowerId], references: [id])
-  repayments        Repayment[]
+  borrower          GlobalMember      @relation("BorrowerToLoan", fields: [borrowerId], references: [id])
+  createdBy         User              @relation(fields: [createdById], references: [id])
   paymentSchedules  PaymentSchedule[]
+  repayments        Repayment[]
+
+  @@index([borrowerId], map: "Loan_borrowerId_fkey")
+  @@index([createdById], map: "Loan_createdById_fkey")
 }
 
 model Repayment {
-  id              Int           @id @default(autoincrement())
-  amount          Float
-  paidDate        DateTime
-  loanId          Int
-  paymentType     String        @default("full") // "full" or "interestOnly"
-  period          Int           // Month or week number in the loan term (required)
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
-  loan            Loan          @relation(fields: [loanId], references: [id])
+  id          Int      @id @default(autoincrement())
+  amount      Float
+  paidDate    DateTime
+  loanId      Int
+  paymentType String   @default("full")
+  period      Int
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  loan        Loan     @relation(fields: [loanId], references: [id])
+
+  @@index([loanId], map: "Repayment_loanId_fkey")
 }
 
 model PaymentSchedule {
-  id                Int           @id @default(autoincrement())
+  id                Int       @id @default(autoincrement())
   loanId            Int
-  period            Int           // Month or week number in the loan term
+  period            Int
   dueDate           DateTime
   amount            Float
-  status            String        @default("Pending") // Pending, Paid, Missed, InterestOnly
-  actualPaymentDate DateTime?     // Date when payment was actually made
-  notes             String?       // Additional notes about the payment
-  createdAt         DateTime      @default(now())
-  updatedAt         DateTime      @updatedAt
+  status            String    @default("Pending")
+  actualPaymentDate DateTime?
+  notes             String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  loan              Loan      @relation(fields: [loanId], references: [id])
 
-  // Relations
-  loan              Loan          @relation(fields: [loanId], references: [id])
+  @@index([loanId], map: "PaymentSchedule_loanId_fkey")
 }
-
