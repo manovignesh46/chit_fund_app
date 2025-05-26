@@ -4,7 +4,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { apiGet, apiPut } from './apiUtils';
+import { apiGet, apiPut } from '../../../../../../lib/apiUtils';
 
 interface GlobalMember {
   id: number;
@@ -290,7 +290,7 @@ export default function MemberContributionsPage() {
 
     try {
       // Use the apiPost function from apiUtils
-      const { apiPost } = await import('./apiUtils');
+      const { apiPost } = await import('../../../../../../lib/apiUtils');
 
 // Check if it's a partial payment
       const paidAmount = parseFloat(newContribution.amount);
