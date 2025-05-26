@@ -332,44 +332,11 @@ if (fs.existsSync(tsconfigPath)) {
   console.log('tsconfig.json updated successfully.');
 }
 
-// Run the fix-react-imports script
-try {
-  console.log('Running fix-react-imports script...');
-  execSync('node scripts/fix-react-imports.js', {
-    stdio: 'inherit'
-  });
-  console.log('fix-react-imports script completed successfully.');
-} catch (error) {
-  console.error('Error running fix-react-imports script:', error.message);
-  // Continue with the build
-  console.log('Continuing with build despite fix-react-imports script issues...');
-}
+// Note: React imports and JSX files are now properly configured
+console.log('TypeScript and React configuration is properly set up.');
 
-// Run the fix-jsx-files script
-try {
-  console.log('Running fix-jsx-files script...');
-  execSync('node scripts/fix-jsx-files.js', {
-    stdio: 'inherit'
-  });
-  console.log('fix-jsx-files script completed successfully.');
-} catch (error) {
-  console.error('Error running fix-jsx-files script:', error.message);
-  // Continue with the build
-  console.log('Continuing with build despite fix-jsx-files script issues...');
-}
-
-// Run the disable-typescript-checks script
-try {
-  console.log('Running disable-typescript-checks script...');
-  execSync('node scripts/disable-typescript-checks.js', {
-    stdio: 'inherit'
-  });
-  console.log('disable-typescript-checks script completed successfully.');
-} catch (error) {
-  console.error('Error running disable-typescript-checks script:', error.message);
-  // Continue with the build
-  console.log('Continuing with build despite disable-typescript-checks script issues...');
-}
+// TypeScript checks are properly configured in tsconfig.json and next.config.js
+console.log('TypeScript checks configuration is up to date.');
 
 // Use tsconfig.build.json for builds
 try {

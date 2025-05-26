@@ -29,7 +29,17 @@ try {
 // 2. Check if the database is accessible
 console.log('\n=== Checking Database Connection ===\n');
 try {
-  execSync('node scripts/test-connection.js', { stdio: 'inherit' });
+  // Simple database connection check
+  const { PrismaClient } = require('@prisma/client');
+  const prisma = new PrismaClient();
+
+  // Test the connection
+  prisma.$connect().then(() => {
+    console.log('Database connection successful');
+    return prisma.$disconnect();
+  }).catch((error) => {
+    console.error('Database connection failed:', error.message);
+  });
 } catch (error) {
   console.error('Error checking database connection:', error.message);
 }
