@@ -168,38 +168,28 @@ export function calculatePeriodChitFundProfit(
   totalProfit: number;
   auctionCommissions: number;
 } {
-  const totalProfit = chitFunds.reduce((sum, fund) => {
-    // Calculate auction profits for auctions in the period
-    let auctionProfit = 0;
-    const membersCount = fund.membersCount || (fund.members ? fund.members.length : 0);
+  const { calculateChitFundProfitUpToCurrentMonth } = require('./financialUtils');
 
-    // Filter auctions to only those in the period
+  const totalProfit = chitFunds.reduce((sum, fund) => {
+    // Filter contributions and auctions to only those in the period
+    const periodContributions = periodRange
+      ? fund.contributions.filter(c => isDateInPeriod(new Date(c.paidDate), periodRange))
+      : fund.contributions;
+
     const periodAuctions = periodRange
       ? fund.auctions.filter(a => isDateInPeriod(new Date(a.date), periodRange))
       : fund.auctions;
 
-    periodAuctions.forEach(auction => {
-      const monthlyTotal = fund.monthlyContribution * membersCount;
-      const currentAuctionProfit = monthlyTotal - (auction.amount || 0);
-      if (currentAuctionProfit > 0) {
-        auctionProfit += currentAuctionProfit;
-      }
-    });
+    // Create a fund object with only period-specific data for consistent calculation
+    const periodFund = {
+      ...fund,
+      contributions: periodContributions,
+      auctions: periodAuctions
+    };
 
-    // If no auction profit, check contribution vs auction difference for period only
-    if (auctionProfit === 0) {
-      const periodContributions = periodRange
-        ? fund.contributions.filter(c => isDateInPeriod(new Date(c.paidDate), periodRange))
-        : fund.contributions;
-
-      const totalInflow = periodContributions.reduce((s, c) => s + (c.amount || 0), 0);
-      const totalOutflow = periodAuctions.reduce((s, a) => s + (a.amount || 0), 0);
-      if (totalInflow > totalOutflow) {
-        auctionProfit = totalInflow - totalOutflow;
-      }
-    }
-
-    return sum + auctionProfit;
+    // Use the same function as the chit fund details page for consistency
+    const fundProfit = calculateChitFundProfitUpToCurrentMonth(periodFund, periodContributions, periodAuctions);
+    return sum + fundProfit;
   }, 0);
 
   return {
@@ -503,8 +493,10 @@ export function createPeriodRange(startDate: Date, endDate: Date): PeriodRange {
 export {
   calculateLoanProfit,
   calculateChitFundProfit,
+  calculateChitFundProfitUpToCurrentMonth,
   calculateTotalLoanProfit,
   calculateTotalChitFundProfit,
+  calculateTotalChitFundProfitUpToCurrentMonth,
   calculateChitFundOutsideAmount
 } from './financialUtils';
 
@@ -534,26 +526,10 @@ export function calculateTotalFinancialMetrics(
   }, 0);
 
   const chitFundProfit = chitFunds.reduce((sum, fund) => {
-    const membersCount = fund.membersCount || (fund.members ? fund.members.length : 0);
-    let auctionProfit = 0;
-
-    fund.auctions.forEach(auction => {
-      const monthlyTotal = fund.monthlyContribution * membersCount;
-      const currentAuctionProfit = monthlyTotal - (auction.amount || 0);
-      if (currentAuctionProfit > 0) {
-        auctionProfit += currentAuctionProfit;
-      }
-    });
-
-    if (auctionProfit === 0) {
-      const totalInflow = fund.contributions.reduce((s, c) => s + (c.amount || 0), 0);
-      const totalOutflow = fund.auctions.reduce((s, a) => s + (a.amount || 0), 0);
-      if (totalInflow > totalOutflow) {
-        auctionProfit = totalInflow - totalOutflow;
-      }
-    }
-
-    return sum + auctionProfit;
+    // Use the new function that only considers transactions up to current month
+    const { calculateChitFundProfitUpToCurrentMonth } = require('./financialUtils');
+    const fundProfit = calculateChitFundProfitUpToCurrentMonth(fund, fund.contributions, fund.auctions);
+    return sum + fundProfit;
   }, 0);
 
   // Calculate cash flows

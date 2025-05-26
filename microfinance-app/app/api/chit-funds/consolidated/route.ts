@@ -349,7 +349,12 @@ async function getChitFundDetail(request: NextRequest, id: number, currentUserId
           contributions: true,
           auctions: true
         }
-      }
+      },
+      fixedAmounts: {
+        orderBy: {
+          month: 'asc',
+        },
+      },
     }
   });
 
@@ -681,22 +686,62 @@ async function createChitFund(request: NextRequest, currentUserId: number) {
     }
   }
 
+  // Validate fixed amounts if chit fund type is Fixed
+  if (body.chitFundType === 'Fixed') {
+    if (!body.fixedAmounts) {
+      return NextResponse.json(
+        { error: 'Fixed amounts are required for Fixed type chit funds' },
+        { status: 400 }
+      );
+    }
+
+    const duration = parseInt(body.duration);
+    for (let i = 1; i <= duration; i++) {
+      if (!body.fixedAmounts[i] || isNaN(Number(body.fixedAmounts[i])) || Number(body.fixedAmounts[i]) <= 0) {
+        return NextResponse.json(
+          { error: `Fixed amount for month ${i} is required and must be a valid positive number` },
+          { status: 400 }
+        );
+      }
+    }
+  }
+
   // Create the chit fund
   const chitFund = await prisma.chitFund.create({
     data: {
       name: body.name,
       totalAmount: parseFloat(body.totalAmount),
       monthlyContribution: parseFloat(body.monthlyContribution),
+      firstMonthContribution: body.firstMonthContribution ? parseFloat(body.firstMonthContribution) : null,
       duration: parseInt(body.duration),
       membersCount: parseInt(body.membersCount),
       status: body.status || 'Active',
       startDate: new Date(body.startDate),
       nextAuctionDate: body.nextAuctionDate ? new Date(body.nextAuctionDate) : null,
       description: body.description || null,
+      chitFundType: body.chitFundType || 'Auction',
       // Set the creator
       createdById: currentUserId,
     }
   });
+
+  // Create fixed amounts if chit fund type is Fixed
+  if (body.chitFundType === 'Fixed' && body.fixedAmounts) {
+    const duration = parseInt(body.duration);
+    const fixedAmountRecords = [];
+
+    for (let i = 1; i <= duration; i++) {
+      fixedAmountRecords.push({
+        chitFundId: chitFund.id,
+        month: i,
+        amount: parseFloat(body.fixedAmounts[i]),
+      });
+    }
+
+    await prisma.chitFundFixedAmount.createMany({
+      data: fixedAmountRecords,
+    });
+  }
 
   return NextResponse.json(chitFund, { status: 201 });
 }
@@ -954,17 +999,17 @@ async function addAuction(request: NextRequest, id: number, currentUserId: numbe
     );
   }
 
-  // Check if an auction for this month already exists
-  const existingAuction = await prisma.auction.findFirst({
+  // Check if the member has already won an auction
+  const existingWinner = await prisma.auction.findFirst({
     where: {
       chitFundId: id,
-      month: parseInt(body.month),
+      winnerId: parseInt(body.winnerId),
     },
   });
 
-  if (existingAuction) {
+  if (existingWinner) {
     return NextResponse.json(
-      { error: 'An auction for this month already exists' },
+      { error: 'This member has already won an auction in this chit fund' },
       { status: 400 }
     );
   }
@@ -1031,6 +1076,7 @@ async function updateChitFund(request: NextRequest, id: number, currentUserId: n
       ...(body.name && { name: body.name }),
       ...(body.totalAmount && { totalAmount: parseFloat(body.totalAmount) }),
       ...(body.monthlyContribution && { monthlyContribution: parseFloat(body.monthlyContribution) }),
+      ...(body.firstMonthContribution !== undefined && { firstMonthContribution: body.firstMonthContribution ? parseFloat(body.firstMonthContribution) : null }),
       ...(body.duration && { duration: parseInt(body.duration) }),
       ...(body.membersCount && { membersCount: parseInt(body.membersCount) }),
       ...(body.status && { status: body.status }),
@@ -1038,8 +1084,37 @@ async function updateChitFund(request: NextRequest, id: number, currentUserId: n
       ...(body.nextAuctionDate && { nextAuctionDate: new Date(body.nextAuctionDate) }),
       ...(body.description !== undefined && { description: body.description }),
       ...(body.currentMonth && { currentMonth: parseInt(body.currentMonth) }),
+      ...(body.chitFundType && { chitFundType: body.chitFundType }),
     },
   });
+
+  // Handle fixed amounts updates if chit fund type is Fixed
+  if (body.chitFundType === 'Fixed' && body.fixedAmounts) {
+    // First, delete existing fixed amounts for this chit fund
+    await prisma.chitFundFixedAmount.deleteMany({
+      where: { chitFundId: id },
+    });
+
+    // Then, create new fixed amounts
+    const duration = parseInt(body.duration) || updatedChitFund.duration;
+    const fixedAmountRecords = [];
+
+    for (let i = 1; i <= duration; i++) {
+      if (body.fixedAmounts[i]) {
+        fixedAmountRecords.push({
+          chitFundId: id,
+          month: i,
+          amount: parseFloat(body.fixedAmounts[i]),
+        });
+      }
+    }
+
+    if (fixedAmountRecords.length > 0) {
+      await prisma.chitFundFixedAmount.createMany({
+        data: fixedAmountRecords,
+      });
+    }
+  }
 
   return NextResponse.json(updatedChitFund);
 }
@@ -1284,7 +1359,7 @@ async function deleteChitFund(request: NextRequest, id: number, currentUserId: n
     return NextResponse.json({ error: 'You do not have permission to delete this chit fund' }, { status: 403 });
   }
 
-  // Deletion order matters!
+  // Deletion order matters due to foreign key constraints!
   await prisma.$transaction([
     // First, delete all contributions tied to the chit fund
     prisma.contribution.deleteMany({
@@ -1298,6 +1373,11 @@ async function deleteChitFund(request: NextRequest, id: number, currentUserId: n
 
     // Then, delete members
     prisma.member.deleteMany({
+      where: { chitFundId: id },
+    }),
+
+    // Delete fixed amounts if they exist (for Fixed type chit funds)
+    prisma.chitFundFixedAmount.deleteMany({
       where: { chitFundId: id },
     }),
 

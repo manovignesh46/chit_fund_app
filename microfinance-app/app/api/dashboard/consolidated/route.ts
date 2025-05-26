@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '../../../../lib/prisma';
 import { getCurrentUserId } from '../../../../lib/auth';
-import { calculateTotalLoanProfit, calculateTotalChitFundProfit } from '../../../../lib/financialUtils';
+import { calculateTotalLoanProfit, calculateTotalChitFundProfitUpToCurrentMonth } from '../../../../lib/financialUtils';
 import {
   calculatePeriodFinancialMetrics,
   calculateTotalFinancialMetrics,
@@ -244,24 +244,13 @@ async function getSummary(request: NextRequest, currentUserId: number) {
     // console.log(`Total loan profit: ${loanProfit}`);
 
     // Get chit funds with their members, contributions, and auctions for accurate profit calculation
+    // Using include instead of select to get all fields including the new ones
     const chitFundsWithDetails = await prisma.chitFund.findMany({
       where: {
         createdById: currentUserId
       },
-      select: {
-        id: true,
-        name: true,
-        totalAmount: true,
-        monthlyContribution: true,
-        duration: true,
-        currentMonth: true,
-        status: true,
-        membersCount: true,
-        members: {
-          select: {
-            id: true
-          }
-        },
+      include: {
+        members: true,
         contributions: {
           select: {
             id: true,
@@ -304,7 +293,7 @@ async function getSummary(request: NextRequest, currentUserId: number) {
     // console.log(`Total chit fund profit: ${chitFundProfit}`);
 
     // Use centralized financial calculation system for total metrics
-    const totalMetrics = calculateTotalFinancialMetrics(loansWithRepayments, chitFundsWithDetails);
+    const totalMetrics = calculateTotalFinancialMetrics(loansWithRepayments, chitFundsWithDetails as any);
 
     // Extract values for backward compatibility
     const cashInflow = totalMetrics.totalCashInflow;
@@ -605,6 +594,7 @@ async function getFinancialData(request: NextRequest, currentUserId: number) {
       // We'll use a more detailed query for chit funds below
 
       // Update the query to get more detailed chit fund data
+      // Using include instead of select to get all fields including the new ones
       const updatedPeriodChitFunds = await prisma.chitFund.findMany({
         where: {
           createdById: currentUserId,
@@ -631,20 +621,8 @@ async function getFinancialData(request: NextRequest, currentUserId: number) {
             }
           ]
         },
-        select: {
-          id: true,
-          name: true,
-          totalAmount: true,
-          monthlyContribution: true,
-          duration: true,
-          currentMonth: true,
-          status: true,
-          membersCount: true,
-          members: {
-            select: {
-              id: true
-            }
-          },
+        include: {
+          members: true,
           contributions: {
             where: {
               paidDate: {
@@ -678,8 +656,8 @@ async function getFinancialData(request: NextRequest, currentUserId: number) {
 
       // console.log(`Period ${formatPeriodLabel(periodStart)}: Found ${updatedPeriodChitFunds.length} chit funds`);
 
-      // Calculate chit fund profit using the centralized utility function
-      const periodChitFundProfit = calculateTotalChitFundProfit(updatedPeriodChitFunds);
+      // Calculate chit fund profit using the centralized utility function (consistent with details page)
+      const periodChitFundProfit = calculateTotalChitFundProfitUpToCurrentMonth(updatedPeriodChitFunds as any);
 
       // Log individual chit fund profits for debugging
       /*
@@ -800,6 +778,7 @@ async function getFinancialData(request: NextRequest, currentUserId: number) {
         }
       });
 
+      // Using include instead of select to get all fields including the new ones
       const periodChitFunds = await prisma.chitFund.findMany({
         where: {
           createdById: currentUserId,
@@ -826,20 +805,8 @@ async function getFinancialData(request: NextRequest, currentUserId: number) {
             }
           ]
         },
-        select: {
-          id: true,
-          name: true,
-          totalAmount: true,
-          monthlyContribution: true,
-          duration: true,
-          currentMonth: true,
-          status: true,
-          membersCount: true,
-          members: {
-            select: {
-              id: true
-            }
-          },
+        include: {
+          members: true,
           contributions: {
             where: {
               paidDate: {
@@ -939,7 +906,7 @@ async function getFinancialData(request: NextRequest, currentUserId: number) {
       // Use centralized financial calculation system
       const metrics = calculatePeriodFinancialMetrics(
         periodLoansWithRepayments,
-        periodChitFunds,
+        periodChitFunds as any,
         periodLoanDisbursements,
         periodRange,
         {
@@ -2349,6 +2316,7 @@ async function getFinancialDataForExport(userId: number, startDate: Date, endDat
     }),
 
     // Get all chit funds with their contributions and auctions for profit calculation
+    // Using include instead of select to get all fields including the new ones
     prisma.chitFund.findMany({
       where: {
         createdById: userId,
@@ -2375,20 +2343,8 @@ async function getFinancialDataForExport(userId: number, startDate: Date, endDat
           }
         ]
       },
-      select: {
-        id: true,
-        name: true,
-        totalAmount: true,
-        monthlyContribution: true,
-        duration: true,
-        currentMonth: true,
-        status: true,
-        membersCount: true,
-        members: {
-          select: {
-            id: true
-          }
-        },
+      include: {
+        members: true,
         contributions: {
           select: {
             id: true,
@@ -2418,8 +2374,10 @@ async function getFinancialDataForExport(userId: number, startDate: Date, endDat
 
   // Calculate profits using centralized utility functions
   const loanProfit = calculateTotalLoanProfit(loansWithRepayments);
-  const chitFundProfit = calculateTotalChitFundProfit(chitFundsWithDetails);
+  const chitFundProfit = calculateTotalChitFundProfitUpToCurrentMonth(chitFundsWithDetails as any);
   const totalProfit = loanProfit + chitFundProfit;
+
+
 
   // Calculate outside amount
   const outsideAmount = totalCashOutflow > totalCashInflow ? totalCashOutflow - totalCashInflow : 0;
@@ -2463,7 +2421,7 @@ async function getFinancialDataForExport(userId: number, startDate: Date, endDat
     // Use centralized financial calculation for accurate period-specific profits
     const periodMetrics = calculatePeriodFinancialMetrics(
       loansWithRepayments,
-      chitFundsWithDetails,
+      chitFundsWithDetails as any,
       loans.map(l => ({ id: l.id, amount: l.amount, documentCharge: l.documentCharge })),
       periodRange
     );
@@ -2570,16 +2528,16 @@ async function getFinancialDataForExport(userId: number, startDate: Date, endDat
         );
       });
 
-      const periodChitFunds = chitFundsWithDetails.filter(fund => {
+      const periodChitFunds = (chitFundsWithDetails as any).filter((fund: any) => {
         // Check if any contributions were made in this period
-        if (fund.contributions.some(c =>
+        if (fund.contributions && fund.contributions.some((c: any) =>
           isInPeriod(new Date(c.paidDate), periodStart, periodEnd)
         )) {
           return true;
         }
 
         // Check if any auctions were held in this period
-        return fund.auctions.some(a =>
+        return fund.auctions && fund.auctions.some((a: any) =>
           isInPeriod(new Date(a.date), periodStart, periodEnd)
         );
       });
@@ -2590,7 +2548,7 @@ async function getFinancialDataForExport(userId: number, startDate: Date, endDat
       // Use centralized financial calculation for accurate period-specific profits
       const periodMetrics = calculatePeriodFinancialMetrics(
         periodLoansWithRepayments,
-        periodChitFunds,
+        periodChitFunds as any,
         periodLoans.map(l => ({ id: l.id, amount: l.amount, documentCharge: l.documentCharge })),
         periodRange
       );

@@ -24,6 +24,7 @@ export interface ChitFund {
   name: string;
   totalAmount: number;
   monthlyContribution: number;
+  firstMonthContribution?: number; // For Fixed type chit funds
   duration: number;
   membersCount: number;
   status: string;
@@ -31,12 +32,14 @@ export interface ChitFund {
   currentMonth: number;
   nextAuctionDate?: Date | string | null;
   description?: string | null;
+  chitFundType?: string; // "Auction" or "Fixed"
   createdAt?: Date | string;
   updatedAt?: Date | string;
   createdById: number;
   members?: ChitFundMember[];
   contributions?: Contribution[];
   auctions?: Auction[];
+  fixedAmounts?: ChitFundFixedAmount[];
   _count?: {
     members?: number;
     contributions?: number;
@@ -101,6 +104,19 @@ export interface Auction {
   updatedAt?: Date | string;
   chitFund?: ChitFund;
   winner?: ChitFundMember;
+}
+
+/**
+ * Chit Fund Fixed Amount interface
+ */
+export interface ChitFundFixedAmount {
+  id: number;
+  chitFundId: number;
+  month: number;
+  amount: number;
+  createdAt?: Date | string;
+  updatedAt?: Date | string;
+  chitFund?: ChitFund;
 }
 
 /**

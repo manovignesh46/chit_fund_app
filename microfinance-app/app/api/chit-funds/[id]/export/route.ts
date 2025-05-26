@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '../../../../../lib/prisma';
 import { getCurrentUserId } from '../../../../../lib/auth';
+import { calculateChitFundProfitUpToCurrentMonth } from '../../../../../lib/financialUtils';
 import * as XLSX from 'xlsx';
 
 // Use type assertion to handle TypeScript type checking
@@ -256,8 +257,29 @@ export async function GET(
     // Calculate total cash outflow (auctions)
     const totalAuctions = chitFund.auctions.reduce((sum: number, auction: any) => sum + auction.amount, 0);
 
-    // Calculate profit
-    const profit = totalContributions - totalAuctions;
+    // Calculate profit using centralized calculation
+    let profit = 0;
+    try {
+      console.log('Calculating profit for chit fund:', {
+        id: chitFund.id,
+        name: chitFund.name,
+        chitFundType: chitFund.chitFundType,
+        firstMonthContribution: chitFund.firstMonthContribution,
+        monthlyContribution: chitFund.monthlyContribution,
+        currentMonth: chitFund.currentMonth,
+        contributionsCount: chitFund.contributions.length,
+        auctionsCount: chitFund.auctions.length
+      });
+      profit = calculateChitFundProfitUpToCurrentMonth(chitFund, chitFund.contributions, chitFund.auctions);
+      console.log('Calculated profit:', profit);
+    } catch (error) {
+      console.error('Error calculating profit:', error);
+      // Fallback to simple calculation
+      const totalContributions = chitFund.contributions.reduce((sum: number, contribution: any) => sum + contribution.amount, 0);
+      const totalAuctions = chitFund.auctions.reduce((sum: number, auction: any) => sum + auction.amount, 0);
+      profit = totalContributions - totalAuctions;
+      console.log('Using fallback calculation:', profit);
+    }
 
     // Calculate outside amount (if cash outflow exceeds inflow)
     const outsideAmount = Math.max(0, totalAuctions - totalContributions);

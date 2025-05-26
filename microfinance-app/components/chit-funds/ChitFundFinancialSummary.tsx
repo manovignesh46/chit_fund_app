@@ -3,7 +3,7 @@
 
 import React, { useState } from 'react';
 import { ChitFund, Contribution, Auction } from '../../lib/interfaces';
-import { formatCurrency, calculateChitFundProfit, calculateChitFundOutsideAmount } from '../../lib/formatUtils';
+import { formatCurrency, calculateChitFundProfit, calculateChitFundProfitUpToCurrentMonth, calculateChitFundOutsideAmount } from '../../lib/formatUtils';
 
 interface ChitFundFinancialSummaryProps {
   chitFund: ChitFund;
@@ -34,7 +34,7 @@ export default function ChitFundFinancialSummary({
     members: chitFund.members || []
   };
 
-  const profit = calculateChitFundProfit(chitFundForCalculation, contributions, auctions);
+  const profit = calculateChitFundProfitUpToCurrentMonth(chitFund, contributions, auctions);
   const outsideAmount = calculateChitFundOutsideAmount(chitFundForCalculation, contributions, auctions);
 
   return (

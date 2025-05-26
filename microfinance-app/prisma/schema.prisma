@@ -22,24 +22,27 @@ model User {
 }
 
 model ChitFund {
-  id                  Int            @id @default(autoincrement())
-  name                String
-  totalAmount         Float
-  monthlyContribution Float
-  duration            Int
-  membersCount        Int
-  status              String         @default("Active")
-  startDate           DateTime
-  currentMonth        Int            @default(1)
-  nextAuctionDate     DateTime?
-  description         String?
-  createdAt           DateTime       @default(now())
-  updatedAt           DateTime       @updatedAt
-  createdById         Int
+  id                     Int                @id @default(autoincrement())
+  name                   String
+  totalAmount            Float
+  monthlyContribution    Float
+  firstMonthContribution Float?             // For Fixed type chit funds
+  duration               Int
+  membersCount           Int
+  status                 String             @default("Active")
+  startDate              DateTime
+  currentMonth           Int                @default(1)
+  nextAuctionDate        DateTime?
+  description            String?
+  chitFundType           String             @default("Auction") // "Auction" or "Fixed"
+  createdAt              DateTime           @default(now())
+  updatedAt              DateTime           @updatedAt
+  createdById            Int
   auctions            Auction[]
-  createdBy           User           @relation(fields: [createdById], references: [id])
+  createdBy           User               @relation(fields: [createdById], references: [id])
   contributions       Contribution[]
   members             Member[]
+  fixedAmounts        ChitFundFixedAmount[]
 
   @@index([createdById], map: "ChitFund_createdById_fkey")
 }
@@ -119,6 +122,19 @@ model Auction {
 
   @@index([chitFundId], map: "Auction_chitFundId_fkey")
   @@index([winnerId], map: "Auction_winnerId_fkey")
+}
+
+model ChitFundFixedAmount {
+  id         Int      @id @default(autoincrement())
+  chitFundId Int
+  month      Int
+  amount     Float
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  chitFund   ChitFund @relation(fields: [chitFundId], references: [id])
+
+  @@unique([chitFundId, month])
+  @@index([chitFundId], map: "ChitFundFixedAmount_chitFundId_fkey")
 }
 
 model Loan {

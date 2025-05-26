@@ -2,7 +2,7 @@
  * Utility functions for formatting data consistently across the application
  */
 
-import { calculateLoanProfit, calculateChitFundProfit, calculateChitFundOutsideAmount } from './financialUtils';
+import { calculateLoanProfit, calculateChitFundProfit, calculateChitFundProfitUpToCurrentMonth, calculateChitFundOutsideAmount } from './financialUtils';
 
 /**
  * Format a currency value consistently
@@ -75,7 +75,7 @@ export function formatDateForInput(date: Date | string | null | undefined): stri
  * Re-export financial utility functions for backward compatibility
  * These functions are now defined in financialUtils.ts
  */
-export { calculateLoanProfit, calculateChitFundProfit, calculateChitFundOutsideAmount };
+export { calculateLoanProfit, calculateChitFundProfit, calculateChitFundProfitUpToCurrentMonth, calculateChitFundOutsideAmount };
 
 /**
  * Get status color class for loan status

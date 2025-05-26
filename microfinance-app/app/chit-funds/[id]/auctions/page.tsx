@@ -136,12 +136,46 @@ export default function ChitFundAuctionsPage() {
     }
   }, [chitFundId]);
 
+  // Handle ESC key to close modals
+  useEffect(() => {
+    const handleEscKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        if (showAddForm) {
+          setShowAddForm(false);
+        } else if (showDeleteModal) {
+          setShowDeleteModal(false);
+          setAuctionToDelete(null);
+        } else if (showDetailModal) {
+          setShowDetailModal(false);
+        }
+      }
+    };
+
+    document.addEventListener('keydown', handleEscKey);
+    return () => {
+      document.removeEventListener('keydown', handleEscKey);
+    };
+  }, [showAddForm, showDeleteModal, showDetailModal]);
+
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
-    setNewAuction({
-      ...newAuction,
-      [name]: value,
-    });
+
+    // If month is changed and chit fund type is Fixed, auto-populate the amount
+    if (name === 'month' && chitFund?.chitFundType === 'Fixed' && chitFund.fixedAmounts && value) {
+      const selectedMonth = parseInt(value);
+      const fixedAmount = chitFund.fixedAmounts.find(fa => fa.month === selectedMonth);
+
+      setNewAuction({
+        ...newAuction,
+        [name]: value,
+        amount: fixedAmount ? fixedAmount.amount.toString() : '',
+      });
+    } else {
+      setNewAuction({
+        ...newAuction,
+        [name]: value,
+      });
+    }
   };
 
   const validateForm = () => {
@@ -242,15 +276,14 @@ export default function ChitFundAuctionsPage() {
     return new Date(dateString).toLocaleDateString('en-IN', options);
   };
 
-  // Get eligible members (those who haven't won an auction yet)
+  // Get eligible members (those who haven't won any auction yet)
   const eligibleMembers = members.filter(member => {
     return !auctions.some(auction => auction.winnerId === member.id);
   });
 
-  // Get available months (those that don't have an auction yet)
+  // Get all months (allow multiple auctions per month)
   const availableMonths = chitFund ?
-    Array.from({ length: chitFund.duration }, (_, i) => i + 1)
-      .filter(month => !auctions.some(auction => auction.month === month)) :
+    Array.from({ length: chitFund.duration }, (_, i) => i + 1) :
     [];
 
   // Handle delete auction
@@ -340,7 +373,11 @@ export default function ChitFundAuctionsPage() {
           <h1 className="text-3xl font-bold text-blue-700">{chitFund.name} - Auctions</h1>
           <p className="text-gray-600">
             Month {chitFund.currentMonth} of {chitFund.duration} |
-            Monthly Contribution: {formatCurrency(chitFund.monthlyContribution)}
+            Monthly Contribution: {formatCurrency(chitFund.monthlyContribution)} |
+            Type: <span className="font-semibold">{chitFund.chitFundType || 'Auction'}</span>
+            {chitFund.chitFundType === 'Fixed' && (
+              <span className="text-blue-600 ml-2">(Fixed amounts per month)</span>
+            )}
           </p>
         </div>
         <div className="flex space-x-4">
@@ -350,13 +387,19 @@ export default function ChitFundAuctionsPage() {
           <Link href={`/chit-funds/${chitFundId}/members`} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-300">
             View Members
           </Link>
-          {chitFund.status === 'Active' && availableMonths.length > 0 && eligibleMembers.length > 0 && (
-            <button
-              onClick={() => setShowAddForm(true)}
-              className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition duration-300"
-            >
-              Record Auction
-            </button>
+          {chitFund.status === 'Active' && (
+            eligibleMembers.length > 0 ? (
+              <button
+                onClick={() => setShowAddForm(true)}
+                className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition duration-300"
+              >
+                Record Auction
+              </button>
+            ) : (
+              <div className="px-4 py-2 bg-gray-300 text-gray-600 rounded-lg cursor-not-allowed" title="All members have already won auctions">
+                Record Auction (No Eligible Members)
+              </div>
+            )
           )}
         </div>
       </div>
@@ -398,53 +441,69 @@ export default function ChitFundAuctionsPage() {
                   </td>
                 </tr>
               ) : (
-                auctions.map((auction) => (
-                  <tr key={auction.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">Month {auction.month}</div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm font-medium text-blue-600">
-                        {auction.winner?.globalMember?.name || `Member ID: ${auction.winnerId}`}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">{formatCurrency(auction.amount)}</div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">{formatDate(auction.date)}</div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-green-600">
-                        {formatCurrency(chitFund.totalAmount - auction.amount)}
-                        ({Math.round((1 - auction.amount / chitFund.totalAmount) * 100)}%)
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <button
-                        onClick={() => {
-                          // Show details in a modal instead of an alert
-                          setSelectedAuction(auction);
-                          setShowDetailModal(true);
-                        }}
-                        className="text-blue-600 hover:text-blue-900 underline"
-                      >
-                        View Details
-                      </button>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <button
-                        onClick={() => handleDeleteAuction(auction.id)}
-                        className="text-red-600 hover:text-red-900"
-                        title="Delete auction"
-                      >
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                        </svg>
-                      </button>
-                    </td>
-                  </tr>
-                ))
+                auctions
+                  .sort((a, b) => a.month - b.month || new Date(a.date).getTime() - new Date(b.date).getTime())
+                  .map((auction, index) => {
+                    // Check if this is a duplicate month
+                    const sameMonthAuctions = auctions.filter(a => a.month === auction.month);
+                    const isDuplicateMonth = sameMonthAuctions.length > 1;
+                    const auctionIndex = sameMonthAuctions.findIndex(a => a.id === auction.id) + 1;
+
+                    return (
+                      <tr key={auction.id} className={`hover:bg-gray-50 ${isDuplicateMonth ? 'bg-yellow-50' : ''}`}>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm text-gray-900">
+                            Month {auction.month}
+                            {isDuplicateMonth && (
+                              <span className="ml-2 px-2 py-1 text-xs bg-yellow-200 text-yellow-800 rounded-full">
+                                #{auctionIndex}
+                              </span>
+                            )}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm font-medium text-blue-600">
+                            {auction.winner?.globalMember?.name || `Member ID: ${auction.winnerId}`}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm text-gray-900">{formatCurrency(auction.amount)}</div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm text-gray-900">{formatDate(auction.date)}</div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm text-green-600">
+                            {formatCurrency(chitFund.totalAmount - auction.amount)}
+                            ({Math.round((1 - auction.amount / chitFund.totalAmount) * 100)}%)
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <button
+                            onClick={() => {
+                              // Show details in a modal instead of an alert
+                              setSelectedAuction(auction);
+                              setShowDetailModal(true);
+                            }}
+                            className="text-blue-600 hover:text-blue-900 underline"
+                          >
+                            View Details
+                          </button>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <button
+                            onClick={() => handleDeleteAuction(auction.id)}
+                            className="text-red-600 hover:text-red-900"
+                            title="Delete auction"
+                          >
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })
               )}
             </tbody>
           </table>
@@ -454,7 +513,7 @@ export default function ChitFundAuctionsPage() {
       {/* Add Auction Form */}
       {showAddForm && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-md">
+          <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
             <h2 className="text-xl font-bold text-blue-700 mb-4">Record New Auction</h2>
             <form onSubmit={handleAddAuction}>
               <div className="mb-4">
@@ -470,7 +529,9 @@ export default function ChitFundAuctionsPage() {
                     formErrors.winnerId ? 'border-red-500' : 'border-gray-300'
                   }`}
                 >
-                  <option value="">Select a winner</option>
+                  <option value="">
+                    {eligibleMembers.length > 0 ? 'Select a member' : 'No eligible members (all have won)'}
+                  </option>
                   {eligibleMembers.map((member) => (
                     <option key={member.id} value={member.id}>
                       {member.globalMember.name}
@@ -495,11 +556,15 @@ export default function ChitFundAuctionsPage() {
                   }`}
                 >
                   <option value="">Select a month</option>
-                  {availableMonths.map((month) => (
-                    <option key={month} value={month}>
-                      Month {month}
-                    </option>
-                  ))}
+                  {availableMonths.map((month) => {
+                    const existingAuctions = auctions.filter(a => a.month === month);
+                    const hasExisting = existingAuctions.length > 0;
+                    return (
+                      <option key={month} value={month}>
+                        Month {month} {hasExisting ? `(${existingAuctions.length} existing)` : ''}
+                      </option>
+                    );
+                  })}
                 </select>
                 {formErrors.month && (
                   <p className="mt-1 text-sm text-red-500">{formErrors.month}</p>
@@ -508,6 +573,9 @@ export default function ChitFundAuctionsPage() {
               <div className="mb-4">
                 <label htmlFor="amount" className="block text-sm font-medium text-gray-700 mb-1">
                   Auction Amount <span className="text-red-500">*</span>
+                  {chitFund?.chitFundType === 'Fixed' && newAuction.month && (
+                    <span className="text-xs text-blue-600 ml-2">(Auto-populated from fixed amount)</span>
+                  )}
                 </label>
                 <input
                   type="number"
@@ -516,10 +584,16 @@ export default function ChitFundAuctionsPage() {
                   value={newAuction.amount}
                   onChange={handleInputChange}
                   placeholder={chitFund.totalAmount.toString()}
+                  readOnly={chitFund?.chitFundType === 'Fixed' && newAuction.month && newAuction.amount}
                   className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
                     formErrors.amount ? 'border-red-500' : 'border-gray-300'
-                  }`}
+                  } ${chitFund?.chitFundType === 'Fixed' && newAuction.month && newAuction.amount ? 'bg-gray-100 cursor-not-allowed' : ''}`}
                 />
+                {chitFund?.chitFundType === 'Fixed' && newAuction.month && newAuction.amount && (
+                  <p className="mt-1 text-xs text-blue-600">
+                    This amount is predefined for Month {newAuction.month} in this Fixed type chit fund.
+                  </p>
+                )}
                 {formErrors.amount && (
                   <p className="mt-1 text-sm text-red-500">{formErrors.amount}</p>
                 )}
@@ -543,52 +617,57 @@ export default function ChitFundAuctionsPage() {
                 )}
               </div>
 
-              <h3 className="text-lg font-semibold text-gray-700 mb-3 mt-6 border-t pt-4">Auction Details</h3>
+              {/* Only show Auction Details for Auction type chit funds */}
+              {chitFund?.chitFundType === 'Auction' && (
+                <>
+                  <h3 className="text-lg font-semibold text-gray-700 mb-3 mt-6 border-t pt-4">Auction Details</h3>
 
-              <div className="mb-4">
-                <label htmlFor="lowestBid" className="block text-sm font-medium text-gray-700 mb-1">
-                  Lowest Bid Amount
-                </label>
-                <input
-                  type="number"
-                  id="lowestBid"
-                  name="lowestBid"
-                  value={newAuction.lowestBid}
-                  onChange={handleInputChange}
-                  placeholder="Lowest bid in the auction"
-                  className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent border-gray-300"
-                />
-              </div>
+                  <div className="mb-4">
+                    <label htmlFor="lowestBid" className="block text-sm font-medium text-gray-700 mb-1">
+                      Lowest Bid Amount
+                    </label>
+                    <input
+                      type="number"
+                      id="lowestBid"
+                      name="lowestBid"
+                      value={newAuction.lowestBid}
+                      onChange={handleInputChange}
+                      placeholder="Lowest bid in the auction"
+                      className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent border-gray-300"
+                    />
+                  </div>
 
-              <div className="mb-4">
-                <label htmlFor="highestBid" className="block text-sm font-medium text-gray-700 mb-1">
-                  Highest Bid Amount
-                </label>
-                <input
-                  type="number"
-                  id="highestBid"
-                  name="highestBid"
-                  value={newAuction.highestBid}
-                  onChange={handleInputChange}
-                  placeholder="Highest bid in the auction"
-                  className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent border-gray-300"
-                />
-              </div>
+                  <div className="mb-4">
+                    <label htmlFor="highestBid" className="block text-sm font-medium text-gray-700 mb-1">
+                      Highest Bid Amount
+                    </label>
+                    <input
+                      type="number"
+                      id="highestBid"
+                      name="highestBid"
+                      value={newAuction.highestBid}
+                      onChange={handleInputChange}
+                      placeholder="Highest bid in the auction"
+                      className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent border-gray-300"
+                    />
+                  </div>
 
-              <div className="mb-4">
-                <label htmlFor="numberOfBidders" className="block text-sm font-medium text-gray-700 mb-1">
-                  Number of Bidders
-                </label>
-                <input
-                  type="number"
-                  id="numberOfBidders"
-                  name="numberOfBidders"
-                  value={newAuction.numberOfBidders}
-                  onChange={handleInputChange}
-                  placeholder="How many members participated in bidding"
-                  className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent border-gray-300"
-                />
-              </div>
+                  <div className="mb-4">
+                    <label htmlFor="numberOfBidders" className="block text-sm font-medium text-gray-700 mb-1">
+                      Number of Bidders
+                    </label>
+                    <input
+                      type="number"
+                      id="numberOfBidders"
+                      name="numberOfBidders"
+                      value={newAuction.numberOfBidders}
+                      onChange={handleInputChange}
+                      placeholder="How many members participated in bidding"
+                      className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent border-gray-300"
+                    />
+                  </div>
+                </>
+              )}
 
               <div className="mb-4">
                 <label htmlFor="notes" className="block text-sm font-medium text-gray-700 mb-1">

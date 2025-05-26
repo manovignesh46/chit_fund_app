@@ -5,7 +5,7 @@ import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { ChitFund, ChitFundMember, Auction, Contribution } from '../../../lib/interfaces';
-import { formatCurrency, formatDate, calculateChitFundProfit, calculateChitFundOutsideAmount } from '../../../lib/formatUtils';
+import { formatCurrency, formatDate, calculateChitFundProfit, calculateChitFundProfitUpToCurrentMonth, calculateChitFundOutsideAmount } from '../../../lib/formatUtils';
 import ChitFundCard from '../../../components/chit-funds/ChitFundCard';
 // import ChitFundMembersList from '../../../components/chit-funds/ChitFundMembersList';
 import ChitFundMembersList from './../../../components/chit-funds/ChitFundMembersList';
@@ -199,7 +199,8 @@ const ChitFundDetails = () => {
         setChitFund(chitFundData);
 
         // Calculate profit and outside amount using centralized utility functions
-        const profitAmount = calculateChitFundProfit(chitFundData, contributionsArray, auctionsArray);
+        // Use the new function that only considers transactions up to current month
+        const profitAmount = calculateChitFundProfitUpToCurrentMonth(chitFundData, contributionsArray, auctionsArray);
         const outsideAmountValue = calculateChitFundOutsideAmount(chitFundData, contributionsArray, auctionsArray);
 
         setCashInflow(totalInflow);
@@ -505,9 +506,17 @@ const ChitFundDetails = () => {
                   <p className="text-xl font-semibold">{formatCurrency(chitFund.totalAmount)}</p>
                 </div>
                 <div>
-                  <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-2">Monthly Contribution</h3>
+                  <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-2">
+                    {chitFund.chitFundType === 'Fixed' ? 'Monthly Contribution (2nd month onwards)' : 'Monthly Contribution'}
+                  </h3>
                   <p className="text-xl font-semibold">{formatCurrency(chitFund.monthlyContribution)}</p>
                 </div>
+                {chitFund.chitFundType === 'Fixed' && chitFund.firstMonthContribution && (
+                  <div>
+                    <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-2">1st Month Contribution</h3>
+                    <p className="text-xl font-semibold">{formatCurrency(chitFund.firstMonthContribution)}</p>
+                  </div>
+                )}
                 <div>
                   <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-2">Duration</h3>
                   <p className="text-xl font-semibold">{chitFund.duration} months</p>
@@ -607,9 +616,37 @@ const ChitFundDetails = () => {
                   <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-2">Expected End Date</h3>
                   <p className="text-xl font-semibold">{calculateEndDate(chitFund.startDate, chitFund.duration)}</p>
                 </div>
+                <div>
+                  <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-2">Chit Fund Type</h3>
+                  <p className="text-xl font-semibold">{chitFund.chitFundType || 'Auction'}</p>
+                </div>
               </div>
             </div>
           </div>
+
+          {/* Fixed Amounts Section - Only show when Fixed type is selected */}
+          {chitFund.chitFundType === 'Fixed' && chitFund.fixedAmounts && chitFund.fixedAmounts.length > 0 && (
+            <div className="bg-white rounded-lg shadow-md overflow-hidden mt-6">
+              <div className="p-6 border-b">
+                <h2 className="text-xl font-semibold">Fixed Amounts by Month</h2>
+                <p className="text-sm text-gray-500 mt-1">Predefined auction amounts for each month</p>
+              </div>
+              <div className="p-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                  {chitFund.fixedAmounts
+                    .sort((a, b) => a.month - b.month)
+                    .map((fixedAmount) => (
+                      <div key={fixedAmount.month} className="bg-gray-50 rounded-lg p-4 border">
+                        <div className="text-center">
+                          <h3 className="text-sm font-medium text-gray-500 mb-1">Month {fixedAmount.month}</h3>
+                          <p className="text-lg font-semibold text-blue-600">{formatCurrency(fixedAmount.amount)}</p>
+                        </div>
+                      </div>
+                    ))}
+                </div>
+              </div>
+            </div>
+          )}
 
           <div className="bg-white rounded-lg shadow-md overflow-hidden mt-6">
             <div className="p-6 border-b">

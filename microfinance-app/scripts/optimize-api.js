@@ -140,7 +140,9 @@ try {
 
     // Calculate profit and outside amount for each chit fund
     chitFundsWithDetails.forEach(fund => {
-      const fundProfit = calculateChitFundProfit(fund, fund.contributions, fund.auctions);
+      // Use the new function that only considers transactions up to current month
+      const { calculateChitFundProfitUpToCurrentMonth } = require('../lib/financialUtils');
+      const fundProfit = calculateChitFundProfitUpToCurrentMonth(fund, fund.contributions, fund.auctions);
       const fundOutsideAmount = calculateChitFundOutsideAmount(fund, fund.contributions, fund.auctions);
 
       chitFundProfit += fundProfit;

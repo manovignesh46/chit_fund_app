@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '../../../../lib/prisma';
 import { getCurrentUserId } from '../../../../lib/auth';
+import { calculateChitFundProfitUpToCurrentMonth } from '../../../../lib/financialUtils';
 import * as XLSX from 'xlsx';
 
 // Use type assertion to handle TypeScript type checking
@@ -138,7 +139,8 @@ export async function POST(request: NextRequest) {
     // 2. Create individual sheets for each chit fund
     chitFunds.forEach((fund: any) => {
       // Create a sheet for this chit fund's details
-      const sheetName = `Fund ${fund.id} - ${truncateSheetName(fund.name)}`;
+      const baseSheetName = `Fund ${fund.id} - ${fund.name}`;
+      const sheetName = truncateSheetName(baseSheetName);
 
       // Fund details
       const fundDetails = {
@@ -358,11 +360,17 @@ function formatDate(date: Date | string): string {
   });
 }
 
-// Helper function to calculate profit
+// Helper function to calculate profit using centralized calculation
 function calculateProfit(chitFund: any): number {
-  const totalContributions = chitFund.contributions.reduce((sum: number, contribution: any) => sum + contribution.amount, 0);
-  const totalAuctions = chitFund.auctions.reduce((sum: number, auction: any) => sum + auction.amount, 0);
-  return totalContributions - totalAuctions;
+  try {
+    return calculateChitFundProfitUpToCurrentMonth(chitFund, chitFund.contributions, chitFund.auctions);
+  } catch (error) {
+    console.error('Error calculating profit for chit fund:', chitFund.id, error);
+    // Fallback to simple calculation
+    const totalContributions = chitFund.contributions.reduce((sum: number, contribution: any) => sum + contribution.amount, 0);
+    const totalAuctions = chitFund.auctions.reduce((sum: number, auction: any) => sum + auction.amount, 0);
+    return totalContributions - totalAuctions;
+  }
 }
 
 // Helper function to calculate outside amount
@@ -375,6 +383,6 @@ function calculateOutsideAmount(chitFund: any): number {
 // Helper function to truncate sheet name to valid Excel sheet name length
 function truncateSheetName(name: string): string {
   // Excel sheet names are limited to 31 characters
-  const maxLength = 25; // Leave room for "Fund X - " prefix
-  return name.length > maxLength ? name.substring(0, maxLength) + '...' : name;
+  const maxLength = 31;
+  return name.length > maxLength ? name.substring(0, maxLength - 3) + '...' : name;
 }

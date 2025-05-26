@@ -121,6 +121,99 @@ export function calculateChitFundProfit(
 }
 
 /**
+ * Calculate profit for a chit fund up to the current month only
+ * This provides a more accurate profit calculation that doesn't include future projected amounts
+ * @param chitFund The chit fund object with currentMonth information
+ * @param contributions Array of contributions for the chit fund
+ * @param auctions Array of auctions for the chit fund
+ * @returns The calculated profit up to current month
+ */
+export function calculateChitFundProfitUpToCurrentMonth(
+  chitFund: {
+    monthlyContribution: number;
+    firstMonthContribution?: number;
+    membersCount?: number;
+    members?: any[];
+    currentMonth?: number;
+    startDate?: string | Date;
+    duration?: number;
+    chitFundType?: string;
+  },
+  contributions: Pick<Contribution, 'amount' | 'month'>[] = [],
+  auctions: Pick<Auction, 'amount' | 'month'>[] = []
+): number {
+  // Determine the current month
+  let currentMonth = chitFund.currentMonth || 1;
+
+  // If currentMonth is not provided, calculate it based on start date
+  if (!chitFund.currentMonth && chitFund.startDate) {
+    const start = typeof chitFund.startDate === 'string' ? new Date(chitFund.startDate) : chitFund.startDate;
+    const now = new Date();
+
+    if (start <= now) {
+      const diffYears = now.getFullYear() - start.getFullYear();
+      const diffMonths = now.getMonth() - start.getMonth();
+      let monthDiff = diffYears * 12 + diffMonths + 1;
+
+      if (now.getDate() < start.getDate()) {
+        monthDiff--;
+      }
+
+      currentMonth = Math.min(Math.max(1, monthDiff), chitFund.duration || 1);
+    }
+  }
+
+  // Filter contributions and auctions up to current month only
+  const currentContributions = contributions.filter(c =>
+    !c.month || c.month <= currentMonth
+  );
+
+  const currentAuctions = auctions.filter(a =>
+    !a.month || a.month <= currentMonth
+  );
+
+  // Get members count from either membersCount field or members array
+  const membersCount = chitFund.membersCount || (chitFund.members ? chitFund.members.length : 0);
+
+  // Calculate auction profits for current auctions only
+  let auctionProfit = 0;
+
+  // For Fixed type chit funds, use the new profit calculation formula
+  if (chitFund.chitFundType === 'Fixed' && chitFund.firstMonthContribution) {
+    return calculateFixedChitFundProfit(chitFund, currentMonth, currentAuctions);
+  }
+
+  // For Auction type chit funds, use the original calculation
+  if (currentAuctions.length > 0) {
+    currentAuctions.forEach(auction => {
+      // Each auction's profit is the difference between the total monthly contribution and the auction amount
+      const monthlyTotal = chitFund.monthlyContribution * membersCount;
+      const currentAuctionProfit = monthlyTotal - (auction.amount || 0);
+
+      if (currentAuctionProfit > 0) {
+        auctionProfit += currentAuctionProfit;
+      }
+    });
+  }
+
+  // If there are no auctions or the calculated profit is 0, calculate based on current contributions vs auctions
+  let contributionProfit = 0;
+  if (currentAuctions.length === 0 || auctionProfit === 0) {
+    const totalCurrentInflow = currentContributions.reduce((sum, contribution) => sum + (contribution.amount || 0), 0);
+    const totalCurrentOutflow = currentAuctions.reduce((sum, auction) => sum + (auction.amount || 0), 0);
+
+    if (totalCurrentInflow > totalCurrentOutflow) {
+      contributionProfit = totalCurrentInflow - totalCurrentOutflow;
+    }
+  }
+
+  // Total profit is the sum of auction profit and contribution profit
+  const totalProfit = auctionProfit + contributionProfit;
+
+  return totalProfit;
+}
+
+/**
  * Calculate total profit from multiple loans
  * @param loans Array of loans with their repayments
  * @returns The total profit from all loans
@@ -157,6 +250,32 @@ export function calculateTotalChitFundProfit(
 }
 
 /**
+ * Calculate total profit from multiple chit funds up to current month only
+ * This provides consistent profit calculation across the application
+ * @param chitFunds Array of chit funds with their contributions and auctions
+ * @returns The total profit from all chit funds up to current month
+ */
+export function calculateTotalChitFundProfitUpToCurrentMonth(
+  chitFunds: Array<{
+    monthlyContribution: number;
+    firstMonthContribution?: number;
+    membersCount?: number;
+    members?: any[];
+    currentMonth?: number;
+    startDate?: string | Date;
+    duration?: number;
+    chitFundType?: string;
+    contributions: Pick<Contribution, 'amount' | 'month'>[],
+    auctions: Pick<Auction, 'amount' | 'month'>[]
+  }>
+): number {
+  return chitFunds.reduce((totalProfit, fund) => {
+    const profit = calculateChitFundProfitUpToCurrentMonth(fund, fund.contributions, fund.auctions);
+    return totalProfit + profit;
+  }, 0);
+}
+
+/**
  * Calculate outside amount for a chit fund
  * @param chitFund The chit fund object
  * @param contributions Array of contributions
@@ -182,4 +301,62 @@ export function calculateChitFundOutsideAmount(
 
   // Outside amount is when outflow exceeds inflow
   return totalOutflow > totalInflow ? totalOutflow - totalInflow : 0;
+}
+
+/**
+ * Calculate profit for Fixed type chit funds using the new formula
+ * Formula: For each auction, calculate total profit and distribute equally across all months
+ * Example: Total Amount=50000, 1st Month=5000, Monthly=4800, Members=10, Duration=10
+ * If 1st month fixed amount=40000, total contribution=5000+(4800*9)=48200
+ * Total profit = 48200-40000 = 8200, distributed profit per month = 8200/10 = 820
+ * @param chitFund The Fixed type chit fund object
+ * @param currentMonth The current month to calculate up to
+ * @param auctions Array of auctions that have occurred
+ * @returns The calculated profit up to current month
+ */
+function calculateFixedChitFundProfit(
+  chitFund: {
+    monthlyContribution: number;
+    firstMonthContribution: number;
+    membersCount?: number;
+    members?: any[];
+    duration?: number;
+    chitFundType?: string;
+  },
+  currentMonth: number,
+  auctions: Pick<Auction, 'amount' | 'month'>[] = []
+): number {
+  const membersCount = chitFund.membersCount || (chitFund.members ? chitFund.members.length : 0);
+  const duration = chitFund.duration || 1;
+
+  let totalProfit = 0;
+
+  // Calculate profit for each auction that has occurred up to current month
+  auctions.forEach(auction => {
+    const auctionMonth = auction.month || 1;
+
+    // Calculate total contribution for this auction month
+    let totalContribution: number;
+    if (auctionMonth === 1) {
+      // First month: firstMonthContribution + (monthlyContribution * (membersCount - 1))
+      totalContribution = chitFund.firstMonthContribution + (chitFund.monthlyContribution * (membersCount - 1));
+    } else {
+      // Other months: monthlyContribution * membersCount
+      totalContribution = chitFund.monthlyContribution * membersCount;
+    }
+
+    // Calculate total profit for this auction: totalContribution - auctionAmount
+    const auctionTotalProfit = totalContribution - (auction.amount || 0);
+
+    // Distribute this profit equally across all months of the duration
+    const distributedProfitPerMonth = auctionTotalProfit / duration;
+
+    // Add the distributed profit for current month only (not cumulative)
+    // Each auction contributes its distributed profit for the current month
+    if (distributedProfitPerMonth > 0) {
+      totalProfit += distributedProfitPerMonth * currentMonth;
+    }
+  });
+
+  return Math.max(0, totalProfit); // Ensure profit is not negative
 }
