@@ -3,6 +3,9 @@ import React from 'react';
 import '../styles/globals.css';
 import Header from './components/Header';
 
+// Initialize the application (including schedulers)
+import '../lib/init';
+
 // Force static rendering for the layout to avoid hydration issues
 export const dynamic = 'force-static';
 

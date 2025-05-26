@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { dashboardAPI, FinancialDataPoint } from '../../lib/api';
 import FinancialGraph from '../components/FinancialGraph';
 import { DashboardSkeleton } from '../components/skeletons/DashboardSkeletons';
+import EmailExportModal from '../../components/EmailExportModal';
 
 export default function DashboardPage() {
   interface Activity {
@@ -78,6 +79,7 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showProfit, setShowProfit] = useState(false);
+  const [showEmailModal, setShowEmailModal] = useState(false);
 
   // Financial graph data and controls
   const [financialData, setFinancialData] = useState<FinancialDataPoint[]>([]);
@@ -458,17 +460,29 @@ export default function DashboardPage() {
                       Yearly
                     </button>
                   </div>
-                  <a
-                    href={`/api/dashboard/consolidated?action=export&duration=${selectedDuration}&limit=${selectedDuration === 'weekly' ? 8 : selectedDuration === 'monthly' ? 12 : 5}`}
-                    download={`financial_data_${selectedDuration}_${new Date().toISOString().split('T')[0]}.xlsx`}
-                    className="flex items-center px-3 py-1 text-sm bg-green-600 text-white rounded-md hover:bg-green-700 transition duration-300"
-                    title={`Export ${selectedDuration} financial data to Excel`}
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                    </svg>
-                    Export
-                  </a>
+                  <div className="flex space-x-2">
+                    <a
+                      href={`/api/dashboard/consolidated?action=export&duration=${selectedDuration}&limit=${selectedDuration === 'weekly' ? 8 : selectedDuration === 'monthly' ? 12 : 5}`}
+                      download={`financial_data_${selectedDuration}_${new Date().toISOString().split('T')[0]}.xlsx`}
+                      className="flex items-center px-3 py-1 text-sm bg-green-600 text-white rounded-md hover:bg-green-700 transition duration-300"
+                      title={`Export ${selectedDuration} financial data to Excel`}
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                      </svg>
+                      Export
+                    </a>
+                    <button
+                      onClick={() => setShowEmailModal(true)}
+                      className="flex items-center px-3 py-1 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700 transition duration-300"
+                      title={`Email ${selectedDuration} financial data`}
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                      </svg>
+                      Email
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
@@ -652,6 +666,15 @@ export default function DashboardPage() {
           </div>
         </>
       )}
+
+      {/* Email Export Modal */}
+      <EmailExportModal
+        isOpen={showEmailModal}
+        onClose={() => setShowEmailModal(false)}
+        exportType="Financial Data"
+        duration={selectedDuration}
+        limit={selectedDuration === 'weekly' ? 8 : selectedDuration === 'monthly' ? 12 : 5}
+      />
     </div>
   );
 }

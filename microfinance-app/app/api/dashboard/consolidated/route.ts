@@ -7,6 +7,7 @@ import {
   calculateTotalFinancialMetrics,
   createPeriodRange
 } from '../../../../lib/centralizedFinancialCalculations';
+import { sendEmail, emailTemplates } from '../../../../lib/emailConfig';
 import * as XLSX from 'xlsx';
 
 // Use ISR with a 5-minute revalidation period
@@ -41,6 +42,8 @@ export async function GET(request: NextRequest) {
         return await getFinancialData(request, currentUserId);
       case 'export':
         return await exportFinancialData(request, currentUserId);
+      case 'email-export':
+        return await handleEmailExport(request, currentUserId);
       case 'activities':
         // Get pagination parameters
         const page = parseInt(searchParams.get('page') || '1', 10);
@@ -88,6 +91,41 @@ export async function GET(request: NextRequest) {
     }
   } catch (error) {
     console.error('Error in dashboard API:', error);
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    );
+  }
+}
+
+// POST handler for actions that require request body (like email-export)
+export async function POST(request: NextRequest) {
+  try {
+    // Get the current user ID
+    const currentUserId = await getCurrentUserId(request);
+    if (!currentUserId) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+
+    // Get the action from the query string
+    const { searchParams } = new URL(request.url);
+    const action = searchParams.get('action');
+
+    // Route to the appropriate handler based on the action
+    switch (action) {
+      case 'email-export':
+        return await handleEmailExport(request, currentUserId);
+      default:
+        return NextResponse.json(
+          { error: 'Invalid action for POST method' },
+          { status: 400 }
+        );
+    }
+  } catch (error) {
+    console.error('Error in dashboard POST API:', error);
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
@@ -2678,4 +2716,348 @@ function formatDate(date: Date | string): string {
     day: 'numeric'
   };
   return new Date(date).toLocaleDateString('en-IN', options);
+}
+
+// Helper function to handle email export
+async function handleEmailExport(request: NextRequest, currentUserId: number) {
+  try {
+    // Parse request body for POST requests
+    let emailData: any = {};
+    if (request.method === 'POST') {
+      emailData = await request.json();
+    }
+
+    // Get current user details
+    const user = await prisma.user.findUnique({
+      where: { id: currentUserId },
+      select: { name: true, email: true }
+    });
+
+    if (!user) {
+      return NextResponse.json(
+        { error: 'User not found' },
+        { status: 404 }
+      );
+    }
+
+    // Get parameters from query string or request body
+    const { searchParams } = new URL(request.url);
+    const duration = emailData.duration || searchParams.get('duration') || 'monthly';
+    const limit = parseInt(emailData.limit || searchParams.get('limit') || '12', 10);
+
+    // Get recipients from request, environment variable, or fallback to user email
+    let recipients = emailData.recipients;
+    if (!recipients || recipients.length === 0) {
+      const defaultRecipients = process.env.DEFAULT_EMAIL_RECIPIENTS;
+      if (defaultRecipients) {
+        recipients = defaultRecipients.split(',').map(email => email.trim()).filter(email => email);
+      } else {
+        recipients = [user.email];
+      }
+    }
+
+    const customMessage = emailData.customMessage || '';
+
+    // For single period export
+    const period = emailData.period || searchParams.get('period');
+    const startDateParam = emailData.startDate || searchParams.get('startDate');
+    const endDateParam = emailData.endDate || searchParams.get('endDate');
+
+    // Generate the Excel file (same as export function)
+    let startDate: Date, endDate: Date;
+    if (duration === 'single' && period && startDateParam && endDateParam) {
+      startDate = new Date(startDateParam);
+      endDate = new Date(endDateParam);
+    } else {
+      endDate = new Date();
+      startDate = new Date();
+
+      if (duration === 'monthly') {
+        startDate.setMonth(endDate.getMonth() - limit + 1);
+        startDate.setDate(1);
+      } else if (duration === 'yearly') {
+        startDate.setFullYear(endDate.getFullYear() - limit + 1);
+        startDate.setMonth(0);
+        startDate.setDate(1);
+      } else if (duration === 'weekly') {
+        startDate.setDate(endDate.getDate() - (limit * 7) + 1);
+      }
+    }
+
+    startDate.setHours(0, 0, 0, 0);
+    endDate.setHours(23, 59, 59, 999);
+
+    // Get financial data for the period
+    const financialData = await getFinancialDataForExport(currentUserId, startDate, endDate, duration);
+
+    // Create Excel workbook (same format as regular export)
+    const wb = XLSX.utils.book_new();
+
+    // Summary sheet
+    const summaryData = [
+      { 'Metric': 'Total Cash Inflow', 'Value': financialData.totalCashInflow },
+      { 'Metric': 'Total Cash Outflow', 'Value': financialData.totalCashOutflow },
+      { 'Metric': 'Total Profit', 'Value': financialData.totalProfit },
+      { 'Metric': 'Loan Profit', 'Value': financialData.loanProfit },
+      { 'Metric': 'Chit Fund Profit', 'Value': financialData.chitFundProfit },
+      { 'Metric': 'Outside Amount', 'Value': financialData.outsideAmount },
+    ];
+
+    const summarySheet = XLSX.utils.json_to_sheet(summaryData);
+
+    // Define column widths for summary sheet
+    summarySheet['!cols'] = [
+      { width: 25 }, // Metric
+      { width: 20 }  // Value
+    ];
+
+    // Apply bold formatting to header row
+    const summaryRange = XLSX.utils.decode_range(summarySheet['!ref'] || 'A1:B1');
+    for (let col = summaryRange.s.c; col <= summaryRange.e.c; col++) {
+      const cellRef = XLSX.utils.encode_cell({ r: 0, c: col });
+      if (!summarySheet[cellRef]) continue;
+      summarySheet[cellRef].s = { font: { bold: true } };
+    }
+
+    XLSX.utils.book_append_sheet(wb, summarySheet, 'Summary');
+
+    // Create a detailed data sheet (same as regular export)
+    const detailedData = financialData.periodsData.map(period => ({
+      'Period': period.period,
+      'Cash Inflow': period.cashInflow,
+      'Cash Outflow': period.cashOutflow,
+      'Profit': period.profit,
+      'Start Date': new Date(period.periodRange.startDate).toLocaleDateString(),
+      'End Date': new Date(period.periodRange.endDate).toLocaleDateString()
+    }));
+    const detailedSheet = XLSX.utils.json_to_sheet(detailedData);
+
+    // Define column widths for detailed sheet
+    detailedSheet['!cols'] = [
+      { width: 15 }, // Period
+      { width: 15 }, // Cash Inflow
+      { width: 15 }, // Cash Outflow
+      { width: 12 }, // Profit
+      { width: 15 }, // Start Date
+      { width: 15 }  // End Date
+    ];
+
+    // Apply bold formatting to header row
+    const detailedRange = XLSX.utils.decode_range(detailedSheet['!ref'] || 'A1:F1');
+    for (let col = detailedRange.s.c; col <= detailedRange.e.c; col++) {
+      const cellRef = XLSX.utils.encode_cell({ r: 0, c: col });
+      if (!detailedSheet[cellRef]) continue;
+      detailedSheet[cellRef].s = { font: { bold: true } };
+    }
+
+    XLSX.utils.book_append_sheet(wb, detailedSheet, 'Detailed Data');
+
+    // Create loan details sheet (same as regular export)
+    const loanDetailsData = financialData.periodsData.map(period => ({
+      'Period': period.period,
+      'Cash Inflow (Repayments)': period.loanCashInflow || 0,
+      'Cash Outflow (Disbursements)': period.loanCashOutflow || 0,
+      'Document Charges': period.documentCharges || 0,
+      'Interest Profit': period.interestProfit || 0,
+      'Total Profit': period.loanProfit,
+      'Number of Loans': period.numberOfLoans || 0,
+      'Start Date': new Date(period.periodRange.startDate).toLocaleDateString(),
+      'End Date': new Date(period.periodRange.endDate).toLocaleDateString()
+    }));
+    const loanDetailsSheet = XLSX.utils.json_to_sheet(loanDetailsData);
+
+    // Define column widths for loan details sheet
+    loanDetailsSheet['!cols'] = [
+      { width: 15 }, // Period
+      { width: 20 }, // Cash Inflow (Repayments)
+      { width: 20 }, // Cash Outflow (Disbursements)
+      { width: 15 }, // Document Charges
+      { width: 15 }, // Interest Profit
+      { width: 15 }, // Total Profit
+      { width: 15 }, // Number of Loans
+      { width: 15 }, // Start Date
+      { width: 15 }  // End Date
+    ];
+
+    // Apply bold formatting to header row
+    const loanDetailsRange = XLSX.utils.decode_range(loanDetailsSheet['!ref'] || 'A1:I1');
+    for (let col = loanDetailsRange.s.c; col <= loanDetailsRange.e.c; col++) {
+      const cellRef = XLSX.utils.encode_cell({ r: 0, c: col });
+      if (!loanDetailsSheet[cellRef]) continue;
+      loanDetailsSheet[cellRef].s = { font: { bold: true } };
+    }
+
+    XLSX.utils.book_append_sheet(wb, loanDetailsSheet, 'Loan Details');
+
+    // Create chit fund details sheet (same as regular export)
+    const chitFundDetailsData = financialData.periodsData.map(period => ({
+      'Period': period.period,
+      'Cash Inflow (Contributions)': period.chitFundCashInflow || 0,
+      'Cash Outflow (Auctions)': period.chitFundCashOutflow || 0,
+      'Total Profit': period.chitFundProfit,
+      'Number of Chit Funds': period.numberOfChitFunds || 0,
+      'Start Date': new Date(period.periodRange.startDate).toLocaleDateString(),
+      'End Date': new Date(period.periodRange.endDate).toLocaleDateString()
+    }));
+    const chitFundDetailsSheet = XLSX.utils.json_to_sheet(chitFundDetailsData);
+
+    // Define column widths for chit fund details sheet
+    chitFundDetailsSheet['!cols'] = [
+      { width: 15 }, // Period
+      { width: 20 }, // Cash Inflow (Contributions)
+      { width: 20 }, // Cash Outflow (Auctions)
+      { width: 15 }, // Total Profit
+      { width: 18 }, // Number of Chit Funds
+      { width: 15 }, // Start Date
+      { width: 15 }  // End Date
+    ];
+
+    // Apply bold formatting to header row
+    const chitFundDetailsRange = XLSX.utils.decode_range(chitFundDetailsSheet['!ref'] || 'A1:G1');
+    for (let col = chitFundDetailsRange.s.c; col <= chitFundDetailsRange.e.c; col++) {
+      const cellRef = XLSX.utils.encode_cell({ r: 0, c: col });
+      if (!chitFundDetailsSheet[cellRef]) continue;
+      chitFundDetailsSheet[cellRef].s = { font: { bold: true } };
+    }
+
+    XLSX.utils.book_append_sheet(wb, chitFundDetailsSheet, 'Chit Fund Details');
+
+    // Helper function to format date
+    const formatDate = (date: Date | string) => {
+      const d = new Date(date);
+      return d.toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit'
+      });
+    };
+
+    // Filter transactions for loans
+    const loanTransactionsData = financialData.transactions
+      .filter(transaction => transaction.category === 'Loan')
+      .map(transaction => {
+        // Use type assertion to handle TypeScript type checking
+        const transactionAny = transaction as any;
+        return {
+          'Date': formatDate(transaction.date),
+          'Type': transaction.type,
+          'Borrower Name': transactionAny.borrowerName || 'Unknown',
+          'Loan Amount': transactionAny.loanAmount || 'N/A',
+          'Installment Amount': transactionAny.installmentAmount || 'N/A',
+          'Description': transaction.description,
+          'Amount': transaction.amount
+        };
+      });
+    const loanTransactionsSheet = XLSX.utils.json_to_sheet(loanTransactionsData);
+
+    // Define column widths for loan transactions sheet
+    loanTransactionsSheet['!cols'] = [
+      { width: 20 }, // Date
+      { width: 15 }, // Type
+      { width: 25 }, // Borrower Name
+      { width: 15 }, // Loan Amount
+      { width: 18 }, // Installment Amount
+      { width: 40 }, // Description
+      { width: 15 }  // Amount
+    ];
+
+    // Apply bold formatting to header row
+    const loanTransactionsRange = XLSX.utils.decode_range(loanTransactionsSheet['!ref'] || 'A1:G1');
+    for (let col = loanTransactionsRange.s.c; col <= loanTransactionsRange.e.c; col++) {
+      const cellRef = XLSX.utils.encode_cell({ r: 0, c: col });
+      if (!loanTransactionsSheet[cellRef]) continue;
+      loanTransactionsSheet[cellRef].s = { font: { bold: true } };
+    }
+
+    XLSX.utils.book_append_sheet(wb, loanTransactionsSheet, 'Loan Transactions');
+
+    // Filter transactions for chit funds
+    const chitFundTransactionsData = financialData.transactions
+      .filter(transaction => transaction.category === 'Chit Fund')
+      .map(transaction => ({
+        'Date': formatDate(transaction.date),
+        'Type': transaction.type,
+        'Description': transaction.description,
+        'Amount': transaction.amount
+      }));
+    const chitFundTransactionsSheet = XLSX.utils.json_to_sheet(chitFundTransactionsData);
+
+    // Define column widths for chit fund transactions sheet
+    chitFundTransactionsSheet['!cols'] = [
+      { width: 20 }, // Date
+      { width: 15 }, // Type
+      { width: 40 }, // Description
+      { width: 15 }  // Amount
+    ];
+
+    // Apply bold formatting to header row
+    const chitFundTransactionsRange = XLSX.utils.decode_range(chitFundTransactionsSheet['!ref'] || 'A1:D1');
+    for (let col = chitFundTransactionsRange.s.c; col <= chitFundTransactionsRange.e.c; col++) {
+      const cellRef = XLSX.utils.encode_cell({ r: 0, c: col });
+      if (!chitFundTransactionsSheet[cellRef]) continue;
+      chitFundTransactionsSheet[cellRef].s = { font: { bold: true } };
+    }
+
+    XLSX.utils.book_append_sheet(wb, chitFundTransactionsSheet, 'Chit Fund Transactions');
+
+    // Generate Excel buffer
+    const excelBuffer = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
+
+    // Prepare filename
+    const today = new Date();
+    const dateStr = today.toISOString().split('T')[0];
+    let fileName: string;
+    if (duration === 'single' && period) {
+      fileName = `Financial_Data_${period.replace(/\s+/g, '_')}_${dateStr}.xlsx`;
+    } else {
+      fileName = `Financial_Data_${duration}_${dateStr}.xlsx`;
+    }
+
+    // Prepare email template
+    const exportType = duration === 'single' ? `Single Period (${period})` : `${duration.charAt(0).toUpperCase() + duration.slice(1)} Report`;
+    const periodText = duration === 'single' ? period || 'Custom Period' : `Last ${limit} ${duration}`;
+
+    const template = emailTemplates.dashboardExport(user.name, exportType, periodText);
+
+    // Add custom message if provided
+    let htmlContent = template.html;
+    let textContent = template.text;
+
+    if (customMessage) {
+      const customSection = `
+        <div style="background-color: #fef3c7; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #f59e0b;">
+          <h4 style="margin-top: 0; color: #92400e;">Additional Message:</h4>
+          <p style="color: #92400e; margin-bottom: 0;">${customMessage}</p>
+        </div>
+      `;
+      htmlContent = htmlContent.replace('</div>', customSection + '</div>');
+      textContent += `\n\nAdditional Message:\n${customMessage}`;
+    }
+
+    // Send email with attachment
+    await sendEmail({
+      to: recipients,
+      subject: template.subject,
+      html: htmlContent,
+      text: textContent,
+      attachments: [{
+        filename: fileName,
+        content: excelBuffer,
+        contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+      }]
+    });
+
+    return NextResponse.json({
+      success: true,
+      message: `Dashboard export emailed successfully to ${recipients.length} recipient(s)`,
+      fileName
+    });
+
+  } catch (error) {
+    console.error('Error in email export:', error);
+    return NextResponse.json(
+      { error: `Failed to email export: ${error instanceof Error ? error.message : 'Unknown error'}` },
+      { status: 500 }
+    );
+  }
 }

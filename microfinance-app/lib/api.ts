@@ -345,6 +345,30 @@ export const dashboardAPI = {
     window.location.href = `/api/dashboard/consolidated?action=export&duration=single&period=${encodeURIComponent(period)}&startDate=${startDate}&endDate=${endDate}`;
     return Promise.resolve(); // Return a resolved promise for consistency
   },
+
+  emailExport: (data: any) => fetchAPI<any>('/dashboard/consolidated?action=email-export', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  }),
+};
+
+// Email API functions
+export const emailAPI = {
+  testConfiguration: () => fetchAPI<any>('/email?action=test-config', {
+    method: 'POST',
+  }),
+
+  sendDashboardExport: (data: any) => fetchAPI<any>('/email?action=send-dashboard-export', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  }),
+
+  sendCustomEmail: (data: any) => fetchAPI<any>('/email?action=send-custom', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  }),
+
+  getStatus: () => fetchAPI<any>('/email'),
 };
 
 // Global Members API functions (consolidated)
