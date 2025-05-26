@@ -196,3 +196,20 @@ model PaymentSchedule {
 
   @@index([loanId], map: "PaymentSchedule_loanId_fkey")
 }
+
+model EmailLog {
+  id          Int      @id @default(autoincrement())
+  emailType   String   // "monthly" or "weekly"
+  period      String   // "2024-01" for monthly, "2024-W01" for weekly
+  sentDate    DateTime
+  status      String   @default("sent") // "sent", "failed", "recovered"
+  recipients  String   // JSON array of recipient emails
+  fileName    String?  // Name of the attached file
+  isRecovery  Boolean  @default(false) // True if this was a recovery email
+  errorMessage String? // Error message if failed
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([emailType, period])
+  @@index([emailType, sentDate])
+}

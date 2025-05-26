@@ -191,7 +191,7 @@ export async function triggerWeeklyEmailNow() {
 // Internal function to send the scheduled monthly email
 async function sendScheduledMonthlyEmail() {
   try {
-    const baseUrl = process.env.NEXTAUTH_URL || process.env.VERCEL_URL || 'http://localhost:3002';
+    const baseUrl = process.env.NEXTAUTH_URL || process.env.VERCEL_URL || 'http://localhost:3001';
     const internalKey = process.env.INTERNAL_API_KEY || 'default-internal-key';
 
     console.log('Sending scheduled monthly email...');
@@ -220,7 +220,7 @@ async function sendScheduledMonthlyEmail() {
 // Internal function to send the scheduled weekly email
 async function sendScheduledWeeklyEmail() {
   try {
-    const baseUrl = process.env.NEXTAUTH_URL || process.env.VERCEL_URL || 'http://localhost:3002';
+    const baseUrl = process.env.NEXTAUTH_URL || process.env.VERCEL_URL || 'http://localhost:3001';
     const internalKey = process.env.INTERNAL_API_KEY || 'default-internal-key';
 
     console.log('Sending scheduled weekly email...');
