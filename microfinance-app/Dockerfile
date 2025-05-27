@@ -12,6 +12,9 @@ RUN npm install
 # Copy the rest of the source code
 COPY . .
 
+# Install OpenSSL for Prisma
+RUN apt-get update -y && apt-get install -y openssl
+
 # Generate Prisma client for the correct environment
 RUN npx prisma generate
 

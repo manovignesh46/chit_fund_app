@@ -355,6 +355,35 @@ async function getSummary(request: NextRequest, currentUserId: number) {
 
     console.timeEnd(timerLabel); // End timing with the same unique label
 
+    // --- UNIQUE ACTIVE MEMBERS COUNT (Chit Fund + Loan) ---
+    // Count unique GlobalMembers who are either:
+    // - a member of any chit fund created by this user
+    // - or a borrower of any loan created by this user
+    const uniqueActiveMembersCount = await prisma.globalMember.count({
+      where: {
+        createdById: currentUserId,
+        OR: [
+          {
+            chitFundMembers: {
+              some: {
+                chitFund: {
+                  createdById: currentUserId
+                }
+              }
+            }
+          },
+          {
+            loans: {
+              some: {
+                createdById: currentUserId
+              }
+            }
+          }
+        ]
+      }
+    });
+    // --- END UNIQUE ACTIVE MEMBERS COUNT ---
+
     // Return the dashboard summary
     return NextResponse.json({
       cashInflow,
@@ -369,7 +398,7 @@ async function getSummary(request: NextRequest, currentUserId: number) {
       counts: {
         chitFunds: chitFundsWithData.length,
         activeChitFunds: chitFundsWithData.filter(cf => cf.status === 'Active').length,
-        members: chitFundsWithData.reduce((sum, cf) => sum + cf._count.members, 0),
+        members: uniqueActiveMembersCount, // <-- FIXED: unique active members (chit fund or loan)
         loans: await prisma.loan.count({ where: { createdById: currentUserId } }),
         activeLoans: await prisma.loan.count({ where: { createdById: currentUserId, status: 'Active' } })
       },
@@ -2384,7 +2413,7 @@ async function getFinancialDataForExport(userId: number, startDate: Date, endDat
       const periodChitFundProfit = periodMetrics.chitFundProfit;
 
       // Calculate totals for the period
-      const periodCashInflow = periodContributions + periodRepayments;
+           const periodCashInflow = periodContributions + periodRepayments;
       const periodCashOutflow = periodAuctions + periodLoanAmount;
       const periodProfit = periodLoanProfit + periodChitFundProfit;
       const periodOutsideAmount = periodCashOutflow > periodCashInflow ?
