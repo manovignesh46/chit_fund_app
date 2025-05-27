@@ -167,7 +167,7 @@ export default function LoansPage() {
     setDeleteError(null);
 
     try {
-      const response = await fetch('/api/loans/consolidated?action=delete', {
+      const response = await fetch(`/api/loans/consolidated?action=delete&id=${loanToDelete}`, {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',
