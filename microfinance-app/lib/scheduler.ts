@@ -1,8 +1,10 @@
 import cron from 'node-cron';
 
 // Global variables to store the scheduled tasks
-let monthlyEmailTask: cron.ScheduledTask | null = null;
-let weeklyEmailTask: cron.ScheduledTask | null = null;
+// Use type 'any' for cron.ScheduledTask to avoid type errors
+let monthlyEmailTask: any = null;
+let weeklyEmailTask: any = null;
+let dbBackupTask: any = null;
 
 // Function to start the monthly email scheduler
 export function startMonthlyEmailScheduler() {
@@ -49,7 +51,6 @@ export function startMonthlyEmailScheduler() {
       console.log('Running scheduled monthly email task...');
       await sendScheduledMonthlyEmail();
     }, {
-      scheduled: true,
       timezone: timezone
     });
 
@@ -106,7 +107,6 @@ export function startWeeklyEmailScheduler() {
       console.log('Running scheduled weekly email task...');
       await sendScheduledWeeklyEmail();
     }, {
-      scheduled: true,
       timezone: timezone
     });
 
@@ -114,6 +114,44 @@ export function startWeeklyEmailScheduler() {
 
   } catch (error) {
     console.error('Error starting weekly email scheduler:', error);
+  }
+}
+
+// Function to start the monthly DB backup scheduler
+export function startMonthlyDbBackupScheduler() {
+  try {
+    const isEnabled = process.env.AUTO_MONTHLY_DB_BACKUP_ENABLED === 'true';
+    if (!isEnabled) {
+      console.log('Automatic monthly DB backups are disabled');
+      return;
+    }
+    const day = parseInt(process.env.AUTO_MONTHLY_DB_BACKUP_DAY || '1', 10);
+    const hour = parseInt(process.env.AUTO_MONTHLY_DB_BACKUP_HOUR || '2', 10);
+    const timezone = process.env.AUTO_MONTHLY_DB_BACKUP_TIMEZONE || 'Asia/Kolkata';
+    if (day < 1 || day > 28) {
+      console.error('Invalid AUTO_MONTHLY_DB_BACKUP_DAY. Must be between 1 and 28.');
+      return;
+    }
+    if (hour < 0 || hour > 23) {
+      console.error('Invalid AUTO_MONTHLY_DB_BACKUP_HOUR. Must be between 0 and 23.');
+      return;
+    }
+    if (dbBackupTask) {
+      dbBackupTask.stop();
+      dbBackupTask = null;
+    }
+    const cronExpression = `0 ${hour} ${day} * *`;
+    console.log(`Setting up monthly DB backup scheduler:`);
+    console.log(`- Schedule: ${cronExpression} (${timezone})`);
+    dbBackupTask = cron.schedule(cronExpression, async () => {
+      console.log('Running scheduled monthly DB backup task...');
+      await sendScheduledMonthlyDbBackup();
+    }, {
+      timezone: timezone
+    });
+    console.log('Monthly DB backup scheduler started successfully');
+  } catch (error) {
+    console.error('Error starting monthly DB backup scheduler:', error);
   }
 }
 
@@ -135,16 +173,27 @@ export function stopWeeklyEmailScheduler() {
   }
 }
 
-// Function to start both schedulers
+// Function to stop the monthly DB backup scheduler
+export function stopMonthlyDbBackupScheduler() {
+  if (dbBackupTask) {
+    dbBackupTask.stop();
+    dbBackupTask = null;
+    console.log('Monthly DB backup scheduler stopped');
+  }
+}
+
+// Function to start all schedulers
 export function startAllSchedulers() {
   startMonthlyEmailScheduler();
   startWeeklyEmailScheduler();
+  startMonthlyDbBackupScheduler();
 }
 
 // Function to stop all schedulers
 export function stopAllSchedulers() {
   stopMonthlyEmailScheduler();
   stopWeeklyEmailScheduler();
+  stopMonthlyDbBackupScheduler();
 }
 
 // Function to get scheduler status
@@ -153,6 +202,8 @@ export function getSchedulerStatus() {
   const weeklyEnabled = process.env.AUTO_WEEKLY_EMAIL_ENABLED === 'true';
   const monthlyRunning = monthlyEmailTask !== null;
   const weeklyRunning = weeklyEmailTask !== null;
+  const dbBackupEnabled = process.env.AUTO_MONTHLY_DB_BACKUP_ENABLED === 'true';
+  const dbBackupRunning = dbBackupTask !== null;
 
   return {
     monthly: {
@@ -172,6 +223,15 @@ export function getSchedulerStatus() {
         hour: parseInt(process.env.AUTO_WEEKLY_EMAIL_HOUR || '18', 10),
         timezone: process.env.AUTO_WEEKLY_EMAIL_TIMEZONE || 'Asia/Kolkata'
       }
+    },
+    dbBackup: {
+      enabled: dbBackupEnabled,
+      running: dbBackupRunning,
+      configuration: {
+        day: parseInt(process.env.AUTO_MONTHLY_DB_BACKUP_DAY || '1', 10),
+        hour: parseInt(process.env.AUTO_MONTHLY_DB_BACKUP_HOUR || '2', 10),
+        timezone: process.env.AUTO_MONTHLY_DB_BACKUP_TIMEZONE || 'Asia/Kolkata'
+      }
     }
   };
 }
@@ -186,6 +246,12 @@ export async function triggerMonthlyEmailNow() {
 export async function triggerWeeklyEmailNow() {
   console.log('Manually triggering weekly email...');
   await sendScheduledWeeklyEmail();
+}
+
+// Function to manually trigger the monthly DB backup (for testing)
+export async function triggerMonthlyDbBackupNow() {
+  console.log('Manually triggering monthly DB backup...');
+  await sendScheduledMonthlyDbBackup();
 }
 
 // Internal function to send the scheduled monthly email
@@ -246,6 +312,35 @@ async function sendScheduledWeeklyEmail() {
   }
 }
 
+// Internal function to send the scheduled monthly DB backup
+async function sendScheduledMonthlyDbBackup() {
+  try {
+    const baseUrl = process.env.NEXTAUTH_URL || process.env.VERCEL_URL || 'http://localhost:3001';
+    const internalKey = process.env.INTERNAL_API_KEY || 'default-internal-key';
+
+    console.log('Sending scheduled monthly DB backup...');
+
+    const response = await fetch(`${baseUrl}/api/scheduled/db-backup`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${internalKey}`
+      }
+    });
+
+    if (response.ok) {
+      const result = await response.json();
+      console.log('Monthly DB backup sent successfully:', result);
+    } else {
+      const error = await response.text();
+      console.error('Failed to send monthly DB backup:', error);
+    }
+
+  } catch (error) {
+    console.error('Error in scheduled monthly DB backup:', error);
+  }
+}
+
 // Function to calculate next run time
 export function getNextRunTime(): string {
   try {
@@ -274,4 +369,19 @@ export function getNextRunTime(): string {
   } catch (error) {
     return 'Unable to calculate next run time';
   }
+}
+
+// --- IMMEDIATE DB BACKUP TRIGGER ON STARTUP ---
+if (process.env.START_BACKUP_DB === 'true') {
+  (async () => {
+    try {
+      console.log('[START_BACKUP_DB] Triggering immediate monthly DB backup...');
+      await sendScheduledMonthlyDbBackup();
+      console.log('[START_BACKUP_DB] Immediate DB backup completed.');
+    } catch (err) {
+      console.error('[START_BACKUP_DB] Immediate DB backup failed:', err);
+    }
+    // Prevent repeat by unsetting the env var in memory (does not persist across restarts)
+    process.env.START_BACKUP_DB = 'false';
+  })();
 }

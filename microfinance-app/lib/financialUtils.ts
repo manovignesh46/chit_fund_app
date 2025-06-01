@@ -50,7 +50,7 @@ export function calculateLoanProfit(
 
     // If total paid exceeds loan amount, the excess is profit
     const profitFromPayments = totalPaid > loanAmount ? totalPaid - loanAmount : 0;
-    const totalProfit = profitFromPayments + documentCharge;
+    const totalProfit = profitFromPayments;
 
     // console.log('Weekly loan profit calculation:', {
     //   documentCharge,

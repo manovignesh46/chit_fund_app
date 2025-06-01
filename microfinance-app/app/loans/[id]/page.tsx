@@ -1171,8 +1171,8 @@ const LoanDetailPage = () => {
                       return formatCurrency(totalProfit);
                     })()
                   ) : (
-                    // For weekly loans, profit is 10% of principal
-                    formatCurrency(loan.amount * 0.1)
+                    // For weekly loans, profit is Total amount paid - Principle amount
+                    formatCurrency((loan.installmentAmount * loan.duration) -loan.amount)
                   )}
                 </p>
                 <p id="loan-profit-explanation" className="text-xs text-gray-500 mt-1 hidden">

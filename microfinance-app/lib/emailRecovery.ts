@@ -245,6 +245,66 @@ export async function findMissedWeeklyEmails(): Promise<string[]> {
   }
 }
 
+// Find missed DB backups (monthly)
+export async function findMissedMonthlyDbBackups(): Promise<string[]> {
+  try {
+    const isEnabled = process.env.AUTO_MONTHLY_DB_BACKUP_ENABLED === 'true';
+    if (!isEnabled) return [];
+    const endDate = new Date();
+    const startDate = new Date();
+    startDate.setMonth(startDate.getMonth() - 3);
+    const expectedDates = getExpectedMonthlyEmailDates(startDate, endDate); // Reuse monthly logic
+    const sentLogs = await prisma.emailLog.findMany({
+      where: {
+        emailType: 'monthly',
+        fileName: { contains: 'db-backup' },
+        sentDate: { gte: startDate, lte: endDate }
+      }
+    });
+    const sentPeriods = new Set(sentLogs.map(log => log.period));
+    const missedPeriods: string[] = [];
+    for (const expectedDate of expectedDates) {
+      const bufferDate = new Date();
+      bufferDate.setHours(bufferDate.getHours() - 24);
+      if (expectedDate <= bufferDate) {
+        const period = getMonthlyPeriod(expectedDate);
+        if (!sentPeriods.has(period)) missedPeriods.push(period);
+      }
+    }
+    return missedPeriods;
+  } catch (error) {
+    console.error('Error finding missed monthly DB backups:', error);
+    return [];
+  }
+}
+
+// Send recovery DB backup for a specific period
+export async function sendRecoveryMonthlyDbBackup(period: string): Promise<boolean> {
+  try {
+    const baseUrl = process.env.NEXTAUTH_URL || process.env.VERCEL_URL || 'http://localhost:3001';
+    const internalKey = process.env.INTERNAL_API_KEY || 'default-internal-key';
+    const response = await fetch(`${baseUrl}/api/scheduled/db-backup/recovery`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${internalKey}`
+      },
+      body: JSON.stringify({ period })
+    });
+    if (response.ok) {
+      console.log(`Recovered DB backup for ${period}`);
+      return true;
+    } else {
+      const error = await response.text();
+      console.error(`Failed to recover DB backup for ${period}:`, error);
+      return false;
+    }
+  } catch (error) {
+    console.error('Error sending recovery DB backup:', error);
+    return false;
+  }
+}
+
 // Function to send recovery email for a specific monthly period
 export async function sendRecoveryMonthlyEmail(period: string): Promise<boolean> {
   try {
@@ -526,6 +586,30 @@ export async function checkAndSendMissedEmails(): Promise<void> {
 
   } catch (error) {
     console.error('Error checking and sending missed emails:', error);
+  }
+}
+
+// Extend main recovery to include DB backups
+export async function checkAndSendMissedEmailsAndBackups(): Promise<void> {
+  await checkAndSendMissedEmails();
+  try {
+    const missedDbBackups = await findMissedMonthlyDbBackups();
+    if (missedDbBackups.length > 0) {
+      console.log(`Found ${missedDbBackups.length} missed DB backups:`, missedDbBackups);
+      for (const period of missedDbBackups) {
+        const success = await sendRecoveryMonthlyDbBackup(period);
+        if (success) {
+          console.log(`✓ Recovered DB backup for ${period}`);
+        } else {
+          console.log(`✗ Failed to recover DB backup for ${period}`);
+        }
+        await new Promise(resolve => setTimeout(resolve, 2000));
+      }
+    } else {
+      console.log('No missed DB backups found');
+    }
+  } catch (error) {
+    console.error('Error checking and sending missed DB backups:', error);
   }
 }
 
