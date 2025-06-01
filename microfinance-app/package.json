@@ -15,7 +15,7 @@
     "setup-admin": "node scripts/setup-admin.js",
     "verify-auth": "node scripts/verify-auth.js",
     "vercel-install": "npm install --legacy-peer-deps --no-audit",
-    "vercel-build": "node scripts/vercel-prepare.js && node scripts/setup-prisma.js && SKIP_TYPESCRIPT=1 NEXT_TYPESCRIPT_CHECK=false NODE_OPTIONS='--max_old_space_size=3072' next build --no-lint && node scripts/cleanup-prisma.js && node scripts/optimize-vercel-output.js",
+    "vercel-build": "next build",
     "cleanup-prisma": "node scripts/cleanup-prisma.js",
     "optimize-vercel": "node scripts/optimize-vercel-output.js"
   },
