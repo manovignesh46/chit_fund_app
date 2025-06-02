@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: microfinance-app
+    env: docker
+    dockerfilePath: Dockerfile
+    buildCommand: |
+      docker build --build-arg DATABASE_URL=$DATABASE_URL -t microfinance-app .
+    startCommand: docker run -p 3000:3000 microfinance-app
+    envVars:
+      - key: DATABASE_URL
+        value: mysql://root:EwaSUIKwLdXIpPHshejSoTChJhPdNhRH@ballast.proxy.rlwy.net:19718/railway
+        fromDatabase: false
