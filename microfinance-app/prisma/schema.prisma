@@ -22,27 +22,27 @@ model User {
 }
 
 model ChitFund {
-  id                     Int                @id @default(autoincrement())
+  id                     Int                   @id @default(autoincrement())
   name                   String
   totalAmount            Float
   monthlyContribution    Float
-  firstMonthContribution Float?             // For Fixed type chit funds
   duration               Int
   membersCount           Int
-  status                 String             @default("Active")
+  status                 String                @default("Active")
   startDate              DateTime
-  currentMonth           Int                @default(1)
+  currentMonth           Int                   @default(1)
   nextAuctionDate        DateTime?
   description            String?
-  chitFundType           String             @default("Auction") // "Auction" or "Fixed"
-  createdAt              DateTime           @default(now())
-  updatedAt              DateTime           @updatedAt
+  createdAt              DateTime              @default(now())
+  updatedAt              DateTime              @updatedAt
   createdById            Int
-  auctions            Auction[]
-  createdBy           User               @relation(fields: [createdById], references: [id])
-  contributions       Contribution[]
-  members             Member[]
-  fixedAmounts        ChitFundFixedAmount[]
+  chitFundType           String                @default("Auction")
+  firstMonthContribution Float?
+  auctions               Auction[]
+  createdBy              User                  @relation(fields: [createdById], references: [id])
+  fixedAmounts           ChitFundFixedAmount[]
+  contributions          Contribution[]
+  members                Member[]
 
   @@index([createdById], map: "ChitFund_createdById_fkey")
 }
@@ -94,9 +94,9 @@ model Contribution {
   balancePaymentDate       DateTime?
   balancePaymentStatus     String?   @default("Pending")
   actualBalancePaymentDate DateTime?
-  notes                    String?
   createdAt                DateTime  @default(now())
   updatedAt                DateTime  @updatedAt
+  notes                    String?
   chitFund                 ChitFund  @relation(fields: [chitFundId], references: [id])
   member                   Member    @relation(fields: [memberId], references: [id])
 
@@ -198,17 +198,17 @@ model PaymentSchedule {
 }
 
 model EmailLog {
-  id          Int      @id @default(autoincrement())
-  emailType   String   // "monthly" or "weekly"
-  period      String   // "2024-01" for monthly, "2024-W01" for weekly
-  sentDate    DateTime
-  status      String   @default("sent") // "sent", "failed", "recovered"
-  recipients  String   // JSON array of recipient emails
-  fileName    String?  // Name of the attached file
-  isRecovery  Boolean  @default(false) // True if this was a recovery email
-  errorMessage String? // Error message if failed
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id           Int      @id @default(autoincrement())
+  emailType    String
+  period       String
+  sentDate     DateTime
+  status       String   @default("sent")
+  recipients   String
+  fileName     String?
+  isRecovery   Boolean  @default(false)
+  errorMessage String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
   @@unique([emailType, period])
   @@index([emailType, sentDate])
