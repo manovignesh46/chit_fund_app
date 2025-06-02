@@ -974,7 +974,7 @@ async function addRepayment(request: NextRequest, id: number, currentUserId: num
     }
 
     // Only validate against remaining amount for full payments
-    if (!isInterestOnly && paymentAmount > loan.remainingAmount + loan.interestAmount) {
+    if (!isInterestOnly && paymentAmount > loan.remainingAmount) {
       return NextResponse.json(
         { error: 'Payment amount cannot exceed the remaining balance' },
         { status: 400 }
@@ -992,7 +992,7 @@ async function addRepayment(request: NextRequest, id: number, currentUserId: num
     // Calculate new remaining amount - only reduce for full payments
     const newRemainingAmount = isInterestOnly
       ? loan.remainingAmount // No change for interest-only payments
-      : loan.remainingAmount - (paymentAmount - loan.interestAmount);
+      : loan.remainingAmount - (paymentAmount - loan.interestRate);
 
     // Calculate overdue amount after this payment
     const overdueResult = await updateOverdueAmountFromRepayments(loanId);
@@ -1263,7 +1263,7 @@ async function deleteRepayment(request: NextRequest, id: number, currentUserId: 
 
       // Only adjust remaining amount if it was a full payment
       const newRemainingAmount = repayment.paymentType === 'full'
-        ? currentLoan.remainingAmount + repayment.amount
+        ? currentLoan.remainingAmount + (repayment.amount - currentLoan.interestRate)
         : currentLoan.remainingAmount;
 
       // First delete the repayment
