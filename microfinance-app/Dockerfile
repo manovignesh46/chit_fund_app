@@ -10,7 +10,7 @@ COPY . .
 
 RUN apt-get update -y && apt-get install -y openssl
 
-# Pass DATABASE_URL env var from Render Build Environment Variables to Docker build
+ARG DATABASE_URL
 ENV DATABASE_URL=$DATABASE_URL
 
 RUN npx prisma generate
