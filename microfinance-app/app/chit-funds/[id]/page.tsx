@@ -445,10 +445,10 @@ const ChitFundDetails = () => {
   }
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="flex justify-between items-center mb-6">
+    <div className="container w-full max-w-screen-lg mx-auto px-2 sm:px-4 py-4 sm:py-8">
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 mb-6">
         <h1 className="text-3xl font-bold text-blue-700">{chitFund.name}</h1>
-        <ActionButtonGroup>
+        <ActionButtonGroup className="flex flex-wrap gap-2 w-full sm:w-auto">
           <ExportButton
             onClick={handleExportChitFund}
             disabled={isExporting}
@@ -653,7 +653,7 @@ const ChitFundDetails = () => {
               <h2 className="text-xl font-semibold">Auction History</h2>
             </div>
             <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
+              <table className="min-w-full divide-y divide-gray-200 text-xs sm:text-sm">
                 <thead className="bg-gray-50">
                   <tr>
                     <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -807,8 +807,8 @@ const ChitFundDetails = () => {
 
       {/* Delete Confirmation Modal */}
       {showDeleteModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-md">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 px-2">
+          <div className="bg-white rounded-lg shadow-lg w-full max-w-xs sm:max-w-md px-2 sm:px-6 py-4 sm:py-6">
             <h2 className="text-xl font-bold text-red-700 mb-4">Confirm Deletion</h2>
             <p className="mb-6">Are you sure you want to delete this chit fund? This action cannot be undone.</p>
             {deleteError && (

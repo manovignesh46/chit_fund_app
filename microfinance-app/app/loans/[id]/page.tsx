@@ -772,89 +772,111 @@ const LoanDetailPage = () => {
   }
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      {/* Delete Confirmation Modal */}
-      {showDeleteModal && (
-        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-xl p-6 max-w-md w-full">
-            <h3 className="text-lg font-semibold mb-4">Confirm Delete</h3>
-            <p className="mb-6">Are you sure you want to delete this repayment? This action cannot be undone.</p>
-
-            {deleteError && (
-              <div className="mb-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
-                <p>{deleteError}</p>
-              </div>
-            )}
-
-            {deleteSuccess && (
-              <div className="mb-4 bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded">
-                <p>{deleteSuccess}</p>
-              </div>
-            )}
-
-            <div className="flex justify-end space-x-3">
-              <button
-                onClick={() => setShowDeleteModal(false)}
-                disabled={isDeleting}
-                className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition duration-300"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={confirmDeleteRepayment}
-                disabled={isDeleting}
-                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {isDeleting ? 'Deleting...' : 'Delete'}
-              </button>
-            </div>
-          </div>
+    <div className="container mx-auto px-2 sm:px-4 py-6 sm:py-8 max-w-screen-xl w-full">
+      {/* Header and actions */}
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-6 sm:mb-8">
+        <h1 className="text-2xl sm:text-3xl font-bold text-green-700">Loan Details</h1>
+        <div className="flex flex-col sm:flex-row gap-2 sm:gap-4 w-full sm:w-auto">
+          <ActionButtonGroup>
+            <ExportButton
+              onClick={handleExport}
+              disabled={isExporting}
+              isExporting={isExporting}
+            >
+              Export as Excel
+            </ExportButton>
+            <EditButton
+              href={`/loans/${id}/edit`}
+            >
+              Edit Loan
+            </EditButton>
+            <BackButton
+              href="/loans"
+            >
+              Back to Loans
+            </BackButton>
+          </ActionButtonGroup>
         </div>
-      )}
-
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold text-green-700">Loan Details</h1>
-        <ActionButtonGroup>
-          <ExportButton
-            onClick={handleExport}
-            disabled={isExporting}
-            isExporting={isExporting}
-          >
-            Export as Excel
-          </ExportButton>
-          <EditButton
-            href={`/loans/${id}/edit`}
-          >
-            Edit Loan
-          </EditButton>
-          <BackButton
-            href="/loans"
-          >
-            Back to Loans
-          </BackButton>
-        </ActionButtonGroup>
       </div>
+      {/* Main content grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 mb-6 sm:mb-8">
+        <div className="bg-white rounded-lg shadow-md overflow-hidden">
+          <div className="p-6 border-b">
+            <div className="flex justify-between items-start">
+              <div>
+                <h2 className="text-2xl font-semibold">{loan.borrower?.name || 'Unknown'}</h2>
+                <p className="text-gray-600">{loan.borrower?.contact || 'No contact'}</p>
+              </div>
+              <div className="flex items-center space-x-3">
+                <div className="text-right flex flex-col items-end">
+                  <div className="text-sm text-gray-500">Current {loan.loanType === 'Weekly' ? 'Week' : 'Month'}</div>
+                  <div className="flex items-center">
+                    <div className="text-xl font-bold text-green-700 mr-2">
+                      {(() => {
+                        // Calculate the current period based on disbursement date
+                        const startDate = new Date(loan.disbursementDate);
+                        const currentDate = new Date();
 
-      <div className="bg-white rounded-lg shadow-md overflow-hidden mb-8">
-        <div className="p-6 border-b">
-          <div className="flex justify-between items-start">
-            <div>
-              <h2 className="text-2xl font-semibold">{loan.borrower?.name || 'Unknown'}</h2>
-              <p className="text-gray-600">{loan.borrower?.contact || 'No contact'}</p>
-            </div>
-            <div className="flex items-center space-x-3">
-              <div className="text-right flex flex-col items-end">
-                <div className="text-sm text-gray-500">Current {loan.loanType === 'Weekly' ? 'Week' : 'Month'}</div>
-                <div className="flex items-center">
-                  <div className="text-xl font-bold text-green-700 mr-2">
+                        // Check if disbursement date is in the future
+                        if (startDate > currentDate) {
+                          return <span className="text-yellow-600">Not Started</span>;
+                        }
+
+                        let calculatedPeriod;
+
+                        if (loan.loanType === 'Weekly') {
+                          // Calculate weeks difference for weekly loans
+                          const startDateClean = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate());
+                          const currentDateClean = new Date(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate());
+
+                          // Calculate days difference
+                          const daysDiff = Math.floor((currentDateClean.getTime() - startDateClean.getTime()) / (24 * 60 * 60 * 1000));
+
+                          // Calculate the week number
+                          const isExactMultipleOfSeven = daysDiff % 7 === 0;
+                          const currentWeek = Math.floor(daysDiff / 7) + (isExactMultipleOfSeven ? 0 : 1);
+
+                          // Ensure we don't exceed the duration
+                          calculatedPeriod = Math.min(Math.max(1, currentWeek), loan.duration);
+                        } else {
+                          // Calculate months difference for monthly loans
+                          let monthsDiff = (currentDate.getFullYear() - startDate.getFullYear()) * 12 +
+                                          (currentDate.getMonth() - startDate.getMonth());
+
+                          // Add 1 because first month is month 1
+                          monthsDiff = monthsDiff + 1;
+
+                          // Adjust if we haven't reached the same day of the month yet
+                          if (currentDate.getDate() < startDate.getDate()) {
+                            monthsDiff--;
+                          }
+
+                          // Ensure we don't exceed the duration
+                          calculatedPeriod = Math.min(Math.max(1, monthsDiff), loan.duration);
+                        }
+
+                        return (
+                          <>{calculatedPeriod} <span className="text-sm text-gray-500">/ {loan.duration}</span></>
+                        );
+                      })()}
+                    </div>
                     {(() => {
-                      // Calculate the current period based on disbursement date
+                      // Calculate the current period to check if update is needed
                       const startDate = new Date(loan.disbursementDate);
                       const currentDate = new Date();
 
                       // Check if disbursement date is in the future
                       if (startDate > currentDate) {
-                        return <span className="text-yellow-600">Not Started</span>;
+                        // Should be "Not Started" (period 0)
+                        return loan.currentMonth !== 0 && (
+                          <button
+                            onClick={updateCurrentMonth}
+                            disabled={updating}
+                            className="text-xs px-2 py-1 bg-green-100 text-green-800 rounded hover:bg-green-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            {updating ? 'Updating...' : 'Update'}
+                          </button>
+                        );
                       }
 
                       let calculatedPeriod;
@@ -876,7 +898,10 @@ const LoanDetailPage = () => {
                       } else {
                         // Calculate months difference for monthly loans
                         let monthsDiff = (currentDate.getFullYear() - startDate.getFullYear()) * 12 +
-                                        (currentDate.getMonth() - startDate.getMonth()) + 1;
+                                        (currentDate.getMonth() - startDate.getMonth());
+
+                        // Add 1 because first month is month 1
+                        monthsDiff = monthsDiff + 1;
 
                         // Adjust if we haven't reached the same day of the month yet
                         if (currentDate.getDate() < startDate.getDate()) {
@@ -887,20 +912,8 @@ const LoanDetailPage = () => {
                         calculatedPeriod = Math.min(Math.max(1, monthsDiff), loan.duration);
                       }
 
-                      return (
-                        <>{calculatedPeriod} <span className="text-sm text-gray-500">/ {loan.duration}</span></>
-                      );
-                    })()}
-                  </div>
-                  {(() => {
-                    // Calculate the current period to check if update is needed
-                    const startDate = new Date(loan.disbursementDate);
-                    const currentDate = new Date();
-
-                    // Check if disbursement date is in the future
-                    if (startDate > currentDate) {
-                      // Should be "Not Started" (period 0)
-                      return loan.currentMonth !== 0 && (
+                      // Only show update button if the calculated period differs from the current period
+                      return loan.currentMonth !== calculatedPeriod && (
                         <button
                           onClick={updateCurrentMonth}
                           disabled={updating}
@@ -909,367 +922,327 @@ const LoanDetailPage = () => {
                           {updating ? 'Updating...' : 'Update'}
                         </button>
                       );
-                    }
-
-                    let calculatedPeriod;
-
-                    if (loan.loanType === 'Weekly') {
-                      // Calculate weeks difference for weekly loans
-                      const startDateClean = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate());
-                      const currentDateClean = new Date(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate());
-
-                      // Calculate days difference
-                      const daysDiff = Math.floor((currentDateClean.getTime() - startDateClean.getTime()) / (24 * 60 * 60 * 1000));
-
-                      // Calculate the week number
-                      const isExactMultipleOfSeven = daysDiff % 7 === 0;
-                      const currentWeek = Math.floor(daysDiff / 7) + (isExactMultipleOfSeven ? 0 : 1);
-
-                      // Ensure we don't exceed the duration
-                      calculatedPeriod = Math.min(Math.max(1, currentWeek), loan.duration);
-                    } else {
-                      // Calculate months difference for monthly loans
-                      let monthsDiff = (currentDate.getFullYear() - startDate.getFullYear()) * 12 +
-                                      (currentDate.getMonth() - startDate.getMonth()) + 1;
-
-                      // Adjust if we haven't reached the same day of the month yet
-                      if (currentDate.getDate() < startDate.getDate()) {
-                        monthsDiff--;
-                      }
-
-                      // Ensure we don't exceed the duration
-                      calculatedPeriod = Math.min(Math.max(1, monthsDiff), loan.duration);
-                    }
-
-                    // Only show update button if the calculated period differs from the current period
-                    return loan.currentMonth !== calculatedPeriod && (
-                      <button
-                        onClick={updateCurrentMonth}
-                        disabled={updating}
-                        className="text-xs px-2 py-1 bg-green-100 text-green-800 rounded hover:bg-green-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        {updating ? 'Updating...' : 'Update'}
-                      </button>
-                    );
-                  })()}
+                    })()}
+                  </div>
                 </div>
+                <span className="px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm font-semibold">
+                  {loan.status}
+                </span>
               </div>
-              <span className="px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm font-semibold">
-                {loan.status}
-              </span>
             </div>
           </div>
-        </div>
 
-        <div className="p-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            <div>
-              <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-2">Loan Amount</h3>
-              <p className="text-xl font-semibold">{formatCurrency(loan.amount)}</p>
-            </div>
-            <div>
-              <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-2">Remaining Balance</h3>
-              <p className="text-xl font-semibold">{formatCurrency(loan.remainingAmount)}</p>
-            </div>
-            <div>
-              <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-2">
-                Overdue
-              </h3>
-              <p className={`text-xl font-semibold ${loan.missedPayments > 0 ? 'text-red-600' : 'text-green-600'}`}>
-                {loan.missedPayments > 0 ? `${loan.missedPayments} ${loan.missedPayments === 1 ? 'payment' : 'payments'}` : 'None'}
-              </p>
-            </div>
-            {loan.repaymentType === 'Monthly' && (
+          <div className="p-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               <div>
-                <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-2">Interest Amount</h3>
-                <p className="text-xl font-semibold">{formatCurrency(loan.interestRate)}</p>
+                <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-2">Loan Amount</h3>
+                <p className="text-xl font-semibold">{formatCurrency(loan.amount)}</p>
               </div>
-            )}
-            {loan.repaymentType === 'Monthly' && (
               <div>
-                <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-2">Document Charge</h3>
-                <p className="text-xl font-semibold">{formatCurrency(loan.documentCharge || 0)}</p>
+                <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-2">Remaining Balance</h3>
+                <p className="text-xl font-semibold">{formatCurrency(loan.remainingAmount)}</p>
               </div>
-            )}
-            <div>
-              <h3
-                className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-2 flex items-center cursor-pointer"
-                onClick={() => {
-                  const profitElement = document.getElementById('loan-profit');
-                  const profitExplanation = document.getElementById('loan-profit-explanation');
-                  if (profitElement) {
-                    profitElement.classList.toggle('hidden');
-                  }
-                  if (profitExplanation) {
-                    profitExplanation.classList.toggle('hidden');
-                  }
-                }}
-              >
-                Total Profit
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              </h3>
               <div>
-              <p id="loan-profit" className="text-xl font-semibold text-green-600 hidden">
-                  {loan.repaymentType === 'Monthly' ? (
-                    (() => {
-                      // SPECIAL CASE: For loans with only interest-only payments
-                      const onlyHasInterestOnlyPayments =
-                        loan.repayments && loan.repayments.length > 0 &&
-                        loan.repayments.every((r: any) => r.paymentType === 'interestOnly');
-
-                      if (onlyHasInterestOnlyPayments) {
-                        // For loans with only interest-only payments, the profit is the interest rate
-                        // multiplied by the number of interest-only payments made
-                        const interestOnlyPaymentsCount = loan.repayments ? loan.repayments.length : 0;
-                        const profit = (loan.interestRate || 0) * interestOnlyPaymentsCount;
-                        console.log('Detected interest-only payments only case - profit:', profit, 'from', interestOnlyPaymentsCount, 'payments');
-                        return formatCurrency(profit);
-                      }
-
-                      // Document charge (one-time)
-                      const documentCharge = (loan.documentCharge || 0);
-
-                      // Sum of all interest-only payments
-                      // For interest-only payments, the entire payment amount is interest (profit)
-                      // This calculation is no longer used but kept for reference
-                      // const interestOnlyPayments = loan.repayments
-                      //   ? loan.repayments
-                      //       .filter((repayment: any) => repayment.paymentType === 'interestOnly')
-                      //       .reduce((sum: number, repayment: any) => sum + repayment.amount, 0)
-                      //   : 0;
-
-                      // Log the interest-only payments for debugging
-                      console.log('Interest-only payments:', loan.repayments
-                        ? loan.repayments
-                            .filter((r: any) => r.paymentType === 'interestOnly')
-                            .map((r: any) => ({
-                              id: r.id,
-                              amount: r.amount,
-                              paymentType: r.paymentType,
-                              paidDate: r.paidDate
-                            }))
-                        : []);
-
-                      // Interest from regular payments (if any)
-                      // Regular payments are those that are NOT interest-only payments
-                      // These include full payments (principal + interest)
-                      const regularPayments = loan.repayments
-                        ? loan.repayments.filter((r: any) => r.paymentType !== 'interestOnly')
-                        : [];
-                      const regularPaymentsCount = regularPayments.length;
-
-                      // Log the regular payments for debugging
-                      console.log('Regular payments:', regularPayments.map(r => ({
-                        id: r.id,
-                        amount: r.amount,
-                        paymentType: r.paymentType,
-                        paidDate: r.paidDate
-                      })));
-
-                      // Count the number of regular payments that have been made
-                      // For each regular payment, we count ONLY the interest portion (interestRate)
-                      // NOT the full installment amount
-
-                      // For monthly loans, each regular payment includes the interest amount
-                      // So we need to extract just the interest portion from each payment
-
-                      // Calculate interest from regular payments
-                      // For monthly loans, each regular payment includes both principal and interest
-                      // We need to extract ONLY the interest portion from each payment
-                      const interestRate = loan.interestRate || 0;
-
-                      // The interest portion of each payment is exactly equal to the interest rate
-                      // For example, if interest rate is ₹800, then each regular payment includes ₹800 of interest
-                      // This is the correct calculation for monthly loans
-                      const interestFromRegularPayments = regularPaymentsCount > 0
-                        ? interestRate * regularPaymentsCount
-                        : 0;
-
-                      console.log('Interest calculation details:', {
-                        interestRate,
-                        regularPaymentsCount,
-                        calculatedInterest: interestRate * regularPaymentsCount,
-                        interestFromRegularPayments
-                      });
-
-                      // Total profit
-                      // This should be the sum of:
-                      // 1. Document charge
-                      // 2. Interest-only payments
-                      // 3. Interest portion of regular payments
-
-                      // IMPORTANT: For monthly loans, the profit is:
-                      // - Document charge (one-time fee)
-                      // - Interest from interest-only payments (the full payment amount)
-                      // - Interest portion of regular payments (interest rate * number of regular payments)
-
-                      // SIMPLE DIRECT FIX: Just multiply interest rate by number of dues paid
-                      // Total Profit = (Interest Amount × Number of Dues Paid) + Document Charge
-
-                      // Count total number of payments (both interest-only and regular)
-                      const totalPaymentsMade = loan.repayments ? loan.repayments.length : 0;
-
-                      // Calculate profit using the simple formula
-                      const totalProfit = (loan.interestRate * totalPaymentsMade) + documentCharge;
-
-                      console.log('Simple direct profit calculation:', {
-                        interestRate: loan.interestRate,
-                        totalPaymentsMade,
-                        documentCharge,
-                        totalProfit,
-                        formula: `(${loan.interestRate} × ${totalPaymentsMade}) + ${documentCharge} = ${totalProfit}`
-                      });
-
-                      // Double-check the calculation
-                      console.log('Final profit calculation check:', {
-                        documentCharge,
-                        interestRate: loan.interestRate,
-                        totalPaymentsMade,
-                        totalProfit,
-                        // For the example in the bug report:
-                        // - Loan Amount: ₹40,000
-                        // - Interest Amount: ₹800/month
-                        // - Document Charge: ₹0
-                        // - Repayment History:
-                        //   - April 2025 – InterestOnly → Profit = ₹800
-                        //   - May 2025 – Full Payment → Profit = ₹800
-                        // Expected Profit: ₹1,600
-                        expectedProfit: (loan.interestRate * totalPaymentsMade) + documentCharge
-                      });
-
-                      // Log for debugging
-                      console.log('Profit calculation details:', {
-                        documentCharge,
-                        interestRate: loan.interestRate,
-                        totalPaymentsMade,
-                        totalProfit,
-                        loanAmount: loan.amount,
-                        interestOnlyCount: loan.repayments
-                          ? loan.repayments.filter((r: any) => r.paymentType === 'interestOnly').length
-                          : 0,
-                        regularCount: regularPaymentsCount
-                      });
-
-                      // Log for debugging
-                      console.log('Profit calculation:', {
-                        documentCharge,
-                        interestRate: loan.interestRate,
-                        totalPaymentsMade,
-                        totalProfit,
-                        formula: `(${loan.interestRate} × ${totalPaymentsMade}) + ${documentCharge} = ${totalProfit}`,
-                        repayments: loan.repayments
-                          ? loan.repayments.map((r: any) => ({
-                              amount: r.amount,
-                              paymentType: r.paymentType,
-                              paidDate: r.paidDate
-                            }))
-                          : []
-                      });
-
-                      return formatCurrency(totalProfit);
-                    })()
-                  ) : (
-                    // For weekly loans, profit is Total amount paid - Principle amount
-                    formatCurrency((loan.installmentAmount * loan.duration) -loan.amount)
-                  )}
+                <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-2">
+                  Overdue
+                </h3>
+                <p className={`text-xl font-semibold ${loan.missedPayments > 0 ? 'text-red-600' : 'text-green-600'}`}>
+                  {loan.missedPayments > 0 ? `${loan.missedPayments} ${loan.missedPayments === 1 ? 'payment' : 'payments'}` : 'None'}
                 </p>
-                <p id="loan-profit-explanation" className="text-xs text-gray-500 mt-1 hidden">
-                  {loan.repaymentType === 'Monthly' ? (
-                    (() => {
-                      // SPECIAL CASE: For loans with only interest-only payments
-                      const onlyHasInterestOnlyPayments =
-                        loan.repayments && loan.repayments.length > 0 &&
-                        loan.repayments.every((r: any) => r.paymentType === 'interestOnly');
+              </div>
+              {loan.repaymentType === 'Monthly' && (
+                <div>
+                  <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-2">Interest Amount</h3>
+                  <p className="text-xl font-semibold">{formatCurrency(loan.interestRate)}</p>
+                </div>
+              )}
+              {loan.repaymentType === 'Monthly' && (
+                <div>
+                  <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-2">Document Charge</h3>
+                  <p className="text-xl font-semibold">{formatCurrency(loan.documentCharge || 0)}</p>
+                </div>
+              )}
+              <div>
+                <h3
+                  className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-2 flex items-center cursor-pointer"
+                  onClick={() => {
+                    const profitElement = document.getElementById('loan-profit');
+                    const profitExplanation = document.getElementById('loan-profit-explanation');
+                    if (profitElement) {
+                      profitElement.classList.toggle('hidden');
+                    }
+                    if (profitExplanation) {
+                      profitExplanation.classList.toggle('hidden');
+                    }
+                  }}
+                >
+                  Total Profit
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </h3>
+                <div>
+                <p id="loan-profit" className="text-xl font-semibold text-green-600 hidden">
+                    {loan.repaymentType === 'Monthly' ? (
+                      (() => {
+                        // SPECIAL CASE: For loans with only interest-only payments
+                        const onlyHasInterestOnlyPayments =
+                          loan.repayments && loan.repayments.length > 0 &&
+                          loan.repayments.every((r: any) => r.paymentType === 'interestOnly');
 
-                      if (onlyHasInterestOnlyPayments) {
-                        const interestOnlyPaymentsCount = loan.repayments ? loan.repayments.length : 0;
-                        return `Interest from ${interestOnlyPaymentsCount} payment${interestOnlyPaymentsCount !== 1 ? 's' : ''}`;
-                      }
+                        if (onlyHasInterestOnlyPayments) {
+                          // For loans with only interest-only payments, the profit is the interest rate
+                          // multiplied by the number of interest-only payments made
+                          const interestOnlyPaymentsCount = loan.repayments ? loan.repayments.length : 0;
+                          const profit = (loan.interestRate || 0) * interestOnlyPaymentsCount;
+                          console.log('Detected interest-only payments only case - profit:', profit, 'from', interestOnlyPaymentsCount, 'payments');
+                          return formatCurrency(profit);
+                        }
 
-                      // Check if there are any repayments
-                      if (!loan.repayments || loan.repayments.length === 0) {
-                        return 'No profit yet - no payments have been made';
-                      }
+                        // Document charge (one-time)
+                        const documentCharge = (loan.documentCharge || 0);
 
-                      // Check for document charge
-                      const hasDocumentCharge = loan.documentCharge && loan.documentCharge > 0;
+                        // Sum of all interest-only payments
+                        // For interest-only payments, the entire payment amount is interest (profit)
+                        // This calculation is no longer used but kept for reference
+                        // const interestOnlyPayments = loan.repayments
+                        //   ? loan.repayments
+                        //       .filter((repayment: any) => repayment.paymentType === 'interestOnly')
+                        //       .reduce((sum: number, repayment: any) => sum + repayment.amount, 0)
+                        //   : 0;
 
-                      // Check for interest-only payments
-                      const hasInterestOnlyPayments = loan.repayments
-                        ? loan.repayments.filter((r: any) => r.paymentType === 'interestOnly').length > 0
-                        : false;
+                        // Log the interest-only payments for debugging
+                        console.log('Interest-only payments:', loan.repayments
+                          ? loan.repayments
+                              .filter((r: any) => r.paymentType === 'interestOnly')
+                              .map((r: any) => ({
+                                id: r.id,
+                                amount: r.amount,
+                                paymentType: r.paymentType,
+                                paidDate: r.paidDate
+                              }))
+                          : []);
 
-                      // Check for regular payments
-                      const hasRegularPayments = loan.repayments
-                        ? loan.repayments.filter((r: any) => r.paymentType !== 'interestOnly').length > 0
-                        : false;
+                        // Interest from regular payments (if any)
+                        // Regular payments are those that are NOT interest-only payments
+                        // These include full payments (principal + interest)
+                        const regularPayments = loan.repayments
+                          ? loan.repayments.filter((r: any) => r.paymentType !== 'interestOnly')
+                          : [];
+                        const regularPaymentsCount = regularPayments.length;
 
-                      // Build explanation text
-                      let explanation = '';
+                        // Log the regular payments for debugging
+                        console.log('Regular payments:', regularPayments.map(r => ({
+                          id: r.id,
+                          amount: r.amount,
+                          paymentType: r.paymentType,
+                          paidDate: r.paidDate
+                        })));
 
-                      if (hasDocumentCharge) {
-                        explanation += 'Document charge';
-                      }
+                        // Count the number of regular payments that have been made
+                        // For each regular payment, we count ONLY the interest portion (interestRate)
+                        // NOT the full installment amount
 
-                      if (hasInterestOnlyPayments) {
-                        if (explanation) explanation += ' + ';
-                        explanation += 'Interest-only payments';
-                      }
+                        // For monthly loans, each regular payment includes the interest amount
+                        // So we need to extract just the interest portion from each payment
 
-                      if (hasRegularPayments) {
-                        if (explanation) explanation += ' + ';
-                        const months = Math.min(
-                          loan.repayments
-                            ? loan.repayments.filter((r: any) => r.paymentType !== 'interestOnly').length
+                        // Calculate interest from regular payments
+                        // For monthly loans, each regular payment includes both principal and interest
+                        // We need to extract ONLY the interest portion from each payment
+                        const interestRate = loan.interestRate || 0;
+
+                        // The interest portion of each payment is exactly equal to the interest rate
+                        // For example, if interest rate is ₹800, then each regular payment includes ₹800 of interest
+                        // This is the correct calculation for monthly loans
+                        const interestFromRegularPayments = regularPaymentsCount > 0
+                          ? interestRate * regularPaymentsCount
+                          : 0;
+
+                        console.log('Interest calculation details:', {
+                          interestRate,
+                          regularPaymentsCount,
+                          calculatedInterest: interestRate * regularPaymentsCount,
+                          interestFromRegularPayments
+                        });
+
+                        // Total profit
+                        // This should be the sum of:
+                        // 1. Document charge
+                        // 2. Interest-only payments
+                        // 3. Interest portion of regular payments
+
+                        // IMPORTANT: For monthly loans, the profit is:
+                        // - Document charge (one-time fee)
+                        // - Interest from interest-only payments (the full payment amount)
+                        // - Interest portion of regular payments (interest rate * number of regular payments)
+
+                        // SIMPLE DIRECT FIX: Just multiply interest rate by number of dues paid
+                        // Total Profit = (Interest Amount × Number of Dues Paid) + Document Charge
+
+                        // Count total number of payments (both interest-only and regular)
+                        const totalPaymentsMade = loan.repayments ? loan.repayments.length : 0;
+
+                        // Calculate profit using the simple formula
+                        const totalProfit = (loan.interestRate * totalPaymentsMade) + documentCharge;
+
+                        console.log('Simple direct profit calculation:', {
+                          interestRate: loan.interestRate,
+                          totalPaymentsMade,
+                          documentCharge,
+                          totalProfit,
+                          formula: `(${loan.interestRate} × ${totalPaymentsMade}) + ${documentCharge} = ${totalProfit}`
+                        });
+
+                        // Double-check the calculation
+                        console.log('Final profit calculation check:', {
+                          documentCharge,
+                          interestRate: loan.interestRate,
+                          totalPaymentsMade,
+                          totalProfit,
+                          // For the example in the bug report:
+                          // - Loan Amount: ₹40,000
+                          // - Interest Amount: ₹800/month
+                          // - Document Charge: ₹0
+                          // - Repayment History:
+                          //   - April 2025 – InterestOnly → Profit = ₹800
+                          //   - May 2025 – Full Payment → Profit = ₹800
+                          // Expected Profit: ₹1,600
+                          expectedProfit: (loan.interestRate * totalPaymentsMade) + documentCharge
+                        });
+
+                        // Log for debugging
+                        console.log('Profit calculation details:', {
+                          documentCharge,
+                          interestRate: loan.interestRate,
+                          totalPaymentsMade,
+                          totalProfit,
+                          loanAmount: loan.amount,
+                          interestOnlyCount: loan.repayments
+                            ? loan.repayments.filter((r: any) => r.paymentType === 'interestOnly').length
                             : 0,
-                          loan.currentMonth
-                        );
-                        explanation += `Interest from ${months} regular payment${months !== 1 ? 's' : ''}`;
-                      }
+                          regularCount: regularPaymentsCount
+                        });
 
-                      return explanation;
-                    })()
-                  ) : (
-                    <>
-                      Fixed profit for {loan.duration} weeks payment schedule
-                    </>
-                  )}
+                        // Log for debugging
+                        console.log('Profit calculation:', {
+                          documentCharge,
+                          interestRate: loan.interestRate,
+                          totalPaymentsMade,
+                          totalProfit,
+                          formula: `(${loan.interestRate} × ${totalPaymentsMade}) + ${documentCharge} = ${totalProfit}`,
+                          repayments: loan.repayments
+                            ? loan.repayments.map((r: any) => ({
+                                amount: r.amount,
+                                paymentType: r.paymentType,
+                                paidDate: r.paidDate
+                              }))
+                            : []
+                        });
+
+                        return formatCurrency(totalProfit);
+                      })()
+                    ) : (
+                      // For weekly loans, profit is Total amount paid - Principle amount
+                      formatCurrency((loan.installmentAmount * loan.duration) -loan.amount)
+                    )}
+                  </p>
+                  <p id="loan-profit-explanation" className="text-xs text-gray-500 mt-1 hidden">
+                    {loan.repaymentType === 'Monthly' ? (
+                      (() => {
+                        // SPECIAL CASE: For loans with only interest-only payments
+                        const onlyHasInterestOnlyPayments =
+                          loan.repayments && loan.repayments.length > 0 &&
+                          loan.repayments.every((r: any) => r.paymentType === 'interestOnly');
+
+                        if (onlyHasInterestOnlyPayments) {
+                          const interestOnlyPaymentsCount = loan.repayments ? loan.repayments.length : 0;
+                          return `Interest from ${interestOnlyPaymentsCount} payment${interestOnlyPaymentsCount !== 1 ? 's' : ''}`;
+                        }
+
+                        // Check if there are any repayments
+                        if (!loan.repayments || loan.repayments.length === 0) {
+                          return 'No profit yet - no payments have been made';
+                        }
+
+                        // Check for document charge
+                        const hasDocumentCharge = loan.documentCharge && loan.documentCharge > 0;
+
+                        // Check for interest-only payments
+                        const hasInterestOnlyPayments = loan.repayments
+                          ? loan.repayments.filter((r: any) => r.paymentType === 'interestOnly').length > 0
+                          : false;
+
+                        // Check for regular payments
+                        const hasRegularPayments = loan.repayments
+                          ? loan.repayments.filter((r: any) => r.paymentType !== 'interestOnly').length > 0
+                          : false;
+
+                        // Build explanation text
+                        let explanation = '';
+
+                        if (hasDocumentCharge) {
+                          explanation += 'Document charge';
+                        }
+
+                        if (hasInterestOnlyPayments) {
+                          if (explanation) explanation += ' + ';
+                          explanation += 'Interest-only payments';
+                        }
+
+                        if (hasRegularPayments) {
+                          if (explanation) explanation += ' + ';
+                          const months = Math.min(
+                            loan.repayments
+                              ? loan.repayments.filter((r: any) => r.paymentType !== 'interestOnly').length
+                              : 0,
+                            loan.currentMonth
+                          );
+                          explanation += `Interest from ${months} regular payment${months !== 1 ? 's' : ''}`;
+                        }
+
+                        return explanation;
+                      })()
+                    ) : (
+                      <>
+                        Fixed profit for {loan.duration} weeks payment schedule
+                      </>
+                    )}
+                  </p>
+                </div>
+              </div>
+              <div>
+                <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-2">Installment Amount</h3>
+                <p className="text-xl font-semibold">{formatCurrency(loan.installmentAmount || 0)}</p>
+              </div>
+              <div>
+                <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-2">Loan Type</h3>
+                <p className="text-xl font-semibold">{loan.loanType}</p>
+              </div>
+              <div>
+                <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-2">Duration</h3>
+                <p className="text-xl font-semibold">{loan.duration} {loan.loanType === 'Weekly' ? 'weeks' : 'months'}</p>
+              </div>
+              <div>
+                <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-2">Disbursement Date</h3>
+                <p className="text-xl font-semibold">{formatDate(loan.disbursementDate)}</p>
+              </div>
+              <div>
+                <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-2">Next Payment Date</h3>
+                <p className="text-xl font-semibold">{formatDate(loan.nextPaymentDate)}</p>
+              </div>
+              <div>
+                <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-2">End Date</h3>
+                <p className="text-xl font-semibold">
+                  {formatDate(calculateEndDate(loan.disbursementDate, loan.duration))}
                 </p>
               </div>
-            </div>
-            <div>
-              <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-2">Installment Amount</h3>
-              <p className="text-xl font-semibold">{formatCurrency(loan.installmentAmount || 0)}</p>
-            </div>
-            <div>
-              <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-2">Loan Type</h3>
-              <p className="text-xl font-semibold">{loan.loanType}</p>
-            </div>
-            <div>
-              <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-2">Duration</h3>
-              <p className="text-xl font-semibold">{loan.duration} {loan.loanType === 'Weekly' ? 'weeks' : 'months'}</p>
-            </div>
-            <div>
-              <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-2">Disbursement Date</h3>
-              <p className="text-xl font-semibold">{formatDate(loan.disbursementDate)}</p>
-            </div>
-            <div>
-              <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-2">Next Payment Date</h3>
-              <p className="text-xl font-semibold">{formatDate(loan.nextPaymentDate)}</p>
-            </div>
-            <div>
-              <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-2">End Date</h3>
-              <p className="text-xl font-semibold">
-                {formatDate(calculateEndDate(loan.disbursementDate, loan.duration))}
-              </p>
             </div>
           </div>
         </div>
       </div>
 
-      <div className="bg-white rounded-lg shadow-md overflow-hidden">
+      {/* Payment Schedules Table */}
+      <div className="bg-white rounded-lg shadow-md overflow-x-auto mb-6">
         <div className="p-6 border-b flex flex-col md:flex-row justify-between items-start md:items-center space-y-4 md:space-y-0">
           <div className="flex items-center">
             <h2 className="text-xl font-semibold">Payment Schedule</h2>
@@ -1293,7 +1266,7 @@ const LoanDetailPage = () => {
         )}
 
         <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
+          <table className="min-w-full divide-y divide-gray-200 text-xs sm:text-sm">
             <thead className="bg-gray-50">
               <tr>
                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -1536,6 +1509,45 @@ const LoanDetailPage = () => {
           </div>
         )}
       </div>
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteModal && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl p-6 max-w-md w-full">
+            <h3 className="text-lg font-semibold mb-4">Confirm Delete</h3>
+            <p className="mb-6">Are you sure you want to delete this repayment? This action cannot be undone.</p>
+
+            {deleteError && (
+              <div className="mb-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+                <p>{deleteError}</p>
+              </div>
+            )}
+
+            {deleteSuccess && (
+              <div className="mb-4 bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded">
+                <p>{deleteSuccess}</p>
+              </div>
+            )}
+
+            <div className="flex justify-end space-x-3">
+              <button
+                onClick={() => setShowDeleteModal(false)}
+                disabled={isDeleting}
+                className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition duration-300"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmDeleteRepayment}
+                disabled={isDeleting}
+                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isDeleting ? 'Deleting...' : 'Delete'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

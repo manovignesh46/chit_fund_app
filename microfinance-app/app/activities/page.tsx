@@ -119,18 +119,18 @@ export default function ActivitiesPage() {
   }
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold text-blue-700">Recent Activities</h1>
-        <Link href="/dashboard" className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition duration-300">
+    <div className="container mx-auto px-2 sm:px-4 py-6 sm:py-8 max-w-screen-xl w-full">
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-6 sm:mb-8">
+        <h1 className="text-2xl sm:text-3xl font-bold text-blue-700">Recent Activities</h1>
+        <Link href="/dashboard" className="w-full sm:w-auto px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition duration-300 text-center text-sm sm:text-base">
           Back to Dashboard
         </Link>
       </div>
 
-      <div className="bg-white rounded-lg shadow-md p-6">
+      <div className="bg-white rounded-lg shadow-md p-2 sm:p-6">
         {/* Filter Controls */}
-        <div className="flex justify-between items-center mb-6">
-          <div className="flex space-x-2">
+        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 sm:gap-4 mb-6">
+          <div className="flex flex-row gap-2 flex-wrap">
             <button
               onClick={() => setFilter('all')}
               className={`px-3 py-1 rounded ${
@@ -162,12 +162,12 @@ export default function ActivitiesPage() {
               Chit Funds
             </button>
           </div>
-          <div className="flex items-center space-x-2">
+          <div className="flex items-center gap-2 w-full sm:w-auto">
             <span className="text-sm text-gray-600">Show:</span>
             <select
               value={pageSize}
               onChange={handlePageSizeChange}
-              className="border rounded p-1 text-sm"
+              className="border rounded p-1 text-sm w-full sm:w-auto"
             >
               <option value={5}>5</option>
               <option value={10}>10</option>
@@ -190,7 +190,7 @@ export default function ActivitiesPage() {
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
+            <table className="min-w-full divide-y divide-gray-200 text-xs sm:text-sm">
               <thead className="bg-gray-50">
                 <tr>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -263,13 +263,13 @@ export default function ActivitiesPage() {
 
         {/* Pagination */}
         {totalPages > 1 && (
-          <div className="flex justify-between items-center mt-6">
-            <div className="text-sm text-gray-700">
+          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mt-6 gap-2 sm:gap-0">
+            <div className="text-xs sm:text-sm text-gray-700">
               Showing <span className="font-medium">{(currentPage - 1) * pageSize + 1}</span> to{' '}
               <span className="font-medium">{Math.min(currentPage * pageSize, totalActivities)}</span> of{' '}
               <span className="font-medium">{totalActivities}</span> results
             </div>
-            <div className="flex space-x-2">
+            <div className="flex flex-row gap-2 flex-wrap">
               <button
                 onClick={() => handlePageChange(currentPage - 1)}
                 disabled={currentPage === 1}

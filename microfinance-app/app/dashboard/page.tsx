@@ -351,17 +351,17 @@ export default function DashboardPage() {
   };
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="flex justify-between items-center mb-8">
-        <h1 className="text-3xl font-bold text-blue-700">Dashboard</h1>
-        <div className="flex space-x-4">
-          <Link href="/members" className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition duration-300">
+    <div className="container mx-auto px-2 sm:px-4 py-6 sm:py-8 max-w-screen-xl w-full">
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-6 sm:mb-8">
+        <h1 className="text-2xl sm:text-3xl font-bold text-blue-700">Dashboard</h1>
+        <div className="flex flex-col sm:flex-row gap-2 sm:gap-4 w-full sm:w-auto">
+          <Link href="/members" className="w-full sm:w-auto px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition duration-300 text-center text-sm sm:text-base">
             Manage Members
           </Link>
-          <Link href="/chit-funds/new" className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-300">
+          <Link href="/chit-funds/new" className="w-full sm:w-auto px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-300 text-center text-sm sm:text-base">
             New Chit Fund
           </Link>
-          <Link href="/loans/new" className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition duration-300">
+          <Link href="/loans/new" className="w-full sm:w-auto px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition duration-300 text-center text-sm sm:text-base">
             New Loan
           </Link>
         </div>
@@ -370,27 +370,27 @@ export default function DashboardPage() {
       {loading ? (
         <DashboardSkeleton />
       ) : error ? (
-        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded text-sm sm:text-base">
           <p className="font-bold">Error</p>
           <p>{error}</p>
         </div>
       ) : (
         <>
           {/* Financial Overview */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-            <div className="bg-white shadow-md rounded-lg p-6 border-t-4 border-purple-500">
-              <h2 className="text-lg font-semibold text-gray-600">Remaining Loan Balances</h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6 mb-6 sm:mb-8">
+            <div className="bg-white shadow-md rounded-lg p-4 sm:p-6 border-t-4 border-purple-500">
+              <h2 className="text-lg sm:text-xl font-semibold text-gray-600">Remaining Loan Balances</h2>
               <p className="text-2xl font-bold text-purple-700">{formatCurrency(dashboardData.outsideAmountBreakdown.loanRemainingAmount)}</p>
               <p className="text-sm text-gray-500 mt-2">Pending loan repayments to be collected</p>
             </div>
-            <div className="bg-white shadow-md rounded-lg p-6 border-t-4 border-blue-500">
-              <h2 className="text-lg font-semibold text-gray-600">Chit Fund Outside Amount</h2>
+            <div className="bg-white shadow-md rounded-lg p-4 sm:p-6 border-t-4 border-blue-500">
+              <h2 className="text-lg sm:text-xl font-semibold text-gray-600">Chit Fund Outside Amount</h2>
               <p className="text-2xl font-bold text-blue-700">{formatCurrency(dashboardData.outsideAmountBreakdown.chitFundOutsideAmount)}</p>
               <p className="text-sm text-gray-500 mt-2">Pending or over-disbursed from chit funds</p>
             </div>
-            <div className="bg-white shadow-md rounded-lg p-6 border-t-4 border-green-500">
+            <div className="bg-white shadow-md rounded-lg p-4 sm:p-6 border-t-4 border-green-500">
               <h2
-                className="text-lg font-semibold text-gray-600 flex items-center cursor-pointer"
+                className="text-lg sm:text-xl font-semibold text-gray-600 flex items-center cursor-pointer"
                 onClick={() => setShowProfit(!showProfit)}
               >
                 Total Profit
@@ -408,14 +408,14 @@ export default function DashboardPage() {
 
           {/* Profit Breakdown - Only show if showProfit is true */}
           {showProfit && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-              <div className="bg-white shadow-md rounded-lg p-6 border-t-4 border-purple-500">
-                <h2 className="text-lg font-semibold text-gray-600">Loan Profit</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 mb-6 sm:mb-8">
+              <div className="bg-white shadow-md rounded-lg p-4 sm:p-6 border-t-4 border-purple-500">
+                <h2 className="text-lg sm:text-xl font-semibold text-gray-600">Loan Profit</h2>
                 <p className="text-2xl font-bold text-purple-700">{formatCurrency(dashboardData.loanProfit)}</p>
                 <p className="text-sm text-gray-500 mt-2">From interest and document charges</p>
               </div>
-              <div className="bg-white shadow-md rounded-lg p-6 border-t-4 border-blue-500">
-                <h2 className="text-lg font-semibold text-gray-600">Chit Fund Profit</h2>
+              <div className="bg-white shadow-md rounded-lg p-4 sm:p-6 border-t-4 border-blue-500">
+                <h2 className="text-lg sm:text-xl font-semibold text-gray-600">Chit Fund Profit</h2>
                 <p className="text-2xl font-bold text-blue-700">{formatCurrency(dashboardData.chitFundProfit)}</p>
                 <p className="text-sm text-gray-500 mt-2">From auction commissions</p>
               </div>
@@ -423,11 +423,11 @@ export default function DashboardPage() {
           )}
 
           {/* Financial Graph */}
-          <div className="mb-8">
-            <div className="bg-white rounded-lg shadow-md p-4 mb-4">
-              <div className="flex flex-wrap justify-between items-center">
-                <h2 className="text-xl font-bold text-blue-700">Financial Trends</h2>
-                <div className="flex flex-wrap items-center gap-4 mt-2 sm:mt-0">
+          <div className="mb-6 sm:mb-8">
+            <div className="bg-white rounded-lg shadow-md p-2 sm:p-4 mb-4">
+              <div className="flex flex-col sm:flex-row flex-wrap sm:justify-between sm:items-center gap-2 sm:gap-0">
+                <h2 className="text-lg sm:text-xl font-bold text-blue-700">Financial Trends</h2>
+                <div className="flex flex-col sm:flex-row flex-wrap items-center gap-2 sm:gap-4 mt-2 sm:mt-0">
                   <div className="flex space-x-2">
                     <button
                       onClick={() => setSelectedDuration('weekly')}
@@ -486,17 +486,19 @@ export default function DashboardPage() {
                 </div>
               </div>
             </div>
-            <FinancialGraph
-              data={financialData}
-              loading={financialDataLoading}
-              error={financialDataError}
-            />
+            <div className="overflow-x-auto">
+              <FinancialGraph
+                data={financialData}
+                loading={financialDataLoading}
+                error={financialDataError}
+              />
+            </div>
           </div>
 
           {/* Stats Overview */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 sm:gap-6 mb-6 sm:mb-8">
             {stats.map((stat, index) => (
-              <div key={index} className="bg-white rounded-lg shadow-md p-6">
+              <div key={index} className="bg-white rounded-lg shadow-md p-4 sm:p-6">
                 <div className={`${stat.color} text-white rounded-full w-12 h-12 flex items-center justify-center mb-4`}>
                   <span className="text-xl font-bold">{index + 1}</span>
                 </div>
@@ -506,10 +508,10 @@ export default function DashboardPage() {
             ))}
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
             {/* Recent Activities */}
-            <div className="lg:col-span-2 bg-white rounded-lg shadow-md p-6">
-              <h2 className="text-xl font-bold text-blue-700 mb-4">Recent Activities</h2>
+            <div className="lg:col-span-2 bg-white rounded-lg shadow-md p-2 sm:p-6">
+              <h2 className="text-lg sm:text-xl font-bold text-blue-700 mb-2 sm:mb-4">Recent Activities</h2>
               {dashboardData.recentActivities.length === 0 ? (
                 <p className="text-gray-500 text-center py-4">No recent activities found.</p>
               ) : (
@@ -578,8 +580,8 @@ export default function DashboardPage() {
             </div>
 
             {/* Upcoming Events */}
-            <div className="bg-white rounded-lg shadow-md p-6">
-              <h2 className="text-xl font-bold text-blue-700 mb-4">Upcoming Events</h2>
+            <div className="bg-white rounded-lg shadow-md p-2 sm:p-6">
+              <h2 className="text-lg sm:text-xl font-bold text-blue-700 mb-2 sm:mb-4">Upcoming Events</h2>
               {!dashboardData.upcomingEvents || dashboardData.upcomingEvents.length === 0 ? (
                 <p className="text-gray-500 text-center py-4">No upcoming events found.</p>
               ) : (

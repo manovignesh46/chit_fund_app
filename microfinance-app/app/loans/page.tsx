@@ -308,18 +308,18 @@ export default function LoansPage() {
   };
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="flex justify-between items-center mb-8">
-        <h1 className="text-3xl font-bold text-green-700">Loans</h1>
-        <div className="flex space-x-4">
+    <div className="container mx-auto px-2 sm:px-4 py-6 sm:py-8 max-w-screen-xl w-full">
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-6 sm:mb-8">
+        <h1 className="text-2xl sm:text-3xl font-bold text-green-700">Loans</h1>
+        <div className="flex flex-col sm:flex-row gap-2 sm:gap-4 w-full sm:w-auto">
           <button
             onClick={handleExportSelected}
             disabled={selectedLoans.length === 0 || isExporting}
-            className={`px-4 py-2 rounded-lg ${
+            className={`w-full sm:w-auto px-4 py-2 rounded-lg text-sm sm:text-base ${
               selectedLoans.length === 0
                 ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
                 : 'bg-blue-600 text-white hover:bg-blue-700'
-            } transition duration-300 flex items-center`}
+            } transition duration-300 flex items-center justify-center`}
           >
             {isExporting ? (
               <>
@@ -341,7 +341,7 @@ export default function LoansPage() {
           <button
             onClick={handleBulkDeleteClick}
             disabled={selectedLoans.length === 0}
-            className={`px-4 py-2 rounded-lg ${
+            className={`w-full sm:w-auto px-4 py-2 rounded-lg text-sm sm:text-base ${
               selectedLoans.length === 0
                 ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
                 : 'bg-red-600 text-white hover:bg-red-700'
@@ -349,7 +349,7 @@ export default function LoansPage() {
           >
             Delete Selected
           </button>
-          <Link href="/loans/new" className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition duration-300">
+          <Link href="/loans/new" className="w-full sm:w-auto px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition duration-300 text-center text-sm sm:text-base">
             Create New Loan
           </Link>
         </div>
@@ -357,8 +357,8 @@ export default function LoansPage() {
 
       {/* Status filter - always visible */}
       <div className="bg-white rounded-lg shadow-md overflow-hidden mb-4">
-        <div className="p-4 flex items-center">
-          <label htmlFor="statusFilter" className="text-sm text-gray-600 mr-2">
+        <div className="p-2 sm:p-4 flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-4">
+          <label htmlFor="statusFilter" className="text-sm text-gray-600 mr-0 sm:mr-2">
             Filter by Status:
           </label>
           <select
@@ -377,7 +377,7 @@ export default function LoansPage() {
           {statusFilter && (
             <button
               onClick={() => setStatusFilter('')}
-              className="ml-2 text-sm text-gray-500 hover:text-gray-700"
+              className="text-sm text-gray-500 hover:text-gray-700"
             >
               Clear Filter
             </button>
@@ -388,24 +388,24 @@ export default function LoansPage() {
       {loading ? (
         <LoansListSkeleton />
       ) : error ? (
-        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded text-sm sm:text-base">
           <p className="font-bold">Error</p>
           <p>{error}</p>
         </div>
       ) : loans.length === 0 ? (
-        <div className="bg-white rounded-lg shadow-md p-6 text-center">
-          <p className="text-gray-600 mb-4">
+        <div className="bg-white rounded-lg shadow-md p-4 sm:p-6 text-center">
+          <p className="text-gray-600 mb-4 text-sm sm:text-base">
             {statusFilter ? `No loans found with status "${statusFilter}".` : "No loans found."}
           </p>
           {!statusFilter && (
-            <Link href="/loans/new" className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition duration-300">
+            <Link href="/loans/new" className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition duration-300 text-sm sm:text-base">
               Create Your First Loan
             </Link>
           )}
         </div>
       ) : (
-        <div className="bg-white rounded-lg shadow-md overflow-hidden">
-          <div className="p-4 border-b flex justify-between items-center">
+        <div className="bg-white rounded-lg shadow-md overflow-x-auto">
+          <div className="p-2 sm:p-4 border-b flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 sm:gap-0">
             <div className="flex items-center">
               <span className="text-sm text-gray-600">
                 {selectedLoans.length > 0 ? `${selectedLoans.length} selected` : ''}
@@ -414,7 +414,7 @@ export default function LoansPage() {
           </div>
 
           <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
+            <table className="min-w-full divide-y divide-gray-200 text-xs sm:text-sm">
               <thead className="bg-gray-50">
                 <tr>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -562,14 +562,14 @@ export default function LoansPage() {
           </div>
 
           {/* Pagination controls */}
-          <div className="p-6 border-t">
-            <div className="flex flex-col md:flex-row justify-between items-center">
-              <div className="mb-4 md:mb-0 flex items-center">
-                <p className="text-sm text-gray-600 mr-4">
+          <div className="p-2 sm:p-6 border-t">
+            <div className="flex flex-col md:flex-row justify-between items-center gap-2 md:gap-0">
+              <div className="mb-2 md:mb-0 flex items-center">
+                <p className="text-xs sm:text-sm text-gray-600 mr-2 sm:mr-4">
                   Showing {loans.length} of {totalCount} loans
                 </p>
                 <div className="flex items-center">
-                  <label htmlFor="pageSize" className="text-sm text-gray-600 mr-2">
+                  <label htmlFor="pageSize" className="text-xs sm:text-sm text-gray-600 mr-2">
                     Show:
                   </label>
                   <select
@@ -579,7 +579,7 @@ export default function LoansPage() {
                       setPageSize(Number(e.target.value));
                       setCurrentPage(1); // Reset to first page when changing page size
                     }}
-                    className="border border-gray-300 rounded-md text-sm py-1 pl-2 pr-8"
+                    className="border border-gray-300 rounded-md text-xs sm:text-sm py-1 pl-2 pr-8"
                   >
                     <option value="5">5</option>
                     <option value="10">10</option>
@@ -590,7 +590,7 @@ export default function LoansPage() {
                 </div>
               </div>
 
-              <div className="flex flex-col md:flex-row items-center space-y-4 md:space-y-0">
+              <div className="flex flex-col md:flex-row items-center space-y-2 md:space-y-0">
                 <div>
                   <nav className="isolate inline-flex -space-x-px rounded-md shadow-sm" aria-label="Pagination">
                     <button
@@ -676,8 +676,8 @@ export default function LoansPage() {
 
       {/* Delete Confirmation Modal */}
       {showDeleteModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 max-w-md w-full">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 px-2">
+          <div className="bg-white rounded-lg p-4 sm:p-6 max-w-md w-full">
             <h3 className="text-lg font-semibold mb-4">Confirm Delete</h3>
             {deleteSuccess ? (
               <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-4">
@@ -715,8 +715,8 @@ export default function LoansPage() {
 
       {/* Bulk Delete Confirmation Modal */}
       {showBulkDeleteModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 max-w-md w-full">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 px-2">
+          <div className="bg-white rounded-lg p-4 sm:p-6 max-w-md w-full">
             <h3 className="text-lg font-semibold mb-4">Confirm Bulk Delete</h3>
             {bulkDeleteSuccess ? (
               <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-4">

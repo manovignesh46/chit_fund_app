@@ -403,10 +403,10 @@ export default function MembersPage() {
   }
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold text-blue-700">Members</h1>
-        <div className="flex space-x-4">
+    <div className="container mx-auto px-2 sm:px-4 py-6 sm:py-8 max-w-screen-xl w-full">
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-6 sm:mb-8">
+        <h1 className="text-2xl sm:text-3xl font-bold text-blue-700">Members</h1>
+        <div className="flex flex-col sm:flex-row gap-2 sm:gap-4 w-full sm:w-auto">
           <button
             onClick={handleExportSelectedMembers}
             disabled={selectedMembers.length === 0 || isExporting}
@@ -482,248 +482,246 @@ export default function MembersPage() {
       )}
 
       {/* Members Table */}
-      <div className="bg-white rounded-lg shadow-md overflow-hidden mb-8">
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
+      <div className="bg-white rounded-lg shadow-md overflow-x-auto mb-6">
+        <table className="min-w-full divide-y divide-gray-200 text-xs sm:text-sm">
+          <thead className="bg-gray-50">
+            <tr>
+              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <div className="flex items-center">
+                  <input
+                    type="checkbox"
+                    checked={selectAll}
+                    onChange={handleSelectAll}
+                    className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                  />
+                  <span className="ml-2">Select</span>
+                </div>
+              </th>
+              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Name
+              </th>
+              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Contact
+              </th>
+              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Email
+              </th>
+              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Chit Funds
+              </th>
+              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Loans
+              </th>
+              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Actions
+              </th>
+            </tr>
+          </thead>
+          <tbody className="bg-white divide-y divide-gray-200">
+            {members.length === 0 ? (
               <tr>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  <div className="flex items-center">
-                    <input
-                      type="checkbox"
-                      checked={selectAll}
-                      onChange={handleSelectAll}
-                      className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                    />
-                    <span className="ml-2">Select</span>
-                  </div>
-                </th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Name
-                </th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Contact
-                </th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Email
-                </th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Chit Funds
-                </th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Loans
-                </th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Actions
-                </th>
+                <td colSpan={7} className="px-6 py-4 text-center text-gray-500">
+                  No members found. Add members to get started.
+                </td>
               </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {members.length === 0 ? (
-                <tr>
-                  <td colSpan={7} className="px-6 py-4 text-center text-gray-500">
-                    No members found. Add members to get started.
+            ) : (
+              members.map((member) => (
+                <tr
+                  key={member.id}
+                  className="hover:bg-gray-50 cursor-pointer"
+                  onClick={(e) => {
+                    // Prevent navigation when clicking on checkbox or action buttons
+                    if (
+                      e.target instanceof HTMLInputElement ||
+                      e.target instanceof HTMLButtonElement ||
+                      (e.target instanceof HTMLElement &&
+                       (e.target.closest('button') || e.target.closest('input')))
+                    ) {
+                      return;
+                    }
+                    window.location.href = `/members/${member.id}`;
+                  }}
+                >
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="flex items-center">
+                      <input
+                        type="checkbox"
+                        checked={selectedMembers.includes(member.id)}
+                        onChange={() => handleSelectMember(member.id)}
+                        className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                      />
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="text-sm font-medium text-blue-600">
+                      {member.name}
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="text-sm text-gray-900">{member.contact}</div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="text-sm text-gray-900">{member.email || '-'}</div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="text-sm text-gray-900">{member._count.chitFundMembers}</div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="text-sm text-gray-900">{member._count.loans}</div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                    <div className="flex space-x-2">
+                      <button
+                        onClick={() => handleEditMember(member)}
+                        className="text-green-600 hover:text-green-900"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        onClick={() => handleExportMember(member.id)}
+                        className={`text-blue-600 hover:text-blue-900 ${exportingMemberId === member.id ? 'opacity-50 cursor-not-allowed' : ''}`}
+                        disabled={exportingMemberId === member.id}
+                        title="Export member data"
+                      >
+                        {exportingMemberId === member.id ? 'Exporting...' : 'Export'}
+                      </button>
+                      <button
+                        onClick={() => handleDeleteMember(member.id)}
+                        className="text-red-600 hover:text-red-900"
+                        title="Delete member"
+                      >
+                        Delete
+                      </button>
+                    </div>
                   </td>
                 </tr>
-              ) : (
-                members.map((member) => (
-                  <tr
-                    key={member.id}
-                    className="hover:bg-gray-50 cursor-pointer"
-                    onClick={(e) => {
-                      // Prevent navigation when clicking on checkbox or action buttons
-                      if (
-                        e.target instanceof HTMLInputElement ||
-                        e.target instanceof HTMLButtonElement ||
-                        (e.target instanceof HTMLElement &&
-                         (e.target.closest('button') || e.target.closest('input')))
-                      ) {
-                        return;
-                      }
-                      window.location.href = `/members/${member.id}`;
-                    }}
-                  >
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center">
-                        <input
-                          type="checkbox"
-                          checked={selectedMembers.includes(member.id)}
-                          onChange={() => handleSelectMember(member.id)}
-                          className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                        />
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm font-medium text-blue-600">
-                        {member.name}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">{member.contact}</div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">{member.email || '-'}</div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">{member._count.chitFundMembers}</div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">{member._count.loans}</div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                      <div className="flex space-x-2">
-                        <button
-                          onClick={() => handleEditMember(member)}
-                          className="text-green-600 hover:text-green-900"
-                        >
-                          Edit
-                        </button>
-                        <button
-                          onClick={() => handleExportMember(member.id)}
-                          className={`text-blue-600 hover:text-blue-900 ${exportingMemberId === member.id ? 'opacity-50 cursor-not-allowed' : ''}`}
-                          disabled={exportingMemberId === member.id}
-                          title="Export member data"
-                        >
-                          {exportingMemberId === member.id ? 'Exporting...' : 'Export'}
-                        </button>
-                        <button
-                          onClick={() => handleDeleteMember(member.id)}
-                          className="text-red-600 hover:text-red-900"
-                          title="Delete member"
-                        >
-                          Delete
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+              ))
+            )}
+          </tbody>
+        </table>
 
-          {/* Pagination Controls */}
-          <div className="mt-6 flex items-center justify-between border-t border-gray-200 bg-white px-4 py-3 sm:px-6">
-            <div className="flex flex-1 justify-between sm:hidden">
-              <button
-                onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-                disabled={currentPage === 1}
-                className={`relative inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium ${
-                  currentPage === 1 ? 'text-gray-300 cursor-not-allowed' : 'text-gray-700 hover:bg-gray-50'
-                }`}
-              >
-                Previous
-              </button>
-              <button
-                onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-                disabled={currentPage === totalPages}
-                className={`relative ml-3 inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium ${
-                  currentPage === totalPages ? 'text-gray-300 cursor-not-allowed' : 'text-gray-700 hover:bg-gray-50'
-                }`}
-              >
-                Next
-              </button>
-            </div>
-            <div className="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between">
+        {/* Pagination Controls */}
+        <div className="mt-6 flex items-center justify-between border-t border-gray-200 bg-white px-4 py-3 sm:px-6">
+          <div className="flex flex-1 justify-between sm:hidden">
+            <button
+              onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+              disabled={currentPage === 1}
+              className={`relative inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium ${
+                currentPage === 1 ? 'text-gray-300 cursor-not-allowed' : 'text-gray-700 hover:bg-gray-50'
+              }`}
+            >
+              Previous
+            </button>
+            <button
+              onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+              disabled={currentPage === totalPages}
+              className={`relative ml-3 inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium ${
+                currentPage === totalPages ? 'text-gray-300 cursor-not-allowed' : 'text-gray-700 hover:bg-gray-50'
+              }`}
+            >
+              Next
+            </button>
+          </div>
+          <div className="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between">
+            <div className="flex items-center">
+              <p className="text-sm text-gray-700 mr-4">
+                Showing <span className="font-medium">{members.length > 0 ? (currentPage - 1) * pageSize + 1 : 0}</span> to{' '}
+                <span className="font-medium">{Math.min(currentPage * pageSize, (currentPage - 1) * pageSize + members.length)}</span> of{' '}
+                <span className="font-medium">{totalPages * pageSize}</span> results
+              </p>
               <div className="flex items-center">
-                <p className="text-sm text-gray-700 mr-4">
-                  Showing <span className="font-medium">{members.length > 0 ? (currentPage - 1) * pageSize + 1 : 0}</span> to{' '}
-                  <span className="font-medium">{Math.min(currentPage * pageSize, (currentPage - 1) * pageSize + members.length)}</span> of{' '}
-                  <span className="font-medium">{totalPages * pageSize}</span> results
-                </p>
-                <div className="flex items-center">
-                  <label htmlFor="pageSize" className="text-sm text-gray-700 mr-2">
-                    Show:
-                  </label>
-                  <select
-                    id="pageSize"
-                    value={pageSize}
-                    onChange={(e) => {
-                      setPageSize(Number(e.target.value));
-                      setCurrentPage(1); // Reset to first page when changing page size
-                    }}
-                    className="border border-gray-300 rounded-md text-sm py-1 pl-2 pr-8"
-                  >
-                    <option value="5">5</option>
-                    <option value="10">10</option>
-                    <option value="20">20</option>
-                    <option value="50">50</option>
-                    <option value="100">100</option>
-                  </select>
-                </div>
+                <label htmlFor="pageSize" className="text-sm text-gray-700 mr-2">
+                  Show:
+                </label>
+                <select
+                  id="pageSize"
+                  value={pageSize}
+                  onChange={(e) => {
+                    setPageSize(Number(e.target.value));
+                    setCurrentPage(1); // Reset to first page when changing page size
+                  }}
+                  className="border border-gray-300 rounded-md text-sm py-1 pl-2 pr-8"
+                >
+                  <option value="5">5</option>
+                  <option value="10">10</option>
+                  <option value="20">20</option>
+                  <option value="50">50</option>
+                  <option value="100">100</option>
+                </select>
               </div>
-              <div>
-                <nav className="isolate inline-flex -space-x-px rounded-md shadow-sm" aria-label="Pagination">
-                  <button
-                    onClick={() => setCurrentPage(1)}
-                    disabled={currentPage === 1}
-                    className={`relative inline-flex items-center rounded-l-md px-2 py-2 ${
-                      currentPage === 1 ? 'text-gray-300 cursor-not-allowed' : 'text-gray-500 hover:bg-gray-50'
-                    }`}
-                  >
-                    <span className="sr-only">First</span>
-                    <span className="text-xs">First</span>
-                  </button>
-                  <button
-                    onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-                    disabled={currentPage === 1}
-                    className={`relative inline-flex items-center px-2 py-2 ${
-                      currentPage === 1 ? 'text-gray-300 cursor-not-allowed' : 'text-gray-500 hover:bg-gray-50'
-                    }`}
-                  >
-                    <span className="sr-only">Previous</span>
-                    <span>←</span>
-                  </button>
+            </div>
+            <div>
+              <nav className="isolate inline-flex -space-x-px rounded-md shadow-sm" aria-label="Pagination">
+                <button
+                  onClick={() => setCurrentPage(1)}
+                  disabled={currentPage === 1}
+                  className={`relative inline-flex items-center rounded-l-md px-2 py-2 ${
+                    currentPage === 1 ? 'text-gray-300 cursor-not-allowed' : 'text-gray-500 hover:bg-gray-50'
+                  }`}
+                >
+                  <span className="sr-only">First</span>
+                  <span className="text-xs">First</span>
+                </button>
+                <button
+                  onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                  disabled={currentPage === 1}
+                  className={`relative inline-flex items-center px-2 py-2 ${
+                    currentPage === 1 ? 'text-gray-300 cursor-not-allowed' : 'text-gray-500 hover:bg-gray-50'
+                  }`}
+                >
+                  <span className="sr-only">Previous</span>
+                  <span>←</span>
+                </button>
 
-                  {/* Page numbers */}
-                  {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                    let pageNum;
-                    if (totalPages <= 5) {
-                      pageNum = i + 1;
-                    } else if (currentPage <= 3) {
-                      pageNum = i + 1;
-                    } else if (currentPage >= totalPages - 2) {
-                      pageNum = totalPages - 4 + i;
-                    } else {
-                      pageNum = currentPage - 2 + i;
-                    }
+                {/* Page numbers */}
+                {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                  let pageNum;
+                  if (totalPages <= 5) {
+                    pageNum = i + 1;
+                  } else if (currentPage <= 3) {
+                    pageNum = i + 1;
+                  } else if (currentPage >= totalPages - 2) {
+                    pageNum = totalPages - 4 + i;
+                  } else {
+                    pageNum = currentPage - 2 + i;
+                  }
 
-                    return (
-                      <button
-                        key={pageNum}
-                        onClick={() => setCurrentPage(pageNum)}
-                        className={`relative inline-flex items-center px-4 py-2 text-sm font-semibold ${
-                          currentPage === pageNum
-                            ? 'z-10 bg-blue-600 text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600'
-                            : 'text-gray-900 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:outline-offset-0'
-                        }`}
-                      >
-                        {pageNum}
-                      </button>
-                    );
-                  })}
+                  return (
+                    <button
+                      key={pageNum}
+                      onClick={() => setCurrentPage(pageNum)}
+                      className={`relative inline-flex items-center px-4 py-2 text-sm font-semibold ${
+                        currentPage === pageNum
+                          ? 'z-10 bg-blue-600 text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600'
+                          : 'text-gray-900 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:outline-offset-0'
+                      }`}
+                    >
+                      {pageNum}
+                    </button>
+                  );
+                })}
 
-                  <button
-                    onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-                    disabled={currentPage === totalPages}
-                    className={`relative inline-flex items-center px-2 py-2 ${
-                      currentPage === totalPages ? 'text-gray-300 cursor-not-allowed' : 'text-gray-500 hover:bg-gray-50'
-                    }`}
-                  >
-                    <span className="sr-only">Next</span>
-                    <span>→</span>
-                  </button>
-                  <button
-                    onClick={() => setCurrentPage(totalPages)}
-                    disabled={currentPage === totalPages}
-                    className={`relative inline-flex items-center rounded-r-md px-2 py-2 ${
-                      currentPage === totalPages ? 'text-gray-300 cursor-not-allowed' : 'text-gray-500 hover:bg-gray-50'
-                    }`}
-                  >
-                    <span className="sr-only">Last</span>
-                    <span className="text-xs">Last</span>
-                  </button>
-                </nav>
-              </div>
+                <button
+                  onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                  disabled={currentPage === totalPages}
+                  className={`relative inline-flex items-center px-2 py-2 ${
+                    currentPage === totalPages ? 'text-gray-300 cursor-not-allowed' : 'text-gray-500 hover:bg-gray-50'
+                  }`}
+                >
+                  <span className="sr-only">Next</span>
+                  <span>→</span>
+                </button>
+                <button
+                  onClick={() => setCurrentPage(totalPages)}
+                  disabled={currentPage === totalPages}
+                  className={`relative inline-flex items-center rounded-r-md px-2 py-2 ${
+                    currentPage === totalPages ? 'text-gray-300 cursor-not-allowed' : 'text-gray-500 hover:bg-gray-50'
+                  }`}
+                >
+                  <span className="sr-only">Last</span>
+                  <span className="text-xs">Last</span>
+                </button>
+              </nav>
             </div>
           </div>
         </div>

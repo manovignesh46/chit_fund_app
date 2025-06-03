@@ -193,18 +193,18 @@ export default function CalendarPage() {
   }
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold text-blue-700">Calendar</h1>
-        <Link href="/dashboard" className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition duration-300">
+    <div className="container mx-auto px-2 sm:px-4 py-6 sm:py-8 max-w-screen-xl w-full">
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-6 sm:mb-8">
+        <h1 className="text-2xl sm:text-3xl font-bold text-blue-700">Calendar</h1>
+        <Link href="/dashboard" className="w-full sm:w-auto px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition duration-300 text-center text-sm sm:text-base">
           Back to Dashboard
         </Link>
       </div>
 
-      <div className="bg-white rounded-lg shadow-md p-6">
+      <div className="bg-white rounded-lg shadow-md p-2 sm:p-6">
         {/* Calendar Controls */}
-        <div className="flex justify-between items-center mb-6">
-          <div className="flex space-x-2">
+        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 sm:gap-4 mb-6">
+          <div className="flex flex-row gap-2">
             <button
               onClick={prevMonth}
               className="px-3 py-1 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 transition duration-300"
@@ -224,8 +224,8 @@ export default function CalendarPage() {
               Next &gt;
             </button>
           </div>
-          <h2 className="text-xl font-semibold">{format(currentMonth, 'MMMM yyyy')}</h2>
-          <div className="flex space-x-2">
+          <h2 className="text-lg sm:text-xl font-semibold">{format(currentMonth, 'MMMM yyyy')}</h2>
+          <div className="flex flex-row gap-2">
             <button
               onClick={() => setFilter('all')}
               className={`px-3 py-1 rounded ${
@@ -260,7 +260,7 @@ export default function CalendarPage() {
         </div>
 
         {/* Calendar Grid */}
-        <div className="grid grid-cols-7 gap-2 mb-4">
+        <div className="grid grid-cols-7 gap-1 sm:gap-2 mb-4">
           {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day) => (
             <div key={day} className="text-center font-semibold text-gray-600">
               {day}
@@ -281,7 +281,7 @@ export default function CalendarPage() {
             <p className="text-gray-500 mt-2">Try selecting a different month or creating new events.</p>
           </div>
         ) : (
-          <div className="grid grid-cols-7 gap-2">
+          <div className="grid grid-cols-7 gap-1 sm:gap-2">
             {/* Empty cells for days before the start of the month */}
             {[...Array(monthStart.getDay())].map((_, i) => (
               <div key={`empty-start-${i}`} className="h-24 bg-gray-50 rounded"></div>

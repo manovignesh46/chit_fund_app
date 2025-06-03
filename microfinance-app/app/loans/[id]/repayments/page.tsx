@@ -275,10 +275,10 @@ const RepaymentsPage = () => {
   }
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold text-green-700">Repayment History</h1>
-        <div className="flex space-x-4">
+    <div className="container mx-auto px-2 sm:px-4 py-6 sm:py-8 max-w-screen-xl w-full">
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-6 sm:mb-8">
+        <h1 className="text-2xl sm:text-3xl font-bold text-green-700">Repayment History</h1>
+        <div className="flex flex-col sm:flex-row gap-2 sm:gap-4 w-full sm:w-auto">
           {loan.status === 'Active' && (
             <Link href={`/loans/${id}/repayments/new`} className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition duration-300">
               Record New Payment
@@ -290,297 +290,263 @@ const RepaymentsPage = () => {
         </div>
       </div>
 
-      <div className="bg-white rounded-lg shadow-md overflow-hidden mb-6">
-        <div className="p-6 border-b">
-          <h2 className="text-xl font-semibold">Loan Information</h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
-            <div>
-              <p className="text-sm text-gray-500">Borrower</p>
-              <p className="font-medium">{loan.borrower?.name || 'Unknown'}</p>
-            </div>
-            <div>
-              <p className="text-sm text-gray-500">Total Amount</p>
-              <p className="font-medium">{formatCurrency(loan.amount)}</p>
-            </div>
-            <div>
-              <p className="text-sm text-gray-500">Remaining Balance</p>
-              <p className="font-medium">{formatCurrency(loan.remainingAmount)}</p>
-            </div>
+      <div className="bg-white rounded-lg shadow-md p-2 sm:p-6 overflow-x-auto mb-6">
+        {/* Loan Information grid */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+          <div>
+            <p className="text-sm text-gray-500">Borrower</p>
+            <p className="font-medium">{loan.borrower?.name || 'Unknown'}</p>
+          </div>
+          <div>
+            <p className="text-sm text-gray-500">Total Amount</p>
+            <p className="font-medium">{formatCurrency(loan.amount)}</p>
+          </div>
+          <div>
+            <p className="text-sm text-gray-500">Remaining Balance</p>
+            <p className="font-medium">{formatCurrency(loan.remainingAmount)}</p>
           </div>
         </div>
       </div>
 
-      {repayments.length === 0 ? (
-        <div className="bg-white rounded-lg shadow-md p-6 text-center">
-          <p className="text-gray-600 mb-4">No repayments recorded yet.</p>
-          {loan.status === 'Active' && (
-            <Link href={`/loans/${id}/repayments/new`} className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition duration-300">
-              Record First Payment
-            </Link>
-          )}
-        </div>
-      ) : (
-        <div className="bg-white rounded-lg shadow-md overflow-hidden">
-          {/* Action buttons */}
-          <div className="p-4 border-b flex justify-between items-center">
-            <div className="flex items-center">
-              <button
-                onClick={handleBulkDeleteClick}
-                disabled={selectedRepayments.length === 0}
-                className={`px-4 py-2 rounded-lg mr-4 ${
-                  selectedRepayments.length === 0
-                    ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                    : 'bg-red-600 text-white hover:bg-red-700'
-                } transition duration-300`}
-              >
-                Delete Selected
-              </button>
-              <span className="text-sm text-gray-600">
-                {selectedRepayments.length > 0 ? `${selectedRepayments.length} selected` : ''}
-              </span>
-            </div>
-          </div>
-
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    <div className="flex items-center">
-                      <input
-                        type="checkbox"
-                        checked={selectAll}
-                        onChange={handleSelectAll}
-                        className="h-4 w-4 text-green-600 border-gray-300 rounded focus:ring-green-500"
-                      />
-                      <span className="ml-2">Select</span>
-                    </div>
-                  </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Payment Date
-                  </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Amount
-                  </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Type
-                  </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Period
-                  </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Source
-                  </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {repayments.map((repayment) => (
-                  <tr key={repayment.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center">
-                        <input
-                          type="checkbox"
-                          checked={selectedRepayments.includes(repayment.id)}
-                          onChange={() => handleSelectRepayment(repayment.id)}
-                          className="h-4 w-4 text-green-600 border-gray-300 rounded focus:ring-green-500"
-                        />
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">{formatDate(repayment.paidDate)}</div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">
-                        {repayment.paymentType === 'interestOnly' ? (
-                          <div>
-                            <div>{formatCurrency((loan as any).interestRate || repayment.amount)}</div>
-                            <div className="text-xs text-gray-500">(Actual: {formatCurrency(repayment.amount)})</div>
-                          </div>
-                        ) : (
-                          formatCurrency(repayment.amount)
-                        )}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      {repayment.paymentType === 'interestOnly' ? (
-                        <span className="px-3 py-1.5 text-sm font-medium rounded-full bg-yellow-100 text-yellow-800 border border-yellow-300 shadow-sm flex items-center">
-                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1 text-yellow-600" viewBox="0 0 20 20" fill="currentColor">
-                            <path d="M8.433 7.418c.155-.103.346-.196.567-.267v1.698a2.305 2.305 0 01-.567-.267C8.07 8.34 8 8.114 8 8c0-.114.07-.34.433-.582zM11 12.849v-1.698c.22.071.412.164.567.267.364.243.433.468.433.582 0 .114-.07.34-.433.582a2.305 2.305 0 01-.567.267z" />
-                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-13a1 1 0 10-2 0v.092a4.535 4.535 0 00-1.676.662C6.602 6.234 6 7.009 6 8c0 .99.602 1.765 1.324 2.246.48.32 1.054.545 1.676.662v1.941c-.391-.127-.68-.317-.843-.504a1 1 0 10-1.51 1.31c.562.649 1.413 1.076 2.353 1.253V15a1 1 0 102 0v-.092a4.535 4.535 0 001.676-.662C13.398 13.766 14 12.991 14 12c0-.99-.602-1.765-1.324-2.246A4.535 4.535 0 0011 9.092V7.151c.391.127.68.317.843.504a1 1 0 101.511-1.31c-.563-.649-1.413-1.076-2.354-1.253V5z" clipRule="evenodd" />
-                          </svg>
-                          Interest Only
-                        </span>
-                      ) : (
-                        <span className="px-3 py-1.5 text-sm font-medium rounded-full bg-green-100 text-green-800 border border-green-300 shadow-sm flex items-center">
-                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1 text-green-600" viewBox="0 0 20 20" fill="currentColor">
-                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                          </svg>
-                          Principal + Interest
-                        </span>
-                      )}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">
-                        {repayment.period ? `Period ${repayment.period}` : '-'}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">
-                        <span className="px-2 py-1 text-xs font-medium rounded-full bg-gray-100 text-gray-800">
-                          Manual Entry
-                        </span>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                      <button
-                        onClick={() => handleDeleteRepayment(repayment.id)}
-                        className="text-red-600 hover:text-red-900"
-                      >
-                        Delete
-                      </button>
-                      <Link
-                        href={`/loans/${id}/payment-schedules`}
-                        className="ml-3 text-blue-600 hover:text-blue-900"
-                      >
-                        View Schedule
-                      </Link>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          {/* Pagination and summary */}
-          <div className="p-6 border-t">
-            <div className="flex flex-col md:flex-row justify-between items-center">
-              <div className="mb-4 md:mb-0 flex items-center">
-                <div className="mr-6">
-                  <span className="text-sm text-gray-500">Total Paid:</span>
-                  <span className="ml-2 text-lg font-semibold">
-                    {formatCurrency(repayments.reduce((sum, item) => sum + item.amount, 0))}
-                  </span>
-                  <div className="text-xs text-gray-500 mt-1">
-                    (Profit: {formatCurrency(repayments.reduce((sum, item) => {
-                      // Use type assertion to access interestRate
-                      const interestRate = (loan as any).interestRate || 0;
-                      if (item.paymentType === 'interestOnly') {
-                        return sum + interestRate;
-                      } else {
-                        return sum + interestRate;
-                      }
-                    }, 0))})
-                  </div>
-                </div>
+      {/* Repayments Table */}
+      <div className="bg-white rounded-lg shadow-md overflow-x-auto mb-6">
+        <table className="min-w-full divide-y divide-gray-200 text-xs sm:text-sm">
+          <thead className="bg-gray-50">
+            <tr>
+              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 <div className="flex items-center">
-                  <label htmlFor="pageSize" className="text-sm text-gray-600 mr-2">
-                    Show:
-                  </label>
-                  <select
-                    id="pageSize"
-                    value={pageSize}
-                    onChange={(e) => {
-                      setPageSize(Number(e.target.value));
-                      setCurrentPage(1); // Reset to first page when changing page size
-                    }}
-                    className="border border-gray-300 rounded-md text-sm py-1 pl-2 pr-8"
+                  <input
+                    type="checkbox"
+                    checked={selectAll}
+                    onChange={handleSelectAll}
+                    className="h-4 w-4 text-green-600 border-gray-300 rounded focus:ring-green-500"
+                  />
+                  <span className="ml-2">Select</span>
+                </div>
+              </th>
+              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Payment Date
+              </th>
+              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Amount
+              </th>
+              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Type
+              </th>
+              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Period
+              </th>
+              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Source
+              </th>
+              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Actions
+              </th>
+            </tr>
+          </thead>
+          <tbody className="bg-white divide-y divide-gray-200">
+            {repayments.map((repayment) => (
+              <tr key={repayment.id} className="hover:bg-gray-50">
+                <td className="px-6 py-4 whitespace-nowrap">
+                  <div className="flex items-center">
+                    <input
+                      type="checkbox"
+                      checked={selectedRepayments.includes(repayment.id)}
+                      onChange={() => handleSelectRepayment(repayment.id)}
+                      className="h-4 w-4 text-green-600 border-gray-300 rounded focus:ring-green-500"
+                    />
+                  </div>
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap">
+                  <div className="text-sm text-gray-900">{formatDate(repayment.paidDate)}</div>
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap">
+                  <div className="text-sm text-gray-900">
+                    {repayment.paymentType === 'interestOnly' ? (
+                      <div>
+                        <div>{formatCurrency((loan as any).interestRate || repayment.amount)}</div>
+                        <div className="text-xs text-gray-500">(Actual: {formatCurrency(repayment.amount)})</div>
+                      </div>
+                    ) : (
+                      formatCurrency(repayment.amount)
+                    )}
+                  </div>
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap">
+                  {repayment.paymentType === 'interestOnly' ? (
+                    <span className="px-3 py-1.5 text-sm font-medium rounded-full bg-yellow-100 text-yellow-800 border border-yellow-300 shadow-sm flex items-center">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1 text-yellow-600" viewBox="0 0 20 20" fill="currentColor">
+                        <path d="M8.433 7.418c.155-.103.346-.196.567-.267v1.698a2.305 2.305 0 01-.567-.267C8.07 8.34 8 8.114 8 8c0-.114.07-.34.433-.582zM11 12.849v-1.698c.22.071.412.164.567.267.364.243.433.468.433.582 0 .114-.07.34-.433.582a2.305 2.305 0 01-.567.267z" />
+                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-13a1 1 0 10-2 0v.092a4.535 4.535 0 00-1.676.662C6.602 6.234 6 7.009 6 8c0 .99.602 1.765 1.324 2.246.48.32 1.054.545 1.676.662v1.941c-.391-.127-.68-.317-.843-.504a1 1 0 10-1.51 1.31c.562.649 1.413 1.076 2.353 1.253V15a1 1 0 102 0v-.092a4.535 4.535 0 001.676-.662C13.398 13.766 14 12.991 14 12c0-.99-.602-1.765-1.324-2.246A4.535 4.535 0 0011 9.092V7.151c.391.127.68.317.843.504a1 1 0 101.511-1.31c-.563-.649-1.413-1.076-2.354-1.253V5z" clipRule="evenodd" />
+                      </svg>
+                      Interest Only
+                    </span>
+                  ) : (
+                    <span className="px-3 py-1.5 text-sm font-medium rounded-full bg-green-100 text-green-800 border border-green-300 shadow-sm flex items-center">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1 text-green-600" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                      </svg>
+                      Principal + Interest
+                    </span>
+                  )}
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap">
+                  <div className="text-sm text-gray-900">
+                    {repayment.period ? `Period ${repayment.period}` : '-'}
+                  </div>
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap">
+                  <div className="text-sm text-gray-900">
+                    <span className="px-2 py-1 text-xs font-medium rounded-full bg-gray-100 text-gray-800">
+                      Manual Entry
+                    </span>
+                  </div>
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                  <button
+                    onClick={() => handleDeleteRepayment(repayment.id)}
+                    className="text-red-600 hover:text-red-900"
                   >
-                    <option value="5">5</option>
-                    <option value="10">10</option>
-                    <option value="20">20</option>
-                    <option value="50">50</option>
-                    <option value="100">100</option>
-                  </select>
-                </div>
+                    Delete
+                  </button>
+                  <Link
+                    href={`/loans/${id}/payment-schedules`}
+                    className="ml-3 text-blue-600 hover:text-blue-900"
+                  >
+                    View Schedule
+                  </Link>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Pagination and summary */}
+      <div className="p-6 border-t">
+        <div className="flex flex-col md:flex-row justify-between items-center">
+          <div className="mb-4 md:mb-0 flex items-center">
+            <div className="mr-6">
+              <span className="text-sm text-gray-500">Total Paid:</span>
+              <span className="ml-2 text-lg font-semibold">
+                {formatCurrency(repayments.reduce((sum, item) => sum + item.amount, 0))}
+              </span>
+              <div className="text-xs text-gray-500 mt-1">
+                (Profit: {formatCurrency(repayments.reduce((sum, item) => {
+                  // Use type assertion to access interestRate
+                  const interestRate = (loan as any).interestRate || 0;
+                  if (item.paymentType === 'interestOnly') {
+                    return sum + interestRate;
+                  } else {
+                    return sum + interestRate;
+                  }
+                }, 0))})
               </div>
+            </div>
+            <div className="flex items-center">
+              <label htmlFor="pageSize" className="text-sm text-gray-600 mr-2">
+                Show:
+              </label>
+              <select
+                id="pageSize"
+                value={pageSize}
+                onChange={(e) => {
+                  setPageSize(Number(e.target.value));
+                  setCurrentPage(1); // Reset to first page when changing page size
+                }}
+                className="border border-gray-300 rounded-md text-sm py-1 pl-2 pr-8"
+              >
+                <option value="5">5</option>
+                <option value="10">10</option>
+                <option value="20">20</option>
+                <option value="50">50</option>
+                <option value="100">100</option>
+              </select>
+            </div>
+          </div>
 
-              {/* Pagination controls */}
-              <div className="flex flex-col md:flex-row items-center space-y-4 md:space-y-0">
-                <div>
-                  <nav className="isolate inline-flex -space-x-px rounded-md shadow-sm" aria-label="Pagination">
+          {/* Pagination controls */}
+          <div className="flex flex-col md:flex-row items-center space-y-4 md:space-y-0">
+            <div>
+              <nav className="isolate inline-flex -space-x-px rounded-md shadow-sm" aria-label="Pagination">
+                <button
+                  onClick={() => setCurrentPage(1)}
+                  disabled={currentPage === 1}
+                  className={`relative inline-flex items-center rounded-l-md px-2 py-2 ${
+                    currentPage === 1 ? 'text-gray-300 cursor-not-allowed' : 'text-gray-500 hover:bg-gray-50'
+                  }`}
+                >
+                  <span className="sr-only">First</span>
+                  <span className="text-xs">First</span>
+                </button>
+                <button
+                  onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                  disabled={currentPage === 1}
+                  className={`relative inline-flex items-center px-2 py-2 ${
+                    currentPage === 1 ? 'text-gray-300 cursor-not-allowed' : 'text-gray-500 hover:bg-gray-50'
+                  }`}
+                >
+                  <span className="sr-only">Previous</span>
+                  <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                    <path fillRule="evenodd" d="M12.79 5.23a.75.75 0 01-.02 1.06L8.832 10l3.938 3.71a.75.75 0 11-1.04 1.08l-4.5-4.25a.75.75 0 010-1.08l4.5-4.25a.75.75 0 011.06.02z" clipRule="evenodd" />
+                  </svg>
+                </button>
+
+                {/* Page numbers */}
+                {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                  let pageNum;
+                  if (totalPages <= 5) {
+                    pageNum = i + 1;
+                  } else if (currentPage <= 3) {
+                    pageNum = i + 1;
+                  } else if (currentPage >= totalPages - 2) {
+                    pageNum = totalPages - 4 + i;
+                  } else {
+                    pageNum = currentPage - 2 + i;
+                  }
+
+                  return (
                     <button
-                      onClick={() => setCurrentPage(1)}
-                      disabled={currentPage === 1}
-                      className={`relative inline-flex items-center rounded-l-md px-2 py-2 ${
-                        currentPage === 1 ? 'text-gray-300 cursor-not-allowed' : 'text-gray-500 hover:bg-gray-50'
+                      key={pageNum}
+                      onClick={() => setCurrentPage(pageNum)}
+                      className={`relative inline-flex items-center px-4 py-2 text-sm font-semibold ${
+                        currentPage === pageNum
+                          ? 'z-10 bg-green-600 text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-600'
+                          : 'text-gray-900 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:outline-offset-0'
                       }`}
                     >
-                      <span className="sr-only">First</span>
-                      <span className="text-xs">First</span>
+                      {pageNum}
                     </button>
-                    <button
-                      onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-                      disabled={currentPage === 1}
-                      className={`relative inline-flex items-center px-2 py-2 ${
-                        currentPage === 1 ? 'text-gray-300 cursor-not-allowed' : 'text-gray-500 hover:bg-gray-50'
-                      }`}
-                    >
-                      <span className="sr-only">Previous</span>
-                      <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                        <path fillRule="evenodd" d="M12.79 5.23a.75.75 0 01-.02 1.06L8.832 10l3.938 3.71a.75.75 0 11-1.04 1.08l-4.5-4.25a.75.75 0 010-1.08l4.5-4.25a.75.75 0 011.06.02z" clipRule="evenodd" />
-                      </svg>
-                    </button>
+                  );
+                })}
 
-                    {/* Page numbers */}
-                    {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                      let pageNum;
-                      if (totalPages <= 5) {
-                        pageNum = i + 1;
-                      } else if (currentPage <= 3) {
-                        pageNum = i + 1;
-                      } else if (currentPage >= totalPages - 2) {
-                        pageNum = totalPages - 4 + i;
-                      } else {
-                        pageNum = currentPage - 2 + i;
-                      }
-
-                      return (
-                        <button
-                          key={pageNum}
-                          onClick={() => setCurrentPage(pageNum)}
-                          className={`relative inline-flex items-center px-4 py-2 text-sm font-semibold ${
-                            currentPage === pageNum
-                              ? 'z-10 bg-green-600 text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-600'
-                              : 'text-gray-900 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:outline-offset-0'
-                          }`}
-                        >
-                          {pageNum}
-                        </button>
-                      );
-                    })}
-
-                    <button
-                      onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-                      disabled={currentPage === totalPages}
-                      className={`relative inline-flex items-center px-2 py-2 ${
-                        currentPage === totalPages ? 'text-gray-300 cursor-not-allowed' : 'text-gray-500 hover:bg-gray-50'
-                      }`}
-                    >
-                      <span className="sr-only">Next</span>
-                      <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                        <path fillRule="evenodd" d="M7.21 14.77a.75.75 0 01.02-1.06L11.168 10 7.23 6.29a.75.75 0 111.04-1.08l4.5 4.25a.75.75 0 010 1.08l-4.5 4.25a.75.75 0 01-1.06-.02z" clipRule="evenodd" />
-                      </svg>
-                    </button>
-                    <button
-                      onClick={() => setCurrentPage(totalPages)}
-                      disabled={currentPage === totalPages}
-                      className={`relative inline-flex items-center rounded-r-md px-2 py-2 ${
-                        currentPage === totalPages ? 'text-gray-300 cursor-not-allowed' : 'text-gray-500 hover:bg-gray-50'
-                      }`}
-                    >
-                      <span className="sr-only">Last</span>
-                      <span className="text-xs">Last</span>
-                    </button>
-                  </nav>
-                </div>
-              </div>
+                <button
+                  onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                  disabled={currentPage === totalPages}
+                  className={`relative inline-flex items-center px-2 py-2 ${
+                    currentPage === totalPages ? 'text-gray-300 cursor-not-allowed' : 'text-gray-500 hover:bg-gray-50'
+                  }`}
+                >
+                  <span className="sr-only">Next</span>
+                  <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                    <path fillRule="evenodd" d="M7.21 14.77a.75.75 0 01.02-1.06L11.168 10 7.23 6.29a.75.75 0 111.04-1.08l4.5 4.25a.75.75 0 010 1.08l-4.5 4.25a.75.75 0 01-1.06-.02z" clipRule="evenodd" />
+                  </svg>
+                </button>
+                <button
+                  onClick={() => setCurrentPage(totalPages)}
+                  disabled={currentPage === totalPages}
+                  className={`relative inline-flex items-center rounded-r-md px-2 py-2 ${
+                    currentPage === totalPages ? 'text-gray-300 cursor-not-allowed' : 'text-gray-500 hover:bg-gray-50'
+                  }`}
+                >
+                  <span className="sr-only">Last</span>
+                  <span className="text-xs">Last</span>
+                </button>
+              </nav>
             </div>
           </div>
         </div>
-      )}
+      </div>
 
       {/* Delete Confirmation Modal */}
       {showDeleteModal && (

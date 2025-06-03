@@ -200,17 +200,17 @@ export default function MemberDetailPage() {
   }
 
   return (
-    <div className="container mx-auto px-4 py-8">
+    <div className="container w-full max-w-screen-lg mx-auto px-2 sm:px-4 py-4 sm:py-8">
       {exportError && (
-        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-6">
+        <div className="bg-red-100 border border-red-400 text-red-700 px-2 sm:px-4 py-2 sm:py-3 rounded mb-6 text-xs sm:text-sm">
           <p className="font-bold">Export Error</p>
           <p>{exportError}</p>
         </div>
       )}
 
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold text-blue-700">{member.name}</h1>
-        <ActionButtonGroup>
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 mb-6">
+        <h1 className="text-2xl sm:text-3xl font-bold text-blue-700 break-words">{member.name}</h1>
+        <ActionButtonGroup className="flex flex-wrap gap-2 w-full sm:w-auto">
           <ExportButton
             onClick={handleExportMember}
             disabled={isExporting}
@@ -218,86 +218,77 @@ export default function MemberDetailPage() {
           >
             Export Member Data
           </ExportButton>
-          <EditButton
-            href={`/members/${member.id}/edit`}
-          >
-            Edit Member
-          </EditButton>
-          <BackButton
-            href="/members"
-          >
-            Back to Members
-          </BackButton>
+          <EditButton href={`/members/${member.id}/edit`}>Edit Member</EditButton>
+          <BackButton href="/members">Back to Members</BackButton>
         </ActionButtonGroup>
       </div>
 
       {/* Member Details */}
-      <div className="bg-white rounded-lg shadow-md p-6 mb-8">
-        <h2 className="text-xl font-semibold text-blue-700 mb-4">Member Information</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div className="bg-white rounded-lg shadow-md p-4 sm:p-6 mb-8">
+        <h2 className="text-lg sm:text-xl font-semibold text-blue-700 mb-4">Member Information</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
           <div>
-            <p className="text-gray-600 text-sm">Contact</p>
-            <p className="text-lg">{member.contact}</p>
+            <p className="text-gray-600 text-xs sm:text-sm">Contact</p>
+            <p className="text-base sm:text-lg">{member.contact}</p>
           </div>
           <div>
-            <p className="text-gray-600 text-sm">Email</p>
-            <p className="text-lg">{member.email || '-'}</p>
+            <p className="text-gray-600 text-xs sm:text-sm">Email</p>
+            <p className="text-base sm:text-lg">{member.email || '-'}</p>
           </div>
           <div>
-            <p className="text-gray-600 text-sm">Address</p>
-            <p className="text-lg">{member.address || '-'}</p>
+            <p className="text-gray-600 text-xs sm:text-sm">Address</p>
+            <p className="text-base sm:text-lg">{member.address || '-'}</p>
           </div>
           <div>
-            <p className="text-gray-600 text-sm">Member Since</p>
-            <p className="text-lg">{formatDate(member.createdAt)}</p>
+            <p className="text-gray-600 text-xs sm:text-sm">Member Since</p>
+            <p className="text-base sm:text-lg">{formatDate(member.createdAt)}</p>
           </div>
         </div>
         {member.notes && (
           <div className="mt-6">
-            <p className="text-gray-600 text-sm">Notes</p>
-            <p className="text-lg mt-1 p-3 bg-gray-50 rounded">{member.notes}</p>
+            <p className="text-gray-600 text-xs sm:text-sm">Notes</p>
+            <p className="text-base sm:text-lg mt-1 p-3 bg-gray-50 rounded">{member.notes}</p>
           </div>
         )}
       </div>
 
       {/* Chit Funds */}
-      <div className="bg-white rounded-lg shadow-md p-6 mb-8">
-        <div className="flex justify-between items-center mb-4">
-          <h2 className="text-xl font-semibold text-blue-700">Chit Funds ({member._count.chitFundMembers})</h2>
-          <Link href={`/members/${member.id}/assign-chit-fund`} className="text-blue-600 hover:text-blue-900">
+      <div className="bg-white rounded-lg shadow-md p-4 sm:p-6 mb-8">
+        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 mb-4">
+          <h2 className="text-lg sm:text-xl font-semibold text-blue-700">Chit Funds ({member._count.chitFundMembers})</h2>
+          <Link href={`/members/${member.id}/assign-chit-fund`} className="text-blue-600 hover:text-blue-900 text-xs sm:text-sm">
             + Assign to Chit Fund
           </Link>
         </div>
-
         {member.chitFundMembers.length === 0 ? (
-          <p className="text-gray-500 text-center py-4">This member is not part of any chit funds yet.</p>
+          <p className="text-gray-500 text-center py-4 text-xs sm:text-sm">This member is not part of any chit funds yet.</p>
         ) : (
           <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
+            <table className="min-w-full divide-y divide-gray-200 text-xs sm:text-sm">
               <thead className="bg-gray-50">
                 <tr>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th scope="col" className="px-2 py-2 sm:px-6 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Chit Fund
                   </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th scope="col" className="px-2 py-2 sm:px-6 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Status
                   </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th scope="col" className="px-2 py-2 sm:px-6 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Progress
                   </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th scope="col" className="px-2 py-2 sm:px-6 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Contribution
                   </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th scope="col" className="px-2 py-2 sm:px-6 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Missed Contributions
                   </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th scope="col" className="px-2 py-2 sm:px-6 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Pending Amount
                   </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th scope="col" className="px-2 py-2 sm:px-6 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Join Date
                   </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th scope="col" className="px-2 py-2 sm:px-6 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Actions
                   </th>
                 </tr>
@@ -305,10 +296,10 @@ export default function MemberDetailPage() {
               <tbody className="bg-white divide-y divide-gray-200">
                 {member.chitFundMembers.map((membership) => (
                   <tr key={membership.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="px-2 py-2 sm:px-6 sm:py-4 whitespace-nowrap">
                       <div className="text-sm font-medium text-blue-600">{membership.chitFund.name}</div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="px-2 py-2 sm:px-6 sm:py-4 whitespace-nowrap">
                       <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
                         membership.chitFund.status === 'Active' ? 'bg-green-100 text-green-800' :
                         membership.chitFund.status === 'Completed' ? 'bg-blue-100 text-blue-800' :
@@ -317,28 +308,28 @@ export default function MemberDetailPage() {
                         {membership.chitFund.status}
                       </span>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="px-2 py-2 sm:px-6 sm:py-4 whitespace-nowrap">
                       <div className="text-sm text-gray-900">
                         Month {membership.chitFund.currentMonth} of {membership.chitFund.duration}
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="px-2 py-2 sm:px-6 sm:py-4 whitespace-nowrap">
                       <div className="text-sm text-gray-900">{formatCurrency(membership.contribution)}</div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="px-2 py-2 sm:px-6 sm:py-4 whitespace-nowrap">
                       <div className={`text-sm ${(membership.missedContributions ?? 0) > 0 ? 'text-red-600 font-semibold' : 'text-gray-900'}`}>
                         {membership.missedContributions ?? 0}
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="px-2 py-2 sm:px-6 sm:py-4 whitespace-nowrap">
                       <div className={`text-sm ${(membership.pendingAmount ?? 0) > 0 ? 'text-red-600 font-semibold' : 'text-gray-900'}`}>
                         {formatCurrency(membership.pendingAmount ?? 0)}
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="px-2 py-2 sm:px-6 sm:py-4 whitespace-nowrap">
                       <div className="text-sm text-gray-900">{formatDate(membership.joinDate)}</div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                    <td className="px-2 py-2 sm:px-6 sm:py-4 whitespace-nowrap text-sm font-medium">
                       <Link href={`/chit-funds/${membership.chitFund.id}/members/${membership.id}/contributions`} className="text-blue-600 hover:text-blue-900">
                         View Contributions
                       </Link>
@@ -352,43 +343,42 @@ export default function MemberDetailPage() {
       </div>
 
       {/* Loans */}
-      <div className="bg-white rounded-lg shadow-md p-6 mb-8">
-        <div className="flex justify-between items-center mb-4">
-          <h2 className="text-xl font-semibold text-blue-700">Loans ({member._count.loans})</h2>
-          <Link href={`/loans/new?borrowerId=${member.id}`} className="text-blue-600 hover:text-blue-900">
+      <div className="bg-white rounded-lg shadow-md p-4 sm:p-6 mb-8">
+        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 mb-4">
+          <h2 className="text-lg sm:text-xl font-semibold text-blue-700">Loans ({member._count.loans})</h2>
+          <Link href={`/loans/new?borrowerId=${member.id}`} className="text-blue-600 hover:text-blue-900 text-xs sm:text-sm">
             + Create New Loan
           </Link>
         </div>
-
         {member.loans.length === 0 ? (
-          <p className="text-gray-500 text-center py-4">This member has no loans yet.</p>
+          <p className="text-gray-500 text-center py-4 text-xs sm:text-sm">This member has no loans yet.</p>
         ) : (
           <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
+            <table className="min-w-full divide-y divide-gray-200 text-xs sm:text-sm">
               <thead className="bg-gray-50">
                 <tr>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th scope="col" className="px-2 py-2 sm:px-6 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Loan Type
                   </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th scope="col" className="px-2 py-2 sm:px-6 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Amount
                   </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th scope="col" className="px-2 py-2 sm:px-6 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Remaining
                   </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th scope="col" className="px-2 py-2 sm:px-6 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Overdue Amount
                   </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th scope="col" className="px-2 py-2 sm:px-6 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Missed Payments
                   </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th scope="col" className="px-2 py-2 sm:px-6 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Status
                   </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th scope="col" className="px-2 py-2 sm:px-6 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Disbursement Date
                   </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th scope="col" className="px-2 py-2 sm:px-6 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Actions
                   </th>
                 </tr>
@@ -396,26 +386,26 @@ export default function MemberDetailPage() {
               <tbody className="bg-white divide-y divide-gray-200">
                 {member.loans.map((loan) => (
                   <tr key={loan.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="px-2 py-2 sm:px-6 sm:py-4 whitespace-nowrap">
                       <div className="text-sm font-medium text-blue-600">{loan.loanType}</div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="px-2 py-2 sm:px-6 sm:py-4 whitespace-nowrap">
                       <div className="text-sm text-gray-900">{formatCurrency(loan.amount)}</div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="px-2 py-2 sm:px-6 sm:py-4 whitespace-nowrap">
                       <div className="text-sm text-gray-900">{formatCurrency(loan.remainingAmount)}</div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="px-2 py-2 sm:px-6 sm:py-4 whitespace-nowrap">
                       <div className={`text-sm ${loan.overdueAmount > 0 ? 'text-red-600 font-semibold' : 'text-gray-900'}`}>
                         {formatCurrency(loan.overdueAmount || 0)}
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="px-2 py-2 sm:px-6 sm:py-4 whitespace-nowrap">
                       <div className={`text-sm ${loan.missedPayments > 0 ? 'text-red-600 font-semibold' : 'text-gray-900'}`}>
                         {loan.missedPayments || 0}
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="px-2 py-2 sm:px-6 sm:py-4 whitespace-nowrap">
                       <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
                         loan.status === 'Active' ? 'bg-green-100 text-green-800' :
                         loan.status === 'Completed' ? 'bg-blue-100 text-blue-800' :
@@ -424,10 +414,10 @@ export default function MemberDetailPage() {
                         {loan.status}
                       </span>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="px-2 py-2 sm:px-6 sm:py-4 whitespace-nowrap">
                       <div className="text-sm text-gray-900">{formatDate(loan.disbursementDate)}</div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                    <td className="px-2 py-2 sm:px-6 sm:py-4 whitespace-nowrap text-sm font-medium">
                       <Link href={`/loans/${loan.id}`} className="text-blue-600 hover:text-blue-900">
                         View Details
                       </Link>

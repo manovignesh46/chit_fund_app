@@ -814,25 +814,25 @@ export default function ChitFundMembersPage() {
   }
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="flex justify-between items-center mb-6">
+    <div className="container w-full max-w-screen-lg mx-auto px-2 sm:px-4 py-4 sm:py-8">
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 mb-6">
         <div>
-          <h1 className="text-3xl font-bold text-blue-700">{chitFund.name} - Members</h1>
-          <p className="text-gray-600">
+          <h1 className="text-2xl sm:text-3xl font-bold text-blue-700 break-words">{chitFund.name} - Members</h1>
+          <p className="text-gray-600 text-xs sm:text-sm">
             Month {chitFund.currentMonth} of {chitFund.duration} |
             Monthly Contribution: {formatCurrency(chitFund.monthlyContribution)}
           </p>
         </div>
-        <div className="flex space-x-4">
-          <Link href={`/chit-funds/${chitFundId}`} className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition duration-300">
+        <div className="flex flex-wrap gap-2 w-full sm:w-auto">
+          <Link href={`/chit-funds/${chitFundId}`} className="px-3 sm:px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition text-xs sm:text-sm w-full sm:w-auto text-center">
             Back to Chit Fund
           </Link>
-          <Link href={`/chit-funds/${chitFundId}/contributions`} className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition duration-300">
+          <Link href={`/chit-funds/${chitFundId}/contributions`} className="px-3 sm:px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition text-xs sm:text-sm w-full sm:w-auto text-center">
             View Contributions
           </Link>
           <button
             onClick={() => setShowAddForm(true)}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-300"
+            className="px-3 sm:px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition text-xs sm:text-sm w-full sm:w-auto text-center"
           >
             Add Member
           </button>
@@ -841,7 +841,7 @@ export default function ChitFundMembersPage() {
               <button
                 onClick={handleAddCurrentMonthContributionForSelected}
                 disabled={isAddingContribution}
-                className={`px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition duration-300 ${
+                className={`px-3 sm:px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition text-xs sm:text-sm w-full sm:w-auto text-center ${
                   isAddingContribution ? 'opacity-50 cursor-not-allowed' : ''
                 }`}
               >
@@ -852,7 +852,7 @@ export default function ChitFundMembersPage() {
               <button
                 onClick={handleExportSelectedMembers}
                 disabled={isExporting}
-                className={`px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition duration-300 ${
+                className={`px-3 sm:px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition text-xs sm:text-sm w-full sm:w-auto text-center ${
                   isExporting ? 'opacity-50 cursor-not-allowed' : ''
                 }`}
               >
@@ -863,7 +863,7 @@ export default function ChitFundMembersPage() {
               <button
                 onClick={handleBulkDeleteClick}
                 disabled={isBulkDeleting}
-                className={`px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition duration-300 ${
+                className={`px-3 sm:px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition text-xs sm:text-sm w-full sm:w-auto text-center ${
                   isBulkDeleting ? 'opacity-50 cursor-not-allowed' : ''
                 }`}
               >
@@ -878,30 +878,28 @@ export default function ChitFundMembersPage() {
 
       {/* Notification Messages */}
       {contributionSuccess && (
-        <div className="mb-4 bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded relative">
+        <div className="mb-4 bg-green-100 border border-green-400 text-green-700 px-2 sm:px-4 py-2 sm:py-3 rounded text-xs sm:text-sm">
           <span className="block sm:inline">{contributionSuccess}</span>
         </div>
       )}
-
       {contributionError && (
-        <div className="mb-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative">
+        <div className="mb-4 bg-red-100 border border-red-400 text-red-700 px-2 sm:px-4 py-2 sm:py-3 rounded text-xs sm:text-sm">
           <span className="block sm:inline">{contributionError}</span>
         </div>
       )}
-
       {exportError && (
-        <div className="mb-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative">
+        <div className="mb-4 bg-red-100 border border-red-400 text-red-700 px-2 sm:px-4 py-2 sm:py-3 rounded text-xs sm:text-sm">
           <span className="block sm:inline">{exportError}</span>
         </div>
       )}
 
       {/* Members Table */}
       <div className="bg-white rounded-lg shadow-md overflow-hidden mb-8">
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
+        <div className="overflow-x-auto w-full">
+          <table className="min-w-full divide-y divide-gray-200 text-xs sm:text-sm">
             <thead className="bg-gray-50">
               <tr>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th scope="col" className="px-2 sm:px-6 py-2 sm:py-3 text-left font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
                   <div className="flex items-center">
                     <input
                       type="checkbox"
@@ -912,28 +910,28 @@ export default function ChitFundMembersPage() {
                     <span className="ml-2">Select</span>
                   </div>
                 </th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th scope="col" className="px-2 sm:px-6 py-2 sm:py-3 text-left font-medium text-gray-500 uppercase tracking-wider">
                   Name
                 </th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th scope="col" className="px-2 sm:px-6 py-2 sm:py-3 text-left font-medium text-gray-500 uppercase tracking-wider">
                   Contact
                 </th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th scope="col" className="px-2 sm:px-6 py-2 sm:py-3 text-left font-medium text-gray-500 uppercase tracking-wider">
                   Join Date
                 </th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th scope="col" className="px-2 sm:px-6 py-2 sm:py-3 text-left font-medium text-gray-500 uppercase tracking-wider">
                   Contribution
                 </th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th scope="col" className="px-2 sm:px-6 py-2 sm:py-3 text-left font-medium text-gray-500 uppercase tracking-wider">
                   Missed Contributions
                 </th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th scope="col" className="px-2 sm:px-6 py-2 sm:py-3 text-left font-medium text-gray-500 uppercase tracking-wider">
                   Pending Amount
                 </th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th scope="col" className="px-2 sm:px-6 py-2 sm:py-3 text-left font-medium text-gray-500 uppercase tracking-wider">
                   Auction Status
                 </th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th scope="col" className="px-2 sm:px-6 py-2 sm:py-3 text-left font-medium text-gray-500 uppercase tracking-wider">
                   Actions
                 </th>
               </tr>
@@ -948,7 +946,7 @@ export default function ChitFundMembersPage() {
               ) : (
                 members.map((member) => (
                   <tr key={member.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="px-2 sm:px-6 py-2 sm:py-4 whitespace-nowrap">
                       <div className="flex items-center">
                         <input
                           type="checkbox"
@@ -958,23 +956,21 @@ export default function ChitFundMembersPage() {
                         />
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="px-2 sm:px-6 py-2 sm:py-4 whitespace-nowrap">
                       <div className="text-sm font-medium text-blue-600">{member.globalMember.name}</div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="px-2 sm:px-6 py-2 sm:py-4 whitespace-nowrap">
                       <div className="text-sm text-gray-900">{member.globalMember.contact}</div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="px-2 sm:px-6 py-2 sm:py-4 whitespace-nowrap">
                       <div className="text-sm text-gray-900">{formatDate(member.joinDate)}</div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="px-2 sm:px-6 py-2 sm:py-4 whitespace-nowrap">
                       <div className="text-sm text-gray-900">{formatCurrency(member.contribution)}</div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="px-2 sm:px-6 py-2 sm:py-4 whitespace-nowrap">
                       <div className="flex flex-col">
-                        <div className={`text-sm ${member.missedContributions > 0 ? 'text-red-600 font-semibold' : 'text-gray-900'}`}>
-                          {member.missedContributions}
-                        </div>
+                        <div className={`text-xs sm:text-sm ${member.missedContributions > 0 ? 'text-red-600 font-semibold' : 'text-gray-900'}`}>{member.missedContributions}</div>
                         {member.missedContributions > 0 && (
                           <button
                             onClick={(e) => {
@@ -1014,12 +1010,12 @@ export default function ChitFundMembersPage() {
                         )}
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="px-2 sm:px-6 py-2 sm:py-4 whitespace-nowrap">
                       <div className={`text-sm ${member.pendingAmount > 0 ? 'text-red-600 font-semibold' : 'text-gray-900'}`}>
                         {formatCurrency(member.pendingAmount)}
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="px-2 sm:px-6 py-2 sm:py-4 whitespace-nowrap">
                       {member.auctionWon ? (
                         <span className="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
                           Won in Month {member.auctionMonth}
@@ -1030,8 +1026,8 @@ export default function ChitFundMembersPage() {
                         </span>
                       )}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                      <div className="flex space-x-4">
+                    <td className="px-2 sm:px-6 py-2 sm:py-4 whitespace-nowrap text-sm font-medium">
+                      <div className="flex space-x-2 sm:space-x-4">
                         <Link href={`/chit-funds/${chitFundId}/members/${member.id}/contributions`} className="text-blue-600 hover:text-blue-900">
                           Contributions
                         </Link>
@@ -1074,12 +1070,12 @@ export default function ChitFundMembersPage() {
           </table>
 
           {/* Pagination Controls */}
-          <div className="mt-6 flex items-center justify-between border-t border-gray-200 bg-white px-4 py-3 sm:px-6">
+          <div className="mt-6 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between border-t border-gray-200 bg-white px-2 sm:px-4 py-2 sm:py-3">
             <div className="flex flex-1 justify-between sm:hidden">
               <button
                 onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
                 disabled={currentPage === 1}
-                className={`relative inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium ${
+                className={`relative inline-flex items-center rounded-md border border-gray-300 bg-white px-3 py-2 text-xs font-medium ${
                   currentPage === 1 ? 'text-gray-300 cursor-not-allowed' : 'text-gray-700 hover:bg-gray-50'
                 }`}
               >
@@ -1088,7 +1084,7 @@ export default function ChitFundMembersPage() {
               <button
                 onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
                 disabled={currentPage === totalPages}
-                className={`relative ml-3 inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium ${
+                className={`relative ml-3 inline-flex items-center rounded-md border border-gray-300 bg-white px-3 py-2 text-xs font-medium ${
                   currentPage === totalPages ? 'text-gray-300 cursor-not-allowed' : 'text-gray-700 hover:bg-gray-50'
                 }`}
               >
@@ -1204,7 +1200,7 @@ export default function ChitFundMembersPage() {
       {/* Delete Confirmation Modal */}
       {showDeleteModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-md">
+          <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-xs sm:max-w-md">
             <h2 className="text-xl font-bold text-red-700 mb-4">Confirm Removal</h2>
             <p className="mb-2">Are you sure you want to remove this member from the chit fund? This action cannot be undone.</p>
             <div className="mb-6 bg-yellow-50 border border-yellow-400 text-yellow-700 p-3 rounded">
@@ -1248,7 +1244,7 @@ export default function ChitFundMembersPage() {
       {/* Bulk Delete Confirmation Modal */}
       {showBulkDeleteModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-md">
+          <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-xs sm:max-w-md">
             <h2 className="text-xl font-bold text-red-700 mb-4">Confirm Bulk Removal</h2>
             <p className="mb-2">Are you sure you want to remove {selectedMembers.length} selected member{selectedMembers.length > 1 ? 's' : ''} from the chit fund? This action cannot be undone.</p>
             <div className="mb-6 bg-yellow-50 border border-yellow-400 text-yellow-700 p-3 rounded">
@@ -1299,8 +1295,8 @@ export default function ChitFundMembersPage() {
 
       {/* Add Member Form */}
       {showAddForm && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-md">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 px-2">
+          <div className="bg-white rounded-lg shadow-lg w-full max-w-xs sm:max-w-md px-2 sm:px-6 py-4 sm:py-6">
             <h2 className="text-xl font-bold text-blue-700 mb-4">Add Member to Chit Fund</h2>
 
             <div className="mb-6">
@@ -1456,7 +1452,7 @@ export default function ChitFundMembersPage() {
       {/* Record Contribution Modal */}
       {showRecordContributionModal && selectedMemberForContribution && selectedMonth !== null && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-md">
+          <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-xs sm:max-w-md">
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-xl font-bold text-blue-700">Record Contribution for {selectedMemberForContribution.globalMember.name}</h2>
               <button
