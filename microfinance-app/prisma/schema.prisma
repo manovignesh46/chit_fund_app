@@ -156,10 +156,16 @@ model Repayment {
 model EmailLog {
   id         Int      @id @default(autoincrement())
   emailType  String
+  period     String
   sentDate   DateTime
   recipients String
   status     String
   error      String?
+  fileName   String?
+  isRecovery Boolean  @default(false)
+  errorMessage String?
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
+
+  @@unique([emailType, period], name: "emailType_period")
 }
