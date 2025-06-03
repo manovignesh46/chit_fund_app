@@ -8,5 +8,5 @@ services:
     startCommand: docker run -p 3000:3000 microfinance-app
     envVars:
       - key: DATABASE_URL
-        value: mysql://root:EwaSUIKwLdXIpPHshejSoTChJhPdNhRH@ballast.proxy.rlwy.net:19718/railway
+        value: postgresql://neondb_owner:npg_1dHUbcClOP3S@ep-royal-shape-a8weg8xz-pooler.eastus2.azure.neon.tech/neondb?sslmode=require
         fromDatabase: false

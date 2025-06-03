@@ -23,6 +23,7 @@ export interface PeriodRange {
 }
 
 export interface LoanWithRepayments {
+  remainingAmount: number;
   id: number;
   amount: number;
   interestRate?: number;
@@ -259,13 +260,16 @@ export function calculatePeriodCashFlow(
  * Calculate period-specific outside amounts
  */
 export function calculatePeriodOutsideAmounts(
-  cashFlow: ReturnType<typeof calculatePeriodCashFlow>
+  cashFlow: ReturnType<typeof calculatePeriodCashFlow>,
+  loansWithRepayments: LoanWithRepayments[]
 ): {
   totalOutsideAmount: number;
   loanRemainingAmount: number;
   chitFundOutsideAmount: number;
 } {
-  const loanRemainingAmount = Math.max(0, cashFlow.loanOutflow - cashFlow.repaymentInflow);
+  const loanRemainingAmount = loansWithRepayments.reduce((sum, loan) => sum + loan.remainingAmount, 0);
+
+  // const loanRemainingAmount = Math.max(0, cashFlow.loanOutflow - cashFlow.repaymentInflow);
   const chitFundOutsideAmount = Math.max(0, cashFlow.auctionOutflow - cashFlow.contributionInflow);
   const totalOutsideAmount = loanRemainingAmount + chitFundOutsideAmount;
 
@@ -342,7 +346,7 @@ export function calculatePeriodFinancialMetrics(
   const cashFlowData = calculatePeriodCashFlow(loansWithRepayments, chitFunds, loanDisbursements, periodRange);
 
   // Calculate outside amounts
-  const outsideAmountData = calculatePeriodOutsideAmounts(cashFlowData);
+  const outsideAmountData = calculatePeriodOutsideAmounts(cashFlowData, loansWithRepayments);
 
   // Calculate transaction counts
   const transactionCountsData = calculatePeriodTransactionCounts(
@@ -544,6 +548,8 @@ export function calculateTotalFinancialMetrics(
 
   const loanOutflow = loansWithRepayments.reduce((sum, loan) => sum + loan.amount, 0);
 
+  const loanRemainingAmount = loansWithRepayments.reduce((sum, loan) => sum + loan.remainingAmount, 0);
+
   const totalCashInflow = contributionInflow + repaymentInflow;
   const totalCashOutflow = auctionOutflow + loanOutflow;
 
@@ -559,7 +565,8 @@ export function calculateTotalFinancialMetrics(
     auctionOutflow,
     loanOutflow,
     totalOutsideAmount: Math.max(0, totalCashOutflow - totalCashInflow),
-    loanRemainingAmount: Math.max(0, loanOutflow - repaymentInflow),
+    // loanRemainingAmount: Math.max(0, loanOutflow - repaymentInflow),
+    loanRemainingAmount: loanRemainingAmount,
     chitFundOutsideAmount: Math.max(0, auctionOutflow - contributionInflow),
     interestPayments: loanProfit - loansWithRepayments.reduce((sum, loan) => sum + (loan.documentCharge || 0), 0),
     documentCharges: loansWithRepayments.reduce((sum, loan) => sum + (loan.documentCharge || 0), 0),

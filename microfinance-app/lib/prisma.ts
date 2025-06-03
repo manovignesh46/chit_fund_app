@@ -26,4 +26,6 @@ const prisma = global.prisma || new PrismaClient({
 // Set the Prisma Client instance on the global object
 if (process.env.NODE_ENV !== 'production') global.prisma = prisma;
 
+// Prisma client initialization does not need to change; it will use DATABASE_URL from .env
+
 export default prisma;

@@ -247,6 +247,7 @@ async function getSummary(request: NextRequest, currentUserId: number) {
         documentCharge: true,
         repaymentType: true,
         disbursementDate: true,
+        remainingAmount: true,
         repayments: {
           select: {
             id: true,
@@ -828,6 +829,7 @@ async function getFinancialData(request: NextRequest, currentUserId: number) {
           documentCharge: true,
           repaymentType: true,
           disbursementDate: true,
+          remainingAmount: true,
           repayments: {
             where: {
               paidDate: {
@@ -2159,6 +2161,7 @@ async function getFinancialDataForExport(userId: number, startDate: Date, endDat
         documentCharge: true,
         repaymentType: true,
         disbursementDate: true,
+        remainingAmount: true,
         repayments: {
           select: {
             id: true,
@@ -2236,7 +2239,8 @@ async function getFinancialDataForExport(userId: number, startDate: Date, endDat
 
 
   // Calculate outside amount
-  const outsideAmount = totalCashOutflow > totalCashInflow ? totalCashOutflow - totalCashInflow : 0;
+  // const outsideAmount = totalCashOutflow > totalCashInflow ? totalCashOutflow - totalCashInflow : 0;
+  const outsideAmount = loansWithRepayments.reduce((sum, loan) => sum + loan.remainingAmount, 0);
 
   // Generate periods based on duration
   const periods: string[] = [];
