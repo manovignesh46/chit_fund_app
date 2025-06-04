@@ -100,6 +100,8 @@ export const ExportButton = ({
   isExporting = false,
   ...props 
 }: ActionButtonProps & { isExporting?: boolean }) => {
+  // Destructure isExporting out so it doesn't leak to DOM
+  const { isExporting: _isExporting, ...restProps } = props;
   return (
     <Button
       onClick={onClick}
@@ -107,7 +109,7 @@ export const ExportButton = ({
       className={`${
         isExporting ? 'bg-gray-400' : 'bg-blue-500 hover:bg-blue-600'
       } text-white flex items-center ${className}`}
-      {...props}
+      {...restProps}
     >
       {isExporting ? (
         <>
@@ -169,14 +171,16 @@ export const DeleteButton = ({
   isDeleting = false,
   ...props 
 }: ActionButtonProps & { isDeleting?: boolean }) => {
+  // Destructure isDeleting out so it doesn't leak to DOM
+  const { isDeleting: _isDeleting, ...restProps } = props;
   return (
     <Button
       onClick={onClick}
       disabled={disabled || isDeleting}
-      className={`${
+      className={`$${
         disabled ? 'bg-gray-300 text-gray-500' : 'bg-red-600 hover:bg-red-700 text-white'
       } ${className}`}
-      {...props}
+      {...restProps}
     >
       {isDeleting ? 'Deleting...' : (props.children || 'Delete')}
     </Button>
@@ -193,9 +197,13 @@ export const ActionButtonGroup = ({
 }: { 
   children: React.ReactNode;
   className?: string;
+  // Accept any props, but filter out known non-DOM props
+  [key: string]: any;
 }) => {
+  // Filter out non-DOM props that may be passed from parent components
+  const { isExporting, setIsExporting, setShowDeleteModal, chitFund, member, loan, ...restProps } = props;
   return (
-    <div className={`flex space-x-3 ${className}`} {...props}>
+    <div className={`flex space-x-3 ${className}`} {...restProps}>
       {children}
     </div>
   );

@@ -6,6 +6,7 @@ import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 // import { apiGet, apiPost, apiPut, apiDelete } from '../../../lib/apiUtils';
 import { apiGet, apiPost, apiPut, apiDelete } from '../../../lib/apiUtils';
+import { UserGroupIcon, PlusCircleIcon, ArrowUturnLeftIcon, DocumentArrowDownIcon, TrashIcon, UserPlusIcon, UsersIcon, BanknotesIcon } from '@heroicons/react/24/outline';
 
 interface GlobalMember {
   id: number;
@@ -815,66 +816,92 @@ export default function ChitFundMembersPage() {
 
   return (
     <div className="container w-full max-w-screen-lg mx-auto px-2 sm:px-4 py-4 sm:py-8">
-      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 mb-6">
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-blue-700 break-words">{chitFund.name} - Members</h1>
-          <p className="text-gray-600 text-xs sm:text-sm">
-            Month {chitFund.currentMonth} of {chitFund.duration} |
-            Monthly Contribution: {formatCurrency(chitFund.monthlyContribution)}
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-2 w-full sm:w-auto">
-          <Link href={`/chit-funds/${chitFundId}`} className="px-3 sm:px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition text-xs sm:text-sm w-full sm:w-auto text-center">
-            Back to Chit Fund
+      <div className="flex flex-row flex-wrap items-center justify-between gap-2 mb-6 sm:mb-8">
+        <h1 className="text-2xl sm:text-3xl font-bold text-blue-700 break-words flex-shrink-0">{chitFund.name} - Members</h1>
+        <div className="flex flex-row flex-wrap gap-1 sm:gap-2 w-auto">
+          {/* Back to Chit Fund */}
+          <Link
+            href={`/chit-funds/${chitFundId}`}
+            aria-label="Back to Chit Fund"
+            className="p-2 rounded-lg bg-gray-200 text-gray-700 hover:bg-gray-300 transition flex items-center justify-center sm:px-4 sm:py-2"
+          >
+            <ArrowUturnLeftIcon className="h-5 w-5 block sm:hidden" />
+            <span className="hidden sm:inline-flex items-center space-x-1 text-sm">
+              <ArrowUturnLeftIcon className="h-5 w-5 mr-1" />
+              <span>Back to Chit Fund</span>
+            </span>
           </Link>
-          <Link href={`/chit-funds/${chitFundId}/contributions`} className="px-3 sm:px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition text-xs sm:text-sm w-full sm:w-auto text-center">
-            View Contributions
+          {/* View Contributions */}
+          <Link
+            href={`/chit-funds/${chitFundId}/contributions`}
+            aria-label="View Contributions"
+            className="p-2 rounded-lg bg-green-600 text-white hover:bg-green-700 transition flex items-center justify-center sm:px-4 sm:py-2"
+          >
+            <UsersIcon className="h-5 w-5 block sm:hidden" />
+            <span className="hidden sm:inline-flex items-center space-x-1 text-sm">
+              <UsersIcon className="h-5 w-5 mr-1" />
+              <span>View Contributions</span>
+            </span>
           </Link>
+          {/* Add Member */}
           <button
             onClick={() => setShowAddForm(true)}
-            className="px-3 sm:px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition text-xs sm:text-sm w-full sm:w-auto text-center"
+            aria-label="Add Member"
+            className="p-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition flex items-center justify-center sm:px-4 sm:py-2"
           >
-            Add Member
+            <UserPlusIcon className="h-5 w-5 block sm:hidden" />
+            <span className="hidden sm:inline-flex items-center space-x-1 text-sm">
+              <UserPlusIcon className="h-5 w-5 mr-1" />
+              <span>Add Member</span>
+            </span>
           </button>
+          {/* Bulk Actions (only if selectedMembers.length > 0) */}
           {selectedMembers.length > 0 && chitFund && (
             <>
               <button
                 onClick={handleAddCurrentMonthContributionForSelected}
+                aria-label={`Add Month ${chitFund.currentMonth} Due for Selected`}
                 disabled={isAddingContribution}
-                className={`px-3 sm:px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition text-xs sm:text-sm w-full sm:w-auto text-center ${
-                  isAddingContribution ? 'opacity-50 cursor-not-allowed' : ''
-                }`}
+                className="p-2 rounded-lg bg-purple-600 text-white hover:bg-purple-700 transition flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed sm:px-4 sm:py-2"
               >
-                {isAddingContribution
-                  ? 'Processing...'
-                  : `Add Month ${chitFund.currentMonth} Due for Selected (${selectedMembers.length})`}
+                <PlusCircleIcon className="h-5 w-5 block sm:hidden" />
+                <span className="hidden sm:inline-flex items-center space-x-1 text-sm">
+                  <PlusCircleIcon className="h-5 w-5 mr-1" />
+                  <span>{isAddingContribution ? 'Processing...' : `Add Month ${chitFund.currentMonth} Due for Selected (${selectedMembers.length})`}</span>
+                </span>
               </button>
               <button
                 onClick={handleExportSelectedMembers}
+                aria-label="Export Selected"
                 disabled={isExporting}
-                className={`px-3 sm:px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition text-xs sm:text-sm w-full sm:w-auto text-center ${
-                  isExporting ? 'opacity-50 cursor-not-allowed' : ''
-                }`}
+                className="p-2 rounded-lg bg-green-600 text-white hover:bg-green-700 transition flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed sm:px-4 sm:py-2"
               >
-                {isExporting
-                  ? 'Exporting...'
-                  : `Export Selected (${selectedMembers.length})`}
+                <DocumentArrowDownIcon className="h-5 w-5 block sm:hidden" />
+                <span className="hidden sm:inline-flex items-center space-x-1 text-sm">
+                  <DocumentArrowDownIcon className="h-5 w-5 mr-1" />
+                  <span>{isExporting ? 'Exporting...' : `Export Selected (${selectedMembers.length})`}</span>
+                </span>
               </button>
               <button
                 onClick={handleBulkDeleteClick}
+                aria-label="Remove Selected"
                 disabled={isBulkDeleting}
-                className={`px-3 sm:px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition text-xs sm:text-sm w-full sm:w-auto text-center ${
-                  isBulkDeleting ? 'opacity-50 cursor-not-allowed' : ''
-                }`}
+                className="p-2 rounded-lg bg-red-600 text-white hover:bg-red-700 transition flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed sm:px-4 sm:py-2"
               >
-                {isBulkDeleting
-                  ? 'Removing...'
-                  : `Remove Selected (${selectedMembers.length})`}
+                <TrashIcon className="h-5 w-5 block sm:hidden" />
+                <span className="hidden sm:inline-flex items-center space-x-1 text-sm">
+                  <TrashIcon className="h-5 w-5 mr-1" />
+                  <span>{isBulkDeleting ? 'Removing...' : `Remove Selected (${selectedMembers.length})`}</span>
+                </span>
               </button>
             </>
           )}
         </div>
       </div>
+      <p className="text-gray-600 text-xs sm:text-sm w-full sm:w-auto mt-2 sm:mt-0">
+        Month {chitFund.currentMonth} of {chitFund.duration} |
+        Monthly Contribution: {formatCurrency(chitFund.monthlyContribution)}
+      </p>
 
       {/* Notification Messages */}
       {contributionSuccess && (

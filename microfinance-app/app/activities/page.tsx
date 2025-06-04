@@ -120,11 +120,13 @@ export default function ActivitiesPage() {
 
   return (
     <div className="container mx-auto px-2 sm:px-4 py-6 sm:py-8 max-w-screen-xl w-full">
-      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-6 sm:mb-8">
+      <div className="flex flex-row flex-wrap items-center justify-between gap-2 mb-6 sm:mb-8">
         <h1 className="text-2xl sm:text-3xl font-bold text-blue-700">Recent Activities</h1>
-        <Link href="/dashboard" className="w-full sm:w-auto px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition duration-300 text-center text-sm sm:text-base">
-          Back to Dashboard
-        </Link>
+        <div className="flex flex-row flex-wrap gap-1 sm:gap-2 w-auto">
+          <Link href="/dashboard" className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition duration-300">
+            Back to Dashboard
+          </Link>
+        </div>
       </div>
 
       <div className="bg-white rounded-lg shadow-md p-2 sm:p-6">

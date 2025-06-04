@@ -7,7 +7,6 @@ import Link from 'next/link';
 import { memberAPI } from '../../../lib/api';
 import {
 
-ExportButton,
   EditButton,
   BackButton,
   ActionButtonGroup
@@ -68,6 +67,11 @@ export default function MemberDetailPage() {
   // For exporting member data
   const [isExporting, setIsExporting] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
+
+  // Add state for delete modal and error
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchMember = async () => {
@@ -155,6 +159,27 @@ export default function MemberDetailPage() {
     }
   };
 
+  // Handler for delete button (open modal)
+  const handleDeleteMember = () => {
+    setShowDeleteModal(true);
+    setDeleteError(null);
+  };
+
+  // Confirm delete action
+  const confirmDeleteMember = async () => {
+    if (!member) return;
+    setIsDeleting(true);
+    setDeleteError(null);
+    try {
+      await memberAPI.delete(member.id);
+      router.push('/members');
+    } catch (error: any) {
+      setDeleteError(error.message || 'Failed to delete member.');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="container mx-auto px-4 py-8">
@@ -200,27 +225,41 @@ export default function MemberDetailPage() {
   }
 
   return (
-    <div className="container w-full max-w-screen-lg mx-auto px-2 sm:px-4 py-4 sm:py-8">
-      {exportError && (
-        <div className="bg-red-100 border border-red-400 text-red-700 px-2 sm:px-4 py-2 sm:py-3 rounded mb-6 text-xs sm:text-sm">
-          <p className="font-bold">Export Error</p>
-          <p>{exportError}</p>
-        </div>
-      )}
-
-      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 mb-6">
-        <h1 className="text-2xl sm:text-3xl font-bold text-blue-700 break-words">{member.name}</h1>
-        <ActionButtonGroup className="flex flex-wrap gap-2 w-full sm:w-auto">
-          <ExportButton
-            onClick={handleExportMember}
-            disabled={isExporting}
-            isExporting={isExporting}
+    <div className="container mx-auto px-2 sm:px-4 py-6 sm:py-8 max-w-screen-xl w-full">
+      <div className="flex flex-row flex-wrap items-center justify-between gap-2 mb-6 sm:mb-8">
+        <h1 className="text-2xl sm:text-3xl font-bold text-blue-700">Member Information</h1>
+        <div className="flex flex-row flex-wrap gap-1 sm:gap-2 w-auto items-center">
+          <button
+            onClick={handleDeleteMember}
+            aria-label="Delete Member"
+            className="p-2 rounded-lg text-sm sm:text-base transition duration-300 flex items-center justify-center bg-red-600 text-white hover:bg-red-700 sm:px-4 sm:py-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            disabled={isDeleting}
           >
-            Export Member Data
-          </ExportButton>
-          <EditButton href={`/members/${member.id}/edit`}>Edit Member</EditButton>
-          <BackButton href="/members">Back to Members</BackButton>
-        </ActionButtonGroup>
+            <svg className="h-5 w-5 block sm:hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+            <span className="hidden sm:inline-flex items-center">
+              <svg className="h-5 w-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+              {isDeleting ? 'Deleting...' : 'Delete'}
+            </span>
+          </button>
+          {/* Edit Button: icon only on mobile, icon+text on desktop */}
+          <Link href={`/members/${member.id}/edit`} aria-label="Edit Member"
+            className="p-2 rounded-lg text-sm sm:text-base transition duration-300 flex items-center justify-center bg-yellow-500 text-white hover:bg-yellow-600 sm:px-4 sm:py-2">
+            <svg className="h-5 w-5 block sm:hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536M9 11l6 6M3 21h6v-6l9-9a2.828 2.828 0 10-4-4l-9 9z"></path></svg>
+            <span className="hidden sm:inline-flex items-center">
+              <svg className="h-5 w-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536M9 11l6 6M3 21h6v-6l9-9a2.828 2.828 0 10-4-4l-9 9z"></path></svg>
+              Edit
+            </span>
+          </Link>
+          {/* Back Button: icon only on mobile, icon+text on desktop */}
+          <Link href="/members" aria-label="Back to Members"
+            className="p-2 rounded-lg text-sm sm:text-base transition duration-300 flex items-center justify-center bg-gray-200 text-gray-700 hover:bg-gray-300 sm:px-4 sm:py-2">
+            <svg className="h-5 w-5 block sm:hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7"></path></svg>
+            <span className="hidden sm:inline-flex items-center">
+              <svg className="h-5 w-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7"></path></svg>
+              Back
+            </span>
+          </Link>
+        </div>
       </div>
 
       {/* Member Details */}
@@ -429,6 +468,46 @@ export default function MemberDetailPage() {
           </div>
         )}
       </div>
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-md">
+            <h2 className="text-xl font-bold text-red-700 mb-4">Confirm Deletion</h2>
+            <p className="mb-4">Are you sure you want to delete this member? This action cannot be undone.</p>
+            <div className="mb-6 bg-yellow-50 border border-yellow-400 text-yellow-700 p-3 rounded">
+              <p className="font-bold">Warning:</p>
+              <ul className="list-disc pl-5 mt-1">
+                <li>Members associated with chit funds or loans cannot be deleted</li>
+                <li>You will need to remove the member from all chit funds and loans first</li>
+              </ul>
+            </div>
+            {deleteError && (
+              <div className="mb-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+                <p>{deleteError}</p>
+              </div>
+            )}
+            <div className="flex justify-end space-x-4">
+              <button
+                type="button"
+                onClick={() => { setShowDeleteModal(false); setDeleteError(null); }}
+                className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition duration-300"
+                disabled={isDeleting}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={confirmDeleteMember}
+                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition duration-300 disabled:opacity-50"
+                disabled={isDeleting}
+              >
+                {isDeleting ? 'Deleting...' : 'Delete'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

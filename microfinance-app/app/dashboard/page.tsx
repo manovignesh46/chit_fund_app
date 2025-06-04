@@ -7,6 +7,7 @@ import { dashboardAPI, FinancialDataPoint } from '../../lib/api';
 import FinancialGraph from '../components/FinancialGraph';
 import { DashboardSkeleton } from '../components/skeletons/DashboardSkeletons';
 import EmailExportModal from '../../components/EmailExportModal';
+import { UserGroupIcon, PlusCircleIcon, CurrencyRupeeIcon } from '@heroicons/react/24/outline';
 
 export default function DashboardPage() {
   interface Activity {
@@ -352,17 +353,44 @@ export default function DashboardPage() {
 
   return (
     <div className="container mx-auto px-2 sm:px-4 py-6 sm:py-8 max-w-screen-xl w-full">
-      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-6 sm:mb-8">
+      <div className="flex flex-row flex-wrap items-center justify-between gap-2 mb-6 sm:mb-8">
         <h1 className="text-2xl sm:text-3xl font-bold text-blue-700">Dashboard</h1>
-        <div className="flex flex-col sm:flex-row gap-2 sm:gap-4 w-full sm:w-auto">
-          <Link href="/members" className="w-full sm:w-auto px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition duration-300 text-center text-sm sm:text-base">
-            Manage Members
+        <div className="flex flex-row flex-wrap gap-1 sm:gap-2 w-auto">
+          {/* Manage Members */}
+          <Link
+            href="/members"
+            aria-label="Manage Members"
+            className="p-2 rounded-lg bg-purple-600 text-white hover:bg-purple-700 transition flex items-center justify-center sm:px-4 sm:py-2"
+          >
+            <UserGroupIcon className="h-5 w-5 block sm:hidden" />
+            <span className="hidden sm:inline-flex items-center">
+              <UserGroupIcon className="h-5 w-5 mr-2" />
+              Manage Members
+            </span>
           </Link>
-          <Link href="/chit-funds/new" className="w-full sm:w-auto px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-300 text-center text-sm sm:text-base">
-            New Chit Fund
+          {/* New Chit Fund */}
+          <Link
+            href="/chit-funds/new"
+            aria-label="New Chit Fund"
+            className="p-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition flex items-center justify-center sm:px-4 sm:py-2"
+          >
+            <PlusCircleIcon className="h-5 w-5 block sm:hidden" />
+            <span className="hidden sm:inline-flex items-center">
+              <PlusCircleIcon className="h-5 w-5 mr-2" />
+              New Chit Fund
+            </span>
           </Link>
-          <Link href="/loans/new" className="w-full sm:w-auto px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition duration-300 text-center text-sm sm:text-base">
-            New Loan
+          {/* New Loan */}
+          <Link
+            href="/loans/new"
+            aria-label="New Loan"
+            className="p-2 rounded-lg bg-green-600 text-white hover:bg-green-700 transition flex items-center justify-center sm:px-4 sm:py-2"
+          >
+            <CurrencyRupeeIcon className="h-5 w-5 block sm:hidden" />
+            <span className="hidden sm:inline-flex items-center">
+              <CurrencyRupeeIcon className="h-5 w-5 mr-2" />
+              New Loan
+            </span>
           </Link>
         </div>
       </div>

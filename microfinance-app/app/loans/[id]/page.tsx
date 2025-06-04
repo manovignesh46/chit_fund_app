@@ -10,7 +10,6 @@ import dynamic from 'next/dynamic';
 import { LoanDetailSkeleton } from '../../components/skeletons/DetailSkeletons';
 import {
 
-ExportButton,
   EditButton,
   BackButton,
   DeleteButton,
@@ -773,29 +772,38 @@ const LoanDetailPage = () => {
 
   return (
     <div className="container mx-auto px-2 sm:px-4 py-6 sm:py-8 max-w-screen-xl w-full">
-      {/* Header and actions */}
-      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-6 sm:mb-8">
+      <div className="flex flex-row flex-wrap items-center justify-between gap-2 mb-6 sm:mb-8">
         <h1 className="text-2xl sm:text-3xl font-bold text-green-700">Loan Details</h1>
-        <div className="flex flex-col sm:flex-row gap-2 sm:gap-4 w-full sm:w-auto">
-          <ActionButtonGroup>
-            <ExportButton
-              onClick={handleExport}
-              disabled={isExporting}
-              isExporting={isExporting}
-            >
-              Export as Excel
-            </ExportButton>
-            <EditButton
-              href={`/loans/${id}/edit`}
-            >
-              Edit Loan
-            </EditButton>
-            <BackButton
-              href="/loans"
-            >
-              Back to Loans
-            </BackButton>
-          </ActionButtonGroup>
+        <div className="flex flex-row flex-wrap gap-1 sm:gap-2 w-auto items-center">
+          <button
+            onClick={() => setShowDeleteModal(true)}
+            aria-label="Delete Loan"
+            className={`p-2 rounded-lg text-sm sm:text-base transition duration-300 flex items-center justify-center bg-red-600 text-white hover:bg-red-700 sm:px-4 sm:py-2`}
+          >
+            <svg className="h-5 w-5 block sm:hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+            <span className="hidden sm:inline-flex items-center">
+              <svg className="h-5 w-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+              Delete
+            </span>
+          </button>
+          {/* Edit Button: icon only on mobile, icon+text on desktop */}
+          <Link href={`/loans/${loan?.id || ''}/edit`} aria-label="Edit Loan"
+            className="p-2 rounded-lg text-sm sm:text-base transition duration-300 flex items-center justify-center bg-yellow-500 text-white hover:bg-yellow-600 sm:px-4 sm:py-2">
+            <svg className="h-5 w-5 block sm:hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536M9 11l6 6M3 21h6v-6l9-9a2.828 2.828 0 10-4-4l-9 9z"></path></svg>
+            <span className="hidden sm:inline-flex items-center">
+              <svg className="h-5 w-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536M9 11l6 6M3 21h6v-6l9-9a2.828 2.828 0 10-4-4l-9 9z"></path></svg>
+              Edit
+            </span>
+          </Link>
+          {/* Back Button: icon only on mobile, icon+text on desktop */}
+          <Link href="/loans" aria-label="Back to Loans"
+            className="p-2 rounded-lg text-sm sm:text-base transition duration-300 flex items-center justify-center bg-gray-200 text-gray-700 hover:bg-gray-300 sm:px-4 sm:py-2">
+            <svg className="h-5 w-5 block sm:hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7"></path></svg>
+            <span className="hidden sm:inline-flex items-center">
+              <svg className="h-5 w-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7"></path></svg>
+              Back
+            </span>
+          </Link>
         </div>
       </div>
       {/* Main content grid */}

@@ -7,6 +7,7 @@ import Link from 'next/link';
 import { memberAPI } from '../../lib/api';
 import dynamic from 'next/dynamic';
 import { MembersListSkeleton } from '../components/skeletons/ListSkeletons';
+import { ArrowDownTrayIcon, TrashIcon, PlusCircleIcon } from '@heroicons/react/24/solid';
 
 interface GlobalMember {
   id: number;
@@ -404,47 +405,45 @@ export default function MembersPage() {
 
   return (
     <div className="container mx-auto px-2 sm:px-4 py-6 sm:py-8 max-w-screen-xl w-full">
-      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-6 sm:mb-8">
+      <div className="flex flex-row flex-wrap items-center justify-between gap-2 mb-6 sm:mb-8">
         <h1 className="text-2xl sm:text-3xl font-bold text-blue-700">Members</h1>
-        <div className="flex flex-col sm:flex-row gap-2 sm:gap-4 w-full sm:w-auto">
+        <div className="flex flex-row flex-wrap gap-1 sm:gap-2 w-auto">
+          {/* Responsive action buttons for mobile and desktop, matching loan list style */}
           <button
             onClick={handleExportSelectedMembers}
             disabled={selectedMembers.length === 0 || isExporting}
-            className={`px-4 py-2 rounded-lg transition duration-300 flex items-center ${
-              selectedMembers.length === 0
+            aria-label="Export Selected"
+            className={`p-2 rounded-lg text-sm sm:text-base transition duration-300 flex items-center justify-center ${
+              selectedMembers.length === 0 || isExporting
                 ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
                 : 'bg-blue-600 text-white hover:bg-blue-700'
-            }`}
+            } sm:px-4 sm:py-2`}
           >
-            {isExporting ? (
-              <>
-                <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
-                Exporting...
-              </>
-            ) : (
-              <>
-                <svg className="-ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                </svg>
-                Export Selected {selectedMembers.length > 0 ? `(${selectedMembers.length})` : ''}
-              </>
-            )}
+            {/* Mobile: icon only, no text */}
+            <ArrowDownTrayIcon className="h-5 w-5 block sm:hidden" />
+            {/* Desktop: icon + text */}
+            <span className="hidden sm:inline-flex items-center">
+              <ArrowDownTrayIcon className="h-5 w-5 mr-2" />
+              {isExporting ? 'Exporting...' : `Export Selected${selectedMembers.length > 0 ? ` (${selectedMembers.length})` : ''}`}
+            </span>
           </button>
           <button
             onClick={handleBulkDeleteClick}
             disabled={selectedMembers.length === 0 || isBulkDeleting}
-            className={`px-4 py-2 rounded-lg transition duration-300 ${
-              selectedMembers.length === 0
+            aria-label="Delete Selected"
+            className={`p-2 rounded-lg text-sm sm:text-base transition duration-300 flex items-center justify-center ${
+              selectedMembers.length === 0 || isBulkDeleting
                 ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
                 : 'bg-red-600 text-white hover:bg-red-700'
-            }`}
+            } sm:px-4 sm:py-2`}
           >
-            {isBulkDeleting
-              ? 'Deleting...'
-              : `Delete Selected${selectedMembers.length > 0 ? ` (${selectedMembers.length})` : ''}`}
+            <svg className="h-5 w-5 block sm:hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+            <span className="hidden sm:inline-flex items-center">
+              <svg className="h-5 w-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+              {isBulkDeleting
+                ? 'Deleting...'
+                : `Delete Selected${selectedMembers.length > 0 ? ` (${selectedMembers.length})` : ''}`}
+            </span>
           </button>
           <button
             onClick={() => {
@@ -460,9 +459,14 @@ export default function MembersPage() {
               setShowForm(true);
               setFormErrors({});
             }}
-            className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition duration-300"
+            aria-label="Add Member"
+            className="p-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition duration-300 flex items-center justify-center sm:px-4 sm:py-2"
           >
-            Add New Member
+            <svg className="h-5 w-5 block sm:hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4"></path></svg>
+            <span className="hidden sm:inline-flex items-center">
+              <svg className="h-5 w-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4"></path></svg>
+              Add Member
+            </span>
           </button>
         </div>
       </div>
@@ -587,12 +591,17 @@ export default function MembersPage() {
                       </button>
                       <button
                         onClick={() => handleDeleteMember(member.id)}
-                        className="text-red-600 hover:text-red-900"
+                        className={`text-red-600 hover:text-red-900 ${isDeleting && memberToDelete === member.id ? 'opacity-50 cursor-not-allowed' : ''}`}
                         title="Delete member"
+                        disabled={isDeleting && memberToDelete === member.id}
                       >
-                        Delete
+                        {isDeleting && memberToDelete === member.id ? 'Deleting...' : 'Delete'}
                       </button>
                     </div>
+                    {/* Show delete error for this row if any */}
+                    {deleteError && memberToDelete === member.id && (
+                      <div className="mt-1 text-xs text-red-600">{deleteError}</div>
+                    )}
                   </td>
                 </tr>
               ))

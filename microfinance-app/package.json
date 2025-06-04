@@ -20,6 +20,7 @@
     "optimize-vercel": "node scripts/optimize-vercel-output.js"
   },
   "dependencies": {
+    "@heroicons/react": "2.2.0",
     "@types/node-cron": "3.0.11",
     "@types/nodemailer": "6.4.17",
     "archiver": "7.0.1",

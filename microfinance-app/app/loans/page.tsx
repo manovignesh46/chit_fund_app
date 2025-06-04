@@ -5,6 +5,7 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { LoansListSkeleton } from '../components/skeletons/ListSkeletons';
 import { loanAPI } from '../../lib/api';
+import { ArrowDownTrayIcon, TrashIcon, PlusCircleIcon } from '@heroicons/react/24/solid';
 
 // Define interfaces for Loan type
 interface GlobalMember {
@@ -309,48 +310,54 @@ export default function LoansPage() {
 
   return (
     <div className="container mx-auto px-2 sm:px-4 py-6 sm:py-8 max-w-screen-xl w-full">
-      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-6 sm:mb-8">
+      <div className="flex flex-row flex-wrap items-center justify-between gap-2 mb-6 sm:mb-8">
         <h1 className="text-2xl sm:text-3xl font-bold text-green-700">Loans</h1>
-        <div className="flex flex-col sm:flex-row gap-2 sm:gap-4 w-full sm:w-auto">
+        <div className="flex flex-row flex-wrap gap-1 sm:gap-2 w-auto">
+          {/* Export Selected */}
           <button
             onClick={handleExportSelected}
             disabled={selectedLoans.length === 0 || isExporting}
-            className={`w-full sm:w-auto px-4 py-2 rounded-lg text-sm sm:text-base ${
+            aria-label="Export Selected"
+            className={`p-2 rounded-lg text-sm sm:text-base transition duration-300 flex items-center justify-center ${
               selectedLoans.length === 0
                 ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
                 : 'bg-blue-600 text-white hover:bg-blue-700'
-            } transition duration-300 flex items-center justify-center`}
+            } sm:px-4 sm:py-2`}
           >
-            {isExporting ? (
-              <>
-                <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
-                Exporting...
-              </>
-            ) : (
-              <>
-                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
-                </svg>
-                Export Selected
-              </>
-            )}
+            <ArrowDownTrayIcon className="h-5 w-5 block sm:hidden" />
+            <span className="hidden sm:inline-flex items-center">
+              <ArrowDownTrayIcon className="h-5 w-5 mr-2" />
+              {isExporting ? 'Exporting...' : 'Export Selected'}
+            </span>
           </button>
+          {/* Delete Selected */}
           <button
             onClick={handleBulkDeleteClick}
             disabled={selectedLoans.length === 0}
-            className={`w-full sm:w-auto px-4 py-2 rounded-lg text-sm sm:text-base ${
+            aria-label="Delete Selected"
+            className={`p-2 rounded-lg text-sm sm:text-base transition duration-300 flex items-center justify-center ${
               selectedLoans.length === 0
                 ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
                 : 'bg-red-600 text-white hover:bg-red-700'
-            } transition duration-300`}
+            } sm:px-4 sm:py-2`}
           >
-            Delete Selected
+            <TrashIcon className="h-5 w-5 block sm:hidden" />
+            <span className="hidden sm:inline-flex items-center">
+              <TrashIcon className="h-5 w-5 mr-2" />
+              Delete Selected
+            </span>
           </button>
-          <Link href="/loans/new" className="w-full sm:w-auto px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition duration-300 text-center text-sm sm:text-base">
-            Create New Loan
+          {/* Create New Loan */}
+          <Link
+            href="/loans/new"
+            aria-label="Create New Loan"
+            className="p-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition duration-300 text-center text-sm sm:text-base flex items-center justify-center sm:px-4 sm:py-2"
+          >
+            <PlusCircleIcon className="h-5 w-5 block sm:hidden" />
+            <span className="hidden sm:inline-flex items-center">
+              <PlusCircleIcon className="h-5 w-5 mr-2" />
+              Create New Loan
+            </span>
           </Link>
         </div>
       </div>
