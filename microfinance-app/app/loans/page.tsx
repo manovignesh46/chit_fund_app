@@ -473,12 +473,12 @@ export default function LoansPage() {
                     key={loan.id}
                     className="hover:bg-gray-50 cursor-pointer"
                     onClick={(e) => {
-                      // Prevent navigation when clicking on checkbox or action buttons
+                      // Prevent navigation when clicking on checkbox or action buttons/links
                       if (
                         e.target instanceof HTMLInputElement ||
                         e.target instanceof HTMLButtonElement ||
                         (e.target instanceof HTMLElement &&
-                         (e.target.closest('button') || e.target.closest('input')))
+                          (e.target.closest('button') || e.target.closest('input') || e.target.closest('a')))
                       ) {
                         return;
                       }
@@ -530,7 +530,12 @@ export default function LoansPage() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                       <div className="flex space-x-2">
-                        <Link href={`/loans/${loan.id}/edit`} className="text-green-600 hover:text-green-900 flex items-center" aria-label="Edit">
+                        <Link
+                          href={`/loans/${loan.id}/edit`}
+                          className="text-green-600 hover:text-green-900 flex items-center"
+                          aria-label="Edit"
+                          onClick={e => e.stopPropagation()}
+                        >
                           {/* PencilSquare icon: icon-only on mobile, icon+text on desktop */}
                           <svg className="h-5 w-5 block sm:hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path fill="currentColor" d="M16.862 3.487a2.25 2.25 0 113.182 3.182l-9.193 9.193a2.25 2.25 0 01-.708.471l-3.25 1.3a.75.75 0 01-.97-.97l1.3-3.25a2.25 2.25 0 01.471-.708l9.193-9.193zM19.5 6.75L17.25 4.5" />
@@ -543,7 +548,7 @@ export default function LoansPage() {
                           </span>
                         </Link>
                         <button
-                          onClick={(e) => {
+                          onClick={e => {
                             e.stopPropagation();
                             const exportSingleLoan = async () => {
                               try {
@@ -574,7 +579,10 @@ export default function LoansPage() {
                           </span>
                         </button>
                         <button
-                          onClick={() => handleDeleteLoan(loan.id)}
+                          onClick={e => {
+                            e.stopPropagation();
+                            handleDeleteLoan(loan.id);
+                          }}
                           className="text-red-600 hover:text-red-900 flex items-center"
                           aria-label="Delete"
                           title="Delete loan"

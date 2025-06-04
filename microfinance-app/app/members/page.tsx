@@ -535,12 +535,12 @@ export default function MembersPage() {
                   key={member.id}
                   className="hover:bg-gray-50 cursor-pointer"
                   onClick={(e) => {
-                    // Prevent navigation when clicking on checkbox or action buttons
+                    // Prevent navigation when clicking on checkbox or action buttons/links
                     if (
                       e.target instanceof HTMLInputElement ||
                       e.target instanceof HTMLButtonElement ||
                       (e.target instanceof HTMLElement &&
-                       (e.target.closest('button') || e.target.closest('input')))
+                        (e.target.closest('button') || e.target.closest('input') || e.target.closest('a')))
                     ) {
                       return;
                     }
@@ -576,10 +576,11 @@ export default function MembersPage() {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                     <div className="flex space-x-2">
-                      <button
-                        onClick={() => handleEditMember(member)}
-                        className="text-green-600 hover:text-green-900 flex items-center"
+                      <Link
+                        href={`/members/${member.id}/edit`}
+                        className="text-blue-600 hover:text-blue-900 flex items-center"
                         aria-label="Edit"
+                        onClick={e => e.stopPropagation()}
                       >
                         {/* PencilSquare icon: icon-only on mobile, icon+text on desktop */}
                         <svg className="h-5 w-5 block sm:hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -591,26 +592,15 @@ export default function MembersPage() {
                           </svg>
                           Edit
                         </span>
-                      </button>
+                      </Link>
                       <button
-                        onClick={() => handleExportMember(member.id)}
-                        className={`text-blue-600 hover:text-blue-900 flex items-center ${exportingMemberId === member.id ? 'opacity-50 cursor-not-allowed' : ''}`}
-                        disabled={exportingMemberId === member.id}
-                        aria-label="Export"
-                        title="Export member data"
-                      >
-                        <svg className="h-5 w-5 block sm:hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
-                        <span className="hidden sm:inline-flex items-center">
-                          <svg className="h-5 w-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
-                          {exportingMemberId === member.id ? 'Exporting...' : 'Export'}
-                        </span>
-                      </button>
-                      <button
-                        onClick={() => handleDeleteMember(member.id)}
-                        className={`text-red-600 hover:text-red-900 flex items-center ${isDeleting && memberToDelete === member.id ? 'opacity-50 cursor-not-allowed' : ''}`}
+                        onClick={e => {
+                          e.stopPropagation();
+                          handleDeleteMember(member.id);
+                        }}
+                        className="text-red-600 hover:text-red-900 flex items-center"
                         aria-label="Delete"
                         title="Delete member"
-                        disabled={isDeleting && memberToDelete === member.id}
                       >
                         {/* Dustbin icon: icon-only on mobile, icon+text on desktop (Heroicons solid Trash) */}
                         <svg className="h-5 w-5 block sm:hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 7h12M9 7V4a1 1 0 011-1h4a1 1 0 011 1v3m2 0v13a2 2 0 01-2 2H8a2 2 0 01-2-2V7h12z" /></svg>

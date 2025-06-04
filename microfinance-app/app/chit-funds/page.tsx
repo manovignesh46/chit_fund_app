@@ -521,12 +521,12 @@ export default function ChitFundsPage() {
                     key={fund.id}
                     className="hover:bg-gray-50 cursor-pointer"
                     onClick={(e) => {
-                      // Prevent navigation when clicking on checkbox or action buttons
+                      // Prevent navigation when clicking on checkbox or action buttons/links
                       if (
                         e.target instanceof HTMLInputElement ||
                         e.target instanceof HTMLButtonElement ||
                         (e.target instanceof HTMLElement &&
-                         (e.target.closest('button') || e.target.closest('input')))
+                          (e.target.closest('button') || e.target.closest('input') || e.target.closest('a')))
                       ) {
                         return;
                       }
@@ -570,7 +570,12 @@ export default function ChitFundsPage() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                       <div className="flex space-x-2">
-                        <Link href={`/chit-funds/${fund.id}/edit`} className="text-green-600 hover:text-green-900 flex items-center" aria-label="Edit">
+                        <Link
+                          href={`/chit-funds/${fund.id}/edit`}
+                          className="text-blue-600 hover:text-blue-900 flex items-center"
+                          aria-label="Edit"
+                          onClick={e => e.stopPropagation()}
+                        >
                           {/* PencilSquare icon: icon-only on mobile, icon+text on desktop */}
                           <svg className="h-5 w-5 block sm:hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path fill="currentColor" d="M16.862 3.487a2.25 2.25 0 113.182 3.182l-9.193 9.193a2.25 2.25 0 01-.708.471l-3.25 1.3a.75.75 0 01-.97-.97l1.3-3.25a2.25 2.25 0 01.471-.708l9.193-9.193zM19.5 6.75L17.25 4.5" />
@@ -583,69 +588,10 @@ export default function ChitFundsPage() {
                           </span>
                         </Link>
                         <button
-                          onClick={(e) => {
+                          onClick={e => {
                             e.stopPropagation();
-                            const exportSingleChitFund = async () => {
-                              try {
-                                setIsExporting(true);
-
-                                // Call the direct export API endpoint
-                                const response = await fetch(`/api/chit-funds/${fund.id}/export`);
-
-                                if (!response.ok) {
-                                  throw new Error('Failed to export chit fund details');
-                                }
-
-                                // Get the blob from the response
-                                const blob = await response.blob();
-
-                                // Create a URL for the blob
-                                const url = window.URL.createObjectURL(blob);
-
-                                // Generate filename
-                                const chitFundName = fund.name.replace(/[^a-zA-Z0-9]/g, '_');
-                                const today = new Date();
-                                const dateStr = today.toISOString().split('T')[0]; // YYYY-MM-DD format
-                                const filename = `${chitFundName}_${dateStr}.xlsx`;
-
-                                // Create a temporary link element
-                                const a = document.createElement('a');
-                                a.href = url;
-                                a.download = filename;
-
-                                // Append to the document and trigger a click
-                                document.body.appendChild(a);
-                                a.click();
-
-                                // Clean up
-                                window.URL.revokeObjectURL(url);
-                                document.body.removeChild(a);
-                              } catch (error) {
-                                console.error('Error exporting chit fund:', error);
-                                alert('Failed to export chit fund. Please try again.');
-                              } finally {
-                                setIsExporting(false);
-                              }
-                            };
-                            exportSingleChitFund();
+                            handleDeleteChitFund(fund.id);
                           }}
-                          className="text-blue-600 hover:text-blue-900 flex items-center"
-                          title="Export chit fund data"
-                          aria-label="Export"
-                        >
-                          {/* ArrowDownTray icon: icon-only on mobile, icon+text on desktop */}
-                          <svg className="h-5 w-5 block sm:hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path fill="currentColor" d="M3 16.5A2.25 2.25 0 005.25 18.75h13.5A2.25 2.25 0 0021 16.5v-1.5a.75.75 0 00-1.5 0v1.5a.75.75 0 01-.75.75H5.25a.75.75 0 01-.75-.75v-1.5a.75.75 0 00-1.5 0v1.5zM12 3.75a.75.75 0 00-.75.75v7.19l-2.22-2.22a.75.75 0 10-1.06 1.06l3.5 3.5a.75.75 0 001.06 0l3.5-3.5a.75.75 0 10-1.06-1.06l-2.22 2.22V4.5A.75.75 0 0012 3.75z" />
-                          </svg>
-                          <span className="hidden sm:inline-flex items-center">
-                            <svg className="h-5 w-5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path fill="currentColor" d="M3 16.5A2.25 2.25 0 005.25 18.75h13.5A2.25 2.25 0 0021 16.5v-1.5a.75.75 0 00-1.5 0v1.5a.75.75 0 01-.75.75H5.25a.75.75 0 01-.75-.75v-1.5a.75.75 0 00-1.5 0v1.5zM12 3.75a.75.75 0 00-.75.75v7.19l-2.22-2.22a.75.75 0 10-1.06 1.06l3.5 3.5a.75.75 0 001.06 0l3.5-3.5a.75.75 0 10-1.06-1.06l-2.22 2.22V4.5A.75.75 0 0012 3.75z" />
-                            </svg>
-                            Export
-                          </span>
-                        </button>
-                        <button
-                          onClick={() => handleDeleteChitFund(fund.id)}
                           className="text-red-600 hover:text-red-900 flex items-center"
                           aria-label="Delete"
                           title="Delete chit fund"

@@ -259,7 +259,23 @@ export default function ActivitiesPage() {
                   }
 
                   return (
-                    <tr key={activity.id} className="hover:bg-gray-50">
+                    <tr
+                      key={activity.id}
+                      className="hover:bg-gray-50 cursor-pointer"
+                      onClick={e => {
+                        // Prevent navigation when clicking on action buttons/links in the Actions column
+                        if (
+                          e.target instanceof HTMLButtonElement ||
+                          (e.target instanceof HTMLElement && e.target.closest('button')) ||
+                          (e.target instanceof HTMLElement && e.target.closest('a'))
+                        ) {
+                          return;
+                        }
+                        if (entityLink !== '#') {
+                          window.location.href = entityLink;
+                        }
+                      }}
+                    >
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
                           activity.type === 'Chit Fund' ? 'bg-blue-100 text-blue-800' : 'bg-green-100 text-green-800'
@@ -281,7 +297,11 @@ export default function ActivitiesPage() {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                         {entityLink !== '#' ? (
-                          <Link href={entityLink} className="text-blue-600 hover:text-blue-900">
+                          <Link
+                            href={entityLink}
+                            className="text-blue-600 hover:text-blue-900"
+                            onClick={e => e.stopPropagation()}
+                          >
                             View
                           </Link>
                         ) : (
