@@ -123,8 +123,17 @@ export default function ActivitiesPage() {
       <div className="flex flex-row flex-wrap items-center justify-between gap-2 mb-6 sm:mb-8">
         <h1 className="text-2xl sm:text-3xl font-bold text-blue-700">Recent Activities</h1>
         <div className="flex flex-row flex-wrap gap-1 sm:gap-2 w-auto">
-          <Link href="/dashboard" className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition duration-300">
-            Back to Dashboard
+          <Link href="/dashboard" className="p-2 rounded-lg text-sm sm:text-base transition duration-300 flex items-center justify-center bg-gray-200 text-gray-700 hover:bg-gray-300 sm:px-4 sm:py-2" aria-label="Back to Dashboard">
+            {/* ArrowLeft icon: icon-only on mobile, icon+text on desktop */}
+            <svg className="h-5 w-5 block sm:hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" />
+            </svg>
+            <span className="hidden sm:inline-flex items-center">
+              <svg className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" />
+              </svg>
+              Back to Dashboard
+            </span>
           </Link>
         </div>
       </div>
@@ -135,33 +144,57 @@ export default function ActivitiesPage() {
           <div className="flex flex-row gap-2 flex-wrap">
             <button
               onClick={() => setFilter('all')}
-              className={`px-3 py-1 rounded ${
-                filter === 'all'
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+              className={`p-2 rounded-lg text-sm sm:text-base transition duration-300 flex items-center justify-center ${
+                filter === 'all' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
               }`}
+              aria-label="Show All Activities"
             >
-              All
+              {/* AdjustmentsHorizontal icon: icon-only on mobile, icon+text on desktop */}
+              <svg className="h-5 w-5 block sm:hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h8m-8 6h16" />
+              </svg>
+              <span className="hidden sm:inline-flex items-center">
+                <svg className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h8m-8 6h16" />
+                </svg>
+                All
+              </span>
             </button>
             <button
               onClick={() => setFilter('Loan')}
-              className={`px-3 py-1 rounded ${
-                filter === 'Loan'
-                  ? 'bg-green-600 text-white'
-                  : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+              className={`p-2 rounded-lg text-sm sm:text-base transition duration-300 flex items-center justify-center ${
+                filter === 'Loan' ? 'bg-green-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
               }`}
+              aria-label="Show Loan Activities"
             >
-              Loans
+              {/* AdjustmentsHorizontal icon: icon-only on mobile, icon+text on desktop */}
+              <svg className="h-5 w-5 block sm:hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h8m-8 6h16" />
+              </svg>
+              <span className="hidden sm:inline-flex items-center">
+                <svg className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h8m-8 6h16" />
+                </svg>
+                Loans
+              </span>
             </button>
             <button
               onClick={() => setFilter('Chit Fund')}
-              className={`px-3 py-1 rounded ${
-                filter === 'Chit Fund'
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+              className={`p-2 rounded-lg text-sm sm:text-base transition duration-300 flex items-center justify-center ${
+                filter === 'Chit Fund' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
               }`}
+              aria-label="Show Chit Fund Activities"
             >
-              Chit Funds
+              {/* AdjustmentsHorizontal icon: icon-only on mobile, icon+text on desktop */}
+              <svg className="h-5 w-5 block sm:hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h8m-8 6h16" />
+              </svg>
+              <span className="hidden sm:inline-flex items-center">
+                <svg className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h8m-8 6h16" />
+                </svg>
+                Chit Funds
+              </span>
             </button>
           </div>
           <div className="flex items-center gap-2 w-full sm:w-auto">
@@ -275,23 +308,29 @@ export default function ActivitiesPage() {
               <button
                 onClick={() => handlePageChange(currentPage - 1)}
                 disabled={currentPage === 1}
-                className={`px-3 py-1 rounded ${
+                className={`p-2 rounded-lg text-sm sm:text-base transition duration-300 flex items-center justify-center ${
                   currentPage === 1
                     ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
                     : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
                 }`}
+                aria-label="Previous Page"
               >
-                Previous
+                {/* ChevronLeft icon: icon-only on mobile, icon+text on desktop */}
+                <svg className="h-5 w-5 block sm:hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" />
+                </svg>
+                <span className="hidden sm:inline-flex items-center">Previous</span>
               </button>
               {[...Array(totalPages)].map((_, i) => (
                 <button
                   key={i}
                   onClick={() => handlePageChange(i + 1)}
-                  className={`px-3 py-1 rounded ${
+                  className={`p-2 rounded-lg text-sm sm:text-base transition duration-300 flex items-center justify-center ${
                     currentPage === i + 1
                       ? 'bg-blue-600 text-white'
                       : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
                   }`}
+                  aria-label={`Go to page ${i + 1}`}
                 >
                   {i + 1}
                 </button>
@@ -299,13 +338,18 @@ export default function ActivitiesPage() {
               <button
                 onClick={() => handlePageChange(currentPage + 1)}
                 disabled={currentPage === totalPages}
-                className={`px-3 py-1 rounded ${
+                className={`p-2 rounded-lg text-sm sm:text-base transition duration-300 flex items-center justify-center ${
                   currentPage === totalPages
                     ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
                     : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
                 }`}
+                aria-label="Next Page"
               >
-                Next
+                {/* ChevronRight icon: icon-only on mobile, icon+text on desktop */}
+                <svg className="h-5 w-5 block sm:hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
+                </svg>
+                <span className="hidden sm:inline-flex items-center">Next</span>
               </button>
             </div>
           </div>

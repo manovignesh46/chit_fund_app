@@ -197,8 +197,17 @@ export default function CalendarPage() {
       <div className="flex flex-row flex-wrap items-center justify-between gap-2 mb-6 sm:mb-8">
         <h1 className="text-2xl sm:text-3xl font-bold text-blue-700">Calendar</h1>
         <div className="flex flex-row flex-wrap gap-1 sm:gap-2 w-auto">
-          <Link href="/dashboard" className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition duration-300">
-            Back to Dashboard
+          <Link href="/dashboard" className="p-2 rounded-lg text-sm sm:text-base transition duration-300 flex items-center justify-center bg-gray-200 text-gray-700 hover:bg-gray-300 sm:px-4 sm:py-2" aria-label="Back to Dashboard">
+            {/* ArrowLeft icon: icon-only on mobile, icon+text on desktop */}
+            <svg className="h-5 w-5 block sm:hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" />
+            </svg>
+            <span className="hidden sm:inline-flex items-center">
+              <svg className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" />
+              </svg>
+              Back to Dashboard
+            </span>
           </Link>
         </div>
       </div>
@@ -209,54 +218,108 @@ export default function CalendarPage() {
           <div className="flex flex-row gap-2">
             <button
               onClick={prevMonth}
-              className="px-3 py-1 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 transition duration-300"
+              className="p-2 rounded-lg text-sm sm:text-base transition duration-300 flex items-center justify-center bg-gray-200 text-gray-700 hover:bg-gray-300"
+              aria-label="Previous Month"
             >
-              &lt; Prev
+              {/* ChevronLeft icon: icon-only on mobile, icon+text on desktop */}
+              <svg className="h-5 w-5 block sm:hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" />
+              </svg>
+              <span className="hidden sm:inline-flex items-center">
+                <svg className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" />
+                </svg>
+                Prev
+              </span>
             </button>
             <button
               onClick={goToToday}
-              className="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 transition duration-300"
+              className="p-2 rounded-lg text-sm sm:text-base transition duration-300 flex items-center justify-center bg-blue-600 text-white hover:bg-blue-700"
+              aria-label="Go to Today"
             >
-              Today
+              {/* CalendarDays icon: icon-only on mobile, icon+text on desktop */}
+              <svg className="h-5 w-5 block sm:hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
+              <span className="hidden sm:inline-flex items-center">
+                <svg className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+                Today
+              </span>
             </button>
             <button
               onClick={nextMonth}
-              className="px-3 py-1 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 transition duration-300"
+              className="p-2 rounded-lg text-sm sm:text-base transition duration-300 flex items-center justify-center bg-gray-200 text-gray-700 hover:bg-gray-300"
+              aria-label="Next Month"
             >
-              Next &gt;
+              {/* ChevronRight icon: icon-only on mobile, icon+text on desktop */}
+              <svg className="h-5 w-5 block sm:hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
+              </svg>
+              <span className="hidden sm:inline-flex items-center">
+                <svg className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
+                </svg>
+                Next
+              </span>
             </button>
           </div>
           <h2 className="text-lg sm:text-xl font-semibold">{format(currentMonth, 'MMMM yyyy')}</h2>
           <div className="flex flex-row gap-2">
             <button
               onClick={() => setFilter('all')}
-              className={`px-3 py-1 rounded ${
-                filter === 'all'
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+              className={`p-2 rounded-lg text-sm sm:text-base transition duration-300 flex items-center justify-center ${
+                filter === 'all' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
               }`}
+              aria-label="Show All Events"
             >
-              All
+              {/* AdjustmentsHorizontal icon: icon-only on mobile, icon+text on desktop */}
+              <svg className="h-5 w-5 block sm:hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h8m-8 6h16" />
+              </svg>
+              <span className="hidden sm:inline-flex items-center">
+                <svg className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h8m-8 6h16" />
+                </svg>
+                All
+              </span>
             </button>
             <button
               onClick={() => setFilter('Loan')}
-              className={`px-3 py-1 rounded ${
-                filter === 'Loan'
-                  ? 'bg-green-600 text-white'
-                  : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+              className={`p-2 rounded-lg text-sm sm:text-base transition duration-300 flex items-center justify-center ${
+                filter === 'Loan' ? 'bg-green-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
               }`}
+              aria-label="Show Loan Events"
             >
-              Loans
+              {/* AdjustmentsHorizontal icon: icon-only on mobile, icon+text on desktop */}
+              <svg className="h-5 w-5 block sm:hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h8m-8 6h16" />
+              </svg>
+              <span className="hidden sm:inline-flex items-center">
+                <svg className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h8m-8 6h16" />
+                </svg>
+                Loans
+              </span>
             </button>
             <button
               onClick={() => setFilter('Chit Fund')}
-              className={`px-3 py-1 rounded ${
-                filter === 'Chit Fund'
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+              className={`p-2 rounded-lg text-sm sm:text-base transition duration-300 flex items-center justify-center ${
+                filter === 'Chit Fund' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
               }`}
+              aria-label="Show Chit Fund Events"
             >
-              Chit Funds
+              {/* AdjustmentsHorizontal icon: icon-only on mobile, icon+text on desktop */}
+              <svg className="h-5 w-5 block sm:hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h8m-8 6h16" />
+              </svg>
+              <span className="hidden sm:inline-flex items-center">
+                <svg className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h8m-8 6h16" />
+                </svg>
+                Chit Funds
+              </span>
             </button>
           </div>
         </div>

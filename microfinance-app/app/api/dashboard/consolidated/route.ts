@@ -1050,16 +1050,15 @@ async function getActivitiesWithPagination(userId: number, page: number, pageSiz
     // Calculate skip value for pagination
     const skip = (page - 1) * pageSize;
 
-    // Prepare filter conditions
-    const filterCondition = filter !== 'all' ? { type: filter } : {};
-
+    // Prepare filter conditions for each model
+    // Only apply filter at the activity aggregation level, not in Prisma queries
+    // Do NOT spread { type: filter } into any Prisma query
     // Get recent loan repayments with pagination
     const loanRepayments = await prisma.repayment.findMany({
       where: {
         loan: {
           createdById: userId
-        },
-        ...filterCondition
+        }
       },
       select: {
         id: true,
@@ -1088,8 +1087,7 @@ async function getActivitiesWithPagination(userId: number, page: number, pageSiz
       where: {
         chitFund: {
           createdById: userId
-        },
-        ...filterCondition
+        }
       },
       select: {
         id: true,
@@ -1114,8 +1112,7 @@ async function getActivitiesWithPagination(userId: number, page: number, pageSiz
       where: {
         chitFund: {
           createdById: userId
-        },
-        ...filterCondition
+        }
       },
       select: {
         id: true,
@@ -1138,8 +1135,7 @@ async function getActivitiesWithPagination(userId: number, page: number, pageSiz
     // Get recent loan disbursements with pagination
     const loanDisbursements = await prisma.loan.findMany({
       where: {
-        createdById: userId,
-        ...filterCondition
+        createdById: userId
       },
       select: {
         id: true,
@@ -1212,7 +1208,7 @@ async function getActivitiesWithPagination(userId: number, page: number, pageSiz
       ...loanActivities
     ];
 
-    // Apply type filter if needed
+    // Apply type filter if needed (at the aggregation level only)
     const filteredActivities = filter !== 'all'
       ? allActivities.filter(activity => activity.type === filter)
       : allActivities;

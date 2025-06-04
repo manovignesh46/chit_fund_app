@@ -570,8 +570,17 @@ export default function ChitFundsPage() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                       <div className="flex space-x-2">
-                        <Link href={`/chit-funds/${fund.id}/edit`} className="text-green-600 hover:text-green-900">
-                          Edit
+                        <Link href={`/chit-funds/${fund.id}/edit`} className="text-green-600 hover:text-green-900 flex items-center" aria-label="Edit">
+                          {/* PencilSquare icon: icon-only on mobile, icon+text on desktop */}
+                          <svg className="h-5 w-5 block sm:hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path fill="currentColor" d="M16.862 3.487a2.25 2.25 0 113.182 3.182l-9.193 9.193a2.25 2.25 0 01-.708.471l-3.25 1.3a.75.75 0 01-.97-.97l1.3-3.25a2.25 2.25 0 01.471-.708l9.193-9.193zM19.5 6.75L17.25 4.5" />
+                          </svg>
+                          <span className="hidden sm:inline-flex items-center">
+                            <svg className="h-5 w-5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path fill="currentColor" d="M16.862 3.487a2.25 2.25 0 113.182 3.182l-9.193 9.193a2.25 2.25 0 01-.708.471l-3.25 1.3a.75.75 0 01-.97-.97l1.3-3.25a2.25 2.25 0 01.471-.708l9.193-9.193zM19.5 6.75L17.25 4.5" />
+                            </svg>
+                            Edit
+                          </span>
                         </Link>
                         <button
                           onClick={(e) => {
@@ -620,16 +629,33 @@ export default function ChitFundsPage() {
                             };
                             exportSingleChitFund();
                           }}
-                          className="text-blue-600 hover:text-blue-900"
+                          className="text-blue-600 hover:text-blue-900 flex items-center"
                           title="Export chit fund data"
+                          aria-label="Export"
                         >
-                          Export
+                          {/* ArrowDownTray icon: icon-only on mobile, icon+text on desktop */}
+                          <svg className="h-5 w-5 block sm:hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path fill="currentColor" d="M3 16.5A2.25 2.25 0 005.25 18.75h13.5A2.25 2.25 0 0021 16.5v-1.5a.75.75 0 00-1.5 0v1.5a.75.75 0 01-.75.75H5.25a.75.75 0 01-.75-.75v-1.5a.75.75 0 00-1.5 0v1.5zM12 3.75a.75.75 0 00-.75.75v7.19l-2.22-2.22a.75.75 0 10-1.06 1.06l3.5 3.5a.75.75 0 001.06 0l3.5-3.5a.75.75 0 10-1.06-1.06l-2.22 2.22V4.5A.75.75 0 0012 3.75z" />
+                          </svg>
+                          <span className="hidden sm:inline-flex items-center">
+                            <svg className="h-5 w-5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path fill="currentColor" d="M3 16.5A2.25 2.25 0 005.25 18.75h13.5A2.25 2.25 0 0021 16.5v-1.5a.75.75 0 00-1.5 0v1.5a.75.75 0 01-.75.75H5.25a.75.75 0 01-.75-.75v-1.5a.75.75 0 00-1.5 0v1.5zM12 3.75a.75.75 0 00-.75.75v7.19l-2.22-2.22a.75.75 0 10-1.06 1.06l3.5 3.5a.75.75 0 001.06 0l3.5-3.5a.75.75 0 10-1.06-1.06l-2.22 2.22V4.5A.75.75 0 0012 3.75z" />
+                            </svg>
+                            Export
+                          </span>
                         </button>
                         <button
                           onClick={() => handleDeleteChitFund(fund.id)}
-                          className="text-red-600 hover:text-red-900"
+                          className="text-red-600 hover:text-red-900 flex items-center"
+                          aria-label="Delete"
+                          title="Delete chit fund"
                         >
-                          Delete
+                          {/* Dustbin icon: icon-only on mobile, icon+text on desktop */}
+                          <svg className="h-5 w-5 block sm:hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 7h12M9 7V4a1 1 0 011-1h4a1 1 0 011 1v3m2 0v13a2 2 0 01-2 2H8a2 2 0 01-2-2V7h12z" /></svg>
+                          <span className="hidden sm:inline-flex items-center">
+                            <svg className="h-5 w-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 7h12M9 7V4a1 1 0 011-1h4a1 1 0 011 1v3m2 0v13a2 2 0 01-2 2H8a2 2 0 01-2-2V7h12z" /></svg>
+                            Delete
+                          </span>
                         </button>
                       </div>
                     </td>

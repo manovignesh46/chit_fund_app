@@ -437,9 +437,10 @@ export default function MembersPage() {
                 : 'bg-red-600 text-white hover:bg-red-700'
             } sm:px-4 sm:py-2`}
           >
-            <svg className="h-5 w-5 block sm:hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+            {/* Dustbin icon: icon-only on mobile, icon+text on desktop */}
+            <svg className="h-5 w-5 block sm:hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 7h12M9 7V4a1 1 0 011-1h4a1 1 0 011 1v3m2 0v13a2 2 0 01-2 2H8a2 2 0 01-2-2V7h12z" /></svg>
             <span className="hidden sm:inline-flex items-center">
-              <svg className="h-5 w-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+              <svg className="h-5 w-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 7h12M9 7V4a1 1 0 011-1h4a1 1 0 011 1v3m2 0v13a2 2 0 01-2 2H8a2 2 0 01-2-2V7h12z" /></svg>
               {isBulkDeleting
                 ? 'Deleting...'
                 : `Delete Selected${selectedMembers.length > 0 ? ` (${selectedMembers.length})` : ''}`}
@@ -577,25 +578,46 @@ export default function MembersPage() {
                     <div className="flex space-x-2">
                       <button
                         onClick={() => handleEditMember(member)}
-                        className="text-green-600 hover:text-green-900"
+                        className="text-green-600 hover:text-green-900 flex items-center"
+                        aria-label="Edit"
                       >
-                        Edit
+                        {/* PencilSquare icon: icon-only on mobile, icon+text on desktop */}
+                        <svg className="h-5 w-5 block sm:hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path fill="currentColor" d="M16.862 3.487a2.25 2.25 0 113.182 3.182l-9.193 9.193a2.25 2.25 0 01-.708.471l-3.25 1.3a.75.75 0 01-.97-.97l1.3-3.25a2.25 2.25 0 01.471-.708l9.193-9.193zM19.5 6.75L17.25 4.5" />
+                        </svg>
+                        <span className="hidden sm:inline-flex items-center">
+                          <svg className="h-5 w-5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path fill="currentColor" d="M16.862 3.487a2.25 2.25 0 113.182 3.182l-9.193 9.193a2.25 2.25 0 01-.708.471l-3.25 1.3a.75.75 0 01-.97-.97l1.3-3.25a2.25 2.25 0 01.471-.708l9.193-9.193zM19.5 6.75L17.25 4.5" />
+                          </svg>
+                          Edit
+                        </span>
                       </button>
                       <button
                         onClick={() => handleExportMember(member.id)}
-                        className={`text-blue-600 hover:text-blue-900 ${exportingMemberId === member.id ? 'opacity-50 cursor-not-allowed' : ''}`}
+                        className={`text-blue-600 hover:text-blue-900 flex items-center ${exportingMemberId === member.id ? 'opacity-50 cursor-not-allowed' : ''}`}
                         disabled={exportingMemberId === member.id}
+                        aria-label="Export"
                         title="Export member data"
                       >
-                        {exportingMemberId === member.id ? 'Exporting...' : 'Export'}
+                        <svg className="h-5 w-5 block sm:hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                        <span className="hidden sm:inline-flex items-center">
+                          <svg className="h-5 w-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                          {exportingMemberId === member.id ? 'Exporting...' : 'Export'}
+                        </span>
                       </button>
                       <button
                         onClick={() => handleDeleteMember(member.id)}
-                        className={`text-red-600 hover:text-red-900 ${isDeleting && memberToDelete === member.id ? 'opacity-50 cursor-not-allowed' : ''}`}
+                        className={`text-red-600 hover:text-red-900 flex items-center ${isDeleting && memberToDelete === member.id ? 'opacity-50 cursor-not-allowed' : ''}`}
+                        aria-label="Delete"
                         title="Delete member"
                         disabled={isDeleting && memberToDelete === member.id}
                       >
-                        {isDeleting && memberToDelete === member.id ? 'Deleting...' : 'Delete'}
+                        {/* Dustbin icon: icon-only on mobile, icon+text on desktop (Heroicons solid Trash) */}
+                        <svg className="h-5 w-5 block sm:hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 7h12M9 7V4a1 1 0 011-1h4a1 1 0 011 1v3m2 0v13a2 2 0 01-2 2H8a2 2 0 01-2-2V7h12z" /></svg>
+                        <span className="hidden sm:inline-flex items-center">
+                          <svg className="h-5 w-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 7h12M9 7V4a1 1 0 011-1h4a1 1 0 011 1v3m2 0v13a2 2 0 01-2 2H8a2 2 0 01-2-2V7h12z" /></svg>
+                          {isDeleting && memberToDelete === member.id ? 'Deleting...' : 'Delete'}
+                        </span>
                       </button>
                     </div>
                     {/* Show delete error for this row if any */}
