@@ -1392,7 +1392,17 @@ const LoanDetailPage = () => {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm text-gray-900">
-                        {schedule.actualPaymentDate ? formatDate(schedule.actualPaymentDate) : '-'}
+                        {/* Show payment date from schedule.repayment if present, else fallback to loan.repayments by period */}
+                        {(() => {
+                          if (schedule.repayment && schedule.repayment.paidDate) {
+                            return formatDate(schedule.repayment.paidDate);
+                          }
+                          if (loan.repayments && Array.isArray(loan.repayments)) {
+                            const repayment = loan.repayments.find((r: any) => r.period === schedule.period);
+                            return repayment && repayment.paidDate ? formatDate(repayment.paidDate) : '-';
+                          }
+                          return '-';
+                        })()}
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">

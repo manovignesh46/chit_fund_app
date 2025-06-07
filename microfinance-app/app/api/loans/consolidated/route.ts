@@ -430,11 +430,11 @@ async function getPaymentSchedules(request: NextRequest, id: number, currentUser
     const oneWeekFromNow = new Date(today);
     oneWeekFromNow.setDate(today.getDate() + 7);
 
-    console.log('Date ranges for payment schedules:', {
-      today: today.toISOString(),
-      tomorrow: tomorrow.toISOString(),
-      oneWeekFromNow: oneWeekFromNow.toISOString()
-    });
+    // console.log('Date ranges for payment schedules:', {
+    //   today: today.toISOString(),
+    //   tomorrow: tomorrow.toISOString(),
+    //   oneWeekFromNow: oneWeekFromNow.toISOString()
+    // });
 
     // Generate dynamic payment schedules
     const schedules = [];
@@ -444,16 +444,16 @@ async function getPaymentSchedules(request: NextRequest, id: number, currentUser
     const installmentAmount = loan.installmentAmount;
     const interestRate = loan.interestRate;
 
-    console.log('Generating payment schedules with dates:', {
-      today: today.toISOString(),
-      tomorrow: tomorrow.toISOString(),
-      oneWeekFromNow: oneWeekFromNow.toISOString(),
-      disbursementDate: disbursementDate.toISOString(),
-      loanId: id,
-      duration: duration,
-      repaymentType: repaymentType,
-      includeAll: includeAll
-    });
+    // console.log('Generating payment schedules with dates:', {
+    //   today: today.toISOString(),
+    //   tomorrow: tomorrow.toISOString(),
+    //   oneWeekFromNow: oneWeekFromNow.toISOString(),
+    //   disbursementDate: disbursementDate.toISOString(),
+    //   loanId: id,
+    //   duration: duration,
+    //   repaymentType: repaymentType,
+    //   includeAll: includeAll
+    // });
 
     // Create a map of repayments by period for quick lookup
     const repaymentsByPeriod = new Map();
@@ -502,18 +502,18 @@ async function getPaymentSchedules(request: NextRequest, id: number, currentUser
 
       // Debug log for period 1 (first payment)
       if (period === 1) {
-        console.log(`Payment schedule for period ${period}:`, {
-          dueDate: dueDateNormalized.toISOString(),
-          isDueToday,
-          isDueTomorrow,
-          isOverdue,
-          isUpcoming,
-          isPaid,
-          dueDateTimestamp: dueDateNormalized.getTime(),
-          tomorrowTimestamp: tomorrow.getTime(),
-          isSameAsTomorrow: dueDateNormalized.getTime() === tomorrow.getTime(),
-          dateDiff: dueDateNormalized.getTime() - tomorrow.getTime()
-        });
+        // console.log(`Payment schedule for period ${period}:`, {
+        //   dueDate: dueDateNormalized.toISOString(),
+        //   isDueToday,
+        //   isDueTomorrow,
+        //   isOverdue,
+        //   isUpcoming,
+        //   isPaid,
+        //   dueDateTimestamp: dueDateNormalized.getTime(),
+        //   tomorrowTimestamp: tomorrow.getTime(),
+        //   isSameAsTomorrow: dueDateNormalized.getTime() === tomorrow.getTime(),
+        //   dateDiff: dueDateNormalized.getTime() - tomorrow.getTime()
+        // });
       }
 
       // Check if this is the next payment date (first unpaid period)
