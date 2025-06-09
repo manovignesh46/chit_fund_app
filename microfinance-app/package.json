@@ -17,7 +17,8 @@
     "vercel-install": "npm install --legacy-peer-deps --no-audit",
     "vercel-build": "next build",
     "cleanup-prisma": "node scripts/cleanup-prisma.js",
-    "optimize-vercel": "node scripts/optimize-vercel-output.js"
+    "optimize-vercel": "node scripts/optimize-vercel-output.js",
+    "setup-default-partners": "ts-node --compiler-options '{\"module\":\"CommonJS\"}' scripts/setup-default-partners.ts"
   },
   "dependencies": {
     "@heroicons/react": "2.2.0",

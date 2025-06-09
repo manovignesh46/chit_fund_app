@@ -2,6 +2,7 @@
 import React from 'react';
 import '../styles/globals.css';
 import Header from './components/Header';
+import { PartnerProvider } from './contexts/PartnerContext';
 
 // Initialize the application (including schedulers)
 import '../lib/init';
@@ -18,8 +19,10 @@ const RootLayout = ({ children }: { children: React.ReactNode }) => {
   return (
     <html lang="en">
       <body>
-        <Header />
-        <main className="p-4">{children}</main>
+        <PartnerProvider>
+          <Header />
+          <main className="p-4">{children}</main>
+        </PartnerProvider>
       </body>
     </html>
   );

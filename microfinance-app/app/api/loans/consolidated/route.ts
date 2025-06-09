@@ -875,13 +875,14 @@ async function createLoan(request: NextRequest, currentUserId: number) {
       installmentAmount: body.installmentAmount ? parseFloat(body.installmentAmount) : 0,
       duration: parseInt(body.duration),
       disbursementDate: disbursementDate,
-      repaymentType: body.repaymentType,
-      remainingAmount: parseFloat(body.amount), // Initially, remaining amount is the full loan amount
-      status: body.status || 'Active',
+      repaymentType: body.repaymentType, // Keep as 'Monthly' or 'Weekly'
+      remainingAmount: parseFloat(body.amount),
+      status: 'Active',
       purpose: body.purpose || null,
-      // Set the creator
+      overdueAmount: 0,
+      missedPayments: 0,
+      currentMonth: 0,
       createdById: currentUserId,
-      // Add the next payment date
       nextPaymentDate: initialNextPaymentDate
     };
 
@@ -893,6 +894,16 @@ async function createLoan(request: NextRequest, currentUserId: number) {
       }
     });
 
+    // Create a transaction record for the loan disbursement as a separate operation
+    const transaction = await prismaAny.transaction.create({
+      data: {
+        amount: parseFloat(body.amount),
+        description: `Loan disbursed to ${body.borrowerName}`,
+        date: disbursementDate,
+        createdById: currentUserId
+      }
+    });
+
     // Generate payment schedule for the loan
     try {
       await generatePaymentSchedule(loan.id, loan);
@@ -901,7 +912,7 @@ async function createLoan(request: NextRequest, currentUserId: number) {
       // Continue even if schedule generation fails - we don't want to roll back the loan creation
     }
 
-    return NextResponse.json(loan, { status: 201 });
+    return NextResponse.json({ loan, transaction }, { status: 201 });
   } catch (error) {
     console.error('Error creating loan:', error);
 
@@ -914,19 +925,8 @@ async function createLoan(request: NextRequest, currentUserId: number) {
       errorDetails = error.stack || '';
     }
 
-    // Check for specific Prisma errors
-    if (errorMessage.includes('Prisma')) {
-      if (errorMessage.includes('Foreign key constraint failed')) {
-        errorMessage = 'Invalid relationship reference';
-      } else if (errorMessage.includes('Unique constraint failed')) {
-        errorMessage = 'Duplicate record found';
-      } else if (errorMessage.includes('Unknown arg')) {
-        errorMessage = 'Schema mismatch - please contact support';
-      }
-    }
-
     return NextResponse.json(
-      {
+      { 
         error: errorMessage,
         details: errorDetails
       },
@@ -939,11 +939,47 @@ async function createLoan(request: NextRequest, currentUserId: number) {
 async function addRepayment(request: NextRequest, id: number, currentUserId: number) {
   try {
     const requestBody = await request.json();
-    const { amount, paidDate, paymentType = 'full', scheduleId } = requestBody;
+    const { 
+      amount, 
+      paidDate,
+      paymentType = 'REGULAR', // Use RepaymentType enum values
+      scheduleId,
+      collected_by  // This should be a partner ID
+    } = requestBody;
 
     const loanId = id;
     const paymentAmount = parseFloat(amount);
-    const isInterestOnly = paymentType === 'interestOnly';
+
+    // Input validation
+    if (!amount || isNaN(parseFloat(amount)) || parseFloat(amount) <= 0) {
+      return NextResponse.json(
+        { error: 'A valid payment amount greater than 0 is required' },
+        { status: 400 }
+      );
+    }
+
+    if (!paidDate || isNaN(new Date(paidDate).getTime())) {
+      return NextResponse.json(
+        { error: 'A valid payment date is required' },
+        { status: 400 }
+      );
+    }
+
+    if (!collected_by) {
+      return NextResponse.json(
+        { error: 'Collector information is required' },
+        { status: 400 }
+      );
+    }
+
+    // Validate payment type is a valid RepaymentType enum value
+    const validPaymentTypes = ['REGULAR', 'INTEREST_ONLY', 'PARTIAL'];
+    if (!validPaymentTypes.includes(paymentType)) {
+      return NextResponse.json(
+        { error: 'Invalid payment type. Must be REGULAR, INTEREST_ONLY, or PARTIAL' },
+        { status: 400 }
+      );
+    }
 
     // Get the current loan to check remaining amount
     const loan = await prismaAny.loan.findUnique({
@@ -973,90 +1009,86 @@ async function addRepayment(request: NextRequest, id: number, currentUserId: num
       );
     }
 
-    // Only validate against remaining amount for full payments
-    if (!isInterestOnly && paymentAmount > loan.remainingAmount) {
+    // Look up the collector partner
+    const collector = await prismaAny.partner.findUnique({
+      where: { id: parseInt(collected_by) }
+    });
+
+    if (!collector) {
       return NextResponse.json(
-        { error: 'Payment amount cannot exceed the remaining balance' },
+        { error: 'Invalid collector reference' },
         { status: 400 }
       );
     }
-
-    // Validate scheduleId is provided
-    if (!scheduleId) {
-      return NextResponse.json(
-        { error: 'Payment schedule selection is required' },
-        { status: 400 }
-      );
-    }
-
-    // Calculate new remaining amount - only reduce for full payments
-    const newRemainingAmount = isInterestOnly
-      ? loan.remainingAmount // No change for interest-only payments
-      : loan.remainingAmount - (paymentAmount - loan.interestRate);
-
-    // Calculate overdue amount after this payment
-    const overdueResult = await updateOverdueAmountFromRepayments(loanId);
-    const { overdueAmount, missedPayments } = overdueResult || { overdueAmount: 0, missedPayments: 0 };
 
     // Get the period from the selected schedule
-    // For dynamic schedules, the ID is the period
-    const finalPeriod = Number(scheduleId);
-
-    // Validate that the period is a valid number
-    if (isNaN(finalPeriod) || finalPeriod <= 0) {
+    const period = Number(scheduleId);
+    if (isNaN(period) || period <= 0) {
       return NextResponse.json(
         { error: 'Invalid payment schedule ID' },
         { status: 400 }
       );
     }
 
-    // Prepare the repayment data
-    const repaymentData = {
-      loanId: loanId,
-      amount: paymentAmount,
-      paidDate: new Date(paidDate),
-      paymentType: isInterestOnly ? 'interestOnly' : 'full',
-      // Store the period from the schedule ID
-      period: finalPeriod
-    };
+    // Calculate new remaining amount based on payment type
+    let newRemainingAmount = loan.remainingAmount;
+    if (paymentType === 'REGULAR') {
+      newRemainingAmount -= (paymentAmount - loan.interestRate);
+    } else if (paymentType === 'PARTIAL') {
+      newRemainingAmount -= paymentAmount;
+    } // For INTEREST_ONLY, remaining amount stays the same
 
     try {
-      // Step 1: Create the repayment record
+      // Create the repayment record with proper foreign key references
       const repayment = await prismaAny.repayment.create({
-        data: repaymentData,
+        data: {
+          loanId,
+          amount: paymentAmount,
+          paidDate: new Date(paidDate),
+          date: new Date(), // Current timestamp
+          paymentType: paymentType as 'REGULAR' | 'INTEREST_ONLY' | 'PARTIAL',
+          period,
+          collected_by_id: collector.id,
+          entered_by_id: currentUserId,
+          createdById: currentUserId
+        },
+        include: {
+          collectedBy: true,
+          enteredBy: true
+        }
       });
 
-      // Step 2: Calculate the next payment date
+      // Calculate the next payment date
       const nextPaymentDate = await calculateNextPaymentDate(loanId);
 
-      // Step 3: Update the loan
+      // Calculate overdue amount after this payment
+      const overdueResult = await updateOverdueAmountFromRepayments(loanId);
+      const { overdueAmount, missedPayments } = overdueResult || { overdueAmount: 0, missedPayments: 0 };
+
+      // Update the loan
       const updatedLoan = await prismaAny.loan.update({
         where: { id: loanId },
         data: {
-          // Only update remaining amount for full payments
           remainingAmount: newRemainingAmount,
-          // If fully paid, update the status
           status: newRemainingAmount <= 0 ? 'Completed' : 'Active',
-          // Update next payment date with the calculated value
           nextPaymentDate: newRemainingAmount <= 0 ? null : nextPaymentDate,
-          // Update overdue information
           overdueAmount: overdueAmount,
           missedPayments: missedPayments
-        } as any, // Use type assertion to handle custom fields
+        }
       });
 
       return NextResponse.json({
         ...repayment,
-        paymentType: isInterestOnly ? 'interestOnly' : 'full'
+        loan: updatedLoan,
+        collector_name: collector.name,
+        collector_id: collector.id
       }, { status: 201 });
-    } catch (error: any) {
+
+    } catch (error) {
       console.error('Error in repayment creation process:', error);
-      return NextResponse.json(
-        { error: `Failed to create repayment: ${error.message || 'Unknown error'}` },
-        { status: 500 }
-      );
+      throw error;
     }
-  } catch (error: any) {
+  } catch (error) {
     console.error('Error creating repayment:', error);
     return NextResponse.json(
       { error: `Failed to create repayment: ${error.message || 'Unknown error'}` },

@@ -5,6 +5,7 @@ import React, { useState, useEffect, FormEvent, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { loanAPI } from '../../../../../lib/api';
+import { usePartner } from '../../../../contexts/PartnerContext';
 
 interface Loan {
   id: number;
@@ -23,8 +24,12 @@ interface Loan {
 interface FormData {
   amount: string;
   paidDate: string;
-  paymentType: 'full' | 'interestOnly';
+  paymentType: 'REGULAR' | 'INTEREST_ONLY' | 'PARTIAL';
   scheduleId: string;
+  collected_by_id?: string;
+  collected_by?: string; // Added to ensure API gets correct collector info
+  entered_by_id?: string;
+  notes?: string; // Optional notes field for additional information
 }
 
 interface PaymentSchedule {
@@ -38,7 +43,6 @@ interface PaymentSchedule {
 interface FormErrors {
   amount?: string;
   paidDate?: string;
-  paymentType?: string;
   scheduleId?: string;
   general?: string;
 }
@@ -47,19 +51,68 @@ export default function NewRepaymentPage() {
   const params = useParams();
   const router = useRouter();
   const id = params.id;
+  const { selectedPartner } = usePartner();
 
   const [loan, setLoan] = useState<Loan | null>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [pendingSchedules, setPendingSchedules] = useState<PaymentSchedule[]>([]);
   const [loadingSchedules, setLoadingSchedules] = useState(false);
-  const [formData, setFormData] = useState<FormData>({
+  
+  // Default form data with active partner
+  const [formData, setFormData] = useState<FormData>(() => ({
     amount: '',
-    paidDate: new Date().toISOString().split('T')[0], // Default to today's date
-    paymentType: 'full', // Default to full payment (principal + interest)
-    scheduleId: '', // Will be required in form validation
-  });
+    paidDate: new Date().toISOString().split('T')[0],
+    paymentType: 'REGULAR',
+    scheduleId: '',
+    collected_by_id: selectedPartner?.id?.toString() || undefined,
+    collected_by: selectedPartner?.id?.toString() || undefined,
+    entered_by_id: selectedPartner?.id?.toString() || undefined,
+    notes: ''
+  }));
   const [errors, setErrors] = useState<FormErrors>({});
+
+  // Update form data when active partner changes
+  useEffect(() => {
+    if (selectedPartner?.id) {
+      setFormData(prev => ({
+        ...prev,
+        collected_by_id: selectedPartner.id.toString(),
+        entered_by_id: selectedPartner.id.toString(),
+        collected_by: selectedPartner.id.toString() // Add this to ensure API gets both fields
+      }));
+    } else {
+      // Clear collector fields if no partner is selected
+      setFormData(prev => ({
+        ...prev,
+        collected_by_id: undefined,
+        entered_by_id: undefined,
+        collected_by: undefined
+      }));
+    }
+  }, [selectedPartner]);
+
+  // Update form data when partner changes
+  useEffect(() => {
+    if (selectedPartner?.id) {
+      console.log('Partner selected, updating form data:', selectedPartner);
+      setFormData(prev => ({
+        ...prev,
+        collected_by_id: selectedPartner.id.toString(),
+        collected_by: selectedPartner.id.toString(),
+        entered_by_id: selectedPartner.id.toString()
+      }));
+    } else {
+      // Clear collector fields if no partner is selected
+      console.log('No partner selected, clearing form data');
+      setFormData(prev => ({
+        ...prev,
+        collected_by_id: undefined,
+        collected_by: undefined,
+        entered_by_id: undefined
+      }));
+    }
+  }, [selectedPartner]);
 
   // Fetch payment schedules
   const fetchPendingSchedules = useCallback(async () => {
@@ -152,22 +205,69 @@ export default function NewRepaymentPage() {
   const validateForm = (): boolean => {
     const newErrors: FormErrors = {};
 
+    // Amount validation
     if (!formData.amount) {
       newErrors.amount = 'Payment amount is required';
     } else if (isNaN(Number(formData.amount)) || Number(formData.amount) <= 0) {
       newErrors.amount = 'Please enter a valid amount';
-    } else if (loan && Number(formData.amount) > loan.remainingAmount) {
-      newErrors.amount = `Amount cannot exceed the remaining balance (${loan.remainingAmount})`;
+    } else if (loan) {
+      const amount = Number(formData.amount);
+      if (formData.paymentType === 'REGULAR' && amount > loan.remainingAmount) {
+        newErrors.amount = `Amount cannot exceed the remaining balance (${loan.remainingAmount})`;
+      } else if (formData.paymentType === 'INTEREST_ONLY' && loan.interestRate && amount !== loan.interestRate) {
+        newErrors.amount = `Interest-only payment must be exactly ${loan.interestRate}`;
+      }
     }
 
+    // Payment date validation
     if (!formData.paidDate) {
       newErrors.paidDate = 'Payment date is required';
+    } else {
+      const paidDate = new Date(formData.paidDate);
+      if (isNaN(paidDate.getTime())) {
+        newErrors.paidDate = 'Please enter a valid date';
+      }
     }
 
+    // Schedule validation
     if (!formData.scheduleId) {
       newErrors.scheduleId = 'Please select the payment schedule this repayment is for';
     } else if (isNaN(Number(formData.scheduleId)) || Number(formData.scheduleId) <= 0) {
       newErrors.scheduleId = 'Please select a valid payment schedule';
+    } else {
+      const schedule = pendingSchedules.find(s => s.period === Number(formData.scheduleId));
+      if (!schedule) {
+        newErrors.scheduleId = 'Selected payment schedule not found';
+      }
+    }
+
+    // Collector validation
+    if (!selectedPartner || !selectedPartner.id || !formData.collected_by_id) {
+      newErrors.collected_by_id = 'Please select who collected the payment using the partner selector at the top of the page';
+    } else if (!selectedPartner.isActive) {
+      newErrors.collected_by_id = 'Selected partner is not active. Please choose an active partner.';
+    } else {
+      // Ensure both collector fields have the same value
+      if (formData.collected_by_id !== formData.collected_by || 
+          formData.collected_by_id !== selectedPartner.id.toString()) {
+        newErrors.collected_by_id = 'Partner information mismatch. Please try selecting the partner again.';
+      }
+    } 
+
+    // Entered by ID validation
+    if (!formData.entered_by_id) {
+      newErrors.entered_by_id = 'Missing entered by information';
+    } else if (formData.entered_by_id !== selectedPartner.id.toString()) {
+      // Sync entered_by with selected partner
+      setFormData(prev => ({
+        ...prev,
+        entered_by_id: selectedPartner.id.toString()
+      }));
+    }
+
+    // Payment type validation
+    if (!['REGULAR', 'INTEREST_ONLY', 'PARTIAL'].includes(formData.paymentType)) {
+      newErrors.general = 'Invalid payment type';
     }
 
     setErrors(newErrors);
@@ -185,65 +285,91 @@ export default function NewRepaymentPage() {
 
     setSubmitting(true);
     setErrors({});
-    console.log('Form validated successfully, proceeding with submission');
 
     try {
-      // Double-check scheduleId is a valid number
-      if (!formData.scheduleId || isNaN(Number(formData.scheduleId))) {
-        console.warn('Invalid scheduleId detected:', formData.scheduleId);
-        setErrors(prev => ({
-          ...prev,
-          scheduleId: 'Please select a valid payment schedule',
-          general: 'Please correct the errors before submitting'
-        }));
-        setSubmitting(false);
+      // Re-validate to ensure nothing changed during submission
+      if (!validateForm()) {
+        console.log('Form validation failed during submission');
         return;
       }
 
-      // Check if the selected schedule exists in pendingSchedules
-      const selectedSchedule = pendingSchedules.find(schedule => schedule.id.toString() === formData.scheduleId);
-      if (!selectedSchedule) {
-        console.warn('Selected schedule not found in pendingSchedules:', formData.scheduleId);
-        console.log('Available schedules:', pendingSchedules.map(s => s.id));
+      // Format all data for API submission
+      const numericAmount = parseFloat(formData.amount);
+      const collectorId = parseInt(formData.collected_by_id);
+      const periodNumber = parseInt(formData.scheduleId);
+      const enteredById = formData.entered_by_id ? parseInt(formData.entered_by_id) : collectorId;
 
-        // If we can't find the schedule in pendingSchedules, but the scheduleId is a valid number,
-        // we'll still try to submit the form since the scheduleId is used as the period in the API
-        console.log('Proceeding with submission using scheduleId as period:', formData.scheduleId);
-      } else {
-        console.log('Selected schedule found:', selectedSchedule);
+      // Validate amount
+      if (isNaN(numericAmount) || numericAmount <= 0) {
+        throw new Error('Please enter a valid payment amount greater than 0');
       }
 
-      console.log('Submitting form data:', formData);
+      // Validate collector
+      if (isNaN(collectorId) || collectorId <= 0) {
+        throw new Error('Please select a valid collector');
+      }
 
+      // Validate period number
+      if (isNaN(periodNumber) || periodNumber <= 0) {
+        throw new Error('Please select a valid payment schedule');
+      }
+
+      // Validate payment date
+      if (!formData.paidDate || isNaN(new Date(formData.paidDate).getTime())) {
+        throw new Error('Please select a valid payment date');
+      }
+
+      // Validate collector information consistency
+      if (formData.collected_by_id !== formData.collected_by) {
+        throw new Error('Invalid collector information. Please try again.');
+      }
+
+      // Prepare data in the format expected by the API
       const requestData = {
-        amount: formData.amount,
-        paidDate: formData.paidDate,
+        amount: numericAmount,
+        paidDate: formData.paidDate, // Keep as ISO string
         paymentType: formData.paymentType,
-        scheduleId: formData.scheduleId,
+        scheduleId: periodNumber, // This maps to the period field in the API
+        collected_by: formData.collected_by_id, // Use the selected partner ID
+        collected_by_id: collectorId, // Ensure both fields are populated
+        entered_by: formData.entered_by_id,
+        entered_by_id: enteredById,
+        notes: formData.notes?.trim() || undefined // Include notes if provided
       };
 
-      console.log('Request data:', requestData);
-
-      // Convert id to number for API call
       const numericId = typeof id === 'string' ? parseInt(id, 10) : Array.isArray(id) ? parseInt(id[0], 10) : 0;
       
       if (!numericId) {
         throw new Error('Invalid loan ID');
       }
 
-      // Use the API client to add a repayment
       console.log('Adding repayment for loan ID:', numericId, 'with data:', requestData);
       const responseData = await loanAPI.addRepayment(numericId, requestData);
       console.log('Repayment added successfully:', responseData);
 
-      // Redirect back to the loan details page
       router.push(`/loans/${id}`);
     } catch (error) {
       console.error('Error recording payment:', error);
-      setErrors(prev => ({
-        ...prev,
-        general: error instanceof Error ? error.message : 'An unknown error occurred'
-      }));
+      
+      // Handle specific API error responses
+      if (error instanceof Error) {
+        const message = error.message;
+        if (message.includes('amount')) {
+          setErrors(prev => ({ ...prev, amount: message }));
+        } else if (message.includes('date')) {
+          setErrors(prev => ({ ...prev, paidDate: message }));
+        } else if (message.includes('collector')) {
+          setErrors(prev => ({ ...prev, collected_by_id: message }));
+        } else {
+          setErrors(prev => ({ ...prev, general: message }));
+        }
+      } else {
+        setErrors(prev => ({
+          ...prev,
+          general: 'An unexpected error occurred while recording the payment. Please try again.'
+        }));
+      }
+    } finally {
       setSubmitting(false);
     }
   };
@@ -327,22 +453,21 @@ export default function NewRepaymentPage() {
                   </p>
                 </div>
                 <div className="flex items-center">
-                  {/* Custom toggle switch */}
                   <div
                     className={`relative w-14 h-7 rounded-full cursor-pointer transition-colors duration-300 ${
-                      formData.paymentType === 'interestOnly' ? 'bg-blue-600' : 'bg-gray-300'
+                      formData.paymentType === 'INTEREST_ONLY' ? 'bg-blue-600' : 'bg-gray-300'
                     }`}
                     onClick={() => {
-                      const newPaymentType = formData.paymentType === 'interestOnly' ? 'full' : 'interestOnly';
+                      const newPaymentType = formData.paymentType === 'INTEREST_ONLY' ? 'REGULAR' : 'INTEREST_ONLY';
 
                       // Update payment amount based on payment type
                       let newAmount = formData.amount;
                       if (loan.repaymentType === 'Monthly') {
-                        if (newPaymentType === 'interestOnly' && loan.interestRate) {
+                        if (newPaymentType === 'INTEREST_ONLY' && loan.interestRate) {
                           // Set to interest amount for interest-only payments
                           newAmount = loan.interestRate.toString();
-                        } else if (newPaymentType === 'full' && loan.installmentAmount) {
-                          // Set back to installment amount for full payments
+                        } else if (newPaymentType === 'REGULAR' && loan.installmentAmount) {
+                          // Set back to installment amount for regular payments
                           newAmount = loan.installmentAmount.toString();
                         }
                       }
@@ -356,28 +481,26 @@ export default function NewRepaymentPage() {
                   >
                     <div
                       className={`absolute top-1 left-1 bg-white border border-gray-300 rounded-full h-5 w-5 shadow-md transition-transform duration-300 transform ${
-                        formData.paymentType === 'interestOnly' ? 'translate-x-7' : 'translate-x-0'
+                        formData.paymentType === 'INTEREST_ONLY' ? 'translate-x-7' : 'translate-x-0'
                       }`}
                     ></div>
                   </div>
 
-                  {/* Text label */}
                   <span className="ml-3 text-sm font-medium text-blue-900">
-                    {formData.paymentType === 'interestOnly' ? 'ON' : 'OFF'}
+                    {formData.paymentType === 'INTEREST_ONLY' ? 'ON' : 'OFF'}
                   </span>
 
-                  {/* Hidden input for form submission */}
                   <input
                     type="checkbox"
                     id="paymentType"
                     name="paymentType"
                     className="sr-only"
-                    checked={formData.paymentType === 'interestOnly'}
+                    checked={formData.paymentType === 'INTEREST_ONLY'}
                     onChange={() => {}}
                   />
                 </div>
               </div>
-              {formData.paymentType === 'interestOnly' && (
+              {formData.paymentType === 'INTEREST_ONLY' && (
                 <div className="mt-3 p-4 bg-yellow-50 border border-yellow-300 rounded-lg shadow-sm">
                   <p className="text-sm text-yellow-800 flex items-center">
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2 text-yellow-600" viewBox="0 0 20 20" fill="currentColor">
@@ -491,19 +614,34 @@ export default function NewRepaymentPage() {
                 </div>
               )}
             </div>
-          </div>
-          <div className="mt-8 flex justify-end">
-            <Link href={`/loans/${id}`} className="px-6 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition duration-300 mr-4">
-              Cancel
-            </Link>
-            <button
-              type="submit"
-              disabled={submitting}
-              className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {submitting ? 'Recording...' : 'Record Payment'}
-            </button>
-          </div>
+          </div>              {/* Notes Field */}
+              <div className="md:col-span-2 mt-4">
+                <label htmlFor="notes" className="block text-sm font-medium text-gray-700 mb-1">
+                  Notes
+                </label>
+                <textarea
+                  id="notes"
+                  name="notes"
+                  value={formData.notes || ''}
+                  onChange={handleChange}
+                  rows={3}
+                  className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent border-gray-300"
+                  placeholder="Add any additional notes about this payment (optional)"
+                />
+              </div>
+
+              <div className="mt-8 flex justify-end">
+                <Link href={`/loans/${id}`} className="px-6 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition duration-300 mr-4">
+                  Cancel
+                </Link>
+                <button
+                  type="submit"
+                  disabled={submitting}
+                  className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {submitting ? 'Recording...' : 'Record Payment'}
+                </button>
+              </div>
         </form>
       </div>
     </div>

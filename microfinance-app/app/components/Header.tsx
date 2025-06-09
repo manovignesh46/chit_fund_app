@@ -5,6 +5,7 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { authAPI } from '../../lib/api';
+import { PartnerSelector } from '../contexts/PartnerContext';
 
 interface User {
   id: number;
@@ -84,8 +85,23 @@ export default function Header() {
                   Members
                 </Link>
               </li>
+              <li>
+                <Link href="/partners" className={`hover:underline ${pathname.startsWith('/partners') ? 'font-bold' : ''}`}>
+                  Partners
+                </Link>
+              </li>
+              <li>
+                <Link href="/transactions" className={`hover:underline ${pathname.startsWith('/transactions') ? 'font-bold' : ''}`}>
+                  Transactions
+                </Link>
+              </li>
             </ul>
           </nav>
+        </div>
+
+        {/* Partner Selector */}
+        <div className="flex-1 max-w-xs mx-4">
+          <PartnerSelector variant="header" />
         </div>
 
         {user && (

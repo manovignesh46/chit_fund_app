@@ -6,10 +6,11 @@ import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { Loan, Repayment, PaymentSchedule } from '../../../lib/interfaces';
 import { formatCurrency, formatDate, calculateLoanProfit } from '../../../lib/formatUtils';
+import { loanAPI } from '../../../lib/api';  // Add this import
 import dynamic from 'next/dynamic';
 import { LoanDetailSkeleton } from '../../components/skeletons/DetailSkeletons';
+import { usePartner } from '../../../app/contexts/PartnerContext';
 import {
-
   EditButton,
   BackButton,
   DeleteButton,
@@ -19,6 +20,7 @@ import {
 const LoanDetailPage = () => {
   const params = useParams();
   const id = params.id;
+  const { selectedPartner, loading: partnerLoading } = usePartner();
   const [loan, setLoan] = useState<Loan | null>(null);
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
@@ -54,47 +56,11 @@ const LoanDetailPage = () => {
       setLoadingSchedules(true);
       setScheduleError(null);
 
-      // Ensure ID is a valid number
-      const numericId = typeof id === 'string' ? parseInt(id, 10) : Array.isArray(id) ? parseInt(id[0], 10) : 0;
-
-      if (!numericId || isNaN(numericId)) {
-        console.error(`Invalid loan ID: Unable to parse "${id}" as a number`);
-        throw new Error('Invalid loan ID format');
-      }
-
-      // Build the URL with query parameters
-      // Explicitly set includeAll=false to maintain original filtering behavior
-      const url = `/api/loans/consolidated?action=payment-schedules&id=${numericId}&page=${currentPage}&pageSize=${pageSize}&includeAll=false`;
-
-      const response = await fetch(url);
-
-      if (!response.ok) {
-        throw new Error('Failed to fetch payment schedules');
-      }
-
-      const data = await response.json();
-      console.log('Payment schedules API response:', data);
-
-      if (data.schedules && Array.isArray(data.schedules)) {
-        // Response has a schedules property (paginated format)
-        setPaymentSchedules(data.schedules);
-        setTotalCount(data.totalCount || 0);
-        setTotalPages(data.totalPages || 1);
-      } else if (Array.isArray(data)) {
-        // Response is a direct array of schedules
-        setPaymentSchedules(data);
-        setTotalCount(data.length);
-        setTotalPages(1);
-        console.log('Found direct array of schedules:', data);
-      } else {
-        console.warn('No valid payment schedules found in response:', data);
-        setPaymentSchedules([]);
-        setTotalCount(0);
-        setTotalPages(1);
-      }
+      const schedules = await loanAPI.getPaymentSchedules(parseInt(id as string), true);
+      setPaymentSchedules(schedules);
     } catch (error) {
       console.error('Error fetching payment schedules:', error);
-      setScheduleError('Failed to load payment schedules');
+      setScheduleError(error instanceof Error ? error.message : 'Failed to fetch payment schedules');
     } finally {
       setLoadingSchedules(false);
     }
@@ -106,85 +72,62 @@ const LoanDetailPage = () => {
       setUpdatingSchedule(period);
       setScheduleError(null);
 
-      // Validate the ID parameter
-      if (!id) {
-        console.error('Invalid loan ID: ID is undefined or null');
-        throw new Error('Invalid loan ID');
+      // Ensure partner state is fully loaded and valid
+      if (partnerLoading) {
+        throw new Error('Please wait while we load partner information...');
       }
 
-      // Ensure ID is a valid number
-      const numericId = typeof id === 'string' ? parseInt(id, 10) : Array.isArray(id) ? parseInt(id[0], 10) : 0;
-
-      if (!numericId || isNaN(numericId)) {
-        console.error(`Invalid loan ID: Unable to parse "${id}" as a number`);
-        throw new Error('Invalid loan ID format');
+      if (!selectedPartner) {
+        throw new Error('Please select a valid partner from the top dropdown menu first. Your payment will be recorded under their name.');
       }
 
-      // Get the amount from the loan's installment amount
-      const amount = loan?.installmentAmount || 0;
-
-      console.log(`Recording payment for period ${period}, amount ${amount}, type ${paymentType}`);
-
-      // The API expects scheduleId, not period
-      const response = await fetch(`/api/loans/consolidated?action=add-repayment&id=${numericId}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          scheduleId: period, // Use period as scheduleId
-          amount,
-          paidDate: new Date().toISOString().split('T')[0],
-          paymentType: paymentType === 'InterestOnly' ? 'interestOnly' : 'full'
-        }),
-      });
-
-      // Log the response status
-      console.log(`Payment API response status: ${response.status}`);
-
-      if (!response.ok) {
-        // Get the response text first
-        const errorText = await response.text();
-        console.error('Error response text:', errorText);
-
-        // Try to parse as JSON if possible
-        let errorMessage = 'Failed to record payment';
-        try {
-          if (errorText) {
-            const errorData = JSON.parse(errorText);
-            console.error('Error response data:', errorData);
-            if (errorData.error) {
-              errorMessage = errorData.error;
-            }
-          }
-        } catch (e) {
-          console.error('Could not parse error response as JSON:', e);
-          errorMessage = errorText || errorMessage;
-        }
-
-        throw new Error(errorMessage);
+      // Extra validation for partner data
+      if (!selectedPartner.id || !selectedPartner.name || !selectedPartner.isActive) {
+        console.error('Invalid partner data:', selectedPartner);
+        throw new Error('Selected partner appears to be invalid. Please try selecting again or refresh the page.');
       }
 
-      // Parse the response to get the repayment data
-      const responseData = await response.json();
+      // Validate period and format
+      if (!id || isNaN(period) || period <= 0) {
+        throw new Error('Invalid payment period. Please try again.');
+      }
+
+      // Get the installment amount and validate it exists
+      const schedule = await loanAPI.getPaymentSchedules(parseInt(id as string), true);
+      const scheduleItem = schedule.find(s => s.period === period);
+      if (!scheduleItem) {
+        throw new Error('Could not find payment schedule for the selected period.');
+      }
+
+      const amount = scheduleItem.amount;
+
+      // Make request using loanAPI
+      const requestData = {
+        amount,
+        paidDate: new Date().toISOString(),
+        paymentType: paymentType === 'InterestOnly' ? 'INTEREST_ONLY' : 'REGULAR',
+        scheduleId: period,
+        collected_by_id: selectedPartner.id,
+        collected_by: selectedPartner.id.toString(),
+        entered_by_id: selectedPartner.id
+      };
+      
+      console.log('Making payment request with:', requestData);
+
+      const responseData = await loanAPI.addRepayment(parseInt(id as string), requestData);
+      if (!responseData || !responseData.loan) {
+        throw new Error('Invalid response from server.');
+      }
+
       console.log('Payment recorded successfully:', responseData);
 
       // Add a small delay before refreshing data
-      console.log('Waiting before refreshing data...');
       await new Promise(resolve => setTimeout(resolve, 500));
 
       // Refresh loan details to get updated overdue amount and missed payments
-      console.log('Refreshing loan details...');
       await fetchLoanDetails();
-
-      // Explicitly refresh payment schedules after recording a payment
-      console.log('Refreshing payment schedules...');
-      await fetchPaymentSchedules();
-
-      console.log('Data refresh complete');
-
     } catch (error) {
-      console.error('Error recording payment:', error);
+      console.error('Payment recording failed:', error);
       setScheduleError(error instanceof Error ? error.message : 'Failed to record payment');
     } finally {
       setUpdatingSchedule(null);

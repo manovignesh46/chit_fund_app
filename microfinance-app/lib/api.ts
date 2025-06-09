@@ -12,7 +12,7 @@ async function fetchAPI<T>(
   const url = `${API_BASE_URL}${endpoint}`;
 
   try {
-    // console.log(`Fetching from: ${url} with method: ${options.method || 'GET'}`);
+      // console.log(`Fetching from: ${url} with method: ${options.method || 'GET'}`);
 
     // Create fetch options with defaults that work well in Next.js
     const fetchOptions: RequestInit = {
@@ -23,7 +23,7 @@ async function fetchAPI<T>(
         ...options.headers,
       },
       // Ensure credentials are included
-      credentials: 'same-origin',
+      credentials: 'include',
       // Disable cache for API requests
       cache: 'no-store',
     };
@@ -390,5 +390,20 @@ export const memberAPI = {
   delete: (id: number) => fetchAPI<any>(`/members/consolidated?action=delete&id=${id}`, {
     method: 'DELETE',
     body: JSON.stringify({}),
+  }),
+};
+
+// Transaction API functions (consolidated)
+export const transactionAPI = {
+  getAll: (page = 1, pageSize = 10, type?: string, partner?: string) => {
+    let url = `/transactions?page=${page}&pageSize=${pageSize}`;
+    if (type) url += `&type=${type}`;
+    if (partner) url += `&partner=${partner}`;
+    return fetchAPI<any>(url);
+  },
+
+  create: (data: any) => fetchAPI<any>('/transactions', {
+    method: 'POST',
+    body: JSON.stringify(data),
   }),
 };

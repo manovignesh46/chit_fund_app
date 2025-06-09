@@ -8,6 +8,13 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// Basic enums
+enum RepaymentType {
+  REGULAR
+  INTEREST_ONLY
+  PARTIAL
+}
+
 model User {
   id            Int            @id @default(autoincrement())
   name          String
@@ -19,6 +26,9 @@ model User {
   chitFunds     ChitFund[]
   globalMembers GlobalMember[]
   loans         Loan[]
+  partners      Partner[]
+  repayments    Repayment[]
+  transactions  Transaction[]
 }
 
 model ChitFund {
@@ -168,17 +178,29 @@ model Loan {
 }
 
 model Repayment {
-  id          Int      @id @default(autoincrement())
-  amount      Float
-  paidDate    DateTime
-  loanId      Int
-  paymentType String   @default("full")
-  period      Int
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  loan        Loan     @relation(fields: [loanId], references: [id], map: "Repayment_loanId_fkey")
+  id             Int       @id @default(autoincrement())
+  amount         Float
+  // We store both the logged date and actual paid date
+  date          DateTime            // When the repayment was recorded in system
+  paidDate      DateTime            // When the payment was actually received
+  period        Int                 // Payment period number (e.g., 1st installment, 2nd installment)
+  paymentType   RepaymentType       // Regular, Interest, Partial
+  loanId        Int
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  createdById   Int
+  collected_by_id Int
+  entered_by_id   Int
+  loan          Loan     @relation(fields: [loanId], references: [id], onDelete: Cascade)
+  createdBy     User     @relation(fields: [createdById], references: [id])
+  collectedBy   Partner  @relation("CollectedRepayments", fields: [collected_by_id], references: [id])
+  enteredBy     Partner  @relation("EnteredRepayments", fields: [entered_by_id], references: [id])
 
-  @@index([loanId], map: "Repayment_loanId_idx")
+  @@index([createdById])
+  @@index([loanId])
+  @@index([collected_by_id])
+  @@index([entered_by_id])
+  @@index([paidDate])
 }
 
 model PaymentSchedule {
@@ -212,4 +234,41 @@ model EmailLog {
 
   @@unique([emailType, period])
   @@index([emailType, sentDate])
+}
+
+model Partner {
+  id                 Int           @id @default(autoincrement())
+  name               String
+  code               String?       // Unique code per user (e.g., SELF, AGENT)
+  isActive           Boolean       @default(true)
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+  createdById        Int
+  createdBy          User         @relation(fields: [createdById], references: [id])
+  fromTransactions   Transaction[] @relation("FromPartnerTransactions")
+  toTransactions     Transaction[] @relation("ToPartnerTransactions")
+  collectedRepayments Repayment[]  @relation("CollectedRepayments")
+  enteredRepayments  Repayment[]  @relation("EnteredRepayments")
+
+  @@index([createdById])
+  @@unique([createdById, code], name: "Partner_createdById_code_key", map: "Partner_createdById_code_key")
+}
+
+model Transaction {
+  id            Int       @id @default(autoincrement())
+  amount        Float
+  description   String?
+  date          DateTime
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  createdById   Int
+  createdBy     User     @relation(fields: [createdById], references: [id])
+  from_partner_id Int?
+  to_partner_id   Int?
+  fromPartner    Partner? @relation("FromPartnerTransactions", fields: [from_partner_id], references: [id])
+  toPartner      Partner? @relation("ToPartnerTransactions", fields: [to_partner_id], references: [id])
+
+  @@index([createdById])
+  @@index([from_partner_id])
+  @@index([to_partner_id])
 }
