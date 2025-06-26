@@ -113,29 +113,31 @@ export default function PartnerManagementPage() {
         <h1 className="text-2xl sm:text-3xl font-bold text-blue-700">Partner Management</h1>
       </div>
 
-      {/* Add Partner Form */}
-      <div className="bg-white rounded-lg shadow-md p-4 sm:p-6 mb-8">
-        <h2 className="text-lg sm:text-xl font-semibold text-blue-700 mb-4">Add New Partner</h2>
-        <form onSubmit={handleSubmit} className="flex flex-col sm:flex-row gap-4">
-          <input
-            type="text"
-            value={newPartnerName}
-            onChange={(e) => setNewPartnerName(e.target.value)}
-            placeholder="Enter partner name"
-            className="flex-1 px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-          />
-          <button
-            type="submit"
-            disabled={isSubmitting || !newPartnerName.trim()}
-            className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-300 disabled:opacity-50"
-          >
-            {isSubmitting ? 'Adding...' : 'Add Partner'}
-          </button>
-        </form>
-        {submitError && (
-          <p className="mt-2 text-red-600 text-sm">{submitError}</p>
-        )}
-      </div>
+      {/* Add Partner Form - Temporarily Hidden */}
+      {false && (
+        <div className="bg-white rounded-lg shadow-md p-4 sm:p-6 mb-8">
+          <h2 className="text-lg sm:text-xl font-semibold text-blue-700 mb-4">Add New Partner</h2>
+          <form onSubmit={handleSubmit} className="flex flex-col sm:flex-row gap-4">
+            <input
+              type="text"
+              value={newPartnerName}
+              onChange={(e) => setNewPartnerName(e.target.value)}
+              placeholder="Enter partner name"
+              className="flex-1 px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
+            <button
+              type="submit"
+              disabled={isSubmitting || !newPartnerName.trim()}
+              className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-300 disabled:opacity-50"
+            >
+              {isSubmitting ? 'Adding...' : 'Add Partner'}
+            </button>
+          </form>
+          {submitError && (
+            <p className="mt-2 text-red-600 text-sm">{submitError}</p>
+          )}
+        </div>
+      )}
 
       {/* Partners Balance Cards */}
       <div className="space-y-6">

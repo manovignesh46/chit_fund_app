@@ -83,7 +83,11 @@ export function PartnerProvider({ children }: PartnerProviderProps) {
     if (!loading && partners.length > 0 && !selectedPartner) {
       // Only show modal if we're not on the login page
       if (typeof window !== 'undefined' && !window.location.pathname.includes('/login')) {
-        setShowPartnerModal(true);
+        // Add a small delay to ensure the page has fully loaded after login
+        const timer = setTimeout(() => {
+          setShowPartnerModal(true);
+        }, 100);
+        return () => clearTimeout(timer);
       }
     }
   }, [loading, partners, selectedPartner]);

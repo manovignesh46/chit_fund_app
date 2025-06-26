@@ -48,6 +48,10 @@ export default function Header() {
     try {
       await authAPI.logout();
       setUser(null);
+      // Clear selected partner from localStorage to force partner selection on next login
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('selectedPartnerId');
+      }
       router.push('/login');
     } catch (error) {
       console.error('Logout error:', error);

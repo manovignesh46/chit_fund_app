@@ -20,7 +20,7 @@ export default function TransactionForm({ onSuccess }: TransactionFormProps) {
   const [member, setMember] = useState("");
   const [fromPartner, setFromPartner] = useState(activePartner); // Set default from partner
   const [toPartner, setToPartner] = useState(otherPartner); // Set default to partner
-  const [actionPerformer, setActionPerformer] = useState(activePartner);
+  // Action performer is always the active partner (removed from UI)
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
   const [note, setNote] = useState("");
   const [loading, setLoading] = useState(false);
@@ -34,7 +34,7 @@ export default function TransactionForm({ onSuccess }: TransactionFormProps) {
     setSuccess("");
     setFromPartner("");
     setToPartner("");
-    setActionPerformer(activePartner);
+    // Action performer is always activePartner (no need to set)
     if (t === "collection") {
       setFromPartner("");
       setToPartner(activePartner);
@@ -57,12 +57,6 @@ export default function TransactionForm({ onSuccess }: TransactionFormProps) {
     setSuccess("");
 
     // Client-side validation
-    if (!actionPerformer) {
-      setError("Action Performer is required");
-      setLoading(false);
-      return;
-    }
-
     if (type === "transfer" && !toPartner) {
       setError("To Partner is required for partner-to-partner transfers");
       setLoading(false);
@@ -82,7 +76,7 @@ export default function TransactionForm({ onSuccess }: TransactionFormProps) {
           member: member || null,
           from_partner: fromPartner || null,
           to_partner: toPartner || null,
-          action_performer: actionPerformer,
+          action_performer: activePartner, // Always use active partner
           entered_by: activePartner,
           date,
           note,
@@ -143,7 +137,7 @@ export default function TransactionForm({ onSuccess }: TransactionFormProps) {
         </div>
       )}
       {/* Partner role overrides */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
         {(type === "transfer" || type === "loan_given") && (
           <div>
             <label className="block font-medium">From Partner</label>
@@ -175,20 +169,7 @@ export default function TransactionForm({ onSuccess }: TransactionFormProps) {
             </select>
           </div>
         )}
-        <div>
-          <label className="block font-medium">Action Performer *</label>
-          <select
-            className="w-full border rounded p-2 mt-1"
-            value={actionPerformer}
-            onChange={(e) => setActionPerformer(e.target.value)}
-            required
-          >
-            <option value="">Select Performer</option>
-            {partners.map((p) => (
-              <option key={p.id} value={p.name}>{p.name}</option>
-            ))}
-          </select>
-        </div>
+        {/* Action Performer field removed - always uses active partner */}
       </div>
       <div>
         <label className="block font-medium">Date</label>
