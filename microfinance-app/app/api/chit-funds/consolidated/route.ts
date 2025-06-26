@@ -862,6 +862,9 @@ async function addMember(request: NextRequest, id: number, currentUserId: number
 async function addContribution(request: NextRequest, id: number, currentUserId: number) {
   const body = await request.json();
 
+  // Get the active partner from request headers
+  const activePartner = request.headers.get('x-active-partner') || 'Me';
+
   // Validate required fields
   const requiredFields = ['memberId', 'month', 'amount', 'paidDate'];
   for (const field of requiredFields) {
@@ -893,11 +896,14 @@ async function addContribution(request: NextRequest, id: number, currentUserId: 
     );
   }
 
-  // Check if the member exists
+  // Check if the member exists and get member details for transaction
   const member = await prisma.member.findFirst({
     where: {
       id: parseInt(body.memberId),
       chitFundId: id,
+    },
+    include: {
+      globalMember: true,
     },
   });
 
@@ -924,29 +930,85 @@ async function addContribution(request: NextRequest, id: number, currentUserId: 
     );
   }
 
+  // Find the collector partner (who is collecting the contribution)
+  const collector = await prisma.partner.findFirst({
+    where: {
+      name: activePartner,
+      createdById: currentUserId,
+      isActive: true,
+    },
+  });
+
+  if (!collector) {
+    return NextResponse.json(
+      { error: `Partner "${activePartner}" not found` },
+      { status: 404 }
+    );
+  }
+
   // Calculate balance if the payment is partial
   const expectedAmount = chitFund.monthlyContribution;
   const paidAmount = parseFloat(body.amount);
   const isPartialPayment = paidAmount < expectedAmount;
 
-  // Create the contribution with balance information if it's a partial payment
-  const contribution = await prisma.contribution.create({
-    data: {
-      memberId: parseInt(body.memberId),
-      chitFundId: id,
-      month: parseInt(body.month),
-      amount: paidAmount,
-      paidDate: new Date(body.paidDate),
-      notes: body.notes || null,
-      // Set balance and status for partial payments
-      balance: isPartialPayment ? expectedAmount - paidAmount : 0,
-      balancePaymentStatus: isPartialPayment ? 'Pending' : null,
-      // Set a default balance payment date 30 days from now if it's a partial payment
-      balancePaymentDate: isPartialPayment ? new Date(new Date().setDate(new Date().getDate() + 30)) : null,
-    },
-  });
+  try {
+    // Create the contribution with balance information and partner tracking
+    const contribution = await prisma.contribution.create({
+      data: {
+        memberId: parseInt(body.memberId),
+        chitFundId: id,
+        month: parseInt(body.month),
+        amount: paidAmount,
+        paidDate: new Date(body.paidDate),
+        notes: body.notes || null,
+        // Set balance and status for partial payments
+        balance: isPartialPayment ? expectedAmount - paidAmount : 0,
+        balancePaymentStatus: isPartialPayment ? 'Pending' : null,
+        // Set a default balance payment date 30 days from now if it's a partial payment
+        balancePaymentDate: isPartialPayment ? new Date(new Date().setDate(new Date().getDate() + 30)) : null,
+        // Partner tracking fields
+        collected_by_id: collector.id,
+        entered_by_id: collector.id,
+        createdById: currentUserId,
+      },
+      include: {
+        collectedBy: true,
+        enteredBy: true,
+        member: {
+          include: {
+            globalMember: true,
+          },
+        },
+      },
+    });
 
-  return NextResponse.json(contribution, { status: 201 });
+    // Create a transaction record for the chit fund contribution
+    const contributionTransaction = await prisma.transaction.create({
+      data: {
+        type: 'chit_contribution',
+        amount: paidAmount,
+        member: member.globalMember.name,
+        from_partner: null,
+        to_partner: collector.name,
+        action_performer: collector.name,
+        entered_by: activePartner,
+        date: new Date(body.paidDate),
+        note: `Chit fund contribution from ${member.globalMember.name} - ${chitFund.name} Month ${body.month}`,
+        createdById: currentUserId,
+      },
+    });
+
+    return NextResponse.json({
+      ...contribution,
+      collector_name: collector.name,
+      collector_id: collector.id,
+      transaction: contributionTransaction,
+    }, { status: 201 });
+
+  } catch (error) {
+    console.error('Error in contribution creation process:', error);
+    throw error;
+  }
 }
 
 // Handler for adding an auction to a chit fund

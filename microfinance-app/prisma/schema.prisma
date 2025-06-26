@@ -22,6 +22,7 @@ model User {
   partners      Partner[]
   repayments    Repayment[]
   transactions  Transaction[]
+  contributions Contribution[] @relation("CreatedContributions")
 }
 
 model ChitFund {
@@ -98,13 +99,22 @@ model Contribution {
   balancePaymentStatus     String?   @default("Pending")
   actualBalancePaymentDate DateTime?
   notes                    String?
+  collected_by_id          Int?
+  entered_by_id            Int?
+  createdById              Int?
   createdAt                DateTime  @default(now())
   updatedAt                DateTime  @updatedAt
   chitFund                 ChitFund  @relation(fields: [chitFundId], references: [id], map: "Contribution_chitFundId_fkey")
   member                   Member    @relation(fields: [memberId], references: [id], map: "Contribution_memberId_fkey")
+  collectedBy              Partner?  @relation("CollectedContributions", fields: [collected_by_id], references: [id])
+  enteredBy                Partner?  @relation("EnteredContributions", fields: [entered_by_id], references: [id])
+  createdBy                User?     @relation("CreatedContributions", fields: [createdById], references: [id])
 
   @@index([chitFundId])
   @@index([memberId])
+  @@index([collected_by_id])
+  @@index([entered_by_id])
+  @@index([createdById])
 }
 
 model Auction {
@@ -228,18 +238,20 @@ model EmailLog {
 }
 
 model Partner {
-  id                  Int           @id @default(autoincrement())
-  name                String
-  code                String?
-  isActive            Boolean       @default(true)
-  createdAt           DateTime      @default(now())
-  updatedAt           DateTime      @updatedAt
-  createdById         Int
-  createdBy           User          @relation(fields: [createdById], references: [id])
-  collectedRepayments Repayment[]   @relation("CollectedRepayments")
-  enteredRepayments   Repayment[]   @relation("EnteredRepayments")
-  fromTransactions    Transaction[] @relation("FromPartnerTransactions")
-  toTransactions      Transaction[] @relation("ToPartnerTransactions")
+  id                     Int            @id @default(autoincrement())
+  name                   String
+  code                   String?
+  isActive               Boolean        @default(true)
+  createdAt              DateTime       @default(now())
+  updatedAt              DateTime       @updatedAt
+  createdById            Int
+  createdBy              User           @relation(fields: [createdById], references: [id])
+  collectedRepayments    Repayment[]    @relation("CollectedRepayments")
+  enteredRepayments      Repayment[]    @relation("EnteredRepayments")
+  collectedContributions Contribution[] @relation("CollectedContributions")
+  enteredContributions   Contribution[] @relation("EnteredContributions")
+  fromTransactions       Transaction[]  @relation("FromPartnerTransactions")
+  toTransactions         Transaction[]  @relation("ToPartnerTransactions")
 
   @@unique([createdById, code], name: "Partner_createdById_code_key")
   @@index([createdById])

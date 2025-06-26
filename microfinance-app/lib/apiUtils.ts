@@ -55,14 +55,25 @@ export async function apiGet(url: string, defaultErrorMessage: string = 'Failed 
  * @returns A promise that resolves to the parsed response
  */
 export async function apiPost(url: string, data: any, defaultErrorMessage: string = 'Failed to create data'): Promise<any> {
+  // Get active partner from localStorage if available
+  let activePartner = 'Me';
+  if (typeof window !== 'undefined') {
+    const savedPartnerId = localStorage.getItem('selectedPartnerId');
+    const savedPartnerName = localStorage.getItem('selectedPartnerName');
+    if (savedPartnerId && savedPartnerName) {
+      activePartner = savedPartnerName;
+    }
+  }
+
   const response = await fetch(url, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
+      'x-active-partner': activePartner,
     },
     body: JSON.stringify(data),
   });
-  
+
   return await safeParseResponse(response, defaultErrorMessage);
 }
 
@@ -74,14 +85,25 @@ export async function apiPost(url: string, data: any, defaultErrorMessage: strin
  * @returns A promise that resolves to the parsed response
  */
 export async function apiPut(url: string, data: any, defaultErrorMessage: string = 'Failed to update data'): Promise<any> {
+  // Get active partner from localStorage if available
+  let activePartner = 'Me';
+  if (typeof window !== 'undefined') {
+    const savedPartnerId = localStorage.getItem('selectedPartnerId');
+    const savedPartnerName = localStorage.getItem('selectedPartnerName');
+    if (savedPartnerId && savedPartnerName) {
+      activePartner = savedPartnerName;
+    }
+  }
+
   const response = await fetch(url, {
     method: 'PUT',
     headers: {
       'Content-Type': 'application/json',
+      'x-active-partner': activePartner,
     },
     body: JSON.stringify(data),
   });
-  
+
   return await safeParseResponse(response, defaultErrorMessage);
 }
 

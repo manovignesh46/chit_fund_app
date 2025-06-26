@@ -18,10 +18,9 @@ async function fetchAPI<T>(
     let activePartner = 'Me';
     if (typeof window !== 'undefined') {
       const savedPartnerId = localStorage.getItem('selectedPartnerId');
-      if (savedPartnerId) {
-        // For now, we'll use 'Me' as default. In a real implementation,
-        // you might want to fetch the actual partner name
-        activePartner = 'Me';
+      const savedPartnerName = localStorage.getItem('selectedPartnerName');
+      if (savedPartnerId && savedPartnerName) {
+        activePartner = savedPartnerName;
       }
     }
 

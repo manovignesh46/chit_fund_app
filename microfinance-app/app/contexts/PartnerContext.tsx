@@ -75,6 +75,7 @@ export function PartnerProvider({ children }: PartnerProviderProps) {
   useEffect(() => {
     if (selectedPartner) {
       localStorage.setItem('selectedPartnerId', selectedPartner.id.toString());
+      localStorage.setItem('selectedPartnerName', selectedPartner.name);
     }
   }, [selectedPartner]);
 

@@ -94,6 +94,11 @@ async function calculatePartnerBalance(partnerName: string, userId: number): Pro
             balance += amount;
           }
           break;
+        case 'chit_contribution':
+          if (to_partner === partnerName) {
+            balance += amount;
+          }
+          break;
       }
     }
 
@@ -106,8 +111,8 @@ async function calculatePartnerBalance(partnerName: string, userId: number): Pro
     // So we don't need to calculate them separately here
 
     // 4. Chit fund contributions and auctions
-    // These will be tracked via transactions when we implement partner tracking for chit funds
-    // For now, we'll focus on loan-related activities which are the main use case
+    // Chit fund contributions are now tracked via transactions with type 'chit_contribution'
+    // Auction payments will be implemented in a future update
 
     return balance;
   } catch (error) {
