@@ -1344,46 +1344,46 @@ const LoanDetailPage = () => {
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <ActionDropdown
-                        actions={[
-                          ...(schedule.status === 'Pending' || schedule.status === 'Missed' ? [
-                            {
-                              label: updatingSchedule === schedule.period ? 'Processing...' : 'Mark Paid',
-                              onClick: () => handleRecordPayment(schedule.period, 'Paid'),
-                              disabled: updatingSchedule === schedule.period,
-                              icon: (
-                                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
-                                </svg>
-                              ),
-                              className: 'text-green-600 hover:text-green-700'
-                            },
-                            ...(loan.repaymentType === 'Monthly' ? [{
-                              label: updatingSchedule === schedule.period ? 'Processing...' : 'Interest Only',
-                              onClick: () => handleRecordPayment(schedule.period, 'InterestOnly'),
-                              disabled: updatingSchedule === schedule.period,
-                              icon: (
-                                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <div className="flex space-x-2">
+                        {(schedule.status === 'Pending' || schedule.status === 'Missed') && (
+                          <>
+                            <button
+                              onClick={() => handleRecordPayment(schedule.period, 'Paid')}
+                              disabled={updatingSchedule === schedule.period}
+                              className="inline-flex items-center px-2 py-1 border border-transparent text-xs font-medium rounded text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                              <svg className="h-3 w-3 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+                              </svg>
+                              {updatingSchedule === schedule.period ? 'Processing...' : 'Mark Paid'}
+                            </button>
+                            {loan.repaymentType === 'Monthly' && (
+                              <button
+                                onClick={() => handleRecordPayment(schedule.period, 'InterestOnly')}
+                                disabled={updatingSchedule === schedule.period}
+                                className="inline-flex items-center px-2 py-1 border border-transparent text-xs font-medium rounded text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                              >
+                                <svg className="h-3 w-3 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
                                 </svg>
-                              ),
-                              className: 'text-blue-600 hover:text-blue-700'
-                            }] : [])
-                          ] : []),
-                          ...(schedule.repayment ? [{
-                            label: 'View Payment',
-                            href: `/loans/${id}/repayments`,
-                            onClick: () => {},
-                            icon: (
-                              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                              </svg>
-                            ),
-                            className: 'text-gray-600 hover:text-gray-700'
-                          }] : [])
-                        ]}
-                      />
+                                {updatingSchedule === schedule.period ? 'Processing...' : 'Interest Only'}
+                              </button>
+                            )}
+                          </>
+                        )}
+                        {schedule.repayment && (
+                          <Link
+                            href={`/loans/${id}/repayments`}
+                            className="inline-flex items-center px-2 py-1 border border-gray-300 text-xs font-medium rounded text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                          >
+                            <svg className="h-3 w-3 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                            </svg>
+                            View Payment
+                          </Link>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 );
