@@ -813,6 +813,9 @@ async function createLoan(request: NextRequest, currentUserId: number) {
   try {
     const body = await request.json();
 
+    // Get the active partner from request headers
+    const activePartner = request.headers.get('x-active-partner') || 'Me';
+
     // Validate required fields
     const requiredFields = ['borrowerName', 'contact', 'loanType', 'amount', 'interestRate', 'duration', 'disbursementDate', 'repaymentType'];
     for (const field of requiredFields) {
@@ -897,9 +900,15 @@ async function createLoan(request: NextRequest, currentUserId: number) {
     // Create a transaction record for the loan disbursement as a separate operation
     const transaction = await prismaAny.transaction.create({
       data: {
+        type: 'loan_given',
         amount: parseFloat(body.amount),
-        description: `Loan disbursed to ${body.borrowerName}`,
+        member: body.borrowerName,
+        from_partner: activePartner,
+        to_partner: null,
+        action_performer: activePartner,
+        entered_by: activePartner,
         date: disbursementDate,
+        note: `Loan disbursed to ${body.borrowerName}`,
         createdById: currentUserId
       }
     });
@@ -939,13 +948,16 @@ async function createLoan(request: NextRequest, currentUserId: number) {
 async function addRepayment(request: NextRequest, id: number, currentUserId: number) {
   try {
     const requestBody = await request.json();
-    const { 
-      amount, 
+    const {
+      amount,
       paidDate,
       paymentType = 'REGULAR', // Use RepaymentType enum values
       scheduleId,
       collected_by  // This should be a partner ID
     } = requestBody;
+
+    // Get the active partner from request headers
+    const activePartner = request.headers.get('x-active-partner') || 'Me';
 
     const loanId = id;
     const paymentAmount = parseFloat(amount);
@@ -983,7 +995,10 @@ async function addRepayment(request: NextRequest, id: number, currentUserId: num
 
     // Get the current loan to check remaining amount
     const loan = await prismaAny.loan.findUnique({
-      where: { id: loanId }
+      where: { id: loanId },
+      include: {
+        borrower: true
+      }
     });
 
     if (!loan) {
@@ -1045,7 +1060,6 @@ async function addRepayment(request: NextRequest, id: number, currentUserId: num
           loanId,
           amount: paymentAmount,
           paidDate: new Date(paidDate),
-          date: new Date(), // Current timestamp
           paymentType: paymentType as 'REGULAR' | 'INTEREST_ONLY' | 'PARTIAL',
           period,
           collected_by_id: collector.id,
@@ -1057,6 +1071,13 @@ async function addRepayment(request: NextRequest, id: number, currentUserId: num
           enteredBy: true
         }
       });
+
+      // For interest-only payments, extend the loan duration by 1 period
+      let updatedDuration = loan.duration;
+      if (paymentType === 'INTEREST_ONLY') {
+        updatedDuration = loan.duration + 1;
+        console.log(`Interest-only payment detected. Extending loan duration from ${loan.duration} to ${updatedDuration}`);
+      }
 
       // Calculate the next payment date
       const nextPaymentDate = await calculateNextPaymentDate(loanId);
@@ -1070,6 +1091,7 @@ async function addRepayment(request: NextRequest, id: number, currentUserId: num
         where: { id: loanId },
         data: {
           remainingAmount: newRemainingAmount,
+          duration: updatedDuration, // Update duration for interest-only payments
           status: newRemainingAmount <= 0 ? 'Completed' : 'Active',
           nextPaymentDate: newRemainingAmount <= 0 ? null : nextPaymentDate,
           overdueAmount: overdueAmount,
@@ -1077,11 +1099,28 @@ async function addRepayment(request: NextRequest, id: number, currentUserId: num
         }
       });
 
+      // Create a transaction record for the loan repayment
+      const repaymentTransaction = await prismaAny.transaction.create({
+        data: {
+          type: 'loan_repaid',
+          amount: paymentAmount,
+          member: loan.borrower?.name || 'Unknown',
+          from_partner: null,
+          to_partner: collector.name,
+          action_performer: collector.name,
+          entered_by: activePartner,
+          date: new Date(paidDate),
+          note: `Loan repayment from ${loan.borrower?.name || 'Unknown'} - Period ${period}`,
+          createdById: currentUserId
+        }
+      });
+
       return NextResponse.json({
         ...repayment,
         loan: updatedLoan,
         collector_name: collector.name,
-        collector_id: collector.id
+        collector_id: collector.id,
+        transaction: repaymentTransaction
       }, { status: 201 });
 
     } catch (error) {

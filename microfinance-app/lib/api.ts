@@ -14,12 +14,24 @@ async function fetchAPI<T>(
   try {
       // console.log(`Fetching from: ${url} with method: ${options.method || 'GET'}`);
 
+    // Get active partner from localStorage if available
+    let activePartner = 'Me';
+    if (typeof window !== 'undefined') {
+      const savedPartnerId = localStorage.getItem('selectedPartnerId');
+      if (savedPartnerId) {
+        // For now, we'll use 'Me' as default. In a real implementation,
+        // you might want to fetch the actual partner name
+        activePartner = 'Me';
+      }
+    }
+
     // Create fetch options with defaults that work well in Next.js
     const fetchOptions: RequestInit = {
       ...options,
       headers: {
         'Content-Type': 'application/json',
         'Accept': 'application/json',
+        'x-active-partner': activePartner,
         ...options.headers,
       },
       // Ensure credentials are included

@@ -8,13 +8,6 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// Basic enums
-enum RepaymentType {
-  REGULAR
-  INTEREST_ONLY
-  PARTIAL
-}
-
 model User {
   id            Int            @id @default(autoincrement())
   name          String
@@ -32,29 +25,29 @@ model User {
 }
 
 model ChitFund {
-  id                     Int                @id @default(autoincrement())
+  id                     Int                   @id @default(autoincrement())
   name                   String
   totalAmount            Float
   monthlyContribution    Float
-  firstMonthContribution Float?             // For Fixed type chit funds
+  firstMonthContribution Float?
   duration               Int
   membersCount           Int
-  status                 String             @default("Active")
+  status                 String                @default("Active")
   startDate              DateTime
-  currentMonth           Int                @default(1)
+  currentMonth           Int                   @default(1)
   nextAuctionDate        DateTime?
   description            String?
-  chitFundType           String             @default("Auction") // "Auction" or "Fixed"
-  createdAt              DateTime           @default(now())
-  updatedAt              DateTime           @updatedAt
+  chitFundType           String                @default("Auction")
+  createdAt              DateTime              @default(now())
+  updatedAt              DateTime              @updatedAt
   createdById            Int
-  auctions            Auction[]
-  createdBy           User               @relation(fields: [createdById], references: [id], map: "ChitFund_createdById_fkey")
-  contributions       Contribution[]
-  members             Member[]
-  fixedAmounts        ChitFundFixedAmount[]
+  auctions               Auction[]
+  createdBy              User                  @relation(fields: [createdById], references: [id], map: "ChitFund_createdById_fkey")
+  fixedAmounts           ChitFundFixedAmount[]
+  contributions          Contribution[]
+  members                Member[]
 
-  @@index([createdById], map: "ChitFund_createdById_idx")
+  @@index([createdById])
 }
 
 model GlobalMember {
@@ -71,7 +64,7 @@ model GlobalMember {
   loans           Loan[]   @relation("BorrowerToLoan")
   chitFundMembers Member[]
 
-  @@index([createdById], map: "GlobalMember_createdById_idx")
+  @@index([createdById])
 }
 
 model Member {
@@ -89,8 +82,8 @@ model Member {
   chitFund       ChitFund       @relation(fields: [chitFundId], references: [id], map: "Member_chitFundId_fkey")
   globalMember   GlobalMember   @relation(fields: [globalMemberId], references: [id], map: "Member_globalMemberId_fkey")
 
-  @@index([chitFundId], map: "Member_chitFundId_idx")
-  @@index([globalMemberId], map: "Member_globalMemberId_idx")
+  @@index([chitFundId])
+  @@index([globalMemberId])
 }
 
 model Contribution {
@@ -110,8 +103,8 @@ model Contribution {
   chitFund                 ChitFund  @relation(fields: [chitFundId], references: [id], map: "Contribution_chitFundId_fkey")
   member                   Member    @relation(fields: [memberId], references: [id], map: "Contribution_memberId_fkey")
 
-  @@index([chitFundId], map: "Contribution_chitFundId_idx")
-  @@index([memberId], map: "Contribution_memberId_idx")
+  @@index([chitFundId])
+  @@index([memberId])
 }
 
 model Auction {
@@ -130,8 +123,8 @@ model Auction {
   chitFund        ChitFund @relation(fields: [chitFundId], references: [id], map: "Auction_chitFundId_fkey")
   winner          Member   @relation(fields: [winnerId], references: [id], map: "Auction_winnerId_fkey")
 
-  @@index([chitFundId], map: "Auction_chitFundId_idx")
-  @@index([winnerId], map: "Auction_winnerId_idx")
+  @@index([chitFundId])
+  @@index([winnerId])
 }
 
 model ChitFundFixedAmount {
@@ -144,7 +137,7 @@ model ChitFundFixedAmount {
   chitFund   ChitFund @relation(fields: [chitFundId], references: [id], map: "ChitFundFixedAmount_chitFundId_fkey")
 
   @@unique([chitFundId, month])
-  @@index([chitFundId], map: "ChitFundFixedAmount_chitFundId_idx")
+  @@index([chitFundId])
 }
 
 model Loan {
@@ -173,28 +166,26 @@ model Loan {
   paymentSchedules  PaymentSchedule[]
   repayments        Repayment[]
 
-  @@index([borrowerId], map: "Loan_borrowerId_idx")
-  @@index([createdById], map: "Loan_createdById_idx")
+  @@index([borrowerId])
+  @@index([createdById])
 }
 
 model Repayment {
-  id             Int       @id @default(autoincrement())
-  amount         Float
-  // We store both the logged date and actual paid date
-  date          DateTime            // When the repayment was recorded in system
-  paidDate      DateTime            // When the payment was actually received
-  period        Int                 // Payment period number (e.g., 1st installment, 2nd installment)
-  paymentType   RepaymentType       // Regular, Interest, Partial
-  loanId        Int
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-  createdById   Int
-  collected_by_id Int
-  entered_by_id   Int
-  loan          Loan     @relation(fields: [loanId], references: [id], onDelete: Cascade)
-  createdBy     User     @relation(fields: [createdById], references: [id])
-  collectedBy   Partner  @relation("CollectedRepayments", fields: [collected_by_id], references: [id])
-  enteredBy     Partner  @relation("EnteredRepayments", fields: [entered_by_id], references: [id])
+  id              Int      @id @default(autoincrement())
+  amount          Float
+  paidDate        DateTime
+  period          Int
+  loanId          Int
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  paymentType     String
+  collected_by_id Int?
+  createdById     Int?
+  entered_by_id   Int?
+  collectedBy     Partner? @relation("CollectedRepayments", fields: [collected_by_id], references: [id])
+  createdBy       User?    @relation(fields: [createdById], references: [id])
+  enteredBy       Partner? @relation("EnteredRepayments", fields: [entered_by_id], references: [id])
+  loan            Loan     @relation(fields: [loanId], references: [id], onDelete: Cascade)
 
   @@index([createdById])
   @@index([loanId])
@@ -216,59 +207,73 @@ model PaymentSchedule {
   updatedAt         DateTime  @updatedAt
   loan              Loan      @relation(fields: [loanId], references: [id], map: "PaymentSchedule_loanId_fkey")
 
-  @@index([loanId], map: "PaymentSchedule_loanId_idx")
+  @@index([loanId])
 }
 
 model EmailLog {
-  id          Int      @id @default(autoincrement())
-  emailType   String   // "monthly" or "weekly"
-  period      String   // "2024-01" for monthly, "2024-W01" for weekly
-  sentDate    DateTime
-  status      String   @default("sent") // "sent", "failed", "recovered"
-  recipients  String   // JSON array of recipient emails
-  fileName    String?  // Name of the attached file
-  isRecovery  Boolean  @default(false) // True if this was a recovery email
-  errorMessage String? // Error message if failed
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id           Int      @id @default(autoincrement())
+  emailType    String
+  period       String
+  sentDate     DateTime
+  status       String   @default("sent")
+  recipients   String
+  fileName     String?
+  isRecovery   Boolean  @default(false)
+  errorMessage String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
   @@unique([emailType, period])
   @@index([emailType, sentDate])
 }
 
 model Partner {
-  id                 Int           @id @default(autoincrement())
-  name               String
-  code               String?       // Unique code per user (e.g., SELF, AGENT)
-  isActive           Boolean       @default(true)
-  createdAt          DateTime      @default(now())
-  updatedAt          DateTime      @updatedAt
-  createdById        Int
-  createdBy          User         @relation(fields: [createdById], references: [id])
-  fromTransactions   Transaction[] @relation("FromPartnerTransactions")
-  toTransactions     Transaction[] @relation("ToPartnerTransactions")
-  collectedRepayments Repayment[]  @relation("CollectedRepayments")
-  enteredRepayments  Repayment[]  @relation("EnteredRepayments")
+  id                  Int           @id @default(autoincrement())
+  name                String
+  code                String?
+  isActive            Boolean       @default(true)
+  createdAt           DateTime      @default(now())
+  updatedAt           DateTime      @updatedAt
+  createdById         Int
+  createdBy           User          @relation(fields: [createdById], references: [id])
+  collectedRepayments Repayment[]   @relation("CollectedRepayments")
+  enteredRepayments   Repayment[]   @relation("EnteredRepayments")
+  fromTransactions    Transaction[] @relation("FromPartnerTransactions")
+  toTransactions      Transaction[] @relation("ToPartnerTransactions")
 
+  @@unique([createdById, code], name: "Partner_createdById_code_key")
   @@index([createdById])
-  @@unique([createdById, code], name: "Partner_createdById_code_key", map: "Partner_createdById_code_key")
 }
 
 model Transaction {
-  id            Int       @id @default(autoincrement())
-  amount        Float
-  description   String?
-  date          DateTime
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-  createdById   Int
-  createdBy     User     @relation(fields: [createdById], references: [id])
-  from_partner_id Int?
-  to_partner_id   Int?
-  fromPartner    Partner? @relation("FromPartnerTransactions", fields: [from_partner_id], references: [id])
-  toPartner      Partner? @relation("ToPartnerTransactions", fields: [to_partner_id], references: [id])
+  id               Int      @id @default(autoincrement())
+  type             String
+  amount           Float
+  member           String?
+  from_partner     String?
+  to_partner       String?
+  action_performer String
+  entered_by       String
+  date             DateTime
+  note             String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  createdById      Int
+  from_partner_id  Int?
+  to_partner_id    Int?
+  createdBy        User     @relation(fields: [createdById], references: [id])
+  fromPartner      Partner? @relation("FromPartnerTransactions", fields: [from_partner_id], references: [id])
+  toPartner        Partner? @relation("ToPartnerTransactions", fields: [to_partner_id], references: [id])
 
   @@index([createdById])
   @@index([from_partner_id])
   @@index([to_partner_id])
+  @@index([type])
+  @@index([date])
+}
+
+enum RepaymentType {
+  REGULAR
+  INTEREST_ONLY
+  PARTIAL
 }

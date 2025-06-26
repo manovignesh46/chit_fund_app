@@ -56,7 +56,12 @@ const LoanDetailPage = () => {
       setLoadingSchedules(true);
       setScheduleError(null);
 
-      const schedules = await loanAPI.getPaymentSchedules(parseInt(id as string), true);
+      const response = await loanAPI.getPaymentSchedules(parseInt(id as string), false);
+
+      // Handle the response structure - when includeAll=false, API returns {schedules: [...]}
+      // When includeAll=true, API returns [...] directly
+      const schedules = Array.isArray(response) ? response : response.schedules || [];
+
       setPaymentSchedules(schedules);
     } catch (error) {
       console.error('Error fetching payment schedules:', error);
@@ -93,7 +98,8 @@ const LoanDetailPage = () => {
       }
 
       // Get the installment amount and validate it exists
-      const schedule = await loanAPI.getPaymentSchedules(parseInt(id as string), true);
+      const scheduleResponse = await loanAPI.getPaymentSchedules(parseInt(id as string), true);
+      const schedule = Array.isArray(scheduleResponse) ? scheduleResponse : scheduleResponse.schedules || [];
       const scheduleItem = schedule.find(s => s.period === period);
       if (!scheduleItem) {
         throw new Error('Could not find payment schedule for the selected period.');

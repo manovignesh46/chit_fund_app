@@ -1,13 +1,50 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { usePartner } from '../contexts/PartnerContext';
+import PartnerBalanceCard from '../components/partners/PartnerBalanceCard';
+
+interface PartnerWithBalance {
+  id: number;
+  name: string;
+  isActive: boolean;
+  createdAt: string;
+  balance?: number;
+}
 
 export default function PartnerManagementPage() {
   const { partners, refreshPartners, loading, error } = usePartner();
+  const [partnersWithBalances, setPartnersWithBalances] = useState<PartnerWithBalance[]>([]);
   const [newPartnerName, setNewPartnerName] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [loadingBalances, setLoadingBalances] = useState(false);
+
+  // Fetch partners with balances
+  const fetchPartnersWithBalances = async () => {
+    try {
+      setLoadingBalances(true);
+      const response = await fetch('/api/partners?includeBalances=true');
+      if (!response.ok) {
+        throw new Error('Failed to fetch partner balances');
+      }
+      const data = await response.json();
+      setPartnersWithBalances(data.partners || []);
+    } catch (err) {
+      console.error('Error fetching partner balances:', err);
+      // Fallback to partners without balances
+      setPartnersWithBalances(partners.map(p => ({ ...p, balance: 0 })));
+    } finally {
+      setLoadingBalances(false);
+    }
+  };
+
+  // Fetch balances when partners change
+  useEffect(() => {
+    if (partners.length > 0) {
+      fetchPartnersWithBalances();
+    }
+  }, [partners]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -31,6 +68,8 @@ export default function PartnerManagementPage() {
 
       await refreshPartners();
       setNewPartnerName('');
+      // Refresh balances after adding new partner
+      fetchPartnersWithBalances();
     } catch (err: any) {
       console.error('Error creating partner:', err);
       setSubmitError(err.message || 'Failed to create partner');
@@ -90,44 +129,29 @@ export default function PartnerManagementPage() {
         )}
       </div>
 
-      {/* Partners List */}
-      <div className="bg-white rounded-lg shadow-md overflow-x-auto">
-        <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-gray-50">
-            <tr>
-              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Name
-              </th>
-              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Created At
-              </th>
-              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Status
-              </th>
-            </tr>
-          </thead>
-          <tbody className="bg-white divide-y divide-gray-200">
-            {partners.map((partner) => (
-              <tr key={partner.id}>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="text-sm font-medium text-gray-900">{partner.name}</div>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="text-sm text-gray-500">
-                    {new Date(partner.createdAt).toLocaleDateString()}
-                  </div>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                    partner.isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                  }`}>
-                    {partner.isActive ? 'Active' : 'Inactive'}
-                  </span>
-                </td>
-              </tr>
+      {/* Partners Balance Cards */}
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg sm:text-xl font-semibold text-blue-700">Partner Balances</h2>
+          {loadingBalances && (
+            <div className="flex items-center space-x-2">
+              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-700"></div>
+              <span className="text-sm text-gray-600">Loading balances...</span>
+            </div>
+          )}
+        </div>
+
+        {partnersWithBalances.length === 0 ? (
+          <div className="bg-white rounded-lg shadow-md p-8 text-center">
+            <p className="text-gray-500">No partners found. Add a partner to get started.</p>
+          </div>
+        ) : (
+          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+            {partnersWithBalances.map((partner) => (
+              <PartnerBalanceCard key={partner.id} partner={partner} />
             ))}
-          </tbody>
-        </table>
+          </div>
+        )}
       </div>
     </div>
   );

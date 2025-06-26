@@ -32,7 +32,14 @@ export async function GET(request: NextRequest) {
       createdById: currentUserId
     };
 
-    if (type) {
+    // Check if this is a request for partner transactions page (only manual transfers)
+    const showOnlyManualTransfers = searchParams.get('manualOnly') === 'true';
+
+    if (showOnlyManualTransfers) {
+      // Only show manual partner-to-partner transfers
+      where.type = 'transfer';
+    } else if (type) {
+      // Allow filtering by specific type for other pages
       where.type = type;
     }
 

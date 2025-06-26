@@ -1,9 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { format } from 'date-fns';
 import { formatCurrency } from '../../lib/formatUtils';
-import { transactionAPI } from '../../lib/transactionAPI';
 import { usePartner } from '../contexts/PartnerContext';
 
 interface Transaction {
@@ -42,9 +40,18 @@ export default function TransactionList({
   async function fetchTransactions() {
     try {
       setLoading(true);
-      const data = await transactionAPI.getAll(page, pageSize, undefined, activePartner);
+      // Use manualOnly parameter to show only manual partner-to-partner transfers
+      let url = `/api/transactions?page=${page}&pageSize=${pageSize}&partner=${activePartner}&manualOnly=true`;
+
+      const response = await fetch(url);
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to fetch transactions');
+      }
+
+      const data = await response.json();
       setTransactions(data.transactions);
-    } catch (err) {
+    } catch (err: any) {
       setError(err.message);
     } finally {
       setLoading(false);

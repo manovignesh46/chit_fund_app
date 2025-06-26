@@ -17,6 +17,9 @@ interface PartnerContextType {
   loading: boolean;
   error: string | null;
   refreshPartners: () => Promise<void>;
+  // For transaction components compatibility
+  activePartner: string;
+  otherPartner: string;
 }
 
 const PartnerContext = createContext<PartnerContextType | undefined>(undefined);
@@ -73,6 +76,10 @@ export function PartnerProvider({ children }: PartnerProviderProps) {
     }
   }, [selectedPartner]);
 
+  // Calculate activePartner and otherPartner for transaction components
+  const activePartner = selectedPartner?.name || 'Me';
+  const otherPartner = partners.find(p => p.name !== activePartner)?.name || 'My Friend';
+
   const value: PartnerContextType = {
     selectedPartner,
     setSelectedPartner,
@@ -80,6 +87,8 @@ export function PartnerProvider({ children }: PartnerProviderProps) {
     loading,
     error,
     refreshPartners,
+    activePartner,
+    otherPartner,
   };
 
   return (

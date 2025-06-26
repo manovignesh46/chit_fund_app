@@ -78,8 +78,8 @@ export default function EnhancedTransactionList({ refresh }: TransactionListProp
       setLoading(true);
       setError('');
 
-      let url = `/api/transactions?page=${page}&pageSize=${pageSize}&partner=${activePartner}`;
-      
+      let url = `/api/transactions?page=${page}&pageSize=${pageSize}&partner=${activePartner}&manualOnly=true`;
+
       if (filters.type) url += `&type=${filters.type}`;
       if (filters.dateFrom) url += `&startDate=${filters.dateFrom}`;
       if (filters.dateTo) url += `&endDate=${filters.dateTo}`;
