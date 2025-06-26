@@ -1,7 +1,7 @@
 // @ts-nocheck
 import React from 'react';
 import '../styles/globals.css';
-import Header from './components/Header';
+import Layout from './components/Layout';
 import { PartnerProvider } from './contexts/PartnerContext';
 
 // Initialize the application (including schedulers)
@@ -11,7 +11,7 @@ import '../lib/init';
 export const dynamic = 'force-static';
 
 export const metadata = {
-  title: 'Microfinance and Chit Fund Management',
+  title: 'AM Fincorp - Microfinance and Chit Fund Management',
   description: 'A full-stack application for managing microfinance and chit funds.',
 };
 
@@ -20,8 +20,9 @@ const RootLayout = ({ children }: { children: React.ReactNode }) => {
     <html lang="en">
       <body>
         <PartnerProvider>
-          <Header />
-          <main className="p-4">{children}</main>
+          <Layout>
+            {children}
+          </Layout>
         </PartnerProvider>
       </body>
     </html>

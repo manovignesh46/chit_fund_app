@@ -248,21 +248,21 @@ const FinancialGraph: React.FC<FinancialGraphProps> = ({ data, loading, error })
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-start sm:items-center justify-center z-50 p-2 sm:p-4 overflow-y-auto">
           <div
             ref={modalRef}
-            className="bg-white rounded-lg shadow-xl p-3 sm:p-6 w-full max-w-sm sm:max-w-2xl lg:max-w-4xl my-4 sm:my-8 max-h-[calc(100vh-2rem)] sm:max-h-[90vh] overflow-y-auto"
+            className="bg-white rounded-lg shadow-xl p-4 sm:p-6 w-full max-w-sm sm:max-w-lg lg:max-w-2xl my-4 sm:my-8 max-h-[calc(100vh-4rem)] sm:max-h-[85vh] overflow-y-auto"
           >
-            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start mb-4 gap-2">
-              <div className="flex-1">
-                <h2 className="text-lg sm:text-xl font-bold text-blue-700 pr-8 sm:pr-0">Financial Details: {selectedPeriod.period}</h2>
+            <div className="flex justify-between items-start mb-4">
+              <div className="flex-1 pr-4">
+                <h2 className="text-lg sm:text-xl font-bold text-blue-700">Financial Details: {selectedPeriod.period}</h2>
                 <p className="text-sm text-gray-500 mt-1">
                   {new Date(selectedPeriod.periodRange.startDate).toLocaleDateString()} - {new Date(selectedPeriod.periodRange.endDate).toLocaleDateString()}
                 </p>
               </div>
               <button
                 onClick={() => setShowDetailModal(false)}
-                className="absolute top-3 right-3 sm:relative sm:top-0 sm:right-0 text-gray-500 hover:text-gray-700 p-1 hover:bg-gray-100 rounded-full transition-colors"
+                className="flex-shrink-0 text-gray-500 hover:text-gray-700 p-2 hover:bg-gray-100 rounded-full transition-colors"
                 aria-label="Close modal"
               >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>
               </button>
@@ -380,11 +380,11 @@ const FinancialGraph: React.FC<FinancialGraphProps> = ({ data, loading, error })
               </div>
             </div>
 
-            <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-3 mt-4 pt-4 border-t border-gray-200">
+            <div className="flex flex-col sm:flex-row justify-end items-stretch sm:items-center gap-3 mt-4 pt-4 border-t border-gray-200">
               <a
                 href={`/api/dashboard/financial-data/export?duration=single&period=${encodeURIComponent(selectedPeriod.period)}&startDate=${encodeURIComponent(selectedPeriod.periodRange.startDate)}&endDate=${encodeURIComponent(selectedPeriod.periodRange.endDate)}`}
                 download={`financial_details_${selectedPeriod.period.replace(/\s+/g, '_')}.xlsx`}
-                className="flex items-center justify-center px-4 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition duration-300 w-full sm:w-auto text-sm font-medium"
+                className="flex items-center justify-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition duration-300 w-full sm:w-auto text-sm font-medium"
                 title="Export this period's financial details to Excel"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -394,7 +394,7 @@ const FinancialGraph: React.FC<FinancialGraphProps> = ({ data, loading, error })
               </a>
               <button
                 onClick={() => setShowDetailModal(false)}
-                className="px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-300 w-full sm:w-auto text-sm font-medium"
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-300 w-full sm:w-auto text-sm font-medium"
               >
                 Close
               </button>

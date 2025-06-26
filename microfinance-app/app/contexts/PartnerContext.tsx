@@ -132,7 +132,7 @@ export function usePartner() {
 interface PartnerSelectorProps {
   className?: string;
   label?: string;
-  variant?: 'default' | 'header';
+  variant?: 'default' | 'header' | 'sidebar';
 }
 
 export function PartnerSelector({
@@ -164,6 +164,25 @@ export function PartnerSelector({
           className="block w-full px-3 py-1.5 bg-blue-700 border border-blue-500 rounded-md text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-300 focus:border-blue-300"
         >
           {partners.map(partner => (
+            <option key={partner.id} value={partner.id}>
+              {partner.name}
+            </option>
+          ))}
+        </select>
+      </div>
+    );
+  }
+
+  if (variant === 'sidebar') {
+    return (
+      <div className={className}>
+        <select
+          value={selectedPartner?.id || ''}
+          onChange={selectPartnerHandler}
+          className="block w-full px-3 py-2 bg-white border border-gray-300 rounded-md text-gray-900 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+        >
+          <option value="">Select Partner</option>
+          {partners.map((partner) => (
             <option key={partner.id} value={partner.id}>
               {partner.name}
             </option>
