@@ -922,8 +922,8 @@ export default function ChitFundMembersPage() {
 
       {/* Members Table */}
       <div className="bg-white rounded-lg shadow-md overflow-hidden mb-8">
-        <div className="overflow-x-auto w-full">
-          <table className="min-w-full divide-y divide-gray-200 text-xs sm:text-sm">
+        <div className="overflow-x-auto w-full" style={{maxWidth: '100vw'}}>
+          <table className="w-full divide-y divide-gray-200 text-xs sm:text-sm" style={{minWidth: '700px'}}>
             <thead className="bg-gray-50">
               <tr>
                 <th scope="col" className="px-2 sm:px-6 py-2 sm:py-3 text-left font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">

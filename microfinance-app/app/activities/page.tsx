@@ -213,19 +213,20 @@ export default function ActivitiesPage() {
         </div>
 
         {/* Activities Table */}
-        {activities.length === 0 ? (
-          <div className="text-center py-8">
-            <div className="text-gray-400 mb-4">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-16 w-16 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
+        <div className="bg-white rounded-lg shadow-md overflow-hidden">
+          {activities.length === 0 ? (
+            <div className="text-center py-8">
+              <div className="text-gray-400 mb-4">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-16 w-16 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+              <h3 className="text-xl font-semibold text-gray-600 mb-2">No activities found</h3>
+              <p className="text-gray-500">There are no recent activities to display.</p>
             </div>
-            <h3 className="text-xl font-semibold text-gray-600 mb-2">No activities found</h3>
-            <p className="text-gray-500">There are no recent activities to display.</p>
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200 text-xs sm:text-sm">
+          ) : (
+            <div className="overflow-x-auto w-full" style={{maxWidth: '100vw'}}>
+              <table className="w-full divide-y divide-gray-200 text-xs sm:text-sm" style={{minWidth: '600px'}}>
               <thead className="bg-gray-50">
                 <tr>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -312,9 +313,10 @@ export default function ActivitiesPage() {
                   );
                 })}
               </tbody>
-            </table>
-          </div>
-        )}
+              </table>
+            </div>
+          )}
+        </div>
 
         {/* Pagination */}
         {totalPages > 1 && (

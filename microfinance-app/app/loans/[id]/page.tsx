@@ -8,6 +8,7 @@ import { Loan, Repayment, PaymentSchedule } from '../../../lib/interfaces';
 import { formatCurrency, formatDate, calculateLoanProfit } from '../../../lib/formatUtils';
 import { loanAPI } from '../../../lib/api';  // Add this import
 import dynamic from 'next/dynamic';
+import ActionDropdown, { ActionItem } from '../../components/ui/ActionDropdown';
 import { LoanDetailSkeleton } from '../../components/skeletons/DetailSkeletons';
 import { usePartner } from '../../../app/contexts/PartnerContext';
 import {
@@ -274,9 +275,9 @@ const LoanDetailPage = () => {
   const formatDate = (dateString: string | Date | null | undefined): string => {
     if (!dateString) return 'N/A';
     const date = typeof dateString === 'string' ? new Date(dateString) : dateString;
-    return new Intl.DateTimeFormat('en-IN', {
+    return new Intl.DateTimeFormat('en-GB', {
       year: 'numeric',
-      month: 'long',
+      month: 'short',
       day: 'numeric',
     }).format(date);
   };
@@ -766,9 +767,10 @@ const LoanDetailPage = () => {
           </Link>
         </div>
       </div>
-      {/* Main content grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 mb-6 sm:mb-8">
-        <div className="bg-white rounded-lg shadow-md overflow-hidden">
+      {/* Main content grid - Loan Details and Payment Schedule side by side on desktop */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6 mb-6 sm:mb-8 lg:items-start">
+        {/* Loan Details Card - Takes 2 columns */}
+        <div className="bg-white rounded-lg shadow-md overflow-hidden lg:col-span-2 h-fit">
           <div className="p-6 border-b">
             <div className="flex justify-between items-start">
               <div>
@@ -1207,18 +1209,12 @@ const LoanDetailPage = () => {
             </div>
           </div>
         </div>
-      </div>
 
-      {/* Payment Schedules Table */}
-      <div className="bg-white rounded-lg shadow-md overflow-x-auto mb-6">
+        {/* Payment Schedule Table - Second Column */}
+        <div className="bg-white rounded-lg shadow-md mb-6 lg:mb-0 h-fit">
         <div className="p-6 border-b flex flex-col md:flex-row justify-between items-start md:items-center space-y-4 md:space-y-0">
           <div className="flex items-center">
             <h2 className="text-xl font-semibold">Payment Schedule</h2>
-            <div className="ml-4">
-              <span className="text-sm text-gray-600">
-                Showing all due, overdue, and upcoming payment schedules
-              </span>
-            </div>
           </div>
           <div className="flex items-center space-x-4">
             <Link href={`/loans/${id}/repayments`} className="text-blue-600 hover:text-blue-800">
@@ -1233,13 +1229,10 @@ const LoanDetailPage = () => {
           </div>
         )}
 
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200 text-xs sm:text-sm">
+        <div className="overflow-x-auto w-full" style={{maxWidth: '100vw'}}>
+          <table className="w-full divide-y divide-gray-200 text-xs sm:text-sm" style={{minWidth: '500px'}}>
             <thead className="bg-gray-50">
               <tr>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Period
-                </th>
                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Due Date
                 </th>
@@ -1260,7 +1253,7 @@ const LoanDetailPage = () => {
             <tbody className="bg-white divide-y divide-gray-200">
               {loadingSchedules ? (
                 <tr>
-                  <td colSpan={6} className="px-6 py-4 text-center">
+                  <td colSpan={5} className="px-6 py-4 text-center">
                     <div className="flex justify-center items-center">
                       <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-green-700 mr-2"></div>
                       <p>Loading payment schedules...</p>
@@ -1269,7 +1262,7 @@ const LoanDetailPage = () => {
                 </tr>
               ) : paymentSchedules.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-6 py-4 text-center text-gray-500">
+                  <td colSpan={5} className="px-6 py-4 text-center text-gray-500">
                     <p className="mb-4">
                       No payment schedules are due, overdue, or upcoming.
                     </p>
@@ -1305,11 +1298,6 @@ const LoanDetailPage = () => {
                       isOverdue ? 'bg-red-50' :
                       isDueTomorrow ? 'bg-yellow-50' : ''
                     }`}>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900">
-                          {formatPeriod(schedule.period, schedule.dueDate, loan.repaymentType)}
-                        </div>
-                      </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm text-gray-900">{formatDate(schedule.dueDate)}</div>
                     </td>
@@ -1356,36 +1344,46 @@ const LoanDetailPage = () => {
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex space-x-2">
-                        {(schedule.status === 'Pending' || schedule.status === 'Missed') && (
-                          <>
-                            <button
-                              onClick={() => handleRecordPayment(schedule.period, 'Paid')}
-                              disabled={updatingSchedule === schedule.period}
-                              className="text-xs px-2 py-1 bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50"
-                            >
-                              {updatingSchedule === schedule.period ? 'Processing...' : 'Mark Paid'}
-                            </button>
-                            {loan.repaymentType === 'Monthly' && (
-                              <button
-                                onClick={() => handleRecordPayment(schedule.period, 'InterestOnly')}
-                                disabled={updatingSchedule === schedule.period}
-                                className="text-xs px-2 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
-                              >
-                                {updatingSchedule === schedule.period ? 'Processing...' : 'Interest Only'}
-                              </button>
-                            )}
-                          </>
-                        )}
-                        {schedule.repayment && (
-                          <Link
-                            href={`/loans/${id}/repayments`}
-                            className="text-xs px-2 py-1 bg-gray-200 text-gray-700 rounded hover:bg-gray-300"
-                          >
-                            View Payment
-                          </Link>
-                        )}
-                      </div>
+                      <ActionDropdown
+                        actions={[
+                          ...(schedule.status === 'Pending' || schedule.status === 'Missed' ? [
+                            {
+                              label: updatingSchedule === schedule.period ? 'Processing...' : 'Mark Paid',
+                              onClick: () => handleRecordPayment(schedule.period, 'Paid'),
+                              disabled: updatingSchedule === schedule.period,
+                              icon: (
+                                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+                                </svg>
+                              ),
+                              className: 'text-green-600 hover:text-green-700'
+                            },
+                            ...(loan.repaymentType === 'Monthly' ? [{
+                              label: updatingSchedule === schedule.period ? 'Processing...' : 'Interest Only',
+                              onClick: () => handleRecordPayment(schedule.period, 'InterestOnly'),
+                              disabled: updatingSchedule === schedule.period,
+                              icon: (
+                                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
+                                </svg>
+                              ),
+                              className: 'text-blue-600 hover:text-blue-700'
+                            }] : [])
+                          ] : []),
+                          ...(schedule.repayment ? [{
+                            label: 'View Payment',
+                            href: `/loans/${id}/repayments`,
+                            onClick: () => {},
+                            icon: (
+                              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                              </svg>
+                            ),
+                            className: 'text-gray-600 hover:text-gray-700'
+                          }] : [])
+                        ]}
+                      />
                     </td>
                   </tr>
                 );
@@ -1399,10 +1397,6 @@ const LoanDetailPage = () => {
         {paymentSchedules.length > 0 && (
           <div className="p-6 border-t">
             <div className="flex flex-col md:flex-row justify-between items-center">
-              <div className="mb-4 md:mb-0">
-                <span className="text-sm text-gray-500">Total Schedules:</span>
-                <span className="ml-2 text-lg font-semibold">{totalCount}</span>
-              </div>
 
               <div className="flex flex-col md:flex-row items-center justify-between w-full md:w-auto space-y-4 md:space-y-0">
                 <div className="flex items-center space-x-4">
@@ -1477,16 +1471,11 @@ const LoanDetailPage = () => {
                     </button>
                   </nav>
                 </div>
-
-                {loan.status === 'Active' && (
-                  <Link href={`/loans/${loan.id}/repayments/new`} className="ml-4 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition duration-300">
-                    Record New Payment
-                  </Link>
-                )}
               </div>
             </div>
           </div>
         )}
+        </div>
       </div>
 
       {/* Delete Confirmation Modal */}

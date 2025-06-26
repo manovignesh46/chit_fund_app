@@ -309,8 +309,9 @@ const RepaymentsPage = () => {
       </div>
 
       {/* Repayments Table */}
-      <div className="bg-white rounded-lg shadow-md overflow-x-auto mb-6">
-        <table className="min-w-full divide-y divide-gray-200 text-xs sm:text-sm">
+      <div className="bg-white rounded-lg shadow-md overflow-hidden mb-6">
+        <div className="overflow-x-auto w-full" style={{maxWidth: '100vw'}}>
+          <table className="w-full divide-y divide-gray-200 text-xs sm:text-sm" style={{minWidth: '800px'}}>
           <thead className="bg-gray-50">
             <tr>
               <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -420,6 +421,7 @@ const RepaymentsPage = () => {
             ))}
           </tbody>
         </table>
+        </div>
       </div>
 
       {/* Pagination and summary */}

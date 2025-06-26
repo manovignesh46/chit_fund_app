@@ -8,6 +8,7 @@ import { memberAPI } from '../../lib/api';
 import dynamic from 'next/dynamic';
 import { MembersListSkeleton } from '../components/skeletons/ListSkeletons';
 import { ArrowDownTrayIcon, TrashIcon, PlusCircleIcon } from '@heroicons/react/24/solid';
+import ActionDropdown, { ActionItem } from '../components/ui/ActionDropdown';
 
 interface GlobalMember {
   id: number;
@@ -487,11 +488,13 @@ export default function MembersPage() {
       )}
 
       {/* Members Table */}
-      <div className="bg-white rounded-lg shadow-md overflow-x-auto mb-6">
-        <table className="min-w-full divide-y divide-gray-200 text-xs sm:text-sm">
+      <div className="bg-white rounded-lg shadow-md mb-6 overflow-hidden">
+        {/* Table container with proper mobile scrolling - constrained width */}
+        <div className="overflow-x-auto w-full" style={{maxWidth: '100vw'}}>
+          <table className="w-full divide-y divide-gray-200 text-xs sm:text-sm" style={{minWidth: '600px'}}>
           <thead className="bg-gray-50">
             <tr>
-              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th scope="col" className="px-2 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 <div className="flex items-center">
                   <input
                     type="checkbox"
@@ -502,22 +505,22 @@ export default function MembersPage() {
                   <span className="ml-2">Select</span>
                 </div>
               </th>
-              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th scope="col" className="px-2 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Name
               </th>
-              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th scope="col" className="px-2 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Contact
               </th>
-              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th scope="col" className="px-2 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Email
               </th>
-              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th scope="col" className="px-2 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Chit Funds
               </th>
-              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th scope="col" className="px-2 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Loans
               </th>
-              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th scope="col" className="px-2 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Actions
               </th>
             </tr>
@@ -547,7 +550,7 @@ export default function MembersPage() {
                     window.location.href = `/members/${member.id}`;
                   }}
                 >
-                  <td className="px-6 py-4 whitespace-nowrap">
+                  <td className="px-2 sm:px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center">
                       <input
                         type="checkbox"
@@ -557,59 +560,50 @@ export default function MembersPage() {
                       />
                     </div>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
+                  <td className="px-2 sm:px-6 py-2 sm:py-4 whitespace-nowrap">
                     <div className="text-sm font-medium text-blue-600">
                       {member.name}
                     </div>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
+                  <td className="px-2 sm:px-6 py-2 sm:py-4 whitespace-nowrap">
                     <div className="text-sm text-gray-900">{member.contact}</div>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
+                  <td className="px-2 sm:px-6 py-2 sm:py-4 whitespace-nowrap">
                     <div className="text-sm text-gray-900">{member.email || '-'}</div>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
+                  <td className="px-2 sm:px-6 py-4 whitespace-nowrap">
                     <div className="text-sm text-gray-900">{member._count.chitFundMembers}</div>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
+                  <td className="px-2 sm:px-6 py-4 whitespace-nowrap">
                     <div className="text-sm text-gray-900">{member._count.loans}</div>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                    <div className="flex space-x-2">
-                      <Link
-                        href={`/members/${member.id}/edit`}
-                        className="text-blue-600 hover:text-blue-900 flex items-center"
-                        aria-label="Edit"
-                        onClick={e => e.stopPropagation()}
-                      >
-                        {/* PencilSquare icon: icon-only on mobile, icon+text on desktop */}
-                        <svg className="h-5 w-5 block sm:hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path fill="currentColor" d="M16.862 3.487a2.25 2.25 0 113.182 3.182l-9.193 9.193a2.25 2.25 0 01-.708.471l-3.25 1.3a.75.75 0 01-.97-.97l1.3-3.25a2.25 2.25 0 01.471-.708l9.193-9.193zM19.5 6.75L17.25 4.5" />
-                        </svg>
-                        <span className="hidden sm:inline-flex items-center">
-                          <svg className="h-5 w-5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path fill="currentColor" d="M16.862 3.487a2.25 2.25 0 113.182 3.182l-9.193 9.193a2.25 2.25 0 01-.708.471l-3.25 1.3a.75.75 0 01-.97-.97l1.3-3.25a2.25 2.25 0 01.471-.708l9.193-9.193zM19.5 6.75L17.25 4.5" />
-                          </svg>
-                          Edit
-                        </span>
-                      </Link>
-                      <button
-                        onClick={e => {
-                          e.stopPropagation();
-                          handleDeleteMember(member.id);
-                        }}
-                        className="text-red-600 hover:text-red-900 flex items-center"
-                        aria-label="Delete"
-                        title="Delete member"
-                      >
-                        {/* Dustbin icon: icon-only on mobile, icon+text on desktop (Heroicons solid Trash) */}
-                        <svg className="h-5 w-5 block sm:hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 7h12M9 7V4a1 1 0 011-1h4a1 1 0 011 1v3m2 0v13a2 2 0 01-2 2H8a2 2 0 01-2-2V7h12z" /></svg>
-                        <span className="hidden sm:inline-flex items-center">
-                          <svg className="h-5 w-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 7h12M9 7V4a1 1 0 011-1h4a1 1 0 011 1v3m2 0v13a2 2 0 01-2 2H8a2 2 0 01-2-2V7h12z" /></svg>
-                          {isDeleting && memberToDelete === member.id ? 'Deleting...' : 'Delete'}
-                        </span>
-                      </button>
-                    </div>
+                  <td className="px-2 sm:px-6 py-4 whitespace-nowrap text-sm font-medium">
+                    <ActionDropdown
+                      actions={[
+                        {
+                          label: 'Edit',
+                          href: `/members/${member.id}/edit`,
+                          onClick: () => {},
+                          icon: (
+                            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path fill="currentColor" d="M16.862 3.487a2.25 2.25 0 113.182 3.182l-9.193 9.193a2.25 2.25 0 01-.708.471l-3.25 1.3a.75.75 0 01-.97-.97l1.3-3.25a2.25 2.25 0 01.471-.708l9.193-9.193zM19.5 6.75L17.25 4.5" />
+                            </svg>
+                          ),
+                          className: 'text-blue-600 hover:text-blue-700'
+                        },
+                        {
+                          label: isDeleting && memberToDelete === member.id ? 'Deleting...' : 'Delete',
+                          onClick: () => handleDeleteMember(member.id),
+                          disabled: isDeleting && memberToDelete === member.id,
+                          icon: (
+                            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 7h12M9 7V4a1 1 0 011-1h4a1 1 0 011 1v3m2 0v13a2 2 0 01-2 2H8a2 2 0 01-2-2V7h12z" />
+                            </svg>
+                          ),
+                          className: 'text-red-600 hover:text-red-700'
+                        }
+                      ]}
+                    />
                     {/* Show delete error for this row if any */}
                     {deleteError && memberToDelete === member.id && (
                       <div className="mt-1 text-xs text-red-600">{deleteError}</div>
@@ -620,6 +614,7 @@ export default function MembersPage() {
             )}
           </tbody>
         </table>
+        </div>
 
         {/* Pagination Controls */}
         <div className="mt-6 flex items-center justify-between border-t border-gray-200 bg-white px-4 py-3 sm:px-6">

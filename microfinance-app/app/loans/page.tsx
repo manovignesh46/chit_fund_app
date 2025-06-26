@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { LoansListSkeleton } from '../components/skeletons/ListSkeletons';
 import { loanAPI } from '../../lib/api';
 import { ArrowDownTrayIcon, TrashIcon, PlusCircleIcon } from '@heroicons/react/24/solid';
+import ActionDropdown, { ActionItem } from '../components/ui/ActionDropdown';
 
 // Define interfaces for Loan type
 interface GlobalMember {
@@ -411,7 +412,7 @@ export default function LoansPage() {
           )}
         </div>
       ) : (
-        <div className="bg-white rounded-lg shadow-md overflow-x-auto">
+        <div className="bg-white rounded-lg shadow-md overflow-hidden">
           <div className="p-2 sm:p-4 border-b flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 sm:gap-0">
             <div className="flex items-center">
               <span className="text-sm text-gray-600">
@@ -420,11 +421,12 @@ export default function LoansPage() {
             </div>
           </div>
 
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200 text-xs sm:text-sm">
+          {/* Table container with proper mobile scrolling - constrained width */}
+          <div className="overflow-x-auto w-full" style={{maxWidth: '100vw'}}>
+            <table className="w-full divide-y divide-gray-200 text-xs sm:text-sm" style={{minWidth: '800px'}}>
               <thead className="bg-gray-50">
                 <tr>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th scope="col" className="px-2 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     <div className="flex items-center">
                       <input
                         type="checkbox"
@@ -435,22 +437,22 @@ export default function LoansPage() {
                       <span className="ml-2">Select</span>
                     </div>
                   </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th scope="col" className="px-2 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Borrower
                   </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th scope="col" className="px-2 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Loan Type
                   </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th scope="col" className="px-2 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Amount
                   </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th scope="col" className="px-2 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Interest Amount
                   </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th scope="col" className="px-2 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Duration
                   </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th scope="col" className="px-2 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Remaining
                   </th>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -485,7 +487,7 @@ export default function LoansPage() {
                       window.location.href = `/loans/${loan.id}`;
                     }}
                   >
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="px-2 sm:px-6 py-2 sm:py-4 whitespace-nowrap">
                       <div className="flex items-center">
                         <input
                           type="checkbox"
@@ -495,7 +497,7 @@ export default function LoansPage() {
                         />
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="px-2 sm:px-6 py-2 sm:py-4 whitespace-nowrap">
                       <div className="text-sm font-medium text-green-600">
                         {loan.borrower?.name || 'Unknown'}
                       </div>
@@ -529,72 +531,54 @@ export default function LoansPage() {
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                      <div className="flex space-x-2">
-                        <Link
-                          href={`/loans/${loan.id}/edit`}
-                          className="text-green-600 hover:text-green-900 flex items-center"
-                          aria-label="Edit"
-                          onClick={e => e.stopPropagation()}
-                        >
-                          {/* PencilSquare icon: icon-only on mobile, icon+text on desktop */}
-                          <svg className="h-5 w-5 block sm:hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path fill="currentColor" d="M16.862 3.487a2.25 2.25 0 113.182 3.182l-9.193 9.193a2.25 2.25 0 01-.708.471l-3.25 1.3a.75.75 0 01-.97-.97l1.3-3.25a2.25 2.25 0 01.471-.708l9.193-9.193zM19.5 6.75L17.25 4.5" />
-                          </svg>
-                          <span className="hidden sm:inline-flex items-center">
-                            <svg className="h-5 w-5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path fill="currentColor" d="M16.862 3.487a2.25 2.25 0 113.182 3.182l-9.193 9.193a2.25 2.25 0 01-.708.471l-3.25 1.3a.75.75 0 01-.97-.97l1.3-3.25a2.25 2.25 0 01.471-.708l9.193-9.193zM19.5 6.75L17.25 4.5" />
-                            </svg>
-                            Edit
-                          </span>
-                        </Link>
-                        <button
-                          onClick={e => {
-                            e.stopPropagation();
-                            const exportSingleLoan = async () => {
-                              try {
-                                setIsExporting(true);
-                                await loanAPI.exportSelectedLoans([loan.id]);
-                              } catch (error) {
-                                console.error('Error exporting loan:', error);
-                                alert('Failed to export loan. Please try again.');
-                              } finally {
-                                setIsExporting(false);
-                              }
-                            };
-                            exportSingleLoan();
-                          }}
-                          className="text-blue-600 hover:text-blue-900 flex items-center"
-                          title="Export loan data"
-                          aria-label="Export"
-                        >
-                          {/* ArrowDownTray icon: icon-only on mobile, icon+text on desktop */}
-                          <svg className="h-5 w-5 block sm:hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path fill="currentColor" d="M3 16.5A2.25 2.25 0 005.25 18.75h13.5A2.25 2.25 0 0021 16.5v-1.5a.75.75 0 00-1.5 0v1.5a.75.75 0 01-.75.75H5.25a.75.75 0 01-.75-.75v-1.5a.75.75 0 00-1.5 0v1.5zM12 3.75a.75.75 0 00-.75.75v7.19l-2.22-2.22a.75.75 0 10-1.06 1.06l3.5 3.5a.75.75 0 001.06 0l3.5-3.5a.75.75 0 10-1.06-1.06l-2.22 2.22V4.5A.75.75 0 0012 3.75z" />
-                          </svg>
-                          <span className="hidden sm:inline-flex items-center">
-                            <svg className="h-5 w-5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path fill="currentColor" d="M3 16.5A2.25 2.25 0 005.25 18.75h13.5A2.25 2.25 0 0021 16.5v-1.5a.75.75 0 00-1.5 0v1.5a.75.75 0 01-.75.75H5.25a.75.75 0 01-.75-.75v-1.5a.75.75 0 00-1.5 0v1.5zM12 3.75a.75.75 0 00-.75.75v7.19l-2.22-2.22a.75.75 0 10-1.06 1.06l3.5 3.5a.75.75 0 001.06 0l3.5-3.5a.75.75 0 10-1.06-1.06l-2.22 2.22V4.5A.75.75 0 0012 3.75z" />
-                            </svg>
-                            Export
-                          </span>
-                        </button>
-                        <button
-                          onClick={e => {
-                            e.stopPropagation();
-                            handleDeleteLoan(loan.id);
-                          }}
-                          className="text-red-600 hover:text-red-900 flex items-center"
-                          aria-label="Delete"
-                          title="Delete loan"
-                        >
-                          {/* Dustbin icon: icon-only on mobile, icon+text on desktop */}
-                          <svg className="h-5 w-5 block sm:hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 7h12M9 7V4a1 1 0 011-1h4a1 1 0 011 1v3m2 0v13a2 2 0 01-2 2H8a2 2 0 01-2-2V7h12z" /></svg>
-                          <span className="hidden sm:inline-flex items-center">
-                            <svg className="h-5 w-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 7h12M9 7V4a1 1 0 011-1h4a1 1 0 011 1v3m2 0v13a2 2 0 01-2 2H8a2 2 0 01-2-2V7h12z" /></svg>
-                            Delete
-                          </span>
-                        </button>
-                      </div>
+                      <ActionDropdown
+                        actions={[
+                          {
+                            label: 'Edit',
+                            href: `/loans/${loan.id}/edit`,
+                            onClick: () => {},
+                            icon: (
+                              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path fill="currentColor" d="M16.862 3.487a2.25 2.25 0 113.182 3.182l-9.193 9.193a2.25 2.25 0 01-.708.471l-3.25 1.3a.75.75 0 01-.97-.97l1.3-3.25a2.25 2.25 0 01.471-.708l9.193-9.193zM19.5 6.75L17.25 4.5" />
+                              </svg>
+                            ),
+                            className: 'text-green-600 hover:text-green-700'
+                          },
+                          {
+                            label: 'Export',
+                            onClick: () => {
+                              const exportSingleLoan = async () => {
+                                try {
+                                  setIsExporting(true);
+                                  await loanAPI.exportSelectedLoans([loan.id]);
+                                } catch (error) {
+                                  console.error('Error exporting loan:', error);
+                                  alert('Failed to export loan. Please try again.');
+                                } finally {
+                                  setIsExporting(false);
+                                }
+                              };
+                              exportSingleLoan();
+                            },
+                            icon: (
+                              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path fill="currentColor" d="M3 16.5A2.25 2.25 0 005.25 18.75h13.5A2.25 2.25 0 0021 16.5v-1.5a.75.75 0 00-1.5 0v1.5a.75.75 0 01-.75.75H5.25a.75.75 0 01-.75-.75v-1.5a.75.75 0 00-1.5 0v1.5zM12 3.75a.75.75 0 00-.75.75v7.19l-2.22-2.22a.75.75 0 10-1.06 1.06l3.5 3.5a.75.75 0 001.06 0l3.5-3.5a.75.75 0 10-1.06-1.06l-2.22 2.22V4.5A.75.75 0 0012 3.75z" />
+                              </svg>
+                            ),
+                            className: 'text-blue-600 hover:text-blue-700'
+                          },
+                          {
+                            label: 'Delete',
+                            onClick: () => handleDeleteLoan(loan.id),
+                            icon: (
+                              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 7h12M9 7V4a1 1 0 011-1h4a1 1 0 011 1v3m2 0v13a2 2 0 01-2 2H8a2 2 0 01-2-2V7h12z" />
+                              </svg>
+                            ),
+                            className: 'text-red-600 hover:text-red-700'
+                          }
+                        ]}
+                      />
                     </td>
                   </tr>
                 ))}
