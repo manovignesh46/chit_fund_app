@@ -1623,7 +1623,34 @@ async function deleteContribution(request: NextRequest, id: number, currentUserI
     );
   }
 
-  // Delete the contribution
+  // Get contribution details with member and chit fund info for transaction cleanup
+  const contributionWithDetails = await prisma.contribution.findUnique({
+    where: { id: parseInt(body.contributionId) },
+    include: {
+      member: {
+        include: {
+          globalMember: true
+        }
+      },
+      chitFund: true
+    }
+  });
+
+  // Delete associated transaction first (if it exists)
+  // Transaction note format: "Chit fund contribution from {memberName} - {chitFundName} Month {month}"
+  if (contributionWithDetails?.member?.globalMember && contributionWithDetails?.chitFund) {
+    const transactionNotePattern = `Chit fund contribution from ${contributionWithDetails.member.globalMember.name} - ${contributionWithDetails.chitFund.name} Month ${contributionWithDetails.month}`;
+
+    await prisma.transaction.deleteMany({
+      where: {
+        type: 'chit_contribution',
+        createdById: currentUserId,
+        note: transactionNotePattern
+      }
+    });
+  }
+
+  // Then delete the contribution
   await prisma.contribution.delete({
     where: { id: parseInt(body.contributionId) },
   });

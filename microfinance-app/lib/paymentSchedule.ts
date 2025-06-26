@@ -161,7 +161,7 @@ export async function getDynamicPaymentSchedule(
       let actualPaymentDate = null;
 
       if (repayment) {
-        status = repayment.paymentType === 'interestOnly' ? 'InterestOnly' : 'Paid';
+        status = repayment.paymentType === 'INTEREST_ONLY' ? 'Interest Only' : 'Paid';
         actualPaymentDate = repayment.paidDate;
       } else if (dueDate < today) {
         status = 'Missed';
@@ -183,7 +183,7 @@ export async function getDynamicPaymentSchedule(
       // New logic: Show all past due dates, current and upcoming due dates (within next 7 days), and any paid months
       const shouldShow = includeAll ||
                          status === 'Paid' || // Show all paid payments
-                         status === 'InterestOnly' || // Show all interest-only payments
+                         status === 'Interest Only' || // Show all interest-only payments
                          status === 'Missed' || // Show all missed payments
                          dueDateNormalized < today || // Show all past due dates
                          dueDateNormalized.getTime() === today.getTime() || // Due today
@@ -654,7 +654,7 @@ export async function generatePaymentSchedule(loanId: number, loan?: any) {
       // Determine status based on existing repayment or due date
       let status;
       if (existingRepayment) {
-        status = existingRepayment.paymentType === 'interestOnly' ? 'InterestOnly' : 'Paid';
+        status = existingRepayment.paymentType === 'INTEREST_ONLY' ? 'Interest Only' : 'Paid';
       } else {
         status = dueDate < today ? 'Missed' : 'Pending';
       }

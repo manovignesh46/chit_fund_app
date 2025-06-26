@@ -1341,12 +1341,48 @@ async function deleteRepayment(request: NextRequest, id: number, currentUserId: 
         );
       }
 
-      // Only adjust remaining amount if it was a full payment
-      const newRemainingAmount = repayment.paymentType === 'full'
-        ? currentLoan.remainingAmount + (repayment.amount - currentLoan.interestRate)
-        : currentLoan.remainingAmount;
+      // Adjust remaining amount based on payment type
+      let newRemainingAmount = currentLoan.remainingAmount;
+      if (repayment.paymentType === 'REGULAR') {
+        // For regular payments, add back the principal portion (amount - interest)
+        newRemainingAmount = currentLoan.remainingAmount + (repayment.amount - currentLoan.interestRate);
+      } else if (repayment.paymentType === 'PARTIAL') {
+        // For partial payments, add back the full amount
+        newRemainingAmount = currentLoan.remainingAmount + repayment.amount;
+      }
+      // For INTEREST_ONLY payments, remaining amount stays the same
 
-      // First delete the repayment
+      // Adjust loan duration if it was an interest-only payment
+      let newDuration = currentLoan.duration;
+      if (repayment.paymentType === 'INTEREST_ONLY') {
+        // Reduce duration by 1 to reverse the extension that was applied when the interest-only payment was created
+        newDuration = Math.max(1, currentLoan.duration - 1);
+        console.log(`Interest-only payment deletion detected. Reducing loan duration from ${currentLoan.duration} to ${newDuration}`);
+      }
+
+      // Get the loan details to find the borrower name for transaction cleanup
+      const loanWithBorrower = await prismaAny.loan.findUnique({
+        where: { id: loanId },
+        include: { borrower: true }
+      });
+
+      // Delete associated transaction first (if it exists)
+      // Transaction note format: "Loan repayment from {borrowerName} - Period {period}"
+      if (loanWithBorrower?.borrower) {
+        const transactionNotePattern = `Loan repayment from ${loanWithBorrower.borrower.name} - Period ${repayment.period}`;
+
+        await prismaAny.transaction.deleteMany({
+          where: {
+            type: 'loan_repaid',
+            createdById: currentUserId,
+            note: {
+              startsWith: transactionNotePattern
+            }
+          }
+        });
+      }
+
+      // Then delete the repayment
       await prismaAny.repayment.delete({
         where: { id: body.repaymentId }
       });
@@ -1369,6 +1405,7 @@ async function deleteRepayment(request: NextRequest, id: number, currentUserId: 
         where: { id: loanId },
         data: {
           remainingAmount: newRemainingAmount,
+          duration: newDuration,
           status: 'Active',
           nextPaymentDate: nextPaymentDate,
           overdueAmount: overdueAmount,
@@ -1406,12 +1443,51 @@ async function deleteRepayment(request: NextRequest, id: number, currentUserId: 
         );
       }
 
-      // Calculate amount to add back to remaining amount (only for full payments)
-      const amountToAddBack = repayments
-        .filter((r: any) => r.paymentType === 'full')
-        .reduce((sum: number, r: any) => sum + r.amount, 0);
+      // Calculate amount to add back to remaining amount based on payment types
+      const amountToAddBack = repayments.reduce((sum: number, r: any) => {
+        if (r.paymentType === 'REGULAR') {
+          // For regular payments, add back the principal portion (amount - interest)
+          return sum + (r.amount - currentLoan.interestRate);
+        } else if (r.paymentType === 'PARTIAL') {
+          // For partial payments, add back the full amount
+          return sum + r.amount;
+        }
+        // For INTEREST_ONLY payments, don't add anything to remaining amount
+        return sum;
+      }, 0);
 
-      // First delete the repayments
+      // Calculate duration reduction for interest-only payments
+      const interestOnlyCount = repayments.filter((r: any) => r.paymentType === 'INTEREST_ONLY').length;
+      const newDuration = Math.max(1, currentLoan.duration - interestOnlyCount);
+
+      if (interestOnlyCount > 0) {
+        console.log(`Bulk deletion: Found ${interestOnlyCount} interest-only payments. Reducing loan duration from ${currentLoan.duration} to ${newDuration}`);
+      }
+
+      // Get the loan details to find the borrower name for transaction cleanup
+      const loanWithBorrower = await prismaAny.loan.findUnique({
+        where: { id: loanId },
+        include: { borrower: true }
+      });
+
+      // Delete associated transactions first (if they exist)
+      if (loanWithBorrower?.borrower) {
+        for (const repayment of repayments) {
+          const transactionNotePattern = `Loan repayment from ${loanWithBorrower.borrower.name} - Period ${repayment.period}`;
+
+          await prismaAny.transaction.deleteMany({
+            where: {
+              type: 'loan_repaid',
+              createdById: currentUserId,
+              note: {
+                startsWith: transactionNotePattern
+              }
+            }
+          });
+        }
+      }
+
+      // Then delete the repayments
       await prismaAny.repayment.deleteMany({
         where: {
           id: { in: body.repaymentIds },
@@ -1437,6 +1513,7 @@ async function deleteRepayment(request: NextRequest, id: number, currentUserId: 
         where: { id: loanId },
         data: {
           remainingAmount: currentLoan.remainingAmount + amountToAddBack,
+          duration: newDuration,
           status: 'Active',
           nextPaymentDate: nextPaymentDate,
           overdueAmount: overdueAmount,

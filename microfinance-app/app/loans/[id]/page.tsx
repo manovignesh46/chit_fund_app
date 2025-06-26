@@ -1325,7 +1325,8 @@ const LoanDetailPage = () => {
                           ) :
                           schedule.status === 'Overdue' ? 'bg-red-100 text-red-800' :
                           schedule.status === 'Missed' ? 'bg-red-100 text-red-800' :
-                          schedule.status === 'InterestOnly' ? 'bg-blue-100 text-blue-800' :
+                          schedule.status === 'Interest Only' ? 'bg-blue-100 text-blue-800' :
+                          schedule.status === 'InterestOnly' ? 'bg-blue-100 text-blue-800' : // Keep backward compatibility
                           'bg-gray-100 text-gray-800'
                         }`}>
                           {isOverdue ? 'Overdue' : schedule.status}

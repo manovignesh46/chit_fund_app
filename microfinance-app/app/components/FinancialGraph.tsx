@@ -41,7 +41,7 @@ const FinancialGraph: React.FC<FinancialGraphProps> = ({ data, loading, error })
     }).format(value);
   };
 
-  // Handle click outside to close the detail modal
+  // Handle click outside and ESC key to close the detail modal
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (modalRef.current && !modalRef.current.contains(event.target as Node)) {
@@ -49,14 +49,22 @@ const FinancialGraph: React.FC<FinancialGraphProps> = ({ data, loading, error })
       }
     }
 
-    // Add event listener when modal is shown
-    if (showDetailModal) {
-      document.addEventListener('mousedown', handleClickOutside);
+    function handleEscKey(event: KeyboardEvent) {
+      if (event.key === 'Escape') {
+        setShowDetailModal(false);
+      }
     }
 
-    // Clean up the event listener
+    // Add event listeners when modal is shown
+    if (showDetailModal) {
+      document.addEventListener('mousedown', handleClickOutside);
+      document.addEventListener('keydown', handleEscKey);
+    }
+
+    // Clean up the event listeners
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleEscKey);
     };
   }, [showDetailModal]);
 
@@ -237,21 +245,22 @@ const FinancialGraph: React.FC<FinancialGraphProps> = ({ data, loading, error })
 
       {/* Detailed Period Modal */}
       {showDetailModal && selectedPeriod && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2 sm:p-4">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-start sm:items-center justify-center z-50 p-2 sm:p-4 overflow-y-auto">
           <div
             ref={modalRef}
-            className="bg-white rounded-lg shadow-xl p-3 sm:p-6 w-full max-w-xs sm:max-w-2xl max-h-[90vh] overflow-y-auto overflow-x-auto"
+            className="bg-white rounded-lg shadow-xl p-3 sm:p-6 w-full max-w-sm sm:max-w-2xl lg:max-w-4xl my-4 sm:my-8 max-h-[calc(100vh-2rem)] sm:max-h-[90vh] overflow-y-auto"
           >
-            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-4 gap-2">
-              <div>
-                <h2 className="text-base sm:text-xl font-bold text-blue-700">Financial Details: {selectedPeriod.period}</h2>
-                <p className="text-xs sm:text-sm text-gray-500">
+            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start mb-4 gap-2">
+              <div className="flex-1">
+                <h2 className="text-lg sm:text-xl font-bold text-blue-700 pr-8 sm:pr-0">Financial Details: {selectedPeriod.period}</h2>
+                <p className="text-sm text-gray-500 mt-1">
                   {new Date(selectedPeriod.periodRange.startDate).toLocaleDateString()} - {new Date(selectedPeriod.periodRange.endDate).toLocaleDateString()}
                 </p>
               </div>
               <button
                 onClick={() => setShowDetailModal(false)}
-                className="text-gray-500 hover:text-gray-700 self-end"
+                className="absolute top-3 right-3 sm:relative sm:top-0 sm:right-0 text-gray-500 hover:text-gray-700 p-1 hover:bg-gray-100 rounded-full transition-colors"
+                aria-label="Close modal"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -259,7 +268,7 @@ const FinancialGraph: React.FC<FinancialGraphProps> = ({ data, loading, error })
               </button>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-2 sm:gap-4 mb-4 sm:mb-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4 mb-4 sm:mb-6">
               <div className="bg-blue-50 p-3 sm:p-4 rounded-lg">
                 <h3 className="text-sm sm:text-lg font-semibold text-blue-700 mb-2">Cash Flow</h3>
                 <div className="space-y-1 sm:space-y-2">
@@ -325,7 +334,7 @@ const FinancialGraph: React.FC<FinancialGraphProps> = ({ data, loading, error })
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-2 sm:gap-4 mb-4 sm:mb-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4 mb-4 sm:mb-6">
               <div className="bg-orange-50 p-3 sm:p-4 rounded-lg">
                 <h3 className="text-sm sm:text-lg font-semibold text-orange-700 mb-2">Outside Amount</h3>
                 <div className="space-y-1 sm:space-y-2">
@@ -371,21 +380,21 @@ const FinancialGraph: React.FC<FinancialGraphProps> = ({ data, loading, error })
               </div>
             </div>
 
-            <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-2 mt-2">
+            <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-3 mt-4 pt-4 border-t border-gray-200">
               <a
                 href={`/api/dashboard/financial-data/export?duration=single&period=${encodeURIComponent(selectedPeriod.period)}&startDate=${encodeURIComponent(selectedPeriod.periodRange.startDate)}&endDate=${encodeURIComponent(selectedPeriod.periodRange.endDate)}`}
                 download={`financial_details_${selectedPeriod.period.replace(/\s+/g, '_')}.xlsx`}
-                className="flex items-center justify-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition duration-300 w-full sm:w-auto"
+                className="flex items-center justify-center px-4 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition duration-300 w-full sm:w-auto text-sm font-medium"
                 title="Export this period's financial details to Excel"
               >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                 </svg>
                 Export Details
               </a>
               <button
                 onClick={() => setShowDetailModal(false)}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-300 w-full sm:w-auto"
+                className="px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-300 w-full sm:w-auto text-sm font-medium"
               >
                 Close
               </button>

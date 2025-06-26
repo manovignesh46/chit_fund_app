@@ -533,7 +533,7 @@ export default function NewRepaymentPage() {
                 <p className="mt-1 text-sm text-red-500">{errors.amount}</p>
               ) : (
                 <p className="mt-1 text-xs text-gray-500">
-                  {formData.paymentType === 'interestOnly' && loan.repaymentType === 'Monthly'
+                  {formData.paymentType === 'INTEREST_ONLY' && loan.repaymentType === 'Monthly'
                     ? 'Set to the loan\'s interest amount for interest-only payment'
                     : 'Pre-populated with the loan\'s installment amount'}
                 </p>
