@@ -1,8 +1,7 @@
 "use client";
 import { useState } from "react";
-import { usePartner, type Partner } from "../contexts/PartnerContext";
+import { usePartner } from "../contexts/PartnerContext";
 
-const PARTNERS: Partner[] = ["Me", "My Friend"];
 const TRANSACTION_TYPES = [
   { value: "collection", label: "Collection from Member" },
   { value: "transfer", label: "Partner-to-Partner Transfer" },
@@ -15,12 +14,12 @@ interface TransactionFormProps {
 }
 
 export default function TransactionForm({ onSuccess }: TransactionFormProps) {
-  const { activePartner, otherPartner } = usePartner();
-  const [type, setType] = useState("collection");
+  const { activePartner, otherPartner, partners } = usePartner();
+  const [type, setType] = useState("transfer"); // Default to partner-to-partner transfer
   const [amount, setAmount] = useState("");
   const [member, setMember] = useState("");
-  const [fromPartner, setFromPartner] = useState("");
-  const [toPartner, setToPartner] = useState("");
+  const [fromPartner, setFromPartner] = useState(activePartner); // Set default from partner
+  const [toPartner, setToPartner] = useState(otherPartner); // Set default to partner
   const [actionPerformer, setActionPerformer] = useState(activePartner);
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
   const [note, setNote] = useState("");
@@ -56,6 +55,20 @@ export default function TransactionForm({ onSuccess }: TransactionFormProps) {
     setLoading(true);
     setError("");
     setSuccess("");
+
+    // Client-side validation
+    if (!actionPerformer) {
+      setError("Action Performer is required");
+      setLoading(false);
+      return;
+    }
+
+    if (type === "transfer" && !toPartner) {
+      setError("To Partner is required for partner-to-partner transfers");
+      setLoading(false);
+      return;
+    }
+
     try {
       const res = await fetch("/api/transactions", {
         method: "POST",
@@ -84,7 +97,7 @@ export default function TransactionForm({ onSuccess }: TransactionFormProps) {
       setMember("");
       setNote("");
       if (onSuccess) onSuccess();
-    } catch (err) {
+    } catch (err: any) {
       setError(err.message);
     } finally {
       setLoading(false);
@@ -140,36 +153,39 @@ export default function TransactionForm({ onSuccess }: TransactionFormProps) {
               onChange={(e) => setFromPartner(e.target.value)}
             >
               <option value="">(default)</option>
-              {PARTNERS.map((p) => (
-                <option key={p} value={p}>{p}</option>
+              {partners.map((p) => (
+                <option key={p.id} value={p.name}>{p.name}</option>
               ))}
             </select>
           </div>
         )}
         {(type === "transfer" || type === "collection" || type === "loan_repaid") && (
           <div>
-            <label className="block font-medium">To Partner</label>
+            <label className="block font-medium">To Partner *</label>
             <select
               className="w-full border rounded p-2 mt-1"
               value={toPartner}
               onChange={(e) => setToPartner(e.target.value)}
+              required={type === "transfer"}
             >
-              <option value="">(default)</option>
-              {PARTNERS.map((p) => (
-                <option key={p} value={p}>{p}</option>
+              <option value="">Select Partner</option>
+              {partners.map((p) => (
+                <option key={p.id} value={p.name}>{p.name}</option>
               ))}
             </select>
           </div>
         )}
         <div>
-          <label className="block font-medium">Action Performer</label>
+          <label className="block font-medium">Action Performer *</label>
           <select
             className="w-full border rounded p-2 mt-1"
             value={actionPerformer}
             onChange={(e) => setActionPerformer(e.target.value)}
+            required
           >
-            {PARTNERS.map((p) => (
-              <option key={p} value={p}>{p}</option>
+            <option value="">Select Performer</option>
+            {partners.map((p) => (
+              <option key={p.id} value={p.name}>{p.name}</option>
             ))}
           </select>
         </div>

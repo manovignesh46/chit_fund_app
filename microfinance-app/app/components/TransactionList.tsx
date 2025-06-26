@@ -32,16 +32,19 @@ export default function TransactionList({
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
 
   useEffect(() => {
     fetchTransactions();
-  }, [activePartner, refresh, page, pageSize]);
+  }, [activePartner, refresh, currentPage, pageSize]);
 
   async function fetchTransactions() {
     try {
       setLoading(true);
-      // Use manualOnly parameter to show only manual partner-to-partner transfers
-      let url = `/api/transactions?page=${page}&pageSize=${pageSize}&partner=${activePartner}&manualOnly=true`;
+      // Show ALL transactions for the active partner (not just manual transfers)
+      let url = `/api/transactions?page=${currentPage}&pageSize=${pageSize}&partner=${activePartner}`;
 
       const response = await fetch(url);
       if (!response.ok) {
@@ -51,6 +54,8 @@ export default function TransactionList({
 
       const data = await response.json();
       setTransactions(data.transactions);
+      setTotalCount(data.totalCount || 0);
+      setTotalPages(data.totalPages || 1);
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -78,33 +83,66 @@ export default function TransactionList({
 
   return (
     <div className="bg-white rounded shadow p-4">
-      <h2 className="text-xl font-bold mb-4">Recent Transactions</h2>
+      <div className="flex justify-between items-center mb-4">
+        <h2 className="text-xl font-bold">Recent Transactions</h2>
+        <div className="text-sm text-gray-600">
+          {totalCount > 0 && `${totalCount} total transactions`}
+        </div>
+      </div>
+
       {transactions.length === 0 ? (
-        <p>No transactions found</p>
+        <p className="text-gray-500 text-center py-8">No transactions found</p>
       ) : (
-        <div className="space-y-4">
-          {transactions.map((t) => (
-            <div key={t.id} className="border-b pb-3">
-              <div className="flex justify-between items-start">
-                <div>
-                  <div className="font-medium">{getTransactionDescription(t)}</div>
-                  <div className="text-sm text-gray-600">
-                    {new Date(t.date).toLocaleDateString()}
+        <>
+          <div className="space-y-4 mb-6">
+            {transactions.map((t) => (
+              <div key={t.id} className="border-b pb-3">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <div className="font-medium">{getTransactionDescription(t)}</div>
+                    <div className="text-sm text-gray-600">
+                      {new Date(t.date).toLocaleDateString()}
+                    </div>
+                    {t.note && (
+                      <div className="text-sm text-gray-500 mt-1">{t.note}</div>
+                    )}
                   </div>
-                  {t.note && (
-                    <div className="text-sm text-gray-500 mt-1">{t.note}</div>
-                  )}
+                  <div className="font-medium">
+                    {formatCurrency(t.amount)}
+                  </div>
                 </div>
-                <div className="font-medium">
-                  {formatCurrency(t.amount)}
+                <div className="text-xs text-gray-500 mt-1">
+                  Performed by: {t.action_performer} | Entered by: {t.entered_by}
                 </div>
               </div>
-              <div className="text-xs text-gray-500 mt-1">
-                Performed by: {t.action_performer} | Entered by: {t.entered_by}
+            ))}
+          </div>
+
+          {/* Pagination Controls */}
+          {totalPages > 1 && (
+            <div className="flex justify-between items-center">
+              <div className="text-sm text-gray-600">
+                Page {currentPage} of {totalPages}
+              </div>
+              <div className="flex space-x-2">
+                <button
+                  onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                  disabled={currentPage === 1}
+                  className="px-3 py-1 border rounded text-sm hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Previous
+                </button>
+                <button
+                  onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+                  disabled={currentPage === totalPages}
+                  className="px-3 py-1 border rounded text-sm hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Next
+                </button>
               </div>
             </div>
-          ))}
-        </div>
+          )}
+        </>
       )}
     </div>
   );

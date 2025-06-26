@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import PartnerSelectionModal from '../components/partners/PartnerSelectionModal';
 
 interface Partner {
   id: number;
@@ -34,6 +35,7 @@ export function PartnerProvider({ children }: PartnerProviderProps) {
   const [partners, setPartners] = useState<Partner[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [showPartnerModal, setShowPartnerModal] = useState(false);
 
   const refreshPartners = async () => {
     try {
@@ -76,6 +78,16 @@ export function PartnerProvider({ children }: PartnerProviderProps) {
     }
   }, [selectedPartner]);
 
+  // Show partner selection modal when partners are loaded but no partner is selected
+  useEffect(() => {
+    if (!loading && partners.length > 0 && !selectedPartner) {
+      // Only show modal if we're not on the login page
+      if (typeof window !== 'undefined' && !window.location.pathname.includes('/login')) {
+        setShowPartnerModal(true);
+      }
+    }
+  }, [loading, partners, selectedPartner]);
+
   // Calculate activePartner and otherPartner for transaction components
   const activePartner = selectedPartner?.name || 'Me';
   const otherPartner = partners.find(p => p.name !== activePartner)?.name || 'My Friend';
@@ -94,6 +106,11 @@ export function PartnerProvider({ children }: PartnerProviderProps) {
   return (
     <PartnerContext.Provider value={value}>
       {children}
+      <PartnerSelectionModal
+        isOpen={showPartnerModal}
+        onClose={() => setShowPartnerModal(false)}
+        onPartnerSelected={() => setShowPartnerModal(false)}
+      />
     </PartnerContext.Provider>
   );
 }

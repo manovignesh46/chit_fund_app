@@ -46,6 +46,14 @@ export default function PartnerManagementPage() {
     }
   }, [partners]);
 
+  // Handle partner deletion
+  const handlePartnerDelete = (partnerId: number) => {
+    // Remove the deleted partner from the state
+    setPartnersWithBalances(partnersWithBalances.filter(p => p.id !== partnerId));
+    // Refresh the partners list from context
+    refreshPartners();
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newPartnerName.trim()) return;
@@ -148,7 +156,11 @@ export default function PartnerManagementPage() {
         ) : (
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
             {partnersWithBalances.map((partner) => (
-              <PartnerBalanceCard key={partner.id} partner={partner} />
+              <PartnerBalanceCard
+                key={partner.id}
+                partner={partner}
+                onDelete={handlePartnerDelete}
+              />
             ))}
           </div>
         )}

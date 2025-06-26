@@ -1100,17 +1100,26 @@ async function addRepayment(request: NextRequest, id: number, currentUserId: num
       });
 
       // Create a transaction record for the loan repayment
+      // For interest-only payments, only the interest amount should be added to partner balance
+      // For regular/partial payments, the full payment amount is added
+      let transactionAmount = paymentAmount;
+      if (paymentType === 'INTEREST_ONLY') {
+        // For interest-only payments, only track the interest portion in partner balance
+        transactionAmount = loan.interestRate || 0;
+        console.log(`Interest-only payment: Using interest amount ${transactionAmount} instead of full payment ${paymentAmount} for partner balance`);
+      }
+
       const repaymentTransaction = await prismaAny.transaction.create({
         data: {
           type: 'loan_repaid',
-          amount: paymentAmount,
+          amount: transactionAmount,
           member: loan.borrower?.name || 'Unknown',
           from_partner: null,
           to_partner: collector.name,
           action_performer: collector.name,
           entered_by: activePartner,
           date: new Date(paidDate),
-          note: `Loan repayment from ${loan.borrower?.name || 'Unknown'} - Period ${period}`,
+          note: `Loan repayment from ${loan.borrower?.name || 'Unknown'} - Period ${period}${paymentType === 'INTEREST_ONLY' ? ' (Interest Only)' : ''}`,
           createdById: currentUserId
         }
       });
