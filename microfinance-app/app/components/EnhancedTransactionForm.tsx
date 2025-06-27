@@ -8,6 +8,7 @@ const TRANSACTION_TYPES = [
   { value: "transfer", label: "Partner Transfer", icon: "🔄", description: "Transfer between partners" },
   { value: "loan_given", label: "Loan Given", icon: "📤", description: "Loan amount given to a member" },
   { value: "loan_repaid", label: "Loan Repayment", icon: "📥", description: "Loan repayment received from a member" },
+  { value: "record_amount", label: "Record Amount", icon: "💳", description: "Credit or debit amount for partner (regardless of member)" },
 ];
 
 interface TransactionFormProps {

@@ -73,6 +73,14 @@ export default function TransactionList({
         return `Loan given to ${t.member}`;
       case 'loan_repaid':
         return `Loan repayment from ${t.member}`;
+      case 'record_amount':
+        if (t.from_partner && !t.to_partner) {
+          return `Amount debited from ${t.from_partner}`;
+        } else if (!t.from_partner && t.to_partner) {
+          return `Amount credited to ${t.to_partner}`;
+        } else {
+          return 'Amount recorded';
+        }
       default:
         return t.type;
     }

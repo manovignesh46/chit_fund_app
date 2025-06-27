@@ -98,6 +98,10 @@ async function calculatePartnerBalance(partnerName: string, userId: number): Pro
           if (to_partner === partnerName) {
             balance += amount;
           }
+        case 'record_amount': 
+          if (to_partner === partnerName) {
+            balance += amount;
+          }
           break;
       }
     }

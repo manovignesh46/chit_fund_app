@@ -34,6 +34,7 @@ const TRANSACTION_TYPE_OPTIONS = [
   { value: 'transfer', label: 'Transfers' },
   { value: 'loan_given', label: 'Loans Given' },
   { value: 'loan_repaid', label: 'Loan Repayments' },
+  { value: 'record_amount', label: 'Record Amount' },
 ];
 
 const TYPE_ICONS: Record<string, string> = {
@@ -41,6 +42,7 @@ const TYPE_ICONS: Record<string, string> = {
   transfer: '🔄',
   loan_given: '📤',
   loan_repaid: '📥',
+  record_amount: '💳',
 };
 
 const TYPE_COLORS: Record<string, string> = {
@@ -48,6 +50,7 @@ const TYPE_COLORS: Record<string, string> = {
   transfer: 'bg-blue-100 text-blue-800',
   loan_given: 'bg-orange-100 text-orange-800',
   loan_repaid: 'bg-purple-100 text-purple-800',
+  record_amount: 'bg-indigo-100 text-indigo-800',
 };
 
 export default function EnhancedTransactionList({ refresh }: TransactionListProps) {

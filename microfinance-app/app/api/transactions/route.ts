@@ -139,6 +139,13 @@ export async function POST(request: NextRequest) {
           _to = active_partner;
           _action = active_partner;
           break;
+        case 'record_amount':
+          // For record_amount, use the provided from_partner and to_partner values
+          // Default to crediting active partner if not specified
+          _from = from_partner || null;
+          _to = to_partner || active_partner;
+          _action = active_partner;
+          break;
         default:
           return NextResponse.json({ error: 'Invalid transaction type' }, { status: 400 });
       }

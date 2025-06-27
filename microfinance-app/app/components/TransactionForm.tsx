@@ -7,6 +7,7 @@ const TRANSACTION_TYPES = [
   { value: "transfer", label: "Partner-to-Partner Transfer" },
   { value: "loan_given", label: "Loan Given to Member" },
   { value: "loan_repaid", label: "Loan Repayment from Member" },
+  { value: "record_amount", label: "Record Amount" },
 ];
 
 interface TransactionFormProps {
@@ -45,6 +46,10 @@ export default function TransactionForm({ onSuccess }: TransactionFormProps) {
       setFromPartner(activePartner);
       setToPartner("");
     } else if (t === "loan_repaid") {
+      setFromPartner("");
+      setToPartner(activePartner);
+    } else if (t === "record_amount") {
+      // For record amount, default to crediting the active partner
       setFromPartner("");
       setToPartner(activePartner);
     }
@@ -132,7 +137,7 @@ export default function TransactionForm({ onSuccess }: TransactionFormProps) {
             className="w-full border rounded p-2 mt-1"
             value={member}
             onChange={(e) => setMember(e.target.value)}
-            required={type !== "transfer"}
+            required={type !== "transfer" && type !== "record_amount"}
           />
         </div>
       )}
@@ -167,6 +172,41 @@ export default function TransactionForm({ onSuccess }: TransactionFormProps) {
                 <option key={p.id} value={p.name}>{p.name}</option>
               ))}
             </select>
+          </div>
+        )}
+        {type === "record_amount" && (
+          <div className="md:col-span-2">
+            <label className="block font-medium">Transaction Type</label>
+            <div className="flex gap-4 mt-2">
+              <label className="flex items-center">
+                <input
+                  type="radio"
+                  name="recordType"
+                  value="credit"
+                  checked={!fromPartner && toPartner === activePartner}
+                  onChange={() => {
+                    setFromPartner("");
+                    setToPartner(activePartner);
+                  }}
+                  className="mr-2"
+                />
+                Credit to {activePartner}
+              </label>
+              <label className="flex items-center">
+                <input
+                  type="radio"
+                  name="recordType"
+                  value="debit"
+                  checked={fromPartner === activePartner && !toPartner}
+                  onChange={() => {
+                    setFromPartner(activePartner);
+                    setToPartner("");
+                  }}
+                  className="mr-2"
+                />
+                Debit from {activePartner}
+              </label>
+            </div>
           </div>
         )}
         {/* Action Performer field removed - always uses active partner */}
