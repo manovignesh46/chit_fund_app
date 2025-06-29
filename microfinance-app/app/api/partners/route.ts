@@ -4,7 +4,6 @@ import { getCurrentUserId } from '../../../lib/auth';
 
 export async function GET(req: NextRequest) {
   try {
-    // Get the current user ID from the request
     const userId = await getCurrentUserId(req);
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -27,10 +26,10 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ partners });
     }
 
-    // Calculate balances for each partner
+    // Pass the partner's ID (number) to the balance calculation function
     const partnersWithBalances = await Promise.all(
       partners.map(async (partner) => {
-        const balance = await calculatePartnerBalance(partner.name, userId);
+        const balance = await calculatePartnerBalance(partner.id, userId);
         return {
           ...partner,
           balance,
@@ -48,104 +47,86 @@ export async function GET(req: NextRequest) {
   }
 }
 
-// Helper function to calculate partner balance including all financial activities
-async function calculatePartnerBalance(partnerName: string, userId: number): Promise<number> {
+/**
+ * Calculates a partner's cash balance by aggregating all their transactions.
+ * This is more efficient and accurate than the previous method.
+ * @param partnerId The ID of the partner.
+ * @param userId The ID of the current user for authorization.
+ * @returns The calculated cash balance.
+ */
+async function calculatePartnerBalance(partnerId: number, userId: number): Promise<number> {
   try {
-    let balance = 0;
-
-    // 1. Manual partner-to-partner transactions (from Transaction table)
-    const manualTransactions = await prisma.transaction.findMany({
+    // 1. Calculate the total amount of money received by the partner.
+    // This includes loan repayments, chit contributions, and incoming transfers.
+    const moneyIn = await prisma.transaction.aggregate({
+      _sum: {
+        amount: true,
+      },
       where: {
         createdById: userId,
-        OR: [
-          { from_partner: partnerName },
-          { to_partner: partnerName },
-        ],
-      },
-      orderBy: {
-        date: 'asc',
+        to_partner_id: partnerId,
       },
     });
 
-    for (const transaction of manualTransactions) {
-      const { type, amount, from_partner, to_partner } = transaction;
+    // 2. Calculate the total amount of money sent out by the partner.
+    // This includes loan disbursements, auction payouts, and outgoing transfers.
+    const moneyOut = await prisma.transaction.aggregate({
+      _sum: {
+        amount: true,
+      },
+      where: {
+        createdById: userId,
+        from_partner_id: partnerId,
+      },
+    });
 
-      switch (type) {
-        case 'collection':
-          if (to_partner === partnerName) {
-            balance += amount;
-          }
-          break;
-        case 'transfer':
-          if (from_partner === partnerName) {
-            balance -= amount;
-          }
-          if (to_partner === partnerName) {
-            balance += amount;
-          }
-          break;
-        case 'loan_given':
-          if (from_partner === partnerName) {
-            balance -= amount;
-          }
-          break;
-        case 'loan_repaid':
-          if (to_partner === partnerName) {
-            balance += amount;
-          }
-          break;
-        case 'chit_contribution':
-          if (to_partner === partnerName) {
-            balance += amount;
-          }
-        case 'record_amount': 
-          if (to_partner === partnerName) {
-            balance += amount;
-          }
-          break;
-      }
-    }
+    const totalIn = moneyIn._sum.amount || 0;
+    const totalOut = moneyOut._sum.amount || 0;
 
-    // 2. Loan disbursements (money going out when creating loans)
-    // These are now tracked via transactions with type 'loan_given'
-    // So we don't need to calculate them separately here
-
-    // 3. Loan repayments (money coming in when collecting repayments)
-    // These are now tracked via transactions with type 'loan_repaid'
-    // So we don't need to calculate them separately here
-
-    // 4. Chit fund contributions and auctions
-    // Chit fund contributions are now tracked via transactions with type 'chit_contribution'
-    // Auction payments will be implemented in a future update
+    // 3. The final balance is the difference.
+    const balance = totalIn - totalOut;
 
     return balance;
   } catch (error) {
-    console.error('Error calculating partner balance:', error);
+    console.error(`Error calculating balance for partner ${partnerId}:`, error);
+    // Return 0 in case of an error to prevent breaking the UI.
     return 0;
   }
 }
 
 export async function POST(req: NextRequest) {
   try {
-    // Get the current user ID from the request
     const userId = await getCurrentUserId(req);
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const data = await req.json();
-    const { name } = data;
+    const { name, code } = data; // Added 'code' for creating partners
 
     if (!name) {
-      return NextResponse.json(
-        { error: 'Partner name is required' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Partner name is required' }, { status: 400 });
+    }
+    
+    // Check if a partner with the same code already exists for this user
+    if (code) {
+        const existingPartner = await prisma.partner.findUnique({
+            where: {
+                Partner_createdById_code_key: {
+                    createdById: userId,
+                    code: code,
+                }
+            }
+        });
+        if (existingPartner) {
+            return NextResponse.json({ error: 'A partner with this code already exists.' }, { status: 400 });
+        }
     }
 
     const partner = await prisma.partner.create({
       data: {
         name,
+        code: code || null, // Save code if provided
         isActive: true,
         createdById: userId,
       },
@@ -154,6 +135,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ partner }, { status: 201 });
   } catch (error: any) {
     console.error('Error creating partner:', error);
+    // Handle unique constraint violation for name gracefully
+    if (error.code === 'P2002' && error.meta?.target?.includes('name')) {
+        return NextResponse.json({ error: 'A partner with this name already exists.' }, { status: 400 });
+    }
     return NextResponse.json(
       { error: 'Failed to create partner' },
       { status: 500 }

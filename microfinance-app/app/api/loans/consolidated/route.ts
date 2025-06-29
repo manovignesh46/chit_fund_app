@@ -6,6 +6,7 @@ import {
   calculateNextPaymentDate,
   updateOverdueAmountFromRepayments,
 } from "../../../../lib/paymentSchedule";
+import { TRANSACTION_TYPES_CONFIG } from "../../../../config/config";
 
 // Use ISR with a 5-minute revalidation period
 export const revalidate = 300; // 5 minutes
@@ -433,12 +434,6 @@ async function getPaymentSchedules(
     const oneWeekFromNow = new Date(today);
     oneWeekFromNow.setDate(today.getDate() + 7);
 
-    // console.log('Date ranges for payment schedules:', {
-    //   today: today.toISOString(),
-    //   tomorrow: tomorrow.toISOString(),
-    //   oneWeekFromNow: oneWeekFromNow.toISOString()
-    // });
-
     // Generate dynamic payment schedules
     const schedules = [];
     const disbursementDate = new Date(loan.disbursementDate);
@@ -446,17 +441,6 @@ async function getPaymentSchedules(
     const duration = loan.duration;
     const installmentAmount = loan.installmentAmount;
     const interestRate = loan.interestRate;
-
-    // console.log('Generating payment schedules with dates:', {
-    //   today: today.toISOString(),
-    //   tomorrow: tomorrow.toISOString(),
-    //   oneWeekFromNow: oneWeekFromNow.toISOString(),
-    //   disbursementDate: disbursementDate.toISOString(),
-    //   loanId: id,
-    //   duration: duration,
-    //   repaymentType: repaymentType,
-    //   includeAll: includeAll
-    // });
 
     // Create a map of repayments by period for quick lookup
     const repaymentsByPeriod = new Map();
@@ -483,9 +467,10 @@ async function getPaymentSchedules(
 
       // Check if this period has been paid
       const repayment = repaymentsByPeriod.get(period);
+
       const isPaid = !!repayment;
       const isInterestOnly =
-        repayment && repayment.paymentType === "interestOnly";
+        repayment && repayment.paymentType === "INTEREST_ONLY";
 
       // Only include schedules that are due today or earlier, due tomorrow, or overdue
       // Normalize dates for comparison by setting hours to 0
@@ -506,22 +491,6 @@ async function getPaymentSchedules(
       const isUpcoming =
         dueDateNormalized <= oneWeekFromNow && dueDateNormalized > today;
 
-      // Debug log for period 1 (first payment)
-      if (period === 1) {
-        // console.log(`Payment schedule for period ${period}:`, {
-        //   dueDate: dueDateNormalized.toISOString(),
-        //   isDueToday,
-        //   isDueTomorrow,
-        //   isOverdue,
-        //   isUpcoming,
-        //   isPaid,
-        //   dueDateTimestamp: dueDateNormalized.getTime(),
-        //   tomorrowTimestamp: tomorrow.getTime(),
-        //   isSameAsTomorrow: dueDateNormalized.getTime() === tomorrow.getTime(),
-        //   dateDiff: dueDateNormalized.getTime() - tomorrow.getTime()
-        // });
-      }
-
       // Check if this is the next payment date (first unpaid period)
       const nextPaymentDate = loan.nextPaymentDate
         ? new Date(loan.nextPaymentDate)
@@ -530,18 +499,6 @@ async function getPaymentSchedules(
         !isPaid &&
         nextPaymentDate &&
         nextPaymentDate.toDateString() === dueDate.toDateString();
-
-      // For debugging
-      if (period === 1) {
-        // console.log('Next payment date check:', {
-        //   nextPaymentDate: nextPaymentDate ? nextPaymentDate.toISOString() : null,
-        //   dueDate: dueDate.toISOString(),
-        //   isNextPayment,
-        //   nextPaymentDateString: nextPaymentDate ? nextPaymentDate.toDateString() : null,
-        //   dueDateString: dueDate.toDateString(),
-        //   stringsEqual: nextPaymentDate ? nextPaymentDate.toDateString() === dueDate.toDateString() : false
-        // });
-      }
 
       // ALWAYS include the first payment if it's not paid yet
       const isFirstUnpaidPayment = period === 1 && !isPaid;
@@ -929,13 +886,14 @@ async function createLoan(request: NextRequest, currentUserId: number) {
     // Create the Transaction first, and nest the Loan creation inside it.
     const createdTransaction = await prisma.transaction.create({
       data: {
-        type: "LOAN_DISBURSEMENT",
+        type: TRANSACTION_TYPES_CONFIG.LOAN_DISBURSEMENT,
         amount: parseFloat(body.amount),
         date: disbursementDate,
         note: `Loan disbursed to ${body.borrowerName}`,
         createdById: currentUserId,
         action_performer: partner.name,
         entered_by: partner.name,
+        from_partner_id: partner.id,
         // Nest the Loan creation here
         loan: {
           create: {
@@ -1037,7 +995,7 @@ async function addRepayment(request: NextRequest, id: number, currentUserId: num
     // 1. Create the Transaction and nest the Repayment inside it.
     const createdTransaction = await prisma.transaction.create({
         data: {
-            type: "REPAYMENT",
+            type: TRANSACTION_TYPES_CONFIG.LOAN_REPAYMENT,
             amount: paymentAmount,
             date: new Date(paidDate),
             note: `Repayment from ${loan.borrower?.name} - Period ${period}`,

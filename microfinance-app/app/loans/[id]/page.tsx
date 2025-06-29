@@ -106,7 +106,7 @@ const LoanDetailPage = () => {
         throw new Error('Could not find payment schedule for the selected period.');
       }
 
-      const amount = scheduleItem.amount;
+      const amount = paymentType === 'InterestOnly' ? scheduleItem.interestAmount : scheduleItem.amount;
 
       // Make request using loanAPI
       const requestData = {
@@ -119,8 +119,6 @@ const LoanDetailPage = () => {
         entered_by_id: selectedPartner.id
       };
       
-      console.log('Making payment request with:', requestData);
-
       const responseData = await loanAPI.addRepayment(parseInt(id as string), requestData);
       if (!responseData || !responseData.loan) {
         throw new Error('Invalid response from server.');

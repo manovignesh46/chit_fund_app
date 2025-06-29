@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '../../../../lib/prisma';
 import { getCurrentUserId } from '../../../../lib/auth';
+import { TRANSACTION_TYPES_CONFIG } from '../../../../config/config';
 
 // Use ISR with a 5-minute revalidation period
 export const revalidate = 300; // 5 minutes
@@ -909,7 +910,7 @@ async function addContribution(request: NextRequest, id: number, currentUserId: 
     // Create the Transaction first and nest the Contribution inside it.
     const createdTransaction = await prisma.transaction.create({
       data: {
-        type: 'CHIT_CONTRIBUTION',
+        type: TRANSACTION_TYPES_CONFIG.CHIT_CONTRIBUTION,
         amount: paidAmount,
         date: new Date(body.paidDate),
         note: `Chit contribution from ${member.globalMember.name} - ${chitFund.name} Month ${body.month}`,
@@ -1003,7 +1004,7 @@ async function addAuction(request: NextRequest, id: number, currentUserId: numbe
       // 1. Create the Transaction and nest the Auction inside it.
       const createdTransaction = await tx.transaction.create({
         data: {
-          type: 'AUCTION_PAYOUT',
+          type: TRANSACTION_TYPES_CONFIG.AUCTION_PAYOUT,
           amount: parseFloat(body.amount),
           date: new Date(body.date),
           note: `Auction payout to ${winner.globalMember.name} - ${chitFund.name} Month ${body.month}`,

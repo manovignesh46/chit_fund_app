@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '../../../lib/prisma';
 import { getCurrentUserId } from '../../../lib/auth';
+import { TRANSACTION_TYPES_CONFIG } from '../../../config/config';
 
 // GET /api/transactions
 export async function GET(request: NextRequest) {
@@ -72,7 +73,7 @@ export async function GET(request: NextRequest) {
     // Get paginated transactions
     const transactions = await prisma.transaction.findMany({
       where,
-      orderBy: { date: 'desc' },
+      orderBy: { createdAt: 'desc' },
       skip,
       take: validPageSize,
     });
@@ -94,82 +95,124 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    // Required fields from user input
     const {
       type,
       amount,
-      member,
-      from_partner,
-      to_partner,
-      action_performer,
       date,
-      note
+      note,
+      from_partner_id, // Expecting ID from the frontend
+      to_partner_id,   // Expecting ID from the frontend
     } = body;
 
-    // Get the current user ID and active partner (assume from session or request header)
     const currentUserId = await getCurrentUserId(request);
-    // For demo, get active_partner from header (replace with your session logic)
-    const active_partner = request.headers.get('x-active-partner') || 'Me';
-    const other_partner = active_partner === 'Me' ? 'My Friend' : 'Me';
-
-    // Default assignment rules
-    let _from = from_partner;
-    let _to = to_partner;
-    let _action = action_performer;
-
-    if (!from_partner && !to_partner && !action_performer) {
-      switch (type) {
-        case 'collection':
-          _from = null;
-          _to = active_partner;
-          _action = active_partner;
-          break;
-        case 'transfer':
-          _from = active_partner;
-          _to = other_partner;
-          _action = active_partner;
-          break;
-        case 'loan_given':
-          _from = active_partner;
-          _to = null;
-          _action = active_partner;
-          break;
-        case 'loan_repaid':
-          _from = null;
-          _to = active_partner;
-          _action = active_partner;
-          break;
-        case 'record_amount':
-          // For record_amount, use the provided from_partner and to_partner values
-          // Default to crediting active partner if not specified
-          _from = from_partner || null;
-          _to = to_partner || active_partner;
-          _action = active_partner;
-          break;
-        default:
-          return NextResponse.json({ error: 'Invalid transaction type' }, { status: 400 });
-      }
+    if (!currentUserId) {
+      return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
     }
 
-    // Save transaction
+    // The 'active partner' is the person performing the data entry.
+    const activePartnerName = request.headers.get('x-active-partner');
+    if (!activePartnerName) {
+      return NextResponse.json({ error: 'Active partner context is missing.' }, { status: 400 });
+    }
+    const activePartner = await prisma.partner.findFirst({
+        where: { name: activePartnerName, createdById: currentUserId }
+    });
+    if (!activePartner) {
+        return NextResponse.json({ error: 'Active partner not found.' }, { status: 404 });
+    }
+    
+    let fromPartnerId: number | null = null;
+    let toPartnerId: number | null = null;
+    let actionPerformerId: number | null = null;
+
+    // Determine the 'from' and 'to' based on the transaction type
+    switch (type) {
+      case 'collection':
+        // Money collected by the active partner from an external source.
+        fromPartnerId = null;
+        toPartnerId = activePartner.id;
+        actionPerformerId = activePartner.id;
+        break;
+      
+      case 'expense':
+        // Money spent by the active partner on an external expense.
+        fromPartnerId = activePartner.id;
+        toPartnerId = null;
+        actionPerformerId = activePartner.id;
+        break;
+
+      case TRANSACTION_TYPES_CONFIG.PARTNER_TO_PARTNER:
+        // Money transferred between two partners. Frontend must provide both IDs.
+        if (!from_partner_id || !to_partner_id) {
+          return NextResponse.json({ error: 'For transfers, both a "from" and "to" partner must be specified.' }, { status: 400 });
+        }
+        fromPartnerId = parseInt(from_partner_id);
+        toPartnerId = parseInt(to_partner_id);
+        actionPerformerId = activePartner.id; // The person recording the transfer
+        break;
+
+      case TRANSACTION_TYPES_CONFIG.RECORD_AMOUNT:
+        // Recording an amount for a specific partner. Frontend must provide the ID.
+
+        fromPartnerId = parseInt(from_partner_id);
+        toPartnerId = parseInt(to_partner_id);
+        actionPerformerId = activePartner.id;
+        break;
+
+      case 'balance_adjustment':
+        // Manually adjusting a partner's balance (e.g., adding starting cash).
+        // Frontend must provide the ID of the partner whose balance is being adjusted.
+        if (!to_partner_id) {
+          return NextResponse.json({ error: 'For a balance adjustment, the target partner must be specified.' }, { status: 400 });
+        }
+        fromPartnerId = null;
+        toPartnerId = parseInt(to_partner_id);
+        actionPerformerId = activePartner.id;
+        break;
+
+        
+      default:
+        // Use the IDs provided directly from the form for any other types
+        fromPartnerId = from_partner_id ? parseInt(from_partner_id) : null;
+        toPartnerId = to_partner_id ? parseInt(to_partner_id) : null;
+        actionPerformerId = activePartner.id;
+        break;
+    }
+
+    // For better display text, fetch the names of the partners involved.
+    const fromPartner = fromPartnerId ? await prisma.partner.findUnique({ where: { id: fromPartnerId }}) : null;
+    const toPartner = toPartnerId ? await prisma.partner.findUnique({ where: { id: toPartnerId }}) : null;
+    const actionPerformer = actionPerformerId ? await prisma.partner.findUnique({ where: { id: actionPerformerId }}) : activePartner;
+
+    // Save the transaction using the new ID-based foreign keys
     const transaction = await prisma.transaction.create({
       data: {
         type,
         amount: parseFloat(amount),
-        member,
-        from_partner: _from,
-        to_partner: _to,
-        action_performer: _action,
-        entered_by: active_partner,
         date: date ? new Date(date) : new Date(),
         note,
-        createdById: currentUserId
+        createdById: currentUserId,
+        
+        // New ID-based foreign keys
+        from_partner_id: fromPartnerId,
+        to_partner_id: toPartnerId,
+        
+        // Denormalized string fields for easy display (optional but recommended)
+        from_partner: fromPartner?.name || null,
+        to_partner: toPartner?.name || null,
+        action_performer: actionPerformer?.name || activePartner.name,
+        entered_by: activePartner.name,
+      },
+      include: {
+        fromPartner: true, // Include full partner objects in the response
+        toPartner: true,
       }
     });
 
     return NextResponse.json(transaction, { status: 201 });
   } catch (error) {
     console.error('Error creating transaction:', error);
-    return NextResponse.json({ error: 'Failed to create transaction' }, { status: 500 });
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    return NextResponse.json({ error: 'Failed to create transaction', details: errorMessage }, { status: 500 });
   }
 }
