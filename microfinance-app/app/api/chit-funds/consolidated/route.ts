@@ -863,151 +863,95 @@ async function addContribution(request: NextRequest, id: number, currentUserId: 
   const body = await request.json();
 
   // Get the active partner from request headers
-  const activePartner = request.headers.get('x-active-partner') || 'Me';
+  const activePartnerName = request.headers.get('x-active-partner') || 'Me';
 
   // Validate required fields
   const requiredFields = ['memberId', 'month', 'amount', 'paidDate'];
   for (const field of requiredFields) {
     if (!body[field]) {
-      return NextResponse.json(
-        { error: `${field} is required` },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: `${field} is required` }, { status: 400 });
     }
   }
 
-  // Check if the chit fund exists
-  const chitFund = await prisma.chitFund.findUnique({
-    where: { id },
-  });
-
-  if (!chitFund) {
-    return NextResponse.json(
-      { error: 'Chit fund not found' },
-      { status: 404 }
-    );
+  const chitFund = await prisma.chitFund.findUnique({ where: { id } });
+  if (!chitFund || chitFund.createdById !== currentUserId) {
+    return NextResponse.json({ error: 'Chit fund not found or permission denied' }, { status: 403 });
   }
 
-  // Check if the current user is the owner
-  if (chitFund.createdById !== currentUserId) {
-    return NextResponse.json(
-      { error: 'You do not have permission to modify this chit fund' },
-      { status: 403 }
-    );
-  }
-
-  // Check if the member exists and get member details for transaction
   const member = await prisma.member.findFirst({
-    where: {
-      id: parseInt(body.memberId),
-      chitFundId: id,
-    },
-    include: {
-      globalMember: true,
-    },
+    where: { id: parseInt(body.memberId), chitFundId: id },
+    include: { globalMember: true },
   });
-
   if (!member) {
-    return NextResponse.json(
-      { error: 'Member not found or does not belong to this chit fund' },
-      { status: 404 }
-    );
+    return NextResponse.json({ error: 'Member not found in this chit fund' }, { status: 404 });
   }
 
-  // Check if a contribution for this month already exists
   const existingContribution = await prisma.contribution.findFirst({
-    where: {
-      memberId: parseInt(body.memberId),
-      chitFundId: id,
-      month: parseInt(body.month),
-    },
+    where: { memberId: parseInt(body.memberId), chitFundId: id, month: parseInt(body.month) },
   });
-
   if (existingContribution) {
-    return NextResponse.json(
-      { error: 'A contribution for this month already exists' },
-      { status: 400 }
-    );
+    return NextResponse.json({ error: 'A contribution for this month already exists' }, { status: 400 });
   }
 
-  // Find the collector partner (who is collecting the contribution)
   const collector = await prisma.partner.findFirst({
-    where: {
-      name: activePartner,
-      createdById: currentUserId,
-      isActive: true,
-    },
+    where: { name: activePartnerName, createdById: currentUserId, isActive: true },
   });
-
   if (!collector) {
-    return NextResponse.json(
-      { error: `Partner "${activePartner}" not found` },
-      { status: 404 }
-    );
+    return NextResponse.json({ error: `Partner "${activePartnerName}" not found` }, { status: 404 });
   }
 
-  // Calculate balance if the payment is partial
   const expectedAmount = chitFund.monthlyContribution;
   const paidAmount = parseFloat(body.amount);
   const isPartialPayment = paidAmount < expectedAmount;
 
   try {
-    // Create the contribution with balance information and partner tracking
-    const contribution = await prisma.contribution.create({
+    // --- REFACTORED CONTRIBUTION CREATION (PLAN B) ---
+    // Create the Transaction first and nest the Contribution inside it.
+    const createdTransaction = await prisma.transaction.create({
       data: {
-        memberId: parseInt(body.memberId),
-        chitFundId: id,
-        month: parseInt(body.month),
+        type: 'CHIT_CONTRIBUTION',
         amount: paidAmount,
-        paidDate: new Date(body.paidDate),
-        notes: body.notes || null,
-        // Set balance and status for partial payments
-        balance: isPartialPayment ? expectedAmount - paidAmount : 0,
-        balancePaymentStatus: isPartialPayment ? 'Pending' : null,
-        // Set a default balance payment date 30 days from now if it's a partial payment
-        balancePaymentDate: isPartialPayment ? new Date(new Date().setDate(new Date().getDate() + 30)) : null,
-        // Partner tracking fields
-        collected_by_id: collector.id,
-        entered_by_id: collector.id,
+        date: new Date(body.paidDate),
+        note: `Chit contribution from ${member.globalMember.name} - ${chitFund.name} Month ${body.month}`,
         createdById: currentUserId,
+        action_performer: collector.name,
+        entered_by: collector.name,
+        to_partner_id: collector.id,
+        // Nest the Contribution creation
+        contribution: {
+          create: {
+            memberId: parseInt(body.memberId),
+            chitFundId: id,
+            month: parseInt(body.month),
+            amount: paidAmount,
+            paidDate: new Date(body.paidDate),
+            notes: body.notes || null,
+            balance: isPartialPayment ? expectedAmount - paidAmount : 0,
+            balancePaymentStatus: isPartialPayment ? 'Pending' : null,
+            collected_by_id: collector.id,
+            entered_by_id: collector.id,
+            createdById: currentUserId,
+          },
+        },
       },
       include: {
-        collectedBy: true,
-        enteredBy: true,
-        member: {
+        // Include the new contribution and its related data in the response
+        contribution: {
           include: {
-            globalMember: true,
+            collectedBy: true,
+            enteredBy: true,
+            member: { include: { globalMember: true } },
           },
         },
       },
     });
 
-    // Create a transaction record for the chit fund contribution
-    const contributionTransaction = await prisma.transaction.create({
-      data: {
-        type: 'chit_contribution',
-        amount: paidAmount,
-        member: member.globalMember.name,
-        from_partner: null,
-        to_partner: collector.name,
-        action_performer: collector.name,
-        entered_by: activePartner,
-        date: new Date(body.paidDate),
-        note: `Chit fund contribution from ${member.globalMember.name} - ${chitFund.name} Month ${body.month}`,
-        createdById: currentUserId,
-      },
-    });
-
-    return NextResponse.json({
-      ...contribution,
-      collector_name: collector.name,
-      collector_id: collector.id,
-      transaction: contributionTransaction,
-    }, { status: 201 });
+    return NextResponse.json(createdTransaction.contribution, { status: 201 });
 
   } catch (error) {
     console.error('Error in contribution creation process:', error);
-    throw error;
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    return NextResponse.json({ error: `Failed to create contribution: ${errorMessage}` }, { status: 500 });
   }
 }
 
@@ -1015,96 +959,98 @@ async function addContribution(request: NextRequest, id: number, currentUserId: 
 async function addAuction(request: NextRequest, id: number, currentUserId: number) {
   const body = await request.json();
 
+  // Get the active partner from request headers
+  const activePartnerName = request.headers.get('x-active-partner') || 'Me';
+
   // Validate required fields
   const requiredFields = ['winnerId', 'month', 'amount', 'date'];
   for (const field of requiredFields) {
     if (!body[field]) {
-      return NextResponse.json(
-        { error: `${field} is required` },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: `${field} is required` }, { status: 400 });
     }
   }
 
-  // Check if the chit fund exists
-  const chitFund = await prisma.chitFund.findUnique({
-    where: { id },
-  });
-
-  if (!chitFund) {
-    return NextResponse.json(
-      { error: 'Chit fund not found' },
-      { status: 404 }
-    );
+  const chitFund = await prisma.chitFund.findUnique({ where: { id } });
+  if (!chitFund || chitFund.createdById !== currentUserId) {
+    return NextResponse.json({ error: 'Chit fund not found or permission denied' }, { status: 403 });
   }
 
-  // Check if the current user is the owner
-  if (chitFund.createdById !== currentUserId) {
-    return NextResponse.json(
-      { error: 'You do not have permission to modify this chit fund' },
-      { status: 403 }
-    );
-  }
-
-  // Check if the winner exists
   const winner = await prisma.member.findFirst({
-    where: {
-      id: parseInt(body.winnerId),
-      chitFundId: id,
-    },
+    where: { id: parseInt(body.winnerId), chitFundId: id },
+    include: { globalMember: true },
   });
-
   if (!winner) {
-    return NextResponse.json(
-      { error: 'Winner not found or does not belong to this chit fund' },
-      { status: 404 }
-    );
+    return NextResponse.json({ error: 'Winner not found in this chit fund' }, { status: 404 });
   }
-
-  // Check if the member has already won an auction
+  
   const existingWinner = await prisma.auction.findFirst({
-    where: {
-      chitFundId: id,
-      winnerId: parseInt(body.winnerId),
-    },
+    where: { chitFundId: id, winnerId: parseInt(body.winnerId) },
   });
-
   if (existingWinner) {
-    return NextResponse.json(
-      { error: 'This member has already won an auction in this chit fund' },
-      { status: 400 }
-    );
+    return NextResponse.json({ error: 'This member has already won an auction in this chit fund' }, { status: 400 });
   }
 
-  // Create the auction
-  const auction = await prisma.auction.create({
-    data: {
-      chitFundId: id,
-      winnerId: parseInt(body.winnerId),
-      month: parseInt(body.month),
-      amount: parseFloat(body.amount),
-      date: new Date(body.date),
-      notes: body.notes || null,
-    },
-    include: {
-      winner: {
-        include: {
-          globalMember: true,
+  const partner = await prisma.partner.findFirst({
+    where: { name: activePartnerName, createdById: currentUserId, isActive: true },
+  });
+  if (!partner) {
+    return NextResponse.json({ error: `Partner "${activePartnerName}" not found or inactive`}, { status: 404 });
+  }
+
+  try {
+    // Use a transaction to ensure both auction creation and chit fund update are atomic
+    const [auction] = await prisma.$transaction(async (tx) => {
+      // 1. Create the Transaction and nest the Auction inside it.
+      const createdTransaction = await tx.transaction.create({
+        data: {
+          type: 'AUCTION_PAYOUT',
+          amount: parseFloat(body.amount),
+          date: new Date(body.date),
+          note: `Auction payout to ${winner.globalMember.name} - ${chitFund.name} Month ${body.month}`,
+          createdById: currentUserId,
+          action_performer: partner.name,
+          entered_by: partner.name,
+          from_partner_id: partner.id,
+          // Nest the Auction creation
+          auction: {
+            create: {
+              chitFundId: id,
+              winnerId: parseInt(body.winnerId),
+              month: parseInt(body.month),
+              amount: parseFloat(body.amount),
+              date: new Date(body.date),
+              notes: body.notes || null,
+              disbursed_by_id: partner.id,
+              entered_by_id: partner.id,
+            },
+          },
         },
-      },
-    },
-  });
+        include: {
+          auction: {
+            include: {
+              winner: { include: { globalMember: true } },
+            },
+          },
+        },
+      });
 
-  // Update the chit fund's current month and next auction date
-  await prisma.chitFund.update({
-    where: { id },
-    data: {
-      currentMonth: parseInt(body.month),
-      nextAuctionDate: body.nextAuctionDate ? new Date(body.nextAuctionDate) : null,
-    },
-  });
+      // 2. Update the chit fund's current month
+      await tx.chitFund.update({
+        where: { id },
+        data: {
+          currentMonth: parseInt(body.month),
+        },
+      });
 
-  return NextResponse.json(auction, { status: 201 });
+      return [createdTransaction.auction];
+    });
+
+    return NextResponse.json(auction, { status: 201 });
+  } catch (error) {
+    console.error('Error in auction creation process:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    return NextResponse.json({ error: `Failed to create auction: ${errorMessage}` }, { status: 500 });
+  }
 }
 
 // Handler for updating a chit fund
@@ -1579,138 +1525,93 @@ async function removeMemberFromChitFund(request: NextRequest, id: number, member
 // Handler for deleting a contribution
 async function deleteContribution(request: NextRequest, id: number, currentUserId: number) {
   const body = await request.json();
+  const { contributionId } = body;
 
-  // Check if the contribution ID is provided
-  if (!body.contributionId) {
-    return NextResponse.json(
-      { error: 'Contribution ID is required' },
-      { status: 400 }
-    );
+  if (!contributionId) {
+    return NextResponse.json({ error: 'Contribution ID is required' }, { status: 400 });
   }
 
-  // Check if the chit fund exists
-  const chitFund = await prisma.chitFund.findUnique({
-    where: { id },
-  });
-
-  if (!chitFund) {
-    return NextResponse.json(
-      { error: 'Chit fund not found' },
-      { status: 404 }
-    );
+  const chitFund = await prisma.chitFund.findUnique({ where: { id } });
+  if (!chitFund || chitFund.createdById !== currentUserId) {
+    return NextResponse.json({ error: 'Chit fund not found or permission denied' }, { status: 403 });
   }
 
-  // Check if the current user is the owner
-  if (chitFund.createdById !== currentUserId) {
-    return NextResponse.json(
-      { error: 'You do not have permission to modify this chit fund' },
-      { status: 403 }
-    );
-  }
+  try {
+    await prisma.$transaction(async (tx) => {
+      // 1. Fetch the contribution to get its transactionId
+      const contribution = await tx.contribution.findUnique({
+        where: { id: parseInt(contributionId) },
+      });
 
-  // Check if the contribution exists and belongs to this chit fund
-  const contribution = await prisma.contribution.findFirst({
-    where: {
-      id: parseInt(body.contributionId),
-      chitFundId: id,
-    },
-  });
-
-  if (!contribution) {
-    return NextResponse.json(
-      { error: 'Contribution not found or does not belong to this chit fund' },
-      { status: 404 }
-    );
-  }
-
-  // Get contribution details with member and chit fund info for transaction cleanup
-  const contributionWithDetails = await prisma.contribution.findUnique({
-    where: { id: parseInt(body.contributionId) },
-    include: {
-      member: {
-        include: {
-          globalMember: true
-        }
-      },
-      chitFund: true
-    }
-  });
-
-  // Delete associated transaction first (if it exists)
-  // Transaction note format: "Chit fund contribution from {memberName} - {chitFundName} Month {month}"
-  if (contributionWithDetails?.member?.globalMember && contributionWithDetails?.chitFund) {
-    const transactionNotePattern = `Chit fund contribution from ${contributionWithDetails.member.globalMember.name} - ${contributionWithDetails.chitFund.name} Month ${contributionWithDetails.month}`;
-
-    await prisma.transaction.deleteMany({
-      where: {
-        type: 'chit_contribution',
-        createdById: currentUserId,
-        note: transactionNotePattern
+      if (!contribution || contribution.chitFundId !== id) {
+        throw new Error('Contribution not found or does not belong to this chit fund');
       }
+
+      // 2. Delete the associated transaction if it exists
+      if (contribution.transactionId) {
+        await tx.transaction.delete({
+          where: { id: contribution.transactionId },
+        });
+      }
+
+      // 3. Delete the contribution itself
+      await tx.contribution.delete({
+        where: { id: parseInt(contributionId) },
+      });
     });
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error('Error deleting contribution:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    return NextResponse.json({ error: `Failed to delete contribution: ${errorMessage}` }, { status: 500 });
   }
-
-  // Then delete the contribution
-  await prisma.contribution.delete({
-    where: { id: parseInt(body.contributionId) },
-  });
-
-  return NextResponse.json({ success: true });
 }
 
 // Handler for deleting an auction
 async function deleteAuction(request: NextRequest, id: number, currentUserId: number) {
   const body = await request.json();
+  const { auctionId } = body;
 
-  // Check if the auction ID is provided
-  if (!body.auctionId) {
-    return NextResponse.json(
-      { error: 'Auction ID is required' },
-      { status: 400 }
-    );
+  if (!auctionId) {
+    return NextResponse.json({ error: 'Auction ID is required' }, { status: 400 });
   }
 
-  // Check if the chit fund exists
-  const chitFund = await prisma.chitFund.findUnique({
-    where: { id },
-  });
-
-  if (!chitFund) {
-    return NextResponse.json(
-      { error: 'Chit fund not found' },
-      { status: 404 }
-    );
+  const chitFund = await prisma.chitFund.findUnique({ where: { id } });
+  if (!chitFund || chitFund.createdById !== currentUserId) {
+    return NextResponse.json({ error: 'Chit fund not found or permission denied' }, { status: 403 });
   }
 
-  // Check if the current user is the owner
-  if (chitFund.createdById !== currentUserId) {
-    return NextResponse.json(
-      { error: 'You do not have permission to modify this chit fund' },
-      { status: 403 }
-    );
+  try {
+    await prisma.$transaction(async (tx) => {
+      // 1. Fetch the auction to get its transactionId
+      const auction = await tx.auction.findUnique({
+        where: { id: parseInt(auctionId) },
+      });
+
+      if (!auction || auction.chitFundId !== id) {
+        throw new Error('Auction not found or does not belong to this chit fund');
+      }
+
+      // 2. Delete the associated transaction if it exists
+      if (auction.transactionId) {
+        await tx.transaction.delete({
+          where: { id: auction.transactionId },
+        });
+      }
+
+      // 3. Delete the auction itself
+      await tx.auction.delete({
+        where: { id: parseInt(auctionId) },
+      });
+    });
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error('Error deleting auction:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    return NextResponse.json({ error: `Failed to delete auction: ${errorMessage}` }, { status: 500 });
   }
-
-  // Check if the auction exists and belongs to this chit fund
-  const auction = await prisma.auction.findFirst({
-    where: {
-      id: parseInt(body.auctionId),
-      chitFundId: id,
-    },
-  });
-
-  if (!auction) {
-    return NextResponse.json(
-      { error: 'Auction not found or does not belong to this chit fund' },
-      { status: 404 }
-    );
-  }
-
-  // Delete the auction
-  await prisma.auction.delete({
-    where: { id: parseInt(body.auctionId) },
-  });
-
-  return NextResponse.json({ success: true });
 }
 
 // Handler for getting auctions of a chit fund
