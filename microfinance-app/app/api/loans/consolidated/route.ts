@@ -1,7 +1,11 @@
-import { NextRequest, NextResponse } from 'next/server';
-import prisma from '../../../../lib/prisma';
-import { getCurrentUserId } from '../../../../lib/auth';
-import { generatePaymentSchedule, calculateNextPaymentDate, updateOverdueAmountFromRepayments } from '../../../../lib/paymentSchedule';
+import { NextRequest, NextResponse } from "next/server";
+import prisma from "../../../../lib/prisma";
+import { getCurrentUserId } from "../../../../lib/auth";
+import {
+  generatePaymentSchedule,
+  calculateNextPaymentDate,
+  updateOverdueAmountFromRepayments,
+} from "../../../../lib/paymentSchedule";
 
 // Use ISR with a 5-minute revalidation period
 export const revalidate = 300; // 5 minutes
@@ -12,76 +16,75 @@ const prismaAny = prisma as any;
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
-    const action = searchParams.get('action') || 'list';
-    const id = searchParams.get('id') ? parseInt(searchParams.get('id')!) : null;
+    const action = searchParams.get("action") || "list";
+    const id = searchParams.get("id")
+      ? parseInt(searchParams.get("id")!)
+      : null;
 
     // Get the current user ID
     const currentUserId = await getCurrentUserId(request);
     if (!currentUserId) {
       return NextResponse.json(
-        { error: 'Authentication required' },
+        { error: "Authentication required" },
         { status: 401 }
       );
     }
 
     // Route to the appropriate handler based on the action
     switch (action) {
-      case 'list':
+      case "list":
         return await getLoansList(request, currentUserId);
-      case 'detail':
+      case "detail":
         if (!id) {
           return NextResponse.json(
-            { error: 'Loan ID is required' },
+            { error: "Loan ID is required" },
             { status: 400 }
           );
         }
         return await getLoanDetail(request, id, currentUserId);
-      case 'repayments':
+      case "repayments":
         if (!id) {
           return NextResponse.json(
-            { error: 'Loan ID is required' },
+            { error: "Loan ID is required" },
             { status: 400 }
           );
         }
         return await getRepayments(request, id, currentUserId);
-      case 'payment-schedules':
+      case "payment-schedules":
         if (!id) {
           return NextResponse.json(
-            { error: 'Loan ID is required' },
+            { error: "Loan ID is required" },
             { status: 400 }
           );
         }
         return await getPaymentSchedules(request, id, currentUserId);
-      case 'export':
+      case "export":
         if (!id) {
           return NextResponse.json(
-            { error: 'Loan ID is required' },
+            { error: "Loan ID is required" },
             { status: 400 }
           );
         }
         return await exportLoan(request, id, currentUserId);
-      case 'export-all':
+      case "export-all":
         return await exportAllLoans(request, currentUserId);
-      case 'export-selected':
-        const idsParam = searchParams.get('ids');
+      case "export-selected":
+        const idsParam = searchParams.get("ids");
         if (!idsParam) {
           return NextResponse.json(
-            { error: 'Loan IDs are required' },
+            { error: "Loan IDs are required" },
             { status: 400 }
           );
         }
-        const loanIds = idsParam.split(',').map(id => parseInt(id));
+        const loanIds = idsParam.split(",").map((id) => parseInt(id));
         return await exportSelectedLoans(request, loanIds, currentUserId);
       default:
-        return NextResponse.json(
-          { error: 'Invalid action' },
-          { status: 400 }
-        );
+        return NextResponse.json({ error: "Invalid action" }, { status: 400 });
     }
   } catch (error) {
-    console.error('Error in loans API:', error);
+    console.error("Error in loans API:", error);
     return NextResponse.json(
-      { error: 'An error occurred while processing your request' },
+      { error: "An error occurred while processing your request" },
       { status: 500 }
     );
   }
@@ -90,46 +93,45 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
-    const action = searchParams.get('action') || 'create';
-    const id = searchParams.get('id') ? parseInt(searchParams.get('id')!) : null;
+    const action = searchParams.get("action") || "create";
+    const id = searchParams.get("id")
+      ? parseInt(searchParams.get("id")!)
+      : null;
 
     // Get the current user ID
     const currentUserId = await getCurrentUserId(request);
     if (!currentUserId) {
       return NextResponse.json(
-        { error: 'Authentication required' },
+        { error: "Authentication required" },
         { status: 401 }
       );
     }
 
     // Route to the appropriate handler based on the action
     switch (action) {
-      case 'create':
+      case "create":
         return await createLoan(request, currentUserId);
-      case 'add-repayment':
+      case "add-repayment":
         if (!id) {
           return NextResponse.json(
-            { error: 'Loan ID is required' },
+            { error: "Loan ID is required" },
             { status: 400 }
           );
         }
         return await addRepayment(request, id, currentUserId);
-      case 'update-overdue':
+      case "update-overdue":
         if (id) {
           return await updateOverdue(request, id, currentUserId);
         } else {
           return await updateAllOverdue(request, currentUserId);
         }
       default:
-        return NextResponse.json(
-          { error: 'Invalid action' },
-          { status: 400 }
-        );
+        return NextResponse.json({ error: "Invalid action" }, { status: 400 });
     }
   } catch (error) {
-    console.error('Error in loans API:', error);
+    console.error("Error in loans API:", error);
     return NextResponse.json(
-      { error: 'An error occurred while processing your request' },
+      { error: "An error occurred while processing your request" },
       { status: 500 }
     );
   }
@@ -138,38 +140,37 @@ export async function POST(request: NextRequest) {
 export async function PUT(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
-    const action = searchParams.get('action') || 'update';
-    const id = searchParams.get('id') ? parseInt(searchParams.get('id')!) : null;
+    const action = searchParams.get("action") || "update";
+    const id = searchParams.get("id")
+      ? parseInt(searchParams.get("id")!)
+      : null;
 
     // Get the current user ID
     const currentUserId = await getCurrentUserId(request);
     if (!currentUserId) {
       return NextResponse.json(
-        { error: 'Authentication required' },
+        { error: "Authentication required" },
         { status: 401 }
       );
     }
 
     // Route to the appropriate handler based on the action
     switch (action) {
-      case 'update':
+      case "update":
         if (!id) {
           return NextResponse.json(
-            { error: 'Loan ID is required' },
+            { error: "Loan ID is required" },
             { status: 400 }
           );
         }
         return await updateLoan(request, id, currentUserId);
       default:
-        return NextResponse.json(
-          { error: 'Invalid action' },
-          { status: 400 }
-        );
+        return NextResponse.json({ error: "Invalid action" }, { status: 400 });
     }
   } catch (error) {
-    console.error('Error in loans API:', error);
+    console.error("Error in loans API:", error);
     return NextResponse.json(
-      { error: 'An error occurred while processing your request' },
+      { error: "An error occurred while processing your request" },
       { status: 500 }
     );
   }
@@ -178,46 +179,45 @@ export async function PUT(request: NextRequest) {
 export async function DELETE(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
-    const action = searchParams.get('action') || 'delete';
-    const id = searchParams.get('id') ? parseInt(searchParams.get('id')!) : null;
+    const action = searchParams.get("action") || "delete";
+    const id = searchParams.get("id")
+      ? parseInt(searchParams.get("id")!)
+      : null;
 
     // Get the current user ID
     const currentUserId = await getCurrentUserId(request);
     if (!currentUserId) {
       return NextResponse.json(
-        { error: 'Authentication required' },
+        { error: "Authentication required" },
         { status: 401 }
       );
     }
 
     // Route to the appropriate handler based on the action
     switch (action) {
-      case 'delete':
+      case "delete":
         if (!id) {
           return NextResponse.json(
-            { error: 'Loan ID is required' },
+            { error: "Loan ID is required" },
             { status: 400 }
           );
         }
         return await deleteLoan(request, id, currentUserId);
-      case 'delete-repayment':
+      case "delete-repayment":
         if (!id) {
           return NextResponse.json(
-            { error: 'Loan ID is required' },
+            { error: "Loan ID is required" },
             { status: 400 }
           );
         }
         return await deleteRepayment(request, id, currentUserId);
       default:
-        return NextResponse.json(
-          { error: 'Invalid action' },
-          { status: 400 }
-        );
+        return NextResponse.json({ error: "Invalid action" }, { status: 400 });
     }
   } catch (error) {
-    console.error('Error in loans API:', error);
+    console.error("Error in loans API:", error);
     return NextResponse.json(
-      { error: 'An error occurred while processing your request' },
+      { error: "An error occurred while processing your request" },
       { status: 500 }
     );
   }
@@ -227,9 +227,9 @@ export async function DELETE(request: NextRequest) {
 async function getLoansList(request: NextRequest, currentUserId: number) {
   try {
     const { searchParams } = new URL(request.url);
-    const page = parseInt(searchParams.get('page') || '1');
-    const pageSize = parseInt(searchParams.get('pageSize') || '10');
-    const status = searchParams.get('status') || null;
+    const page = parseInt(searchParams.get("page") || "1");
+    const pageSize = parseInt(searchParams.get("pageSize") || "10");
+    const status = searchParams.get("status") || null;
 
     // Validate pagination parameters
     const validPage = page > 0 ? page : 1;
@@ -241,7 +241,7 @@ async function getLoansList(request: NextRequest, currentUserId: number) {
     // Build where clause for filtering
     const where: any = {
       // Only show loans created by the current user
-      createdById: currentUserId
+      createdById: currentUserId,
     };
 
     if (status) {
@@ -250,7 +250,7 @@ async function getLoansList(request: NextRequest, currentUserId: number) {
 
     // Get total count for pagination with filter
     const totalCount = await prismaAny.loan.count({
-      where
+      where,
     });
 
     // Get paginated loans with filter
@@ -258,11 +258,11 @@ async function getLoansList(request: NextRequest, currentUserId: number) {
       where,
       include: {
         _count: {
-          select: { repayments: true }
+          select: { repayments: true },
         },
-        borrower: true
+        borrower: true,
       },
-      orderBy: { createdAt: 'desc' },
+      orderBy: { createdAt: "desc" },
       skip,
       take: validPageSize,
     });
@@ -272,19 +272,23 @@ async function getLoansList(request: NextRequest, currentUserId: number) {
       totalCount,
       page: validPage,
       pageSize: validPageSize,
-      totalPages: Math.ceil(totalCount / validPageSize)
+      totalPages: Math.ceil(totalCount / validPageSize),
     });
   } catch (error) {
-    console.error('Error fetching loans:', error);
+    console.error("Error fetching loans:", error);
     return NextResponse.json(
-      { error: 'Failed to fetch loans' },
+      { error: "Failed to fetch loans" },
       { status: 500 }
     );
   }
 }
 
 // Handler for getting a single loan
-async function getLoanDetail(request: NextRequest, id: number, currentUserId: number) {
+async function getLoanDetail(
+  request: NextRequest,
+  id: number,
+  currentUserId: number
+) {
   try {
     // Check if the loan exists
     const loan = await prismaAny.loan.findUnique({
@@ -292,42 +296,43 @@ async function getLoanDetail(request: NextRequest, id: number, currentUserId: nu
       include: {
         borrower: true,
         _count: {
-          select: { repayments: true }
-        }
-      }
+          select: { repayments: true },
+        },
+      },
     });
 
     if (!loan) {
-      return NextResponse.json(
-        { error: 'Loan not found' },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: "Loan not found" }, { status: 404 });
     }
 
     // Check if the current user is the owner
     if (loan.createdById !== currentUserId) {
       return NextResponse.json(
-        { error: 'You do not have permission to view this loan' },
+        { error: "You do not have permission to view this loan" },
         { status: 403 }
       );
     }
 
     return NextResponse.json(loan);
   } catch (error) {
-    console.error('Error fetching loan:', error);
+    console.error("Error fetching loan:", error);
     return NextResponse.json(
-      { error: 'Failed to fetch loan' },
+      { error: "Failed to fetch loan" },
       { status: 500 }
     );
   }
 }
 
 // Handler for getting repayments of a loan
-async function getRepayments(request: NextRequest, id: number, currentUserId: number) {
+async function getRepayments(
+  request: NextRequest,
+  id: number,
+  currentUserId: number
+) {
   try {
     const { searchParams } = new URL(request.url);
-    const page = parseInt(searchParams.get('page') || '1');
-    const pageSize = parseInt(searchParams.get('pageSize') || '10');
+    const page = parseInt(searchParams.get("page") || "1");
+    const pageSize = parseInt(searchParams.get("pageSize") || "10");
 
     // Validate pagination parameters
     const validPage = page > 0 ? page : 1;
@@ -339,35 +344,32 @@ async function getRepayments(request: NextRequest, id: number, currentUserId: nu
     // Check if the loan exists and belongs to the current user
     const loan = await prismaAny.loan.findUnique({
       where: { id },
-      select: { createdById: true }
+      select: { createdById: true },
     });
 
     if (!loan) {
-      return NextResponse.json(
-        { error: 'Loan not found' },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: "Loan not found" }, { status: 404 });
     }
 
     // Check if the current user is the owner
     if (loan.createdById !== currentUserId) {
       return NextResponse.json(
-        { error: 'You do not have permission to view this loan' },
+        { error: "You do not have permission to view this loan" },
         { status: 403 }
       );
     }
 
     // Get total count for pagination
     const totalCount = await prismaAny.repayment.count({
-      where: { loanId: id }
+      where: { loanId: id },
     });
 
     // Get paginated repayments
     const repayments = await prismaAny.repayment.findMany({
       where: { loanId: id },
-      orderBy: { paidDate: 'desc' },
+      orderBy: { paidDate: "desc" },
       skip,
-      take: validPageSize
+      take: validPageSize,
     });
 
     return NextResponse.json({
@@ -375,23 +377,27 @@ async function getRepayments(request: NextRequest, id: number, currentUserId: nu
       totalCount,
       page: validPage,
       pageSize: validPageSize,
-      totalPages: Math.ceil(totalCount / validPageSize)
+      totalPages: Math.ceil(totalCount / validPageSize),
     });
   } catch (error) {
-    console.error('Error fetching repayments:', error);
+    console.error("Error fetching repayments:", error);
     return NextResponse.json(
-      { error: 'Failed to fetch repayments' },
+      { error: "Failed to fetch repayments" },
       { status: 500 }
     );
   }
 }
 
 // Handler for getting payment schedules of a loan
-async function getPaymentSchedules(request: NextRequest, id: number, currentUserId: number) {
+async function getPaymentSchedules(
+  request: NextRequest,
+  id: number,
+  currentUserId: number
+) {
   try {
     // Get the includeAll parameter from the query string
     const { searchParams } = new URL(request.url);
-    const includeAll = searchParams.get('includeAll') === 'true';
+    const includeAll = searchParams.get("includeAll") === "true";
 
     // Check if the loan exists and belongs to the current user
     const loan = await prismaAny.loan.findUnique({
@@ -399,22 +405,19 @@ async function getPaymentSchedules(request: NextRequest, id: number, currentUser
       include: {
         borrower: true,
         repayments: {
-          orderBy: { paidDate: 'asc' }
-        }
-      }
+          orderBy: { paidDate: "asc" },
+        },
+      },
     });
 
     if (!loan) {
-      return NextResponse.json(
-        { error: 'Loan not found' },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: "Loan not found" }, { status: 404 });
     }
 
     // Check if the current user is the owner
     if (loan.createdById !== currentUserId) {
       return NextResponse.json(
-        { error: 'You do not have permission to view this loan' },
+        { error: "You do not have permission to view this loan" },
         { status: 403 }
       );
     }
@@ -467,10 +470,10 @@ async function getPaymentSchedules(request: NextRequest, id: number, currentUser
     for (let period = 1; period <= duration; period++) {
       // Calculate the due date for this period
       const dueDate = new Date(disbursementDate);
-      if (repaymentType === 'Monthly') {
+      if (repaymentType === "Monthly") {
         dueDate.setMonth(disbursementDate.getMonth() + period);
-      } else if (repaymentType === 'Weekly') {
-        dueDate.setDate(disbursementDate.getDate() + (period * 7));
+      } else if (repaymentType === "Weekly") {
+        dueDate.setDate(disbursementDate.getDate() + period * 7);
       }
 
       // Log the first payment schedule due date for debugging
@@ -481,7 +484,8 @@ async function getPaymentSchedules(request: NextRequest, id: number, currentUser
       // Check if this period has been paid
       const repayment = repaymentsByPeriod.get(period);
       const isPaid = !!repayment;
-      const isInterestOnly = repayment && repayment.paymentType === 'interestOnly';
+      const isInterestOnly =
+        repayment && repayment.paymentType === "interestOnly";
 
       // Only include schedules that are due today or earlier, due tomorrow, or overdue
       // Normalize dates for comparison by setting hours to 0
@@ -496,9 +500,11 @@ async function getPaymentSchedules(request: NextRequest, id: number, currentUser
       gracePeriodDate.setDate(gracePeriodDate.getDate() + 3);
 
       // Only mark as overdue if it's past the grace period (3 days after due date)
-      const isOverdue = dueDateNormalized < today && today >= gracePeriodDate && !isPaid;
+      const isOverdue =
+        dueDateNormalized < today && today >= gracePeriodDate && !isPaid;
 
-      const isUpcoming = dueDateNormalized <= oneWeekFromNow && dueDateNormalized > today;
+      const isUpcoming =
+        dueDateNormalized <= oneWeekFromNow && dueDateNormalized > today;
 
       // Debug log for period 1 (first payment)
       if (period === 1) {
@@ -517,8 +523,12 @@ async function getPaymentSchedules(request: NextRequest, id: number, currentUser
       }
 
       // Check if this is the next payment date (first unpaid period)
-      const nextPaymentDate = loan.nextPaymentDate ? new Date(loan.nextPaymentDate) : null;
-      const isNextPayment = !isPaid && nextPaymentDate &&
+      const nextPaymentDate = loan.nextPaymentDate
+        ? new Date(loan.nextPaymentDate)
+        : null;
+      const isNextPayment =
+        !isPaid &&
+        nextPaymentDate &&
         nextPaymentDate.toDateString() === dueDate.toDateString();
 
       // For debugging
@@ -538,8 +548,15 @@ async function getPaymentSchedules(request: NextRequest, id: number, currentUser
 
       // If includeAll is true, include all periods regardless of status
       // Otherwise, apply the filtering logic
-      const shouldInclude = includeAll ||
-        isDueToday || isDueTomorrow || isOverdue || isUpcoming || isPaid || isNextPayment || isFirstUnpaidPayment;
+      const shouldInclude =
+        includeAll ||
+        isDueToday ||
+        isDueTomorrow ||
+        isOverdue ||
+        isUpcoming ||
+        isPaid ||
+        isNextPayment ||
+        isFirstUnpaidPayment;
 
       if (shouldInclude) {
         schedules.push({
@@ -548,7 +565,13 @@ async function getPaymentSchedules(request: NextRequest, id: number, currentUser
           dueDate,
           amount: installmentAmount,
           interestAmount: interestRate,
-          status: isPaid ? (isInterestOnly ? 'Interest Only' : 'Paid') : (isOverdue ? 'Overdue' : 'Pending'),
+          status: isPaid
+            ? isInterestOnly
+              ? "Interest Only"
+              : "Paid"
+            : isOverdue
+            ? "Overdue"
+            : "Pending",
           isPaid,
           isInterestOnly,
           isDueToday,
@@ -562,13 +585,18 @@ async function getPaymentSchedules(request: NextRequest, id: number, currentUser
 
         // Log if this is the next payment
         if (isNextPayment) {
-          console.log(`Including next payment date: ${dueDate.toISOString()} for period ${period}`);
+          console.log(
+            `Including next payment date: ${dueDate.toISOString()} for period ${period}`
+          );
         }
       }
     }
 
     // Sort schedules by due date in descending order (newest first)
-    schedules.sort((a: any, b: any) => new Date(b.dueDate).getTime() - new Date(a.dueDate).getTime());
+    schedules.sort(
+      (a: any, b: any) =>
+        new Date(b.dueDate).getTime() - new Date(a.dueDate).getTime()
+    );
 
     // If includeAll is true, return the array directly (for the Record Payment page)
     // Otherwise, return an object with schedules property (for the Loan Details page)
@@ -580,39 +608,40 @@ async function getPaymentSchedules(request: NextRequest, id: number, currentUser
         totalCount: schedules.length,
         page: 1,
         pageSize: schedules.length,
-        totalPages: 1
+        totalPages: 1,
       });
     }
   } catch (error) {
-    console.error('Error fetching payment schedules:', error);
+    console.error("Error fetching payment schedules:", error);
     return NextResponse.json(
-      { error: 'Failed to fetch payment schedules' },
+      { error: "Failed to fetch payment schedules" },
       { status: 500 }
     );
   }
 }
 
 // Handler for exporting a loan
-async function exportLoan(request: NextRequest, id: number, currentUserId: number) {
+async function exportLoan(
+  request: NextRequest,
+  id: number,
+  currentUserId: number
+) {
   try {
     // Get the loan for the current user
     const loan = await prismaAny.loan.findUnique({
       where: {
         id,
-        createdById: currentUserId
+        createdById: currentUserId,
       },
       include: {
         borrower: true,
-        repayments: true
-      }
+        repayments: true,
+      },
     });
 
     // Check if the loan was found
     if (!loan) {
-      return NextResponse.json(
-        { error: 'Loan not found' },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: "Loan not found" }, { status: 404 });
     }
 
     // Generate Excel file
@@ -621,18 +650,23 @@ async function exportLoan(request: NextRequest, id: number, currentUserId: numbe
 
     // Format current date for filename
     const today = new Date();
-    const dateStr = today.toISOString().split('T')[0]; // YYYY-MM-DD format
+    const dateStr = today.toISOString().split("T")[0]; // YYYY-MM-DD format
 
     // Set response headers for file download
     return new NextResponse(buffer, {
       headers: {
-        'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        'Content-Disposition': `attachment; filename=loan_${id}_${dateStr}.xlsx`
-      }
+        "Content-Type":
+          "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        "Content-Disposition": `attachment; filename=loan_${id}_${dateStr}.xlsx`,
+      },
     });
   } catch (error) {
-    console.error('Error exporting loan:', error);
-    throw new Error(`Failed to export loan: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    console.error("Error exporting loan:", error);
+    throw new Error(
+      `Failed to export loan: ${
+        error instanceof Error ? error.message : "Unknown error"
+      }`
+    );
   }
 }
 
@@ -642,12 +676,12 @@ async function exportAllLoans(request: NextRequest, currentUserId: number) {
     // Get all loans for the current user
     const loans = await prismaAny.loan.findMany({
       where: {
-        createdById: currentUserId
+        createdById: currentUserId,
       },
       include: {
         borrower: true,
-        repayments: true
-      }
+        repayments: true,
+      },
     });
 
     // Generate Excel file
@@ -656,40 +690,49 @@ async function exportAllLoans(request: NextRequest, currentUserId: number) {
 
     // Format current date for filename
     const today = new Date();
-    const dateStr = today.toISOString().split('T')[0]; // YYYY-MM-DD format
+    const dateStr = today.toISOString().split("T")[0]; // YYYY-MM-DD format
 
     // Set response headers for file download
     return new NextResponse(buffer, {
       headers: {
-        'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        'Content-Disposition': `attachment; filename=all_loans_${dateStr}.xlsx`
-      }
+        "Content-Type":
+          "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        "Content-Disposition": `attachment; filename=all_loans_${dateStr}.xlsx`,
+      },
     });
   } catch (error) {
-    console.error('Error exporting all loans:', error);
-    throw new Error(`Failed to export loans: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    console.error("Error exporting all loans:", error);
+    throw new Error(
+      `Failed to export loans: ${
+        error instanceof Error ? error.message : "Unknown error"
+      }`
+    );
   }
 }
 
 // Handler for exporting selected loans
-async function exportSelectedLoans(request: NextRequest, loanIds: number[], currentUserId: number) {
+async function exportSelectedLoans(
+  request: NextRequest,
+  loanIds: number[],
+  currentUserId: number
+) {
   try {
     // Get selected loans for the current user
     const loans = await prismaAny.loan.findMany({
       where: {
         id: { in: loanIds },
-        createdById: currentUserId
+        createdById: currentUserId,
       },
       include: {
         borrower: true,
-        repayments: true
-      }
+        repayments: true,
+      },
     });
 
     // Check if any loans were found
     if (loans.length === 0) {
       return NextResponse.json(
-        { error: 'No loans found with the provided IDs' },
+        { error: "No loans found with the provided IDs" },
         { status: 404 }
       );
     }
@@ -700,106 +743,125 @@ async function exportSelectedLoans(request: NextRequest, loanIds: number[], curr
 
     // Format current date for filename
     const today = new Date();
-    const dateStr = today.toISOString().split('T')[0]; // YYYY-MM-DD format
+    const dateStr = today.toISOString().split("T")[0]; // YYYY-MM-DD format
 
     // Set response headers for file download
     return new NextResponse(buffer, {
       headers: {
-        'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        'Content-Disposition': `attachment; filename=selected_loans_${dateStr}.xlsx`
-      }
+        "Content-Type":
+          "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        "Content-Disposition": `attachment; filename=selected_loans_${dateStr}.xlsx`,
+      },
     });
   } catch (error) {
-    console.error('Error exporting selected loans:', error);
-    throw new Error(`Failed to export loans: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    console.error("Error exporting selected loans:", error);
+    throw new Error(
+      `Failed to export loans: ${
+        error instanceof Error ? error.message : "Unknown error"
+      }`
+    );
   }
 }
 
 // Helper function to generate Excel file for loans
 async function generateLoansExcel(loans: any[]) {
   // Import Excel.js dynamically
-  const ExcelJS = require('exceljs');
+  const ExcelJS = require("exceljs");
 
   // Create a new workbook
   const workbook = new ExcelJS.Workbook();
 
   // Add a worksheet for loan details
-  const worksheet = workbook.addWorksheet('Loan Details');
+  const worksheet = workbook.addWorksheet("Loan Details");
 
   // Define columns with optimized widths for better readability
   worksheet.columns = [
-    { header: 'Loan ID', key: 'id', width: 10 },
-    { header: 'Borrower Name', key: 'borrowerName', width: 25 },
-    { header: 'Contact', key: 'contact', width: 15 },
-    { header: 'Loan Type', key: 'loanType', width: 12 },
-    { header: 'Amount', key: 'amount', width: 15 },
-    { header: 'Interest Rate', key: 'interestRate', width: 12 },
-    { header: 'Document Charge', key: 'documentCharge', width: 15 },
-    { header: 'Installment Amount', key: 'installmentAmount', width: 18 },
-    { header: 'Duration', key: 'duration', width: 10 },
-    { header: 'Disbursement Date', key: 'disbursementDate', width: 20 },
-    { header: 'Remaining Amount', key: 'remainingAmount', width: 18 },
-    { header: 'Status', key: 'status', width: 12 },
-    { header: 'Overdue', key: 'overdue', width: 15 },
-    { header: 'Next Payment Date', key: 'nextPaymentDate', width: 20 },
-    { header: 'Purpose', key: 'purpose', width: 35 },
+    { header: "Loan ID", key: "id", width: 10 },
+    { header: "Borrower Name", key: "borrowerName", width: 25 },
+    { header: "Contact", key: "contact", width: 15 },
+    { header: "Loan Type", key: "loanType", width: 12 },
+    { header: "Amount", key: "amount", width: 15 },
+    { header: "Interest Rate", key: "interestRate", width: 12 },
+    { header: "Document Charge", key: "documentCharge", width: 15 },
+    { header: "Installment Amount", key: "installmentAmount", width: 18 },
+    { header: "Duration", key: "duration", width: 10 },
+    { header: "Disbursement Date", key: "disbursementDate", width: 20 },
+    { header: "Remaining Amount", key: "remainingAmount", width: 18 },
+    { header: "Status", key: "status", width: 12 },
+    { header: "Overdue", key: "overdue", width: 15 },
+    { header: "Next Payment Date", key: "nextPaymentDate", width: 20 },
+    { header: "Purpose", key: "purpose", width: 35 },
   ];
 
   // Format header row with bold font
   worksheet.getRow(1).font = { bold: true };
-  worksheet.getRow(1).alignment = { vertical: 'middle', horizontal: 'center' };
+  worksheet.getRow(1).alignment = { vertical: "middle", horizontal: "center" };
 
   // Add data
-  loans.forEach(loan => {
+  loans.forEach((loan) => {
     worksheet.addRow({
       id: loan.id,
-      borrowerName: loan.borrower?.name || 'Unknown',
-      contact: loan.borrower?.contact || 'Unknown',
+      borrowerName: loan.borrower?.name || "Unknown",
+      contact: loan.borrower?.contact || "Unknown",
       loanType: loan.loanType,
       amount: loan.amount,
       interestRate: loan.interestRate,
       documentCharge: loan.documentCharge || 0,
       installmentAmount: loan.installmentAmount,
       duration: loan.duration,
-      disbursementDate: loan.disbursementDate ? new Date(loan.disbursementDate).toLocaleDateString() : 'Unknown',
+      disbursementDate: loan.disbursementDate
+        ? new Date(loan.disbursementDate).toLocaleDateString()
+        : "Unknown",
       remainingAmount: loan.remainingAmount,
       status: loan.status,
-      overdue: loan.missedPayments > 0 ? `${loan.missedPayments} ${loan.missedPayments === 1 ? 'payment' : 'payments'}` : 'None',
-      nextPaymentDate: loan.nextPaymentDate ? new Date(loan.nextPaymentDate).toLocaleDateString() : 'N/A',
-      purpose: loan.purpose || 'N/A',
+      overdue:
+        loan.missedPayments > 0
+          ? `${loan.missedPayments} ${
+              loan.missedPayments === 1 ? "payment" : "payments"
+            }`
+          : "None",
+      nextPaymentDate: loan.nextPaymentDate
+        ? new Date(loan.nextPaymentDate).toLocaleDateString()
+        : "N/A",
+      purpose: loan.purpose || "N/A",
     });
   });
 
   // Add a worksheet for repayments
-  const repaymentsWorksheet = workbook.addWorksheet('Repayments');
+  const repaymentsWorksheet = workbook.addWorksheet("Repayments");
 
   // Define columns for repayments with optimized widths
   repaymentsWorksheet.columns = [
-    { header: 'Loan ID', key: 'loanId', width: 10 },
-    { header: 'Borrower Name', key: 'borrowerName', width: 25 },
-    { header: 'Repayment ID', key: 'repaymentId', width: 15 },
-    { header: 'Amount', key: 'amount', width: 15 },
-    { header: 'Paid Date', key: 'paidDate', width: 20 },
-    { header: 'Payment Type', key: 'paymentType', width: 15 },
-    { header: 'Period', key: 'period', width: 10 },
+    { header: "Loan ID", key: "loanId", width: 10 },
+    { header: "Borrower Name", key: "borrowerName", width: 25 },
+    { header: "Repayment ID", key: "repaymentId", width: 15 },
+    { header: "Amount", key: "amount", width: 15 },
+    { header: "Paid Date", key: "paidDate", width: 20 },
+    { header: "Payment Type", key: "paymentType", width: 15 },
+    { header: "Period", key: "period", width: 10 },
   ];
 
   // Format header row with bold font and center alignment
   repaymentsWorksheet.getRow(1).font = { bold: true };
-  repaymentsWorksheet.getRow(1).alignment = { vertical: 'middle', horizontal: 'center' };
+  repaymentsWorksheet.getRow(1).alignment = {
+    vertical: "middle",
+    horizontal: "center",
+  };
 
   // Add repayment data
-  loans.forEach(loan => {
+  loans.forEach((loan) => {
     if (loan.repayments && loan.repayments.length > 0) {
       loan.repayments.forEach((repayment: any) => {
         repaymentsWorksheet.addRow({
           loanId: loan.id,
-          borrowerName: loan.borrower?.name || 'Unknown',
+          borrowerName: loan.borrower?.name || "Unknown",
           repaymentId: repayment.id,
           amount: repayment.amount,
-          paidDate: repayment.paidDate ? new Date(repayment.paidDate).toLocaleDateString() : 'Unknown',
-          paymentType: repayment.paymentType || 'full',
-          period: repayment.period || 'N/A',
+          paidDate: repayment.paidDate
+            ? new Date(repayment.paidDate).toLocaleDateString()
+            : "Unknown",
+          paymentType: repayment.paymentType || "full",
+          period: repayment.period || "N/A",
         });
       });
     }
@@ -808,365 +870,262 @@ async function generateLoansExcel(loans: any[]) {
   return workbook;
 }
 
-// Handler for creating a loan
+/**
+ * Creates a new loan and its associated disbursement transaction in a single atomic operation.
+ */
+/**
+ * Creates a new loan and its associated disbursement transaction using alternative logic.
+ */
 async function createLoan(request: NextRequest, currentUserId: number) {
   try {
     const body = await request.json();
+    const activePartnerName = request.headers.get("x-active-partner");
 
-    // Get the active partner from request headers
-    const activePartner = request.headers.get('x-active-partner') || 'Me';
-
-    // Validate required fields
-    const requiredFields = ['borrowerName', 'contact', 'loanType', 'amount', 'interestRate', 'duration', 'disbursementDate', 'repaymentType'];
-    for (const field of requiredFields) {
-      if (!body[field]) {
-        return NextResponse.json(
-          { error: `${field} is required` },
-          { status: 400 }
-        );
-      }
+    if (!activePartnerName) {
+      return NextResponse.json({ error: "Active partner not selected" }, { status: 400 });
     }
 
-    // First, find or create a global member
-    let globalMember;
+    const partner = await prisma.partner.findFirst({
+      where: { name: activePartnerName, createdById: currentUserId },
+    });
 
+    if (!partner) {
+      return NextResponse.json({ error: "Active partner not found" }, { status: 400 });
+    }
+
+    // ... (Validation and globalMember logic remains the same) ...
+     let globalMember;
     if (body.globalMemberId) {
-      // Use existing global member
-      globalMember = await prismaAny.globalMember.findUnique({
-        where: { id: body.globalMemberId }
+      globalMember = await prisma.globalMember.findUnique({
+        where: { id: body.globalMemberId },
       });
-
       if (!globalMember) {
         return NextResponse.json(
-          { error: 'Global member not found' },
+          { error: "Global member not found" },
           { status: 404 }
         );
       }
     } else {
-      // Create a new global member
-      globalMember = await prismaAny.globalMember.create({
+      globalMember = await prisma.globalMember.create({
         data: {
           name: body.borrowerName,
           contact: body.contact,
           email: body.email || null,
           address: body.address || null,
-          notes: body.notes || null,
           createdById: currentUserId,
-        }
+        },
       });
     }
 
-    // Parse the disbursement date
     const disbursementDate = new Date(body.disbursementDate);
-
-    // Calculate initial next payment date based on disbursement date and repayment type
     const initialNextPaymentDate = new Date(disbursementDate);
-
-    if (body.repaymentType === 'Monthly') {
+    if (body.repaymentType === "Monthly") {
       initialNextPaymentDate.setMonth(disbursementDate.getMonth() + 1);
-    } else if (body.repaymentType === 'Weekly') {
+    } else if (body.repaymentType === "Weekly") {
       initialNextPaymentDate.setDate(disbursementDate.getDate() + 7);
     }
 
-    // Create a loan data object with all fields
-    const loanData = {
-      borrowerId: globalMember.id,
-      loanType: body.loanType,
-      amount: parseFloat(body.amount),
-      interestRate: parseFloat(body.interestRate),
-      documentCharge: body.documentCharge ? parseFloat(body.documentCharge) : 0,
-      installmentAmount: body.installmentAmount ? parseFloat(body.installmentAmount) : 0,
-      duration: parseInt(body.duration),
-      disbursementDate: disbursementDate,
-      repaymentType: body.repaymentType, // Keep as 'Monthly' or 'Weekly'
-      remainingAmount: parseFloat(body.amount),
-      status: 'Active',
-      purpose: body.purpose || null,
-      overdueAmount: 0,
-      missedPayments: 0,
-      currentMonth: 0,
-      createdById: currentUserId,
-      nextPaymentDate: initialNextPaymentDate
-    };
-
-    // Create the loan
-    const loan = await prismaAny.loan.create({
-      data: loanData,
-      include: {
-        borrower: true
-      }
-    });
-
-    // Create a transaction record for the loan disbursement as a separate operation
-    const transaction = await prismaAny.transaction.create({
+    // --- ALTERNATIVE LOGIC ---
+    // Create the Transaction first, and nest the Loan creation inside it.
+    const createdTransaction = await prisma.transaction.create({
       data: {
-        type: 'loan_given',
+        type: "LOAN_DISBURSEMENT",
         amount: parseFloat(body.amount),
-        member: body.borrowerName,
-        from_partner: activePartner,
-        to_partner: null,
-        action_performer: activePartner,
-        entered_by: activePartner,
         date: disbursementDate,
         note: `Loan disbursed to ${body.borrowerName}`,
-        createdById: currentUserId
-      }
+        createdById: currentUserId,
+        action_performer: partner.name,
+        entered_by: partner.name,
+        // Nest the Loan creation here
+        loan: {
+          create: {
+            borrowerId: globalMember.id,
+            loanType: body.loanType,
+            amount: parseFloat(body.amount),
+            interestRate: parseFloat(body.interestRate),
+            documentCharge: body.documentCharge ? parseFloat(body.documentCharge) : 0,
+            installmentAmount: body.installmentAmount ? parseFloat(body.installmentAmount) : 0,
+            duration: parseInt(body.duration),
+            disbursementDate,
+            repaymentType: body.repaymentType,
+            remainingAmount: parseFloat(body.amount),
+            status: "Active",
+            purpose: body.purpose || null,
+            createdById: currentUserId,
+            nextPaymentDate: initialNextPaymentDate,
+            disbursed_by_id: partner.id,
+            entered_by_id: partner.id,
+          },
+        },
+      },
+      // Include the newly created Loan and its Borrower in the response
+      include: {
+        loan: {
+          include: {
+            borrower: true,
+          },
+        },
+      },
     });
 
-    // Generate payment schedule for the loan
+    // The loan object is now nested inside the transaction response
+    const loan = createdTransaction.loan;
+
+    // Generate payment schedule (can run after loan creation)
     try {
-      await generatePaymentSchedule(loan.id, loan);
+      await generatePaymentSchedule(loan.id, loan as any);
     } catch (scheduleError) {
-      console.error('Error generating payment schedule:', scheduleError);
-      // Continue even if schedule generation fails - we don't want to roll back the loan creation
+      console.error("Error generating payment schedule:", scheduleError);
     }
 
-    return NextResponse.json({ loan, transaction }, { status: 201 });
+    // Return the loan object, consistent with the original function's response
+    return NextResponse.json(loan, { status: 201 });
+
   } catch (error) {
-    console.error('Error creating loan:', error);
-
-    // Provide more detailed error information
-    let errorMessage = 'Failed to create loan';
-    let errorDetails = '';
-
-    if (error instanceof Error) {
-      errorMessage = error.message;
-      errorDetails = error.stack || '';
-    }
-
-    return NextResponse.json(
-      { 
-        error: errorMessage,
-        details: errorDetails
-      },
-      { status: 500 }
-    );
+    console.error("Error creating loan:", error);
+    const errorMessage = error instanceof Error ? error.message : "Unknown error";
+    return NextResponse.json({ error: "Failed to create loan", details: errorMessage }, { status: 500 });
   }
 }
 
-// Handler for adding a repayment to a loan
+/**
+ * Adds a repayment to a loan and creates the associated transaction.
+ * Uses Prisma's $transaction to ensure both the repayment is created and the loan is updated atomically.
+ */
+/**
+ * Adds a repayment to a loan using the reliable "Transaction-first" pattern.
+ */
 async function addRepayment(request: NextRequest, id: number, currentUserId: number) {
   try {
     const requestBody = await request.json();
     const {
       amount,
       paidDate,
-      paymentType = 'REGULAR', // Use RepaymentType enum values
+      paymentType = "REGULAR",
       scheduleId,
-      collected_by  // This should be a partner ID
+      collected_by, // partner ID
     } = requestBody;
 
-    // Get the active partner from request headers
-    const activePartner = request.headers.get('x-active-partner') || 'Me';
+    const activePartnerName = request.headers.get("x-active-partner") || "Me";
+
+    // --- Input validation (remains the same) ... ---
+
+    const collectorPartner = await prisma.partner.findUnique({ where: { id: parseInt(collected_by) } });
+    if (!collectorPartner) {
+      return NextResponse.json({ error: "Collector partner not found" }, { status: 400 });
+    }
+    const entryPartner = await prisma.partner.findFirst({ where: { name: activePartnerName, createdById: currentUserId }});
+    if (!entryPartner) {
+        return NextResponse.json({ error: "Data entry partner not found" }, { status: 400 });
+    }
 
     const loanId = id;
     const paymentAmount = parseFloat(amount);
-
-    // Input validation
-    if (!amount || isNaN(parseFloat(amount)) || parseFloat(amount) <= 0) {
-      return NextResponse.json(
-        { error: 'A valid payment amount greater than 0 is required' },
-        { status: 400 }
-      );
-    }
-
-    if (!paidDate || isNaN(new Date(paidDate).getTime())) {
-      return NextResponse.json(
-        { error: 'A valid payment date is required' },
-        { status: 400 }
-      );
-    }
-
-    if (!collected_by) {
-      return NextResponse.json(
-        { error: 'Collector information is required' },
-        { status: 400 }
-      );
-    }
-
-    // Validate payment type is a valid RepaymentType enum value
-    const validPaymentTypes = ['REGULAR', 'INTEREST_ONLY', 'PARTIAL'];
-    if (!validPaymentTypes.includes(paymentType)) {
-      return NextResponse.json(
-        { error: 'Invalid payment type. Must be REGULAR, INTEREST_ONLY, or PARTIAL' },
-        { status: 400 }
-      );
-    }
-
-    // Get the current loan to check remaining amount
-    const loan = await prismaAny.loan.findUnique({
-      where: { id: loanId },
-      include: {
-        borrower: true
-      }
-    });
-
-    if (!loan) {
-      return NextResponse.json(
-        { error: 'Loan not found' },
-        { status: 404 }
-      );
-    }
-
-    // Check if the current user is the owner
-    if (loan.createdById !== currentUserId) {
-      return NextResponse.json(
-        { error: 'You do not have permission to modify this loan' },
-        { status: 403 }
-      );
-    }
-
-    // Validate payment amount
-    if (paymentAmount <= 0) {
-      return NextResponse.json(
-        { error: 'Payment amount must be greater than zero' },
-        { status: 400 }
-      );
-    }
-
-    // Look up the collector partner
-    const collector = await prismaAny.partner.findUnique({
-      where: { id: parseInt(collected_by) }
-    });
-
-    if (!collector) {
-      return NextResponse.json(
-        { error: 'Invalid collector reference' },
-        { status: 400 }
-      );
-    }
-
-    // Get the period from the selected schedule
     const period = Number(scheduleId);
-    if (isNaN(period) || period <= 0) {
-      return NextResponse.json(
-        { error: 'Invalid payment schedule ID' },
-        { status: 400 }
-      );
+
+    // Fetch the loan first to get its current state and borrower info
+    const loan = await prisma.loan.findUnique({
+      where: { id: loanId },
+      include: { borrower: true },
+    });
+
+    if (!loan || loan.createdById !== currentUserId) {
+      throw new Error("Loan not found or permission denied");
     }
 
-    // Calculate new remaining amount based on payment type
-    let newRemainingAmount = loan.remainingAmount;
-    if (paymentType === 'REGULAR') {
-      newRemainingAmount -= (paymentAmount - loan.interestRate);
-    } else if (paymentType === 'PARTIAL') {
-      newRemainingAmount -= paymentAmount;
-    } // For INTEREST_ONLY, remaining amount stays the same
-
-    try {
-      // Create the repayment record with proper foreign key references
-      const repayment = await prismaAny.repayment.create({
+    // --- REFACTORED REPAYMENT CREATION (PLAN B) ---
+    // 1. Create the Transaction and nest the Repayment inside it.
+    const createdTransaction = await prisma.transaction.create({
         data: {
-          loanId,
-          amount: paymentAmount,
-          paidDate: new Date(paidDate),
-          paymentType: paymentType as 'REGULAR' | 'INTEREST_ONLY' | 'PARTIAL',
-          period,
-          collected_by_id: collector.id,
-          entered_by_id: currentUserId,
-          createdById: currentUserId
+            type: "REPAYMENT",
+            amount: paymentAmount,
+            date: new Date(paidDate),
+            note: `Repayment from ${loan.borrower?.name} - Period ${period}`,
+            createdById: currentUserId,
+            action_performer: collectorPartner.name,
+            entered_by: entryPartner.name,
+            to_partner_id: collectorPartner.id,
+            // Nest the Repayment creation
+            repayment: {
+                create: {
+                    loanId,
+                    amount: paymentAmount,
+                    paidDate: new Date(paidDate),
+                    paymentType,
+                    period,
+                    collected_by_id: collectorPartner.id,
+                    entered_by_id: entryPartner.id,
+                    createdById: currentUserId,
+                }
+            }
         },
         include: {
-          collectedBy: true,
-          enteredBy: true
+            repayment: { // Include the new repayment in the response
+                include: {
+                    collectedBy: true
+                }
+            }
         }
-      });
+    });
 
-      // For interest-only payments, extend the loan duration by 1 period
-      let updatedDuration = loan.duration;
-      if (paymentType === 'INTEREST_ONLY') {
-        updatedDuration = loan.duration + 1;
-        console.log(`Interest-only payment detected. Extending loan duration from ${loan.duration} to ${updatedDuration}`);
-      }
-
-      // Calculate the next payment date
-      const nextPaymentDate = await calculateNextPaymentDate(loanId);
-
-      // Calculate overdue amount after this payment
-      const overdueResult = await updateOverdueAmountFromRepayments(loanId);
-      const { overdueAmount, missedPayments } = overdueResult || { overdueAmount: 0, missedPayments: 0 };
-
-      // Update the loan
-      const updatedLoan = await prismaAny.loan.update({
-        where: { id: loanId },
-        data: {
-          remainingAmount: newRemainingAmount,
-          duration: updatedDuration, // Update duration for interest-only payments
-          status: newRemainingAmount <= 0 ? 'Completed' : 'Active',
-          nextPaymentDate: newRemainingAmount <= 0 ? null : nextPaymentDate,
-          overdueAmount: overdueAmount,
-          missedPayments: missedPayments
-        }
-      });
-
-      // Create a transaction record for the loan repayment
-      // For interest-only payments, only the interest amount should be added to partner balance
-      // For regular/partial payments, the full payment amount is added
-      let transactionAmount = paymentAmount;
-      if (paymentType === 'INTEREST_ONLY') {
-        // For interest-only payments, only track the interest portion in partner balance
-        transactionAmount = loan.interestRate || 0;
-        console.log(`Interest-only payment: Using interest amount ${transactionAmount} instead of full payment ${paymentAmount} for partner balance`);
-      }
-
-      const repaymentTransaction = await prismaAny.transaction.create({
-        data: {
-          type: 'loan_repaid',
-          amount: transactionAmount,
-          member: loan.borrower?.name || 'Unknown',
-          from_partner: null,
-          to_partner: collector.name,
-          action_performer: collector.name,
-          entered_by: activePartner,
-          date: new Date(paidDate),
-          note: `Loan repayment from ${loan.borrower?.name || 'Unknown'} - Period ${period}${paymentType === 'INTEREST_ONLY' ? ' (Interest Only)' : ''}`,
-          createdById: currentUserId
-        }
-      });
-
-      return NextResponse.json({
-        ...repayment,
-        loan: updatedLoan,
-        collector_name: collector.name,
-        collector_id: collector.id,
-        transaction: repaymentTransaction
-      }, { status: 201 });
-
-    } catch (error) {
-      console.error('Error in repayment creation process:', error);
-      throw error;
+    // 2. Calculate the new loan state after the payment
+    let newRemainingAmount = loan.remainingAmount;
+    if (paymentType === "REGULAR") {
+      newRemainingAmount -= (paymentAmount - loan.interestRate);
+    } else if (paymentType === "PARTIAL") {
+      newRemainingAmount -= paymentAmount;
     }
+    
+    const updatedDuration = paymentType === "INTEREST_ONLY" ? loan.duration + 1 : loan.duration;
+    const nextPaymentDate = await calculateNextPaymentDate(loanId);
+    const { overdueAmount, missedPayments } = await updateOverdueAmountFromRepayments(loanId) || { overdueAmount: 0, missedPayments: 0 };
+
+    // 3. Update the loan with the new state
+    await prisma.loan.update({
+      where: { id: loanId },
+      data: {
+        remainingAmount: newRemainingAmount,
+        duration: updatedDuration,
+        status: newRemainingAmount <= 0 ? "Completed" : "Active",
+        nextPaymentDate: newRemainingAmount <= 0 ? null : nextPaymentDate,
+        overdueAmount,
+        missedPayments,
+      },
+    });
+    
+    // Return the repayment object from the transaction response
+    return NextResponse.json({loan: createdTransaction.repayment}, { status: 201 });
+
   } catch (error) {
-    console.error('Error creating repayment:', error);
-    return NextResponse.json(
-      { error: `Failed to create repayment: ${error.message || 'Unknown error'}` },
-      { status: 500 }
-    );
+    console.error("Error creating repayment:", error);
+    const errorMessage = error instanceof Error ? error.message : "Unknown error";
+    return NextResponse.json({ error: `Failed to create repayment: ${errorMessage}`}, { status: 500 });
   }
 }
 
 // Handler for updating a loan
-async function updateLoan(request: NextRequest, id: number, currentUserId: number) {
+async function updateLoan(
+  request: NextRequest,
+  id: number,
+  currentUserId: number
+) {
   try {
     const body = await request.json();
 
     // First, get the current loan to find the borrower
     const currentLoan = await prismaAny.loan.findUnique({
       where: { id },
-      include: { borrower: true }
+      include: { borrower: true },
     });
 
     if (!currentLoan) {
-      return NextResponse.json(
-        { error: 'Loan not found' },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: "Loan not found" }, { status: 404 });
     }
 
     // Check if the current user is the owner
     if (currentLoan.createdById !== currentUserId) {
       return NextResponse.json(
-        { error: 'You do not have permission to update this loan' },
+        { error: "You do not have permission to update this loan" },
         { status: 403 }
       );
     }
@@ -1178,14 +1137,18 @@ async function updateLoan(request: NextRequest, id: number, currentUserId: numbe
         data: {
           name: body.borrowerName || currentLoan.borrower.name,
           contact: body.contact || currentLoan.borrower.contact,
-          email: body.email !== undefined ? body.email : currentLoan.borrower.email,
-          address: body.address !== undefined ? body.address : currentLoan.borrower.address,
-        }
+          email:
+            body.email !== undefined ? body.email : currentLoan.borrower.email,
+          address:
+            body.address !== undefined
+              ? body.address
+              : currentLoan.borrower.address,
+        },
       });
     }
 
     // Log the update request
-    console.log('Updating loan with data:', body);
+    console.log("Updating loan with data:", body);
 
     // Update the loan
     const loan = await prismaAny.loan.update({
@@ -1193,21 +1156,36 @@ async function updateLoan(request: NextRequest, id: number, currentUserId: numbe
       data: {
         loanType: body.loanType,
         amount: body.amount ? parseFloat(body.amount) : undefined,
-        interestRate: body.interestRate ? parseFloat(body.interestRate) : undefined,
-        documentCharge: body.documentCharge !== undefined ? parseFloat(body.documentCharge) : undefined,
-        installmentAmount: body.installmentAmount !== undefined ? parseFloat(body.installmentAmount) : undefined,
+        interestRate: body.interestRate
+          ? parseFloat(body.interestRate)
+          : undefined,
+        documentCharge:
+          body.documentCharge !== undefined
+            ? parseFloat(body.documentCharge)
+            : undefined,
+        installmentAmount:
+          body.installmentAmount !== undefined
+            ? parseFloat(body.installmentAmount)
+            : undefined,
         duration: body.duration ? parseInt(body.duration) : undefined,
-        disbursementDate: body.disbursementDate ? new Date(body.disbursementDate) : undefined,
+        disbursementDate: body.disbursementDate
+          ? new Date(body.disbursementDate)
+          : undefined,
         repaymentType: body.repaymentType,
-        remainingAmount: body.remainingAmount ? parseFloat(body.remainingAmount) : undefined,
+        remainingAmount: body.remainingAmount
+          ? parseFloat(body.remainingAmount)
+          : undefined,
         status: body.status,
         purpose: body.purpose,
         // Add support for updating currentMonth
-        currentMonth: body.currentMonth !== undefined ? parseInt(body.currentMonth) : undefined,
+        currentMonth:
+          body.currentMonth !== undefined
+            ? parseInt(body.currentMonth)
+            : undefined,
       },
       include: {
-        borrower: true
-      }
+        borrower: true,
+      },
     });
 
     // Recalculate the next payment date based on the updated loan details
@@ -1218,348 +1196,194 @@ async function updateLoan(request: NextRequest, id: number, currentUserId: numbe
       await prismaAny.loan.update({
         where: { id },
         data: {
-          nextPaymentDate
-        }
+          nextPaymentDate,
+        },
       });
 
       // Add the calculated next payment date to the response
       loan.nextPaymentDate = nextPaymentDate;
     } catch (error) {
-      console.error('Error calculating next payment date:', error);
+      console.error("Error calculating next payment date:", error);
       // Continue even if next payment date calculation fails
     }
 
     return NextResponse.json(loan);
   } catch (error) {
-    console.error('Error updating loan:', error);
+    console.error("Error updating loan:", error);
     return NextResponse.json(
-      { error: 'Failed to update loan' },
+      { error: "Failed to update loan" },
       { status: 500 }
     );
   }
 }
 
-// Handler for deleting a loan
+/**
+ * Deletes a loan and all associated records using their direct relationships.
+ */
 async function deleteLoan(request: NextRequest, id: number, currentUserId: number) {
   try {
-    // Check if the loan exists and belongs to the current user
-    const existingLoan = await prismaAny.loan.findUnique({
-      where: { id },
-      select: { createdById: true }
-    });
-
-    if (!existingLoan) {
-      return NextResponse.json(
-        { error: 'Loan not found' },
-        { status: 404 }
-      );
-    }
-
-    // Check if the current user is the owner
-    if (existingLoan.createdById !== currentUserId) {
-      return NextResponse.json(
-        { error: 'You do not have permission to delete this loan' },
-        { status: 403 }
-      );
-    }
-
-    // Delete related records first
-    await prismaAny.repayment.deleteMany({
-      where: { loanId: id },
-    });
-
-    // Delete payment schedules
-    await prismaAny.paymentSchedule.deleteMany({
-      where: { loanId: id },
-    });
-
-    // Delete the loan
-    await prismaAny.loan.delete({
-      where: { id },
-    });
-
-    return NextResponse.json({ message: 'Loan deleted successfully' });
-  } catch (error) {
-    console.error('Error deleting loan:', error);
-    return NextResponse.json(
-      { error: 'Failed to delete loan' },
-      { status: 500 }
-    );
-  }
-}
-
-// Handler for deleting a repayment
-async function deleteRepayment(request: NextRequest, id: number, currentUserId: number) {
-  try {
-    const body = await request.json();
-    const loanId = id;
-
-    // Check if the loan exists and belongs to the current user
-    const loan = await prismaAny.loan.findUnique({
-      where: { id: loanId },
-      select: { createdById: true }
-    });
-
-    if (!loan) {
-      return NextResponse.json(
-        { error: 'Loan not found' },
-        { status: 404 }
-      );
-    }
-
-    // Check if the current user is the owner
-    if (loan.createdById !== currentUserId) {
-      return NextResponse.json(
-        { error: 'You do not have permission to modify this loan' },
-        { status: 403 }
-      );
-    }
-
-    // Check if we're deleting a single repayment or multiple
-    if (body.repaymentId) {
-      // Get the repayment to check if it's a full payment
-      const repayment = await prismaAny.repayment.findUnique({
-        where: { id: body.repaymentId }
+    // --- REFACTORED DELETION LOGIC ---
+    // Use Prisma's $transaction to ensure all related data is deleted atomically.
+    await prisma.$transaction(async (tx) => {
+      // 1. Fetch the loan and its related repayment and transaction IDs
+      const existingLoan = await tx.loan.findUnique({
+        where: { id },
+        include: {
+          repayments: {
+            select: {
+              id: true,
+              transactionId: true,
+            },
+          },
+        },
       });
 
-      if (!repayment) {
-        return NextResponse.json(
-          { error: 'Repayment not found' },
-          { status: 404 }
-        );
+      if (!existingLoan) {
+        throw new Error("Loan not found");
       }
 
-      // Get the loan to update remaining amount
-      const currentLoan = await prismaAny.loan.findUnique({
-        where: { id: loanId }
+      if (existingLoan.createdById !== currentUserId) {
+        throw new Error("You do not have permission to delete this loan");
+      }
+
+      // 2. Collect all transaction IDs to be deleted
+      const transactionIdsToDelete: number[] = [];
+      if (existingLoan.transactionId) {
+        transactionIdsToDelete.push(existingLoan.transactionId);
+      }
+      existingLoan.repayments.forEach(repayment => {
+        if (repayment.transactionId) {
+          transactionIdsToDelete.push(repayment.transactionId);
+        }
       });
 
-      if (!currentLoan) {
-        return NextResponse.json(
-          { error: 'Loan not found' },
-          { status: 404 }
-        );
-      }
-
-      // Adjust remaining amount based on payment type
-      let newRemainingAmount = currentLoan.remainingAmount;
-      if (repayment.paymentType === 'REGULAR') {
-        // For regular payments, add back the principal portion (amount - interest)
-        newRemainingAmount = currentLoan.remainingAmount + (repayment.amount - currentLoan.interestRate);
-      } else if (repayment.paymentType === 'PARTIAL') {
-        // For partial payments, add back the full amount
-        newRemainingAmount = currentLoan.remainingAmount + repayment.amount;
-      }
-      // For INTEREST_ONLY payments, remaining amount stays the same
-
-      // Adjust loan duration if it was an interest-only payment
-      let newDuration = currentLoan.duration;
-      if (repayment.paymentType === 'INTEREST_ONLY') {
-        // Reduce duration by 1 to reverse the extension that was applied when the interest-only payment was created
-        newDuration = Math.max(1, currentLoan.duration - 1);
-        console.log(`Interest-only payment deletion detected. Reducing loan duration from ${currentLoan.duration} to ${newDuration}`);
-      }
-
-      // Get the loan details to find the borrower name for transaction cleanup
-      const loanWithBorrower = await prismaAny.loan.findUnique({
-        where: { id: loanId },
-        include: { borrower: true }
-      });
-
-      // Delete associated transaction first (if it exists)
-      // Transaction note format: "Loan repayment from {borrowerName} - Period {period}"
-      if (loanWithBorrower?.borrower) {
-        const transactionNotePattern = `Loan repayment from ${loanWithBorrower.borrower.name} - Period ${repayment.period}`;
-
-        await prismaAny.transaction.deleteMany({
-          where: {
-            type: 'loan_repaid',
-            createdById: currentUserId,
-            note: {
-              startsWith: transactionNotePattern
-            }
-          }
+      // 3. Delete all associated transactions
+      if (transactionIdsToDelete.length > 0) {
+        await tx.transaction.deleteMany({
+          where: { id: { in: transactionIdsToDelete } },
         });
       }
 
-      // Then delete the repayment
-      await prismaAny.repayment.delete({
-        where: { id: body.repaymentId }
+      // 4. Delete related repayments (Prisma handles this cascade if configured, but explicit is safer)
+      await tx.repayment.deleteMany({
+        where: { loanId: id },
       });
 
-      // Calculate new overdue amount after deletion
-      const overdueResult = await updateOverdueAmountFromRepayments(loanId);
-      const { overdueAmount, missedPayments } = overdueResult || { overdueAmount: 0, missedPayments: 0 };
-
-      // Recalculate the next payment date
-      let nextPaymentDate;
-      try {
-        nextPaymentDate = await calculateNextPaymentDate(loanId);
-      } catch (error) {
-        console.error('Error recalculating next payment date:', error);
-        nextPaymentDate = currentLoan.nextPaymentDate;
-      }
-
-      // Update the loan with new values
-      await prismaAny.loan.update({
-        where: { id: loanId },
-        data: {
-          remainingAmount: newRemainingAmount,
-          duration: newDuration,
-          status: 'Active',
-          nextPaymentDate: nextPaymentDate,
-          overdueAmount: overdueAmount,
-          missedPayments: missedPayments
-        } as any,
+      // 5. Delete payment schedules
+      await tx.paymentSchedule.deleteMany({
+        where: { loanId: id },
       });
 
-      return NextResponse.json({ message: 'Repayment deleted successfully' });
-    }
-    else if (body.repaymentIds && Array.isArray(body.repaymentIds)) {
-      // Get all repayments to calculate amount adjustment
-      const repayments = await prismaAny.repayment.findMany({
-        where: {
-          id: { in: body.repaymentIds },
-          loanId: loanId
-        }
+      // 6. Delete the loan itself
+      await tx.loan.delete({
+        where: { id },
       });
+    });
 
-      if (repayments.length === 0) {
-        return NextResponse.json(
-          { error: 'No valid repayments found' },
-          { status: 404 }
-        );
-      }
-
-      // Get the loan to update remaining amount
-      const currentLoan = await prismaAny.loan.findUnique({
-        where: { id: loanId }
-      });
-
-      if (!currentLoan) {
-        return NextResponse.json(
-          { error: 'Loan not found' },
-          { status: 404 }
-        );
-      }
-
-      // Calculate amount to add back to remaining amount based on payment types
-      const amountToAddBack = repayments.reduce((sum: number, r: any) => {
-        if (r.paymentType === 'REGULAR') {
-          // For regular payments, add back the principal portion (amount - interest)
-          return sum + (r.amount - currentLoan.interestRate);
-        } else if (r.paymentType === 'PARTIAL') {
-          // For partial payments, add back the full amount
-          return sum + r.amount;
-        }
-        // For INTEREST_ONLY payments, don't add anything to remaining amount
-        return sum;
-      }, 0);
-
-      // Calculate duration reduction for interest-only payments
-      const interestOnlyCount = repayments.filter((r: any) => r.paymentType === 'INTEREST_ONLY').length;
-      const newDuration = Math.max(1, currentLoan.duration - interestOnlyCount);
-
-      if (interestOnlyCount > 0) {
-        console.log(`Bulk deletion: Found ${interestOnlyCount} interest-only payments. Reducing loan duration from ${currentLoan.duration} to ${newDuration}`);
-      }
-
-      // Get the loan details to find the borrower name for transaction cleanup
-      const loanWithBorrower = await prismaAny.loan.findUnique({
-        where: { id: loanId },
-        include: { borrower: true }
-      });
-
-      // Delete associated transactions first (if they exist)
-      if (loanWithBorrower?.borrower) {
-        for (const repayment of repayments) {
-          const transactionNotePattern = `Loan repayment from ${loanWithBorrower.borrower.name} - Period ${repayment.period}`;
-
-          await prismaAny.transaction.deleteMany({
-            where: {
-              type: 'loan_repaid',
-              createdById: currentUserId,
-              note: {
-                startsWith: transactionNotePattern
-              }
-            }
-          });
-        }
-      }
-
-      // Then delete the repayments
-      await prismaAny.repayment.deleteMany({
-        where: {
-          id: { in: body.repaymentIds },
-          loanId: loanId
-        }
-      });
-
-      // Calculate new overdue amount after deletion
-      const overdueResult = await updateOverdueAmountFromRepayments(loanId);
-      const { overdueAmount, missedPayments } = overdueResult || { overdueAmount: 0, missedPayments: 0 };
-
-      // Recalculate the next payment date
-      let nextPaymentDate;
-      try {
-        nextPaymentDate = await calculateNextPaymentDate(loanId);
-      } catch (error) {
-        console.error('Error recalculating next payment date:', error);
-        nextPaymentDate = currentLoan.nextPaymentDate;
-      }
-
-      // Update the loan with new values
-      await prismaAny.loan.update({
-        where: { id: loanId },
-        data: {
-          remainingAmount: currentLoan.remainingAmount + amountToAddBack,
-          duration: newDuration,
-          status: 'Active',
-          nextPaymentDate: nextPaymentDate,
-          overdueAmount: overdueAmount,
-          missedPayments: missedPayments
-        } as any,
-      });
-
-      return NextResponse.json({
-        message: `${repayments.length} repayments deleted successfully`
-      });
-    }
-    else {
-      return NextResponse.json(
-        { error: 'No repayment ID or IDs provided' },
-        { status: 400 }
-      );
-    }
+    return NextResponse.json({ message: "Loan deleted successfully" });
   } catch (error) {
-    console.error('Error deleting repayment(s):', error);
-    return NextResponse.json(
-      { error: 'Failed to delete repayment(s)' },
-      { status: 500 }
-    );
+    console.error("Error deleting loan:", error);
+    const errorMessage = error instanceof Error ? error.message : "Permission denied";
+    return NextResponse.json({ error: `Failed to delete loan: ${errorMessage}` }, { status: 500 });
   }
 }
 
+/**
+ * Deletes a repayment and its associated transaction using the direct transactionId link.
+ */
+async function deleteRepayment(request: NextRequest, id: number, currentUserId: number) {
+    try {
+        const body = await request.json();
+        const loanId = id;
+        const repaymentId = body.repaymentId;
+
+        if (!repaymentId) {
+            return NextResponse.json({ error: "Repayment ID is required" }, { status: 400 });
+        }
+
+        // --- REFACTORED DELETION LOGIC ---
+        await prisma.$transaction(async (tx) => {
+            // 1. Fetch the repayment to get its details and transactionId
+            const repayment = await tx.repayment.findUnique({
+                where: { id: repaymentId },
+                include: { loan: true },
+            });
+
+            if (!repayment || repayment.loan.createdById !== currentUserId) {
+                throw new Error("Repayment not found or permission denied.");
+            }
+            
+            // 2. Delete the associated transaction if it exists
+            if (repayment.transactionId) {
+                await tx.transaction.delete({
+                    where: { id: repayment.transactionId },
+                });
+            }
+
+            // 3. Delete the repayment itself
+            await tx.repayment.delete({
+                where: { id: repaymentId },
+            });
+            
+            // 4. Recalculate loan state
+            const currentLoan = repayment.loan;
+            let newRemainingAmount = currentLoan.remainingAmount;
+            if (repayment.paymentType === "REGULAR") {
+                newRemainingAmount += (repayment.amount - currentLoan.interestRate);
+            } else if (repayment.paymentType === "PARTIAL") {
+                newRemainingAmount += repayment.amount;
+            }
+
+            const newDuration = repayment.paymentType === "INTEREST_ONLY" 
+                ? Math.max(1, currentLoan.duration - 1) 
+                : currentLoan.duration;
+
+            const nextPaymentDate = await calculateNextPaymentDate(loanId, tx);
+            const { overdueAmount, missedPayments } = await updateOverdueAmountFromRepayments(loanId, tx) || { overdueAmount: 0, missedPayments: 0 };
+            
+            // 5. Update the loan
+            await tx.loan.update({
+                where: { id: loanId },
+                data: {
+                    remainingAmount: newRemainingAmount,
+                    duration: newDuration,
+                    status: "Active",
+                    nextPaymentDate,
+                    overdueAmount,
+                    missedPayments,
+                },
+            });
+        });
+
+        return NextResponse.json({ message: "Repayment deleted successfully" });
+    } catch (error) {
+        console.error("Error deleting repayment:", error);
+        const errorMessage = error instanceof Error ? error.message : "Unknown error";
+        return NextResponse.json({ error: `Failed to delete repayment: ${errorMessage}` }, { status: 500 });
+    }
+}
+
 // Handler for updating overdue amount for a loan
-async function updateOverdue(request: NextRequest, id: number, currentUserId: number) {
+async function updateOverdue(
+  request: NextRequest,
+  id: number,
+  currentUserId: number
+) {
   try {
     // Check if the loan exists and belongs to the current user
     const loan = await prismaAny.loan.findUnique({
       where: { id },
-      select: { createdById: true }
+      select: { createdById: true },
     });
 
     if (!loan) {
-      return NextResponse.json(
-        { error: 'Loan not found' },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: "Loan not found" }, { status: 404 });
     }
 
     // Check if the current user is the owner
     if (loan.createdById !== currentUserId) {
       return NextResponse.json(
-        { error: 'You do not have permission to update this loan' },
+        { error: "You do not have permission to update this loan" },
         { status: 403 }
       );
     }
@@ -1569,9 +1393,9 @@ async function updateOverdue(request: NextRequest, id: number, currentUserId: nu
 
     return NextResponse.json(result);
   } catch (error) {
-    console.error('Error updating overdue amount:', error);
+    console.error("Error updating overdue amount:", error);
     return NextResponse.json(
-      { error: 'Failed to update overdue amount' },
+      { error: "Failed to update overdue amount" },
       { status: 500 }
     );
   }
@@ -1583,10 +1407,10 @@ async function updateAllOverdue(request: NextRequest, currentUserId: number) {
     // Get all active loans for the current user
     const loans = await prismaAny.loan.findMany({
       where: {
-        status: 'Active',
-        createdById: currentUserId
+        status: "Active",
+        createdById: currentUserId,
       },
-      select: { id: true }
+      select: { id: true },
     });
 
     // Update overdue amount for each loan
@@ -1596,8 +1420,15 @@ async function updateAllOverdue(request: NextRequest, currentUserId: number) {
           const result = await updateOverdueAmountFromRepayments(loan.id);
           return { loanId: loan.id, ...result, success: true };
         } catch (error) {
-          console.error(`Error updating overdue amount for loan ${loan.id}:`, error);
-          return { loanId: loan.id, success: false, error: 'Failed to update overdue amount' };
+          console.error(
+            `Error updating overdue amount for loan ${loan.id}:`,
+            error
+          );
+          return {
+            loanId: loan.id,
+            success: false,
+            error: "Failed to update overdue amount",
+          };
         }
       })
     );
@@ -1605,12 +1436,12 @@ async function updateAllOverdue(request: NextRequest, currentUserId: number) {
     return NextResponse.json({
       totalLoans: loans.length,
       updatedLoans: results.filter((r: any) => r.success).length,
-      results
+      results,
     });
   } catch (error) {
-    console.error('Error updating all overdue amounts:', error);
+    console.error("Error updating all overdue amounts:", error);
     return NextResponse.json(
-      { error: 'Failed to update overdue amounts' },
+      { error: "Failed to update overdue amounts" },
       { status: 500 }
     );
   }

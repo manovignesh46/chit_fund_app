@@ -4,6 +4,7 @@
 import React, { useState, useEffect, ChangeEvent, FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { usePartner } from '../../contexts/PartnerContext';
 
 // Define interfaces for global member
 interface GlobalMember {
@@ -53,6 +54,10 @@ export default function NewLoanPage() {
   const router = useRouter();
   // Get today's date in YYYY-MM-DD format for the date input
   const today = new Date().toISOString().split('T')[0];
+
+    // Call usePartner at the top level of the component
+  const { selectedPartner, loading: partnersLoading } = usePartner(); // Destructure what you need, rename loading to avoid conflict
+
 
   const [formData, setFormData] = useState<LoanFormData>({
     globalMemberId: '',
@@ -274,6 +279,8 @@ export default function NewLoanPage() {
         status: 'Active',
       };
 
+      const partnerHeaderValue = selectedPartner ? selectedPartner.name.toString() : '';
+
       // Log the data being sent to the API
       console.log('Sending loan data to API:', JSON.stringify(loanData, null, 2));
 
@@ -282,6 +289,7 @@ export default function NewLoanPage() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'x-active-partner': partnerHeaderValue
         },
         body: JSON.stringify(loanData),
       });
