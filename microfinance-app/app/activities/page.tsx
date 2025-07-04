@@ -213,7 +213,7 @@ export default function ActivitiesPage() {
         </div>
 
         {/* Activities Table */}
-        <div className="bg-white rounded-lg shadow-md overflow-hidden">
+        <div className="bg-white rounded-lg shadow-md overflow-x-auto w-full">
           {activities.length === 0 ? (
             <div className="text-center py-8">
               <div className="text-gray-400 mb-4">

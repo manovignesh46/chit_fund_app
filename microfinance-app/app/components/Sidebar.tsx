@@ -150,7 +150,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
         }}
       >
         {/* Sidebar Header */}
-        <div className="flex items-center justify-between p-4 border-b border-gray-200 bg-blue-600 text-white">
+        <div className="flex items-center justify-between py-3 px-4 border-b border-gray-200 bg-blue-600 text-white">
           <div className="flex items-center overflow-hidden">
             {isExpanded ? (
               <h2 className="text-lg font-bold whitespace-nowrap">AM Fincorp</h2>

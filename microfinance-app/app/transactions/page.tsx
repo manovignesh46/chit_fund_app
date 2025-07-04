@@ -10,7 +10,8 @@ export default function TransactionsPage() {
   const [refreshList, setRefreshList] = useState(false);
   const { selectedPartner, partners } = usePartner();
   const [selectedPartnerId, setSelectedPartnerId] = useState('ALL');
-
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
   // Only show transaction history for the active/selected partner, with filter and pagination
   const [filterType, setFilterType] = useState('');
   const [filterMember, setFilterMember] = useState('');
@@ -65,6 +66,10 @@ export default function TransactionsPage() {
         filterType={filterType}
         filterMember={filterMember}
         activePartner={selectedPartnerId !== 'ALL' ? selectedPartnerId : undefined}
+        currentPage={currentPage}
+        setCurrentPage={setCurrentPage}
+        pageSize={pageSize}
+        setPageSize={setPageSize}
       />
     </div>
   );

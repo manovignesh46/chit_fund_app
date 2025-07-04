@@ -25,11 +25,19 @@ interface TransactionListProps {
   filterMember?: string;
 }
 
-export function TransactionList(props: TransactionListProps & { activePartner?: string }) {
+export function TransactionList(props: TransactionListProps & {
+  activePartner?: string,
+  currentPage: number,
+  setCurrentPage: (page: number) => void,
+  pageSize: number,
+  setPageSize: (size: number) => void,
+}) {
   const {
     refresh,
-    page = 1,
-    pageSize = 10,
+    currentPage,
+    setCurrentPage,
+    pageSize,
+    setPageSize,
     filterType = '',
     filterMember = '',
     activePartner,
@@ -38,7 +46,6 @@ export function TransactionList(props: TransactionListProps & { activePartner?: 
   const [transactions, setTransactions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
 
@@ -150,7 +157,27 @@ export function TransactionList(props: TransactionListProps & { activePartner?: 
                     )}
                   </div>
                   <div className="font-medium">
-                    {formatCurrency(t.amount)}
+                    <span
+                      className={(() => {
+                        if (partnerToUse) {
+                          if (t.to_partner && t.to_partner === partnerToUse) return 'text-green-600 font-bold';
+                          if (t.from_partner && t.from_partner === partnerToUse) return 'text-red-600 font-bold';
+                          if (t.type === 'loan_repaid' || t.type === 'LOAN_REPAYMENT') return 'text-green-600 font-bold';
+                          if (t.type === 'loan_given' || t.type === 'LOAN_DISBURSEMENT') return 'text-red-600 font-bold';
+                          return 'text-gray-900';
+                        } else {
+                          // All Partners: PARTNER_TO_PARTNER is blue
+                          if (t.type === 'PARTNER_TO_PARTNER' || t.type === 'transfer') return 'text-blue-600 font-bold';
+                          if (typeof t.amount === 'number') {
+                            if (t.amount > 0) return 'text-green-600 font-bold';
+                            if (t.amount < 0) return 'text-red-600 font-bold';
+                          }
+                          return 'text-gray-900';
+                        }
+                      })()}
+                    >
+                      {formatCurrency(t.amount)}
+                    </span>
                   </div>
                 </div>
                 <div className="text-xs text-gray-500 mt-1">
@@ -171,25 +198,21 @@ export function TransactionList(props: TransactionListProps & { activePartner?: 
                   <label htmlFor="pageSize" className="text-xs sm:text-sm text-gray-600 mr-2">
                     Show:
                   </label>
-                  <select
-                    id="pageSize"
-                    value={pageSize}
-                    onChange={(e) => {
-                      props.pageSize && props.pageSize !== Number(e.target.value) && setCurrentPage(1);
-                      // If parent controls pageSize, call a callback here instead
-                      // Otherwise, update local state
-                      // For now, just update local state
-                      // setPageSize(Number(e.target.value));
-                      // setCurrentPage(1);
-                    }}
-                    className="border border-gray-300 rounded-md text-xs sm:text-sm py-1 pl-2 pr-8"
-                  >
-                    <option value="5">5</option>
-                    <option value="10">10</option>
-                    <option value="20">20</option>
-                    <option value="50">50</option>
-                    <option value="100">100</option>
-                  </select>
+                    <select
+                      id="pageSize"
+                      value={pageSize}
+                      onChange={(e) => {
+                        setPageSize(Number(e.target.value));
+                        setCurrentPage(1);
+                      }}
+                      className="border border-gray-300 rounded-md text-xs sm:text-sm py-1 pl-2 pr-8"
+                    >
+                      <option value="5">5</option>
+                      <option value="10">10</option>
+                      <option value="20">20</option>
+                      <option value="50">50</option>
+                      <option value="100">100</option>
+                    </select>
                 </div>
               </div>
 
@@ -207,7 +230,7 @@ export function TransactionList(props: TransactionListProps & { activePartner?: 
                       <span className="text-xs">First</span>
                     </button>
                     <button
-                      onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                      onClick={() => setCurrentPage(Math.max(currentPage - 1, 1))}
                       disabled={currentPage === 1}
                       className={`relative inline-flex items-center px-2 py-2 ${
                         currentPage === 1 ? 'text-gray-300 cursor-not-allowed' : 'text-gray-500 hover:bg-gray-50'
@@ -248,7 +271,7 @@ export function TransactionList(props: TransactionListProps & { activePartner?: 
                     })}
 
                     <button
-                      onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                      onClick={() => setCurrentPage(Math.min(currentPage + 1, totalPages))}
                       disabled={currentPage === totalPages}
                       className={`relative inline-flex items-center px-2 py-2 ${
                         currentPage === totalPages ? 'text-gray-300 cursor-not-allowed' : 'text-gray-500 hover:bg-gray-50'
