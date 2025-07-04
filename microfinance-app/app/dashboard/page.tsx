@@ -490,15 +490,15 @@ export default function DashboardPage() {
                   </div>
                   <div className="flex space-x-2">
                     <a
-                      href={`/api/dashboard/consolidated?action=export&duration=${selectedDuration}&limit=${selectedDuration === 'weekly' ? 8 : selectedDuration === 'monthly' ? 12 : 5}`}
+                      href={`/api/dashboard/consolidated?action=export&duration=${selectedDuration}&limit=100`}
                       download={`financial_data_${selectedDuration}_${new Date().toISOString().split('T')[0]}.xlsx`}
                       className="flex items-center px-3 py-1 text-sm bg-green-600 text-white rounded-md hover:bg-green-700 transition duration-300"
-                      title={`Export ${selectedDuration} financial data to Excel`}
+                      title={`Export ALL ${selectedDuration} financial data to Excel`}
                     >
                       <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                       </svg>
-                      Export
+                      Export (All)
                     </a>
                     <button
                       onClick={() => setShowEmailModal(true)}

@@ -55,7 +55,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
         <Header onMenuToggle={toggleSidebar} />
 
         {/* Page Content */}
-        <main className="py-3 pr-3 sm:py-4 sm:pr-4 overflow-x-hidden">
+        <main className="pt-4 pr-3 sm:pt-4 sm:pr-4 overflow-x-hidden min-h-[calc(100vh-4rem)]">
           {children}
         </main>
       </div>

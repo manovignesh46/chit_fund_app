@@ -325,43 +325,135 @@ export async function getFinancialDataForExport(userId: number, startDate: Date,
   // Sort transactions by date
   transactions.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
-  // For single period, create one period data entry
-  const periodLabel = duration === 'single' ? 'Custom Period' :
-                     duration === 'monthly' ? startDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' }) :
-                     duration === 'weekly' ? `Week of ${formatDate(startDate)}` : 'Period';
 
-  // Calculate period-specific data using centralized calculations
-  const periodRange = createPeriodRange(startDate, endDate);
-  const periodMetrics = calculatePeriodFinancialMetrics(
-    loansWithRepayments,
-    chitFundsWithDetails as any,
-    loans.map(l => ({ id: l.id, amount: l.amount, documentCharge: l.documentCharge })),
-    periodRange
-  );
+  // Generate periodsData for all periods (monthly, weekly, yearly)
+  let periodsData = [];
+  if (duration === 'single') {
+    // Single period export (custom range)
+    const periodLabel = 'Custom Period';
+    const periodRange = createPeriodRange(startDate, endDate);
+    const periodMetrics = calculatePeriodFinancialMetrics(
+      loansWithRepayments,
+      chitFundsWithDetails as any,
+      loans.map(l => ({ id: l.id, amount: l.amount, documentCharge: l.documentCharge })),
+      periodRange
+    );
+    periodsData.push({
+      period: periodLabel,
+      cashInflow: totalCashInflow,
+      cashOutflow: totalCashOutflow,
+      profit: totalProfit,
+      loanProfit: loanProfit,
+      chitFundProfit: chitFundProfit,
+      outsideAmount: outsideAmount,
+      loanCashInflow: repayments.reduce((sum, r) => sum + r.amount, 0),
+      loanCashOutflow: loans.reduce((sum, l) => sum + l.amount, 0),
+      documentCharges: periodMetrics.documentCharges,
+      interestProfit: periodMetrics.interestPayments,
+      numberOfLoans: loans.length,
+      chitFundCashInflow: contributions.reduce((sum, c) => sum + c.amount, 0),
+      chitFundCashOutflow: auctions.reduce((sum, a) => sum + a.amount, 0),
+      numberOfChitFunds: chitFundsWithDetails.length,
+      periodRange: {
+        startDate: startDate.toISOString(),
+        endDate: endDate.toISOString()
+      }
+    });
+  } else {
+    // Multi-period export (monthly, weekly, yearly)
+    let current = new Date(startDate);
+    let periodIdx = 0;
+    while (current <= endDate && periodIdx < 1000) { // safety limit
+      let periodStart = new Date(current);
+      let periodEnd = new Date(current);
+      let periodLabel = '';
+      if (duration === 'monthly') {
+        periodLabel = periodStart.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+        periodEnd.setMonth(periodEnd.getMonth() + 1);
+        periodEnd.setDate(0); // last day of month
+      } else if (duration === 'yearly') {
+        periodLabel = periodStart.getFullYear().toString();
+        periodEnd.setFullYear(periodEnd.getFullYear() + 1);
+        periodEnd.setMonth(0); periodEnd.setDate(0); // last day prev year
+        periodEnd.setMonth(11); periodEnd.setDate(31); // last day of year
+      } else if (duration === 'weekly') {
+        const weekStart = new Date(periodStart);
+        const weekEnd = new Date(periodStart);
+        weekEnd.setDate(weekEnd.getDate() + 6);
+        periodLabel = `Week of ${formatDate(weekStart)}`;
+        periodEnd = weekEnd;
+      }
+      if (periodEnd > endDate) periodEnd = new Date(endDate);
 
-  const periodsData = [{
-    period: periodLabel,
-    cashInflow: totalCashInflow,
-    cashOutflow: totalCashOutflow,
-    profit: totalProfit,
-    loanProfit: loanProfit,
-    chitFundProfit: chitFundProfit,
-    outsideAmount: outsideAmount,
-    // Loan-specific data
-    loanCashInflow: repayments.reduce((sum, r) => sum + r.amount, 0),
-    loanCashOutflow: loans.reduce((sum, l) => sum + l.amount, 0),
-    documentCharges: periodMetrics.documentCharges,
-    interestProfit: periodMetrics.interestPayments,
-    numberOfLoans: loans.length,
-    // Chit fund-specific data
-    chitFundCashInflow: contributions.reduce((sum, c) => sum + c.amount, 0),
-    chitFundCashOutflow: auctions.reduce((sum, a) => sum + a.amount, 0),
-    numberOfChitFunds: chitFundsWithDetails.length,
-    periodRange: {
-      startDate: startDate.toISOString(),
-      endDate: endDate.toISOString()
+      // Filter transactions for this period
+      const periodContributions = contributions.filter(c => new Date(c.paidDate) >= periodStart && new Date(c.paidDate) <= periodEnd);
+      const periodRepayments = repayments.filter(r => new Date(r.paidDate) >= periodStart && new Date(r.paidDate) <= periodEnd);
+      const periodAuctions = auctions.filter(a => new Date(a.date) >= periodStart && new Date(a.date) <= periodEnd);
+      const periodLoans = loans.filter(l => new Date(l.disbursementDate) >= periodStart && new Date(l.disbursementDate) <= periodEnd);
+      const periodLoansWithRepayments = loansWithRepayments.filter(l => {
+        return (l.disbursementDate && new Date(l.disbursementDate) >= periodStart && new Date(l.disbursementDate) <= periodEnd) ||
+          (l.repayments && l.repayments.some(r => new Date(r.paidDate) >= periodStart && new Date(r.paidDate) <= periodEnd));
+      });
+      const periodChitFunds = (chitFundsWithDetails as any).filter((fund: any) => {
+        if (fund.contributions && fund.contributions.some((c: any) => new Date(c.paidDate) >= periodStart && new Date(c.paidDate) <= periodEnd)) return true;
+        return fund.auctions && fund.auctions.some((a: any) => new Date(a.date) >= periodStart && new Date(a.date) <= periodEnd);
+      });
+
+      const periodRange = createPeriodRange(periodStart, periodEnd);
+      const periodMetrics = calculatePeriodFinancialMetrics(
+        periodLoansWithRepayments,
+        periodChitFunds as any,
+        periodLoans.map(l => ({ id: l.id, amount: l.amount, documentCharge: l.documentCharge })),
+        periodRange
+      );
+
+      const periodCashInflow = periodContributions.reduce((sum, c) => sum + c.amount, 0) + periodRepayments.reduce((sum, r) => sum + r.amount, 0);
+      const periodCashOutflow = periodAuctions.reduce((sum, a) => sum + a.amount, 0) + periodLoans.reduce((sum, l) => sum + l.amount, 0);
+      const periodLoanProfit = periodMetrics.loanProfit;
+      const periodChitFundProfit = periodMetrics.chitFundProfit;
+      const periodProfit = periodLoanProfit + periodChitFundProfit;
+      const periodOutsideAmount = periodCashOutflow > periodCashInflow ? periodCashOutflow - periodCashInflow : 0;
+
+      // Only include periods with actual data (either inflow or outflow is non-zero)
+      if (periodCashInflow !== 0 || periodCashOutflow !== 0) {
+        periodsData.push({
+          period: periodLabel,
+          cashInflow: periodCashInflow,
+          cashOutflow: periodCashOutflow,
+          profit: periodProfit,
+          loanProfit: periodLoanProfit,
+          chitFundProfit: periodChitFundProfit,
+          outsideAmount: periodOutsideAmount,
+          loanCashInflow: periodRepayments.reduce((sum, r) => sum + r.amount, 0),
+          loanCashOutflow: periodLoans.reduce((sum, l) => sum + l.amount, 0),
+          documentCharges: periodMetrics.documentCharges,
+          interestProfit: periodMetrics.interestPayments,
+          numberOfLoans: periodLoans.length,
+          chitFundCashInflow: periodContributions.reduce((sum, c) => sum + c.amount, 0),
+          chitFundCashOutflow: periodAuctions.reduce((sum, a) => sum + a.amount, 0),
+          numberOfChitFunds: periodChitFunds.length,
+          periodRange: {
+            startDate: periodStart.toISOString(),
+            endDate: periodEnd.toISOString()
+          }
+        });
+      }
+
+      // Move to next period
+      if (duration === 'monthly') {
+        current.setMonth(current.getMonth() + 1);
+        current.setDate(1);
+      } else if (duration === 'yearly') {
+        current.setFullYear(current.getFullYear() + 1);
+        current.setMonth(0); current.setDate(1);
+      } else if (duration === 'weekly') {
+        current.setDate(current.getDate() + 7);
+      } else {
+        break;
+      }
+      periodIdx++;
     }
-  }];
+  }
 
   return {
     totalCashInflow,

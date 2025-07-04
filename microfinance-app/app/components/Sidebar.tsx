@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import SidebarUserMenu from './SidebarUserMenu';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { PartnerSelector } from '../contexts/PartnerContext';
@@ -150,7 +151,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
         }}
       >
         {/* Sidebar Header */}
-        <div className="flex items-center justify-between py-3 px-4 border-b border-gray-200 bg-blue-600 text-white">
+        <div className="flex items-center justify-between h-16 min-h-16 px-4 border-b border-gray-200 bg-blue-600 text-white">
           <div className="flex items-center overflow-hidden">
             {isExpanded ? (
               <h2 className="text-lg font-bold whitespace-nowrap">AM Fincorp</h2>
@@ -171,10 +172,9 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
           </button>
         </div>
 
-        {/* Partner Selector - Always show on mobile, conditionally on desktop */}
+        {/* User Menu moved from Header */}
         <div className={`p-4 border-b border-gray-200 bg-gray-50 ${isExpanded ? 'block' : 'lg:hidden block'}`}>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Active Partner</label>
-          <PartnerSelector variant="sidebar" />
+          <SidebarUserMenu />
         </div>
 
         {/* Navigation */}

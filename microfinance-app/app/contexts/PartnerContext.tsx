@@ -23,7 +23,7 @@ interface PartnerContextType {
   otherPartner: string;
 }
 
-const PartnerContext = createContext<PartnerContextType | undefined>(undefined);
+const PartnerContext = createContext(undefined);
 
 interface PartnerProviderProps {
   children: React.ReactNode;
@@ -31,10 +31,10 @@ interface PartnerProviderProps {
 
 export function PartnerProvider({ children }: PartnerProviderProps) {
   const router = useRouter();
-  const [selectedPartner, setSelectedPartner] = useState<Partner | null>(null);
-  const [partners, setPartners] = useState<Partner[]>([]);
+  const [selectedPartner, setSelectedPartner] = useState(null);
+  const [partners, setPartners] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState(null);
   const [showPartnerModal, setShowPartnerModal] = useState(false);
 
   const refreshPartners = async (retryCount = 0) => {
@@ -188,26 +188,7 @@ export function PartnerSelector({
     setSelectedPartner(partner || null);
   };
 
-  if (variant === 'header') {
-    return (
-      <div className={className}>
-        <label className="block text-sm font-medium text-white mb-1">
-          {label}
-        </label>
-        <select
-          value={selectedPartner?.id || ''}
-          onChange={selectPartnerHandler}
-          className="block w-full px-3 py-1.5 bg-blue-700 border border-blue-500 rounded-md text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-300 focus:border-blue-300"
-        >
-          {partners.map(partner => (
-            <option key={partner.id} value={partner.id}>
-              {partner.name}
-            </option>
-          ))}
-        </select>
-      </div>
-    );
-  }
+  // Remove header variant, use default for all
 
   if (variant === 'sidebar') {
     return (
@@ -229,21 +210,31 @@ export function PartnerSelector({
   }
 
   return (
-    <div className={className}>
-      <label className="block text-sm font-medium text-gray-700 mb-2">
-        {label}
-      </label>
-      <select
-        value={selectedPartner?.id || ''}
-        onChange={selectPartnerHandler}
-        className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-      >
-        {partners.map(partner => (
-          <option key={partner.id} value={partner.id}>
-            {partner.name}
-          </option>
-        ))}
-      </select>
+    <div className={`flex flex-row items-center gap-2 ${className}`.trim()}>
+      {label && (
+        <label className="block text-sm font-medium text-gray-700 mr-1 mb-0 whitespace-nowrap">
+          {label}
+        </label>
+      )}
+      <div className="relative">
+        <select
+          value={selectedPartner?.id || ''}
+          onChange={selectPartnerHandler}
+          className="block px-3 py-2 pr-8 border border-blue-500 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-blue-600 bg-white text-gray-900 font-medium transition-all duration-150 appearance-none hover:border-blue-600"
+          style={{ minWidth: 160 }}
+        >
+          {partners.map(partner => (
+            <option key={partner.id} value={partner.id}>
+              {partner.name}
+            </option>
+          ))}
+        </select>
+        <span className="pointer-events-none absolute inset-y-0 right-2 flex items-center text-blue-500">
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+          </svg>
+        </span>
+      </div>
     </div>
   );
 }

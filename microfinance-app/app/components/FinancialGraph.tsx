@@ -382,7 +382,7 @@ const FinancialGraph: React.FC<FinancialGraphProps> = ({ data, loading, error })
 
             <div className="flex flex-col sm:flex-row justify-end items-stretch sm:items-center gap-3 mt-4 pt-4 border-t border-gray-200">
               <a
-                href={`/api/dashboard/financial-data/export?duration=single&period=${encodeURIComponent(selectedPeriod.period)}&startDate=${encodeURIComponent(selectedPeriod.periodRange.startDate)}&endDate=${encodeURIComponent(selectedPeriod.periodRange.endDate)}`}
+                href={`/api/dashboard/consolidated?action=export&duration=single&period=${encodeURIComponent(selectedPeriod.period)}&startDate=${encodeURIComponent(selectedPeriod.periodRange.startDate)}&endDate=${encodeURIComponent(selectedPeriod.periodRange.endDate)}`}
                 download={`financial_details_${selectedPeriod.period.replace(/\s+/g, '_')}.xlsx`}
                 className="flex items-center justify-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition duration-300 w-full sm:w-auto text-sm font-medium"
                 title="Export this period's financial details to Excel"
