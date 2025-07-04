@@ -11,6 +11,7 @@ export async function GET(request: NextRequest) {
     const pageSize = parseInt(searchParams.get('pageSize') || '10');
     const type = searchParams.get('type');
     const partner = searchParams.get('partner');
+    const member = searchParams.get('member');
     const startDate = searchParams.get('startDate');
     const endDate = searchParams.get('endDate');
 
@@ -51,6 +52,15 @@ export async function GET(request: NextRequest) {
         { action_performer: partner },
         { entered_by: partner }
       ];
+    }
+
+    // Partial/case-insensitive filter for member name (search in note field as fallback)
+    if (member) {
+      // Only filter in the note column for member search
+      where.note = {
+        contains: member,
+        mode: 'insensitive',
+      };
     }
 
     if (startDate) {

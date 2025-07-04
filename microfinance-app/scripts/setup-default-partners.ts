@@ -20,8 +20,8 @@ async function main() {
 
       // Define default partners with unique codes
       const defaultPartners = [
-        { name: 'Me', code: 'SELF', isActive: true },
-        { name: 'Collection Agent', code: 'AGENT', isActive: true },
+        { name: 'Mano', code: 'ADMIN', isActive: true },
+        { name: 'Arul', code: 'PARTNER', isActive: true },
       ];
 
       for (const partnerData of defaultPartners) {

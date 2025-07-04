@@ -37,14 +37,30 @@ export function PartnerProvider({ children }: PartnerProviderProps) {
   const [error, setError] = useState<string | null>(null);
   const [showPartnerModal, setShowPartnerModal] = useState(false);
 
-  const refreshPartners = async () => {
+  const refreshPartners = async (retryCount = 0) => {
     try {
       setLoading(true);
       setError(null);
       const response = await fetch('/api/partners');
+      const contentType = response.headers.get('content-type');
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to fetch partners');
+        // Try to parse error as JSON, fallback to text
+        let errorMsg = 'Failed to fetch partners';
+        if (contentType && contentType.includes('application/json')) {
+          const errorData = await response.json();
+          errorMsg = errorData.error || errorMsg;
+        } else {
+          const text = await response.text();
+          if (text.startsWith('<!DOCTYPE')) {
+            errorMsg = 'Server returned HTML (possible server error or not authenticated)';
+          } else {
+            errorMsg = text;
+          }
+        }
+        throw new Error(errorMsg);
+      }
+      if (!contentType || !contentType.includes('application/json')) {
+        throw new Error('Server did not return JSON. Possible session timeout or server error.');
       }
       const data = await response.json();
       setPartners(data.partners || []);
@@ -57,11 +73,24 @@ export function PartnerProvider({ children }: PartnerProviderProps) {
         );
         if (savedPartner) {
           setSelectedPartner(savedPartner);
+        } else {
+          // Clear invalid localStorage if partner not found
+          localStorage.removeItem('selectedPartnerId');
+          localStorage.removeItem('selectedPartnerName');
+          setSelectedPartner(null);
         }
       }
     } catch (err) {
+      const errMsg = err instanceof Error ? err.message : 'Failed to fetch partners';
+      // Auto-retry if the error is about not getting JSON and we haven't retried too many times
+      if (errMsg.includes('Server did not return JSON') && retryCount < 3) {
+        setTimeout(() => {
+          refreshPartners(retryCount + 1);
+        }, 700); // 700ms delay between retries
+        return;
+      }
       console.error('Error fetching partners:', err);
-      setError(err instanceof Error ? err.message : 'Failed to fetch partners');
+      setError(errMsg);
     } finally {
       setLoading(false);
     }
@@ -92,6 +121,13 @@ export function PartnerProvider({ children }: PartnerProviderProps) {
       }
     }
   }, [loading, partners, selectedPartner]);
+
+  // Fallback: If partners are loaded and still no partner is selected, always show modal
+  useEffect(() => {
+    if (!loading && partners.length > 0 && !selectedPartner && !showPartnerModal) {
+      setShowPartnerModal(true);
+    }
+  }, [loading, partners, selectedPartner, showPartnerModal]);
 
   // Calculate activePartner and otherPartner for transaction components
   const activePartner = selectedPartner?.name || 'Me';

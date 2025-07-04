@@ -14,7 +14,7 @@ export default function PartnerSelectionModal({
   onClose, 
   onPartnerSelected 
 }: PartnerSelectionModalProps) {
-  const { partners, selectedPartner, setSelectedPartner, loading } = usePartner();
+  const { partners, selectedPartner, setSelectedPartner, loading, error, refreshPartners } = usePartner();
   const [tempSelectedPartner, setTempSelectedPartner] = useState<number | null>(null);
 
   useEffect(() => {
@@ -65,6 +65,20 @@ export default function PartnerSelectionModal({
             </svg>
           </button>
         </div>
+
+        {/* Error message and retry button */}
+        {error && (
+          <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm flex flex-col items-center">
+            <span>{error}</span>
+            <button
+              onClick={refreshPartners}
+              className="mt-2 px-3 py-1 bg-red-600 text-white rounded hover:bg-red-700 transition disabled:opacity-50"
+              disabled={loading}
+            >
+              Retry
+            </button>
+          </div>
+        )}
 
         <div className="mb-6">
           <p className="text-gray-600 mb-4">

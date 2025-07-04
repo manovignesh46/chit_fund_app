@@ -3,6 +3,9 @@
 import React, { useState, useEffect } from 'react';
 import { usePartner } from '../contexts/PartnerContext';
 import PartnerBalanceCard from '../components/partners/PartnerBalanceCard';
+import PartnerSelector from '../components/partners/PartnerSelector';
+import TransactionForm from '../components/TransactionForm';
+import TransactionList from '../components/TransactionList';
 
 interface PartnerWithBalance {
   id: number;
@@ -113,34 +116,14 @@ export default function PartnerManagementPage() {
         <h1 className="text-2xl sm:text-3xl font-bold text-blue-700">Partner Management</h1>
       </div>
 
-      {/* Add Partner Form - Temporarily Hidden */}
-      {false && (
-        <div className="bg-white rounded-lg shadow-md p-4 sm:p-6 mb-8">
-          <h2 className="text-lg sm:text-xl font-semibold text-blue-700 mb-4">Add New Partner</h2>
-          <form onSubmit={handleSubmit} className="flex flex-col sm:flex-row gap-4">
-            <input
-              type="text"
-              value={newPartnerName}
-              onChange={(e) => setNewPartnerName(e.target.value)}
-              placeholder="Enter partner name"
-              className="flex-1 px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
-            <button
-              type="submit"
-              disabled={isSubmitting || !newPartnerName.trim()}
-              className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-300 disabled:opacity-50"
-            >
-              {isSubmitting ? 'Adding...' : 'Add Partner'}
-            </button>
-          </form>
-          {submitError && (
-            <p className="mt-2 text-red-600 text-sm">{submitError}</p>
-          )}
-        </div>
-      )}
+      {/* Partner Selector */}
+      <div className="mb-6 max-w-xs">
+        <h2 className="text-lg font-semibold text-blue-700 mb-2">Select Partner</h2>
+        <PartnerSelector />
+      </div>
 
       {/* Partners Balance Cards */}
-      <div className="space-y-6">
+      <div className="space-y-6 mb-10">
         <div className="flex items-center justify-between">
           <h2 className="text-lg sm:text-xl font-semibold text-blue-700">Partner Balances</h2>
           {loadingBalances && (
@@ -156,7 +139,7 @@ export default function PartnerManagementPage() {
             <p className="text-gray-500">No partners found. Add a partner to get started.</p>
           </div>
         ) : (
-          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-4 grid-cols-2 md:grid-cols-2 lg:grid-cols-3">
             {partnersWithBalances.map((partner) => (
               <PartnerBalanceCard
                 key={partner.id}
@@ -167,6 +150,13 @@ export default function PartnerManagementPage() {
           </div>
         )}
       </div>
+
+      {/* Record Manual Transaction Form */}
+      <div className="bg-white rounded-lg shadow-md p-6 max-w-xl mb-10">
+        <TransactionForm />
+      </div>
+
+      {/* Transaction Section removed as per request */}
     </div>
   );
 }

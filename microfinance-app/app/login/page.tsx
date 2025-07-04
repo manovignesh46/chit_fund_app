@@ -48,9 +48,15 @@ function LoginForm() {
     try {
       const response = await authAPI.login(email, password);
 
-      // Redirect to the requested page or dashboard
+      // Clear selected partner from localStorage to force modal after login
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('selectedPartnerId');
+        localStorage.removeItem('selectedPartnerName');
+      }
+
+      // Redirect to the requested page or dashboard (force full reload to ensure session is set)
       const from = searchParams.get('from') || '/dashboard';
-      router.push(from);
+      window.location.href = from;
     } catch (error: any) {
       console.error('Login error:', error);
       setError(error.message || 'Login failed. Please try again.');

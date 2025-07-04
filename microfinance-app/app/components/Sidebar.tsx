@@ -216,7 +216,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
         {/* Footer */}
         <div className="p-4 border-t border-gray-200 bg-gray-50">
           <div className="text-xs text-gray-500 text-center">
-            Microfinance & Chit Fund Management
+            AM Fincorp
           </div>
         </div>
       </div>
