@@ -14,6 +14,10 @@ export async function GET(request: NextRequest) {
     const member = searchParams.get('member');
     const startDate = searchParams.get('startDate');
     const endDate = searchParams.get('endDate');
+    // Advanced filter params
+    const advType = searchParams.get('advType');
+    const advMember = searchParams.get('advMember');
+    const advEntity = searchParams.get('advEntity');
 
     // Get the current user ID
     const currentUserId = await getCurrentUserId(request);
@@ -33,6 +37,21 @@ export async function GET(request: NextRequest) {
     const where: any = {
       createdById: currentUserId
     };
+
+    // Advanced filter logic
+    if (advType && advMember && advEntity) {
+      if (advType === 'loan') {
+        // Find transactions linked to this loan
+        where.loan = { id: parseInt(advEntity) };
+      } else if (advType === 'chit') {
+        // Find transactions linked to this chit fund (via contribution or auction)
+        // Contribution
+        where.OR = [
+          { contribution: { chitFundId: parseInt(advEntity), member: { globalMemberId: parseInt(advMember) } } },
+          { auction: { chitFundId: parseInt(advEntity) } }
+        ];
+      }
+    }
 
     // Check if this is a request for partner transactions page (only manual transfers)
     const showOnlyManualTransfers = searchParams.get('manualOnly') === 'true';
@@ -86,6 +105,11 @@ export async function GET(request: NextRequest) {
       orderBy: { createdAt: 'desc' },
       skip,
       take: validPageSize,
+      include: {
+        loan: true,
+        contribution: { include: { member: true } },
+        auction: true,
+      },
     });
 
     return NextResponse.json({

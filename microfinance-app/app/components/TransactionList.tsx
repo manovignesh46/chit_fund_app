@@ -31,6 +31,9 @@ export function TransactionList(props: TransactionListProps & {
   setCurrentPage: (page: number) => void,
   pageSize: number,
   setPageSize: (size: number) => void,
+  advType?: string,
+  advMember?: string,
+  advEntity?: string,
 }) {
   const {
     refresh,
@@ -41,6 +44,9 @@ export function TransactionList(props: TransactionListProps & {
     filterType = '',
     filterMember = '',
     activePartner,
+    advType = '',
+    advMember = '',
+    advEntity = '',
   } = props;
   const partnerToUse = activePartner;
   const [transactions, setTransactions] = useState([]);
@@ -50,9 +56,10 @@ export function TransactionList(props: TransactionListProps & {
   const [totalCount, setTotalCount] = useState(0);
 
 
+
   useEffect(() => {
     fetchTransactions();
-  }, [partnerToUse, refresh, currentPage, pageSize, filterType, filterMember]);
+  }, [partnerToUse, refresh, currentPage, pageSize, filterType, filterMember, advType, advMember, advEntity]);
 
   async function fetchTransactions() {
     try {
@@ -66,6 +73,10 @@ export function TransactionList(props: TransactionListProps & {
       }
       if (filterMember) {
         url += `&member=${encodeURIComponent(filterMember)}`;
+      }
+      // Advanced filter logic
+      if (advType && advMember && advEntity) {
+        url += `&advType=${advType}&advMember=${advMember}&advEntity=${advEntity}`;
       }
       const response = await fetch(url);
       if (!response.ok) {

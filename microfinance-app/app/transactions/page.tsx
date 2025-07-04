@@ -1,7 +1,8 @@
 'use client';
 
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { memberAPI, loanAPI, chitFundAPI } from '../../lib/api';
 import TransactionList from '../components/TransactionList';
 import { usePartner } from '../contexts/PartnerContext';
 import { TRANSACTION_TYPES_CONFIG } from '../../config/config';
@@ -15,6 +16,51 @@ export default function TransactionsPage() {
   // Only show transaction history for the active/selected partner, with filter and pagination
   const [filterType, setFilterType] = useState('');
   const [filterMember, setFilterMember] = useState('');
+
+  // Advanced filter state
+  const [showAdvanced, setShowAdvanced] = useState(false);
+  const [advType, setAdvType] = useState(''); // 'loan' or 'chit'
+  const [advMember, setAdvMember] = useState('');
+  const [advEntity, setAdvEntity] = useState(''); // loanId or chitFundId
+  const [members, setMembers] = useState<any[]>([]);
+  const [entities, setEntities] = useState<any[]>([]);
+  const [entityLoading, setEntityLoading] = useState(false);
+
+  // Fetch all members on mount
+  useEffect(() => {
+    if (showAdvanced) {
+      memberAPI.getAll(1, 1000).then(res => {
+        setMembers(res.members || res.data || []);
+      });
+    }
+  }, [showAdvanced]);
+
+  // Fetch loans/chit funds for selected member and type
+  useEffect(() => {
+    if (!showAdvanced || !advType || !advMember) {
+      setEntities([]);
+      setAdvEntity('');
+      return;
+    }
+    setEntityLoading(true);
+    const fetchEntities = async () => {
+      if (advType === 'loan') {
+        const res = await loanAPI.getAll(1, 1000);
+        // Filter loans by borrowerId (global member id)
+        const filtered = (res.loans || res.data || []).filter((l: any) => l.borrowerId == advMember);
+        setEntities(filtered);
+      } else if (advType === 'chit') {
+        const res = await chitFundAPI.getAll(1, 1000);
+        // Filter chit funds where any member.globalMemberId == advMember
+        const filtered = (res.chitFunds || res.data || []).filter((c: any) =>
+          (c.members || []).some((m: any) => m.globalMemberId == advMember)
+        );
+        setEntities(filtered);
+      }
+      setEntityLoading(false);
+    };
+    fetchEntities();
+  }, [advType, advMember, showAdvanced]);
 
   return (
     <div className="container mx-auto p-4">
@@ -34,6 +80,63 @@ export default function TransactionsPage() {
           </select>
         </div>
       </div>
+      {/* Advanced Filter Toggle */}
+      <div className="mb-4">
+        <button
+          className="px-4 py-2 bg-blue-100 text-blue-700 rounded hover:bg-blue-200 text-sm"
+          onClick={() => setShowAdvanced(v => !v)}
+        >
+          {showAdvanced ? 'Hide Advanced Filter' : 'Show Advanced Filter'}
+        </button>
+      </div>
+
+      {/* Advanced Filter UI */}
+      {showAdvanced && (
+        <div className="mb-4 flex flex-col md:flex-row md:items-end md:space-x-4 md:space-y-0 space-y-2 bg-gray-50 p-4 rounded border">
+          <div className="w-full md:w-1/4">
+            <label className="block text-xs font-medium text-gray-700 mb-1">Type</label>
+            <select
+              value={advType}
+              onChange={e => { setAdvType(e.target.value); setAdvEntity(''); }}
+              className="w-full px-3 py-2 border rounded-lg text-sm"
+            >
+              <option value="">Select Type</option>
+              <option value="loan">Loan</option>
+              <option value="chit">Chit Fund</option>
+            </select>
+          </div>
+          <div className="w-full md:w-1/4">
+            <label className="block text-xs font-medium text-gray-700 mb-1">Member</label>
+            <select
+              value={advMember}
+              onChange={e => { setAdvMember(e.target.value); setAdvEntity(''); }}
+              className="w-full px-3 py-2 border rounded-lg text-sm"
+              disabled={!advType}
+            >
+              <option value="">Select Member</option>
+              {members.map((m: any) => (
+                <option key={m.id} value={m.id}>{m.name}</option>
+              ))}
+            </select>
+          </div>
+          <div className="w-full md:w-1/4">
+            <label className="block text-xs font-medium text-gray-700 mb-1">{advType === 'loan' ? 'Loan' : advType === 'chit' ? 'Chit Fund' : 'Entity'}</label>
+            <select
+              value={advEntity}
+              onChange={e => setAdvEntity(e.target.value)}
+              className="w-full px-3 py-2 border rounded-lg text-sm"
+              disabled={!advType || !advMember || entityLoading}
+            >
+              <option value="">Select {advType === 'loan' ? 'Loan' : advType === 'chit' ? 'Chit Fund' : 'Entity'}</option>
+              {entities.map((ent: any) => (
+                advType === 'loan'
+                  ? <option key={ent.id} value={ent.id}>{`Loan #${ent.id} - ₹${ent.amount?.toLocaleString?.() || ent.amount}`}</option>
+                  : <option key={ent.id} value={ent.id}>{ent.name || ent.title || `ID ${ent.id}`}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+      )}
 
       <div className="mb-4 w-full flex flex-col md:flex-row md:items-end md:space-x-4 md:space-y-0 space-y-2">
         <div className="w-full md:w-1/3">
@@ -70,6 +173,9 @@ export default function TransactionsPage() {
         setCurrentPage={setCurrentPage}
         pageSize={pageSize}
         setPageSize={setPageSize}
+        advType={showAdvanced ? advType : ''}
+        advMember={showAdvanced ? advMember : ''}
+        advEntity={showAdvanced ? advEntity : ''}
       />
     </div>
   );
