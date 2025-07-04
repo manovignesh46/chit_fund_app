@@ -22,6 +22,7 @@ export default function TransactionsPage() {
   const [advType, setAdvType] = useState(''); // 'loan' or 'chit'
   const [advMember, setAdvMember] = useState('');
   const [advEntity, setAdvEntity] = useState(''); // loanId or chitFundId
+  const [advSubType, setAdvSubType] = useState(''); // 'disbursement' | 'repayment' | 'contribution' | 'auction'
   const [members, setMembers] = useState<any[]>([]);
   const [entities, setEntities] = useState<any[]>([]);
   const [entityLoading, setEntityLoading] = useState(false);
@@ -93,11 +94,11 @@ export default function TransactionsPage() {
       {/* Advanced Filter UI */}
       {showAdvanced && (
         <div className="mb-4 flex flex-col md:flex-row md:items-end md:space-x-4 md:space-y-0 space-y-2 bg-gray-50 p-4 rounded border">
-          <div className="w-full md:w-1/4">
+          <div className="w-full md:w-1/5">
             <label className="block text-xs font-medium text-gray-700 mb-1">Type</label>
             <select
               value={advType}
-              onChange={e => { setAdvType(e.target.value); setAdvEntity(''); }}
+              onChange={e => { setAdvType(e.target.value); setAdvEntity(''); setAdvSubType(''); }}
               className="w-full px-3 py-2 border rounded-lg text-sm"
             >
               <option value="">Select Type</option>
@@ -105,11 +106,11 @@ export default function TransactionsPage() {
               <option value="chit">Chit Fund</option>
             </select>
           </div>
-          <div className="w-full md:w-1/4">
+          <div className="w-full md:w-1/5">
             <label className="block text-xs font-medium text-gray-700 mb-1">Member</label>
             <select
               value={advMember}
-              onChange={e => { setAdvMember(e.target.value); setAdvEntity(''); }}
+              onChange={e => { setAdvMember(e.target.value); setAdvEntity(''); setAdvSubType(''); }}
               className="w-full px-3 py-2 border rounded-lg text-sm"
               disabled={!advType}
             >
@@ -119,11 +120,11 @@ export default function TransactionsPage() {
               ))}
             </select>
           </div>
-          <div className="w-full md:w-1/4">
+          <div className="w-full md:w-1/5">
             <label className="block text-xs font-medium text-gray-700 mb-1">{advType === 'loan' ? 'Loan' : advType === 'chit' ? 'Chit Fund' : 'Entity'}</label>
             <select
               value={advEntity}
-              onChange={e => setAdvEntity(e.target.value)}
+              onChange={e => { setAdvEntity(e.target.value); setAdvSubType(''); }}
               className="w-full px-3 py-2 border rounded-lg text-sm"
               disabled={!advType || !advMember || entityLoading}
             >
@@ -134,6 +135,45 @@ export default function TransactionsPage() {
                   : <option key={ent.id} value={ent.id}>{ent.name || ent.title || `ID ${ent.id}`}</option>
               ))}
             </select>
+          </div>
+          {/* Subtype dropdown */}
+          <div className="w-full md:w-1/5">
+            <label className="block text-xs font-medium text-gray-700 mb-1">Subtype</label>
+            <select
+              value={advSubType}
+              onChange={e => setAdvSubType(e.target.value)}
+              className="w-full px-3 py-2 border rounded-lg text-sm"
+              disabled={!advEntity}
+            >
+              <option value="">Select Subtype</option>
+              {advType === 'loan' && advEntity && (
+                <>
+                  <option value="disbursement">Disbursement</option>
+                  <option value="repayment">Repayment</option>
+                </>
+              )}
+              {advType === 'chit' && advEntity && (
+                <>
+                  <option value="contribution">Contribution</option>
+                  <option value="auction">Auction</option>
+                </>
+              )}
+            </select>
+          </div>
+          {/* Clear button */}
+          <div className="w-full md:w-1/5 flex items-end">
+            <button
+              className="w-full px-3 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 text-sm"
+              onClick={() => {
+                setAdvType('');
+                setAdvMember('');
+                setAdvEntity('');
+                setAdvSubType('');
+              }}
+              type="button"
+            >
+              Clear
+            </button>
           </div>
         </div>
       )}
@@ -168,7 +208,7 @@ export default function TransactionsPage() {
         refresh={refreshList}
         filterType={filterType}
         filterMember={filterMember}
-        activePartner={selectedPartnerId !== 'ALL' ? selectedPartnerId : undefined}
+        activePartner={selectedPartnerId}
         currentPage={currentPage}
         setCurrentPage={setCurrentPage}
         pageSize={pageSize}
@@ -176,6 +216,7 @@ export default function TransactionsPage() {
         advType={showAdvanced ? advType : ''}
         advMember={showAdvanced ? advMember : ''}
         advEntity={showAdvanced ? advEntity : ''}
+        advSubType={showAdvanced ? advSubType : ''}
       />
     </div>
   );

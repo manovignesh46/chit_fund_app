@@ -34,6 +34,7 @@ export function TransactionList(props: TransactionListProps & {
   advType?: string,
   advMember?: string,
   advEntity?: string,
+  advSubType?: string,
 }) {
   const {
     refresh,
@@ -47,8 +48,10 @@ export function TransactionList(props: TransactionListProps & {
     advType = '',
     advMember = '',
     advEntity = '',
+    advSubType = '',
   } = props;
-  const partnerToUse = activePartner;
+  // If activePartner is undefined or 'ALL', treat as all partners
+  const partnerToUse = activePartner && activePartner !== 'ALL' ? activePartner : null;
   const [transactions, setTransactions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -59,7 +62,7 @@ export function TransactionList(props: TransactionListProps & {
 
   useEffect(() => {
     fetchTransactions();
-  }, [partnerToUse, refresh, currentPage, pageSize, filterType, filterMember, advType, advMember, advEntity]);
+  }, [partnerToUse, refresh, currentPage, pageSize, filterType, filterMember, advType, advMember, advEntity, advSubType]);
 
   async function fetchTransactions() {
     try {
@@ -75,8 +78,8 @@ export function TransactionList(props: TransactionListProps & {
         url += `&member=${encodeURIComponent(filterMember)}`;
       }
       // Advanced filter logic
-      if (advType && advMember && advEntity) {
-        url += `&advType=${advType}&advMember=${advMember}&advEntity=${advEntity}`;
+      if (advType && advMember && advEntity && advSubType) {
+        url += `&advType=${advType}&advMember=${advMember}&advEntity=${advEntity}&advSubType=${advSubType}`;
       }
       const response = await fetch(url);
       if (!response.ok) {
@@ -176,15 +179,21 @@ export function TransactionList(props: TransactionListProps & {
                           if (t.type === 'loan_repaid' || t.type === 'LOAN_REPAYMENT') return 'text-green-600 font-bold';
                           if (t.type === 'loan_given' || t.type === 'LOAN_DISBURSEMENT') return 'text-red-600 font-bold';
                           return 'text-gray-900';
-                        } else {
-                          // All Partners: PARTNER_TO_PARTNER is blue
-                          if (t.type === 'PARTNER_TO_PARTNER' || t.type === 'transfer') return 'text-blue-600 font-bold';
-                          if (typeof t.amount === 'number') {
-                            if (t.amount > 0) return 'text-green-600 font-bold';
-                            if (t.amount < 0) return 'text-red-600 font-bold';
-                          }
-                          return 'text-gray-900';
                         }
+                        // All Partners: always use type for color except transfer
+                        if (t.type === 'PARTNER_TO_PARTNER' || t.type === 'transfer') return 'text-blue-600 font-bold';
+                        if (t.type && typeof t.type === 'string') {
+                          const debitTypes = ['loan_given', 'LOAN_DISBURSEMENT', 'expense', 'balance_adjustment'];
+                          const creditTypes = ['loan_repaid', 'LOAN_REPAYMENT', 'collection', 'RECORD_AMOUNT'];
+                          if (debitTypes.includes(t.type)) return 'text-red-600 font-bold';
+                          if (creditTypes.includes(t.type)) return 'text-green-600 font-bold';
+                        }
+                        // fallback: use amount sign if type is unknown
+                        if (typeof t.amount === 'number') {
+                          if (t.amount > 0) return 'text-green-600 font-bold';
+                          if (t.amount < 0) return 'text-red-600 font-bold';
+                        }
+                        return 'text-gray-900';
                       })()}
                     >
                       {formatCurrency(t.amount)}

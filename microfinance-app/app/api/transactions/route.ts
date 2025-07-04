@@ -18,6 +18,7 @@ export async function GET(request: NextRequest) {
     const advType = searchParams.get('advType');
     const advMember = searchParams.get('advMember');
     const advEntity = searchParams.get('advEntity');
+    const advSubType = searchParams.get('advSubType');
 
     // Get the current user ID
     const currentUserId = await getCurrentUserId(request);
@@ -39,17 +40,24 @@ export async function GET(request: NextRequest) {
     };
 
     // Advanced filter logic
-    if (advType && advMember && advEntity) {
+    if (advType && advMember && advEntity && advSubType) {
       if (advType === 'loan') {
-        // Find transactions linked to this loan
+        // Find transactions linked to this loan, filter by subtype
         where.loan = { id: parseInt(advEntity) };
+        if (advSubType === 'disbursement') {
+          where.type = ['loan_given', 'LOAN_DISBURSEMENT'];
+        } else if (advSubType === 'repayment') {
+          where.type = ['loan_repaid', 'LOAN_REPAYMENT'];
+        }
       } else if (advType === 'chit') {
-        // Find transactions linked to this chit fund (via contribution or auction)
-        // Contribution
-        where.OR = [
-          { contribution: { chitFundId: parseInt(advEntity), member: { globalMemberId: parseInt(advMember) } } },
-          { auction: { chitFundId: parseInt(advEntity) } }
-        ];
+        // Find transactions linked to this chit fund (via contribution or auction), filter by subtype
+        if (advSubType === 'contribution') {
+          where.contribution = { chitFundId: parseInt(advEntity), member: { globalMemberId: parseInt(advMember) } };
+          where.type = ['CHIT_CONTRIBUTION'];
+        } else if (advSubType === 'auction') {
+          where.auction = { chitFundId: parseInt(advEntity) };
+          where.type = ['AUCTION_PAYOUT'];
+        }
       }
     }
 
@@ -62,6 +70,9 @@ export async function GET(request: NextRequest) {
     } else if (type) {
       // Allow filtering by specific type for other pages
       where.type = type;
+    } else if (where.type && Array.isArray(where.type)) {
+      // If type is an array (from advanced filter), use Prisma's in operator
+      where.type = { in: where.type };
     }
 
     if (partner) {
