@@ -1,13 +1,17 @@
 // @ts-nocheck
-'use client';
+"use client";
 
-import React, { useState, useEffect } from 'react';
-import Link from 'next/link';
-import { dashboardAPI, FinancialDataPoint } from '../../lib/api';
-import FinancialGraph from '../components/FinancialGraph';
-import { DashboardSkeleton } from '../components/skeletons/DashboardSkeletons';
-import EmailExportModal from '../../components/EmailExportModal';
-import { UserGroupIcon, PlusCircleIcon, CurrencyRupeeIcon } from '@heroicons/react/24/outline';
+import React, { useState, useEffect } from "react";
+import Link from "next/link";
+import { dashboardAPI, FinancialDataPoint } from "../../lib/api";
+import FinancialGraph from "../components/FinancialGraph";
+import { DashboardSkeleton } from "../components/skeletons/DashboardSkeletons";
+import EmailExportModal from "../../components/EmailExportModal";
+import {
+  UserGroupIcon,
+  PlusCircleIcon,
+  CurrencyRupeeIcon,
+} from "@heroicons/react/24/outline";
 
 export default function DashboardPage() {
   interface Activity {
@@ -32,7 +36,7 @@ export default function DashboardPage() {
     entityType?: string;
     period?: number;
     dueAmount?: number;
-    status?: 'Paid' | 'Overdue';
+    status?: "Paid" | "Overdue";
     paymentType?: string;
   }
 
@@ -69,7 +73,7 @@ export default function DashboardPage() {
     totalOutsideAmount: 0,
     outsideAmountBreakdown: {
       loanRemainingAmount: 0,
-      chitFundOutsideAmount: 0
+      chitFundOutsideAmount: 0,
     },
     activeChitFunds: 0,
     totalMembers: 0,
@@ -85,20 +89,24 @@ export default function DashboardPage() {
   // Financial graph data and controls
   const [financialData, setFinancialData] = useState<FinancialDataPoint[]>([]);
   const [financialDataLoading, setFinancialDataLoading] = useState(true);
-  const [financialDataError, setFinancialDataError] = useState<string | null>(null);
-  const [selectedDuration, setSelectedDuration] = useState<'weekly' | 'monthly' | 'yearly'>('monthly');
+  const [financialDataError, setFinancialDataError] = useState<string | null>(
+    null
+  );
+  const [selectedDuration, setSelectedDuration] = useState<
+    "weekly" | "monthly" | "yearly"
+  >("monthly");
 
   useEffect(() => {
     // Fetch dashboard data from the API
     const fetchDashboardData = async () => {
       try {
         setLoading(true);
-        console.log('Fetching dashboard data...');
+        console.log("Fetching dashboard data...");
 
         const data = await dashboardAPI.getSummary();
 
-        console.log('Fetched dashboard data:', data);
-        console.log('Loan profit from API:', data.profit?.loans);
+        console.log("Fetched dashboard data:", data);
+        console.log("Loan profit from API:", data.profit?.loans);
 
         // Map API response to dashboard data structure
         setDashboardData({
@@ -109,27 +117,32 @@ export default function DashboardPage() {
           chitFundProfit: data.profit?.chitFunds || 0,
           totalOutsideAmount: data.outsideAmount || 0,
           outsideAmountBreakdown: {
-            loanRemainingAmount: data.outsideAmountBreakdown?.loanRemainingAmount || 0,
-            chitFundOutsideAmount: data.outsideAmountBreakdown?.chitFundOutsideAmount || 0
+            loanRemainingAmount:
+              data.outsideAmountBreakdown?.loanRemainingAmount || 0,
+            chitFundOutsideAmount:
+              data.outsideAmountBreakdown?.chitFundOutsideAmount || 0,
           },
           activeChitFunds: data.counts?.activeChitFunds || 0,
           totalMembers: data.counts?.members || 0,
           activeLoans: data.counts?.activeLoans || 0,
           recentActivities: data.recentActivities || [],
           upcomingEvents: data.upcomingEvents || [],
-          totalUpcomingEvents: data.totalUpcomingEvents || 0
+          totalUpcomingEvents: data.totalUpcomingEvents || 0,
         });
 
-        console.log('Dashboard data after setting:', {
+        console.log("Dashboard data after setting:", {
           loanProfit: data.profit?.loans,
           chitFundProfit: data.profit?.chitFunds,
-          totalProfit: data.profit?.total
+          totalProfit: data.profit?.total,
         });
 
         setError(null);
       } catch (err: any) {
-        console.error('Error fetching dashboard data:', err);
-        setError(err.message || 'Failed to load dashboard data. Please try again later.');
+        console.error("Error fetching dashboard data:", err);
+        setError(
+          err.message ||
+            "Failed to load dashboard data. Please try again later."
+        );
       } finally {
         setLoading(false);
       }
@@ -140,78 +153,112 @@ export default function DashboardPage() {
 
   // No need to import FinancialDataResponse here as it's already imported at the top
 
-// Fetch financial data for the graph based on selected duration
+  // Fetch financial data for the graph based on selected duration
   useEffect(() => {
     const fetchFinancialData = async () => {
       try {
         setFinancialDataLoading(true);
-        console.log(`Fetching financial data with duration: ${selectedDuration}`);
+        console.log(
+          `Fetching financial data with duration: ${selectedDuration}`
+        );
 
         // Determine limit based on duration
-        const limit = selectedDuration === 'weekly' ? 8 : selectedDuration === 'monthly' ? 12 : 5;
+        const limit =
+          selectedDuration === "weekly"
+            ? 8
+            : selectedDuration === "monthly"
+            ? 12
+            : 5;
 
         // Fetch data using the API client
-        const apiData = await dashboardAPI.getFinancialData(selectedDuration, limit);
-        console.log('Fetched financial data from API:', apiData);
+        const apiData = await dashboardAPI.getFinancialData(
+          selectedDuration,
+          limit
+        );
+        console.log("Fetched financial data from API:", apiData);
 
         // Transform the API response into the format expected by FinancialGraph
-        if (apiData && apiData.labels && Array.isArray(apiData.labels) && apiData.labels.length > 0) {
+        if (
+          apiData &&
+          apiData.labels &&
+          Array.isArray(apiData.labels) &&
+          apiData.labels.length > 0
+        ) {
           // Validate that all required arrays exist and have the same length
-          if (!apiData.cashInflow || !Array.isArray(apiData.cashInflow) ||
-              !apiData.cashOutflow || !Array.isArray(apiData.cashOutflow) ||
-              !apiData.profit || !Array.isArray(apiData.profit) ||
-              !apiData.outsideAmount || !Array.isArray(apiData.outsideAmount)) {
-            console.error('Missing required data arrays in API response:', apiData);
-            setFinancialDataError('Missing required data in API response');
+          if (
+            !apiData.cashInflow ||
+            !Array.isArray(apiData.cashInflow) ||
+            !apiData.cashOutflow ||
+            !Array.isArray(apiData.cashOutflow) ||
+            !apiData.profit ||
+            !Array.isArray(apiData.profit) ||
+            !apiData.outsideAmount ||
+            !Array.isArray(apiData.outsideAmount)
+          ) {
+            console.error(
+              "Missing required data arrays in API response:",
+              apiData
+            );
+            setFinancialDataError("Missing required data in API response");
             return;
           }
 
           // Ensure all arrays have the same length
           const labelsLength = apiData.labels.length;
-          if (apiData.cashInflow.length !== labelsLength ||
-              apiData.cashOutflow.length !== labelsLength ||
-              apiData.profit.length !== labelsLength ||
-              apiData.outsideAmount.length !== labelsLength) {
-            console.error('Data arrays have inconsistent lengths:', {
+          if (
+            apiData.cashInflow.length !== labelsLength ||
+            apiData.cashOutflow.length !== labelsLength ||
+            apiData.profit.length !== labelsLength ||
+            apiData.outsideAmount.length !== labelsLength
+          ) {
+            console.error("Data arrays have inconsistent lengths:", {
               labels: apiData.labels.length,
               cashInflow: apiData.cashInflow.length,
               cashOutflow: apiData.cashOutflow.length,
               profit: apiData.profit.length,
-              outsideAmount: apiData.outsideAmount.length
+              outsideAmount: apiData.outsideAmount.length,
             });
-            setFinancialDataError('Inconsistent data format received from API');
+            setFinancialDataError("Inconsistent data format received from API");
             return;
           }
 
           // Check if all values are zero
-          const allZeros = apiData.cashInflow.every(val => val === 0) &&
-                          apiData.cashOutflow.every(val => val === 0) &&
-                          apiData.profit.every(val => val === 0) &&
-                          apiData.outsideAmount.every(val => val === 0);
+          const allZeros =
+            apiData.cashInflow.every((val) => val === 0) &&
+            apiData.cashOutflow.every((val) => val === 0) &&
+            apiData.profit.every((val) => val === 0) &&
+            apiData.outsideAmount.every((val) => val === 0);
 
           // If all values are zero, create sample data based on dashboard summary
           if (allZeros) {
-            console.log(`All zeros detected in ${selectedDuration} data, creating sample data from dashboard summary`);
+            console.log(
+              `All zeros detected in ${selectedDuration} data, creating sample data from dashboard summary`
+            );
 
             // Create sample data based on the selected duration
             let periodLabel: string;
             let startDate: Date;
             let endDate: Date = new Date();
 
-            if (selectedDuration === 'yearly') {
+            if (selectedDuration === "yearly") {
               // For yearly, use the current year
               periodLabel = new Date().getFullYear().toString();
               startDate = new Date(new Date().getFullYear(), 0, 1); // Jan 1 of current year
-            } else if (selectedDuration === 'monthly') {
+            } else if (selectedDuration === "monthly") {
               // For monthly, use the current month
               const now = new Date();
-              periodLabel = now.toLocaleString('default', { month: 'long', year: 'numeric' });
+              periodLabel = now.toLocaleString("default", {
+                month: "long",
+                year: "numeric",
+              });
               startDate = new Date(now.getFullYear(), now.getMonth(), 1); // First day of current month
             } else {
               // For weekly, use the current week
               const now = new Date();
               const weekNumber = Math.ceil(now.getDate() / 7);
-              const monthName = now.toLocaleString('default', { month: 'short' });
+              const monthName = now.toLocaleString("default", {
+                month: "short",
+              });
               periodLabel = `Week ${weekNumber} of ${monthName} ${now.getFullYear()}`;
 
               // Calculate start of week (go back to previous Sunday or current day if it's Sunday)
@@ -222,44 +269,53 @@ export default function DashboardPage() {
               }
             }
 
-            const sampleData = [{
-              period: periodLabel,
-              cashInflow: dashboardData.totalCashInflow,
-              cashOutflow: dashboardData.totalCashOutflow,
-              profit: dashboardData.totalProfit,
-              outsideAmount: dashboardData.totalOutsideAmount,
-              loanProfit: dashboardData.loanProfit,
-              chitFundProfit: dashboardData.chitFundProfit,
-              outsideAmountBreakdown: {
-                loanRemainingAmount: dashboardData.outsideAmountBreakdown.loanRemainingAmount,
-                chitFundOutsideAmount: dashboardData.outsideAmountBreakdown.chitFundOutsideAmount
+            const sampleData = [
+              {
+                period: periodLabel,
+                cashInflow: dashboardData.totalCashInflow,
+                cashOutflow: dashboardData.totalCashOutflow,
+                profit: dashboardData.totalProfit,
+                outsideAmount: dashboardData.totalOutsideAmount,
+                loanProfit: dashboardData.loanProfit,
+                chitFundProfit: dashboardData.chitFundProfit,
+                outsideAmountBreakdown: {
+                  loanRemainingAmount:
+                    dashboardData.outsideAmountBreakdown.loanRemainingAmount,
+                  chitFundOutsideAmount:
+                    dashboardData.outsideAmountBreakdown.chitFundOutsideAmount,
+                },
+                cashFlowDetails: {
+                  contributionInflow: 0, // We don't have this breakdown
+                  repaymentInflow: dashboardData.totalCashInflow,
+                  auctionOutflow: 0, // We don't have this breakdown
+                  loanOutflow: dashboardData.totalCashOutflow,
+                  netCashFlow:
+                    dashboardData.totalCashInflow -
+                    dashboardData.totalCashOutflow,
+                },
+                profitDetails: {
+                  interestPayments: dashboardData.loanProfit,
+                  documentCharges: 0, // We don't have this breakdown
+                  auctionCommissions: dashboardData.chitFundProfit,
+                },
+                transactionCounts: {
+                  loanDisbursements: 1, // Assuming at least one loan
+                  loanRepayments: 1, // Assuming at least one repayment
+                  chitFundContributions: 0,
+                  chitFundAuctions: 0,
+                  totalTransactions: 2, // Sum of the above
+                },
+                periodRange: {
+                  startDate: startDate.toISOString(),
+                  endDate: endDate.toISOString(),
+                },
               },
-              cashFlowDetails: {
-                contributionInflow: 0, // We don't have this breakdown
-                repaymentInflow: dashboardData.totalCashInflow,
-                auctionOutflow: 0, // We don't have this breakdown
-                loanOutflow: dashboardData.totalCashOutflow,
-                netCashFlow: dashboardData.totalCashInflow - dashboardData.totalCashOutflow
-              },
-              profitDetails: {
-                interestPayments: dashboardData.loanProfit,
-                documentCharges: 0, // We don't have this breakdown
-                auctionCommissions: dashboardData.chitFundProfit
-              },
-              transactionCounts: {
-                loanDisbursements: 1, // Assuming at least one loan
-                loanRepayments: 1, // Assuming at least one repayment
-                chitFundContributions: 0,
-                chitFundAuctions: 0,
-                totalTransactions: 2 // Sum of the above
-              },
-              periodRange: {
-                startDate: startDate.toISOString(),
-                endDate: endDate.toISOString()
-              }
-            }];
+            ];
 
-            console.log(`Created sample data for current ${selectedDuration} period:`, sampleData);
+            console.log(
+              `Created sample data for current ${selectedDuration} period:`,
+              sampleData
+            );
             setFinancialData(sampleData);
             return;
           }
@@ -268,63 +324,71 @@ export default function DashboardPage() {
           let transformedData;
 
           if (apiData.periodsData && Array.isArray(apiData.periodsData)) {
-            console.log('Using detailed period data from API');
+            console.log("Using detailed period data from API");
             transformedData = apiData.periodsData;
           } else {
-            console.log('Detailed period data not available, creating basic data');
+            console.log(
+              "Detailed period data not available, creating basic data"
+            );
             // Create basic data points if detailed data is not available
-            transformedData = apiData.labels.map((label: string, index: number) => {
-              // Create a data point object for each period
-              return {
-                period: label,
-                cashInflow: apiData.cashInflow[index] || 0,
-                cashOutflow: apiData.cashOutflow[index] || 0,
-                profit: apiData.profit[index] || 0,
-                outsideAmount: apiData.outsideAmount[index] || 0,
-                // Add default values for other required properties
-                loanProfit: 0,
-                chitFundProfit: 0,
-                outsideAmountBreakdown: {
-                  loanRemainingAmount: 0,
-                  chitFundOutsideAmount: 0
-                },
-                cashFlowDetails: {
-                  contributionInflow: 0,
-                  repaymentInflow: 0,
-                  auctionOutflow: 0,
-                  loanOutflow: 0,
-                  netCashFlow: (apiData.cashInflow[index] || 0) - (apiData.cashOutflow[index] || 0)
-                },
-                profitDetails: {
-                  interestPayments: 0,
-                  documentCharges: 0,
-                  auctionCommissions: 0
-                },
-                transactionCounts: {
-                  loanDisbursements: 0,
-                  loanRepayments: 0,
-                  chitFundContributions: 0,
-                  chitFundAuctions: 0,
-                  totalTransactions: 0
-                },
-                periodRange: {
-                  startDate: new Date().toISOString(), // Default value
-                  endDate: new Date().toISOString() // Default value
-                }
-              };
-            });
+            transformedData = apiData.labels.map(
+              (label: string, index: number) => {
+                // Create a data point object for each period
+                return {
+                  period: label,
+                  cashInflow: apiData.cashInflow[index] || 0,
+                  cashOutflow: apiData.cashOutflow[index] || 0,
+                  profit: apiData.profit[index] || 0,
+                  outsideAmount: apiData.outsideAmount[index] || 0,
+                  // Add default values for other required properties
+                  loanProfit: 0,
+                  chitFundProfit: 0,
+                  outsideAmountBreakdown: {
+                    loanRemainingAmount: 0,
+                    chitFundOutsideAmount: 0,
+                  },
+                  cashFlowDetails: {
+                    contributionInflow: 0,
+                    repaymentInflow: 0,
+                    auctionOutflow: 0,
+                    loanOutflow: 0,
+                    netCashFlow:
+                      (apiData.cashInflow[index] || 0) -
+                      (apiData.cashOutflow[index] || 0),
+                  },
+                  profitDetails: {
+                    interestPayments: 0,
+                    documentCharges: 0,
+                    auctionCommissions: 0,
+                  },
+                  transactionCounts: {
+                    loanDisbursements: 0,
+                    loanRepayments: 0,
+                    chitFundContributions: 0,
+                    chitFundAuctions: 0,
+                    totalTransactions: 0,
+                  },
+                  periodRange: {
+                    startDate: new Date().toISOString(), // Default value
+                    endDate: new Date().toISOString(), // Default value
+                  },
+                };
+              }
+            );
           }
 
-          console.log('Transformed financial data for graph:', transformedData);
+          console.log("Transformed financial data for graph:", transformedData);
           setFinancialData(transformedData);
         } else {
-          console.error('Invalid data format received from API:', apiData);
-          setFinancialDataError('Invalid data format received from API');
+          console.error("Invalid data format received from API:", apiData);
+          setFinancialDataError("Invalid data format received from API");
         }
-
       } catch (err: any) {
-        console.error('Error fetching financial data:', err);
-        setFinancialDataError(err.message || 'Failed to load financial data. Please try again later.');
+        console.error("Error fetching financial data:", err);
+        setFinancialDataError(
+          err.message ||
+            "Failed to load financial data. Please try again later."
+        );
       } finally {
         setFinancialDataLoading(false);
       }
@@ -333,20 +397,30 @@ export default function DashboardPage() {
     fetchFinancialData();
   }, [selectedDuration, dashboardData]);
 
-
-
   // Create stats array from dashboard data
   const stats = [
-    { label: 'Active Chit Funds', value: dashboardData.activeChitFunds, color: 'bg-blue-500' },
-    { label: 'Total Members', value: dashboardData.totalMembers, color: 'bg-green-500' },
-    { label: 'Active Loans', value: dashboardData.activeLoans, color: 'bg-purple-500' },
+    {
+      label: "Active Chit Funds",
+      value: dashboardData.activeChitFunds,
+      color: "bg-blue-500",
+    },
+    {
+      label: "Total Members",
+      value: dashboardData.totalMembers,
+      color: "bg-green-500",
+    },
+    {
+      label: "Active Loans",
+      value: dashboardData.activeLoans,
+      color: "bg-purple-500",
+    },
   ];
 
   // Format currency
   const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-IN', {
-      style: 'currency',
-      currency: 'INR',
+    return new Intl.NumberFormat("en-IN", {
+      style: "currency",
+      currency: "INR",
       maximumFractionDigits: 0,
     }).format(amount);
   };
@@ -354,7 +428,9 @@ export default function DashboardPage() {
   return (
     <div className="container mx-auto px-2 sm:px-4 py-6 sm:py-8 max-w-screen-xl w-full">
       <div className="flex flex-row flex-wrap items-center justify-between gap-2 mb-6 sm:mb-8">
-        <h1 className="text-2xl sm:text-3xl font-bold text-blue-700">Dashboard</h1>
+        <h1 className="text-2xl sm:text-3xl font-bold text-blue-700">
+          Dashboard
+        </h1>
         <div className="flex flex-row flex-wrap gap-1 sm:gap-2 w-auto">
           {/* Manage Members */}
           <Link
@@ -405,16 +481,32 @@ export default function DashboardPage() {
       ) : (
         <>
           {/* Financial Overview */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6 mb-6 sm:mb-8">
+          <div className="grid grid-cols-2 gap-4 sm:gap-6 mb-6 sm:mb-8 md:grid-cols-3">
             <div className="bg-white shadow-md rounded-lg p-4 sm:p-6 border-t-4 border-purple-500">
-              <h2 className="text-lg sm:text-xl font-semibold text-gray-600">Remaining Loan Balances</h2>
-              <p className="text-2xl font-bold text-purple-700">{formatCurrency(dashboardData.outsideAmountBreakdown.loanRemainingAmount)}</p>
-              <p className="text-sm text-gray-500 mt-2">Pending loan repayments to be collected</p>
+              <h2 className="text-lg sm:text-xl font-semibold text-gray-600">
+                Outstanding Loan Amount
+              </h2>
+              <p className="text-2xl font-bold text-purple-700">
+                {formatCurrency(
+                  dashboardData.outsideAmountBreakdown.loanRemainingAmount
+                )}
+              </p>
+              <p className="text-sm text-gray-500 mt-2">
+                Pending loan repayments
+              </p>
             </div>
             <div className="bg-white shadow-md rounded-lg p-4 sm:p-6 border-t-4 border-blue-500">
-              <h2 className="text-lg sm:text-xl font-semibold text-gray-600">Chit Fund Outside Amount</h2>
-              <p className="text-2xl font-bold text-blue-700">{formatCurrency(dashboardData.outsideAmountBreakdown.chitFundOutsideAmount)}</p>
-              <p className="text-sm text-gray-500 mt-2">Pending or over-disbursed from chit funds</p>
+              <h2 className="text-lg sm:text-xl font-semibold text-gray-600">
+                Outstanding Chit Fund Amount
+              </h2>
+              <p className="text-2xl font-bold text-blue-700">
+                {formatCurrency(
+                  dashboardData.outsideAmountBreakdown.chitFundOutsideAmount
+                )}
+              </p>
+              <p className="text-sm text-gray-500 mt-2">
+                Pending or over-disbursed
+              </p>
             </div>
             <div className="bg-white shadow-md rounded-lg p-4 sm:p-6 border-t-4 border-green-500">
               <h2
@@ -422,12 +514,25 @@ export default function DashboardPage() {
                 onClick={() => setShowProfit(!showProfit)}
               >
                 Total Profit
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="h-4 w-4 ml-1"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                  />
                 </svg>
               </h2>
               {showProfit ? (
-                <p className="text-2xl font-bold text-green-700">{formatCurrency(dashboardData.totalProfit)}</p>
+                <p className="text-2xl font-bold text-green-700">
+                  {formatCurrency(dashboardData.totalProfit)}
+                </p>
               ) : (
                 <p className="text-2xl font-bold text-gray-400">***</p>
               )}
@@ -436,16 +541,28 @@ export default function DashboardPage() {
 
           {/* Profit Breakdown - Only show if showProfit is true */}
           {showProfit && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 mb-6 sm:mb-8">
+            <div className="grid grid-cols-2 gap-4 sm:gap-6 mb-6 sm:mb-8 md:grid-cols-2">
               <div className="bg-white shadow-md rounded-lg p-4 sm:p-6 border-t-4 border-purple-500">
-                <h2 className="text-lg sm:text-xl font-semibold text-gray-600">Loan Profit</h2>
-                <p className="text-2xl font-bold text-purple-700">{formatCurrency(dashboardData.loanProfit)}</p>
-                <p className="text-sm text-gray-500 mt-2">From interest and document charges</p>
+                <h2 className="text-lg sm:text-xl font-semibold text-gray-600">
+                  Loan Profit
+                </h2>
+                <p className="text-2xl font-bold text-purple-700">
+                  {formatCurrency(dashboardData.loanProfit)}
+                </p>
+                <p className="text-sm text-gray-500 mt-2">
+                  From interest and document charges
+                </p>
               </div>
               <div className="bg-white shadow-md rounded-lg p-4 sm:p-6 border-t-4 border-blue-500">
-                <h2 className="text-lg sm:text-xl font-semibold text-gray-600">Chit Fund Profit</h2>
-                <p className="text-2xl font-bold text-blue-700">{formatCurrency(dashboardData.chitFundProfit)}</p>
-                <p className="text-sm text-gray-500 mt-2">From auction commissions</p>
+                <h2 className="text-lg sm:text-xl font-semibold text-gray-600">
+                  Chit Fund Profit
+                </h2>
+                <p className="text-2xl font-bold text-blue-700">
+                  {formatCurrency(dashboardData.chitFundProfit)}
+                </p>
+                <p className="text-sm text-gray-500 mt-2">
+                  From auction commissions
+                </p>
               </div>
             </div>
           )}
@@ -454,35 +571,37 @@ export default function DashboardPage() {
           <div className="mb-6 sm:mb-8">
             <div className="bg-white rounded-lg shadow-md p-2 sm:p-4 mb-4">
               <div className="flex flex-col sm:flex-row flex-wrap sm:justify-between sm:items-center gap-2 sm:gap-0">
-                <h2 className="text-lg sm:text-xl font-bold text-blue-700">Financial Trends</h2>
+                <h2 className="text-lg sm:text-xl font-bold text-blue-700">
+                  Financial Trends
+                </h2>
                 <div className="flex flex-col sm:flex-row flex-wrap items-center gap-2 sm:gap-4 mt-2 sm:mt-0">
                   <div className="flex space-x-2">
                     <button
-                      onClick={() => setSelectedDuration('weekly')}
+                      onClick={() => setSelectedDuration("weekly")}
                       className={`px-3 py-1 text-sm rounded-md ${
-                        selectedDuration === 'weekly'
-                          ? 'bg-blue-600 text-white'
-                          : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                        selectedDuration === "weekly"
+                          ? "bg-blue-600 text-white"
+                          : "bg-gray-200 text-gray-700 hover:bg-gray-300"
                       }`}
                     >
                       Weekly
                     </button>
                     <button
-                      onClick={() => setSelectedDuration('monthly')}
+                      onClick={() => setSelectedDuration("monthly")}
                       className={`px-3 py-1 text-sm rounded-md ${
-                        selectedDuration === 'monthly'
-                          ? 'bg-blue-600 text-white'
-                          : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                        selectedDuration === "monthly"
+                          ? "bg-blue-600 text-white"
+                          : "bg-gray-200 text-gray-700 hover:bg-gray-300"
                       }`}
                     >
                       Monthly
                     </button>
                     <button
-                      onClick={() => setSelectedDuration('yearly')}
+                      onClick={() => setSelectedDuration("yearly")}
                       className={`px-3 py-1 text-sm rounded-md ${
-                        selectedDuration === 'yearly'
-                          ? 'bg-blue-600 text-white'
-                          : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                        selectedDuration === "yearly"
+                          ? "bg-blue-600 text-white"
+                          : "bg-gray-200 text-gray-700 hover:bg-gray-300"
                       }`}
                     >
                       Yearly
@@ -491,22 +610,46 @@ export default function DashboardPage() {
                   <div className="flex space-x-2">
                     <a
                       href={`/api/dashboard/consolidated?action=export&duration=${selectedDuration}&limit=100`}
-                      download={`financial_data_${selectedDuration}_${new Date().toISOString().split('T')[0]}.xlsx`}
+                      download={`financial_data_${selectedDuration}_${
+                        new Date().toISOString().split("T")[0]
+                      }.xlsx`}
                       className="flex items-center px-3 py-1 text-sm bg-green-600 text-white rounded-md hover:bg-green-700 transition duration-300"
                       title={`Export ALL ${selectedDuration} financial data to Excel`}
                     >
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        className="h-4 w-4 mr-1"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+                        />
                       </svg>
-                      Export (All)
+                      Export
                     </a>
                     <button
                       onClick={() => setShowEmailModal(true)}
                       className="flex items-center px-3 py-1 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700 transition duration-300"
                       title={`Email ${selectedDuration} financial data`}
                     >
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        className="h-4 w-4 mr-1"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
+                        />
                       </svg>
                       Email
                     </button>
@@ -526,8 +669,13 @@ export default function DashboardPage() {
           {/* Stats Overview */}
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 sm:gap-6 mb-6 sm:mb-8">
             {stats.map((stat, index) => (
-              <div key={index} className="bg-white rounded-lg shadow-md p-4 sm:p-6">
-                <div className={`${stat.color} text-white rounded-full w-12 h-12 flex items-center justify-center mb-4`}>
+              <div
+                key={index}
+                className="bg-white rounded-lg shadow-md p-4 sm:p-6"
+              >
+                <div
+                  className={`${stat.color} text-white rounded-full w-12 h-12 flex items-center justify-center mb-4`}
+                >
                   <span className="text-xl font-bold">{index + 1}</span>
                 </div>
                 <h3 className="text-gray-500 text-sm mb-1">{stat.label}</h3>
@@ -539,17 +687,24 @@ export default function DashboardPage() {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
             {/* Recent Activities */}
             <div className="lg:col-span-2 bg-white rounded-lg shadow-md p-2 sm:p-6">
-              <h2 className="text-lg sm:text-xl font-bold text-blue-700 mb-2 sm:mb-4">Recent Activities</h2>
+              <h2 className="text-lg sm:text-xl font-bold text-blue-700 mb-2 sm:mb-4">
+                Recent Activities
+              </h2>
               {dashboardData.recentActivities.length === 0 ? (
-                <p className="text-gray-500 text-center py-4">No recent activities found.</p>
+                <p className="text-gray-500 text-center py-4">
+                  No recent activities found.
+                </p>
               ) : (
                 <div className="space-y-4">
                   {dashboardData.recentActivities.map((activity: Activity) => {
                     // Generate link based on entity type
-                    let activityLink = '#';
-                    if (activity.entityType === 'loan' && activity.entityId) {
+                    let activityLink = "#";
+                    if (activity.entityType === "loan" && activity.entityId) {
                       activityLink = `/loans/${activity.entityId}`;
-                    } else if (activity.entityType === 'chitFund' && activity.entityId) {
+                    } else if (
+                      activity.entityType === "chitFund" &&
+                      activity.entityId
+                    ) {
                       activityLink = `/chit-funds/${activity.entityId}`;
                     }
 
@@ -559,19 +714,32 @@ export default function DashboardPage() {
                         key={activity.id}
                         className="block border-l-4 pl-4 border-gray-300 hover:bg-gray-50 transition-colors duration-200 pb-4"
                         style={{
-                          borderColor: activity.type === 'Chit Fund' ? '#3b82f6' : '#10b981'
+                          borderColor:
+                            activity.type === "Chit Fund"
+                              ? "#3b82f6"
+                              : "#10b981",
                         }}
                       >
                         <div className="flex justify-between">
-                          <span className={`px-2 py-1 rounded-full text-xs ${
-                            activity.type === 'Chit Fund' ? 'bg-blue-100 text-blue-800' : 'bg-green-100 text-green-800'
-                          }`}>
+                          <span
+                            className={`px-2 py-1 rounded-full text-xs ${
+                              activity.type === "Chit Fund"
+                                ? "bg-blue-100 text-blue-800"
+                                : "bg-green-100 text-green-800"
+                            }`}
+                          >
                             {activity.type}
                           </span>
-                          <span className="text-gray-500 text-sm">{activity.date}</span>
+                          <span className="text-gray-500 text-sm">
+                            {activity.date}
+                          </span>
                         </div>
-                        <h3 className="font-semibold mt-1">{activity.action}</h3>
-                        <p className="text-gray-600 text-sm">{activity.details}</p>
+                        <h3 className="font-semibold mt-1">
+                          {activity.action}
+                        </h3>
+                        <p className="text-gray-600 text-sm">
+                          {activity.details}
+                        </p>
                         {activity.amount && (
                           <p className="text-gray-700 text-sm font-medium mt-1">
                             Amount: {formatCurrency(activity.amount)}
@@ -583,14 +751,28 @@ export default function DashboardPage() {
                 </div>
               )}
               <div className="mt-6 text-center">
-                {dashboardData.totalActivities && dashboardData.totalActivities > 3 ? (
+                {dashboardData.totalActivities &&
+                dashboardData.totalActivities > 3 ? (
                   <Link
                     href="/activities"
                     className="inline-flex items-center justify-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-300"
                   >
-                    <span>View All {dashboardData.totalActivities} Activities</span>
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 ml-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    <span>
+                      View All {dashboardData.totalActivities} Activities
+                    </span>
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      className="h-4 w-4 ml-2"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M9 5l7 7-7 7"
+                      />
                     </svg>
                   </Link>
                 ) : (
@@ -599,8 +781,19 @@ export default function DashboardPage() {
                     className="inline-flex items-center justify-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-300"
                   >
                     <span>View All Activities</span>
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 ml-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      className="h-4 w-4 ml-2"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M9 5l7 7-7 7"
+                      />
                     </svg>
                   </Link>
                 )}
@@ -609,17 +802,25 @@ export default function DashboardPage() {
 
             {/* Upcoming Events */}
             <div className="bg-white rounded-lg shadow-md p-2 sm:p-6">
-              <h2 className="text-lg sm:text-xl font-bold text-blue-700 mb-2 sm:mb-4">Upcoming Events</h2>
-              {!dashboardData.upcomingEvents || dashboardData.upcomingEvents.length === 0 ? (
-                <p className="text-gray-500 text-center py-4">No upcoming events found.</p>
+              <h2 className="text-lg sm:text-xl font-bold text-blue-700 mb-2 sm:mb-4">
+                Upcoming Events
+              </h2>
+              {!dashboardData.upcomingEvents ||
+              dashboardData.upcomingEvents.length === 0 ? (
+                <p className="text-gray-500 text-center py-4">
+                  No upcoming events found.
+                </p>
               ) : (
                 <div className="space-y-4">
                   {dashboardData.upcomingEvents.map((event: Event) => {
                     // Generate link based on entity type
-                    let eventLink = '#';
-                    if (event.entityType === 'loan' && event.entityId) {
+                    let eventLink = "#";
+                    if (event.entityType === "loan" && event.entityId) {
                       eventLink = `/loans/${event.entityId}`;
-                    } else if (event.entityType === 'chitFund' && event.entityId) {
+                    } else if (
+                      event.entityType === "chitFund" &&
+                      event.entityId
+                    ) {
                       eventLink = `/chit-funds/${event.entityId}`;
                     }
 
@@ -627,9 +828,14 @@ export default function DashboardPage() {
                       <Link
                         href={eventLink}
                         key={event.id}
-                        className={`block border-l-4 pl-4 hover:bg-gray-50 transition-colors duration-200 ${event.isDueTomorrow ? 'bg-yellow-50 rounded-r p-2' : ''}`}
+                        className={`block border-l-4 pl-4 hover:bg-gray-50 transition-colors duration-200 ${
+                          event.isDueTomorrow
+                            ? "bg-yellow-50 rounded-r p-2"
+                            : ""
+                        }`}
                         style={{
-                          borderColor: event.type === 'Chit Fund' ? '#3b82f6' : '#10b981'
+                          borderColor:
+                            event.type === "Chit Fund" ? "#3b82f6" : "#10b981",
                         }}
                       >
                         <h3 className="font-semibold">{event.title}</h3>
@@ -640,26 +846,36 @@ export default function DashboardPage() {
                           </p>
                         )}
                         <div className="flex flex-wrap gap-2 mt-1">
-                          <span className={`inline-block px-2 py-1 rounded-full text-xs ${
-                            event.type === 'Chit Fund' ? 'bg-blue-100 text-blue-800' : 'bg-green-100 text-green-800'
-                          }`}>
+                          <span
+                            className={`inline-block px-2 py-1 rounded-full text-xs ${
+                              event.type === "Chit Fund"
+                                ? "bg-blue-100 text-blue-800"
+                                : "bg-green-100 text-green-800"
+                            }`}
+                          >
                             {event.type}
                           </span>
                           {event.isDueTomorrow && (
-                            <span className="px-2 py-1 text-xs font-semibold rounded-full bg-amber-100 text-amber-800 border border-amber-200"
-                                  title="This event is due tomorrow">
+                            <span
+                              className="px-2 py-1 text-xs font-semibold rounded-full bg-amber-100 text-amber-800 border border-amber-200"
+                              title="This event is due tomorrow"
+                            >
                               Due Tomorrow
                             </span>
                           )}
-                          {event.status === 'Paid' && (
-                            <span className="px-2 py-1 text-xs font-semibold rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200"
-                                  title="This payment has been made">
+                          {event.status === "Paid" && (
+                            <span
+                              className="px-2 py-1 text-xs font-semibold rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200"
+                              title="This payment has been made"
+                            >
                               Paid
                             </span>
                           )}
-                          {event.status === 'Overdue' && (
-                            <span className="px-2 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-800 border border-red-200"
-                                  title="This payment is overdue">
+                          {event.status === "Overdue" && (
+                            <span
+                              className="px-2 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-800 border border-red-200"
+                              title="This payment is overdue"
+                            >
                               Overdue
                             </span>
                           )}
@@ -670,14 +886,28 @@ export default function DashboardPage() {
                 </div>
               )}
               <div className="mt-6 text-center">
-                {dashboardData.totalUpcomingEvents && dashboardData.totalUpcomingEvents > 3 ? (
+                {dashboardData.totalUpcomingEvents &&
+                dashboardData.totalUpcomingEvents > 3 ? (
                   <Link
                     href="/calendar"
                     className="inline-flex items-center justify-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-300"
                   >
-                    <span>View All {dashboardData.totalUpcomingEvents} Events</span>
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 ml-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    <span>
+                      View All {dashboardData.totalUpcomingEvents} Events
+                    </span>
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      className="h-4 w-4 ml-2"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M9 5l7 7-7 7"
+                      />
                     </svg>
                   </Link>
                 ) : (
@@ -686,8 +916,19 @@ export default function DashboardPage() {
                     className="inline-flex items-center justify-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-300"
                   >
                     <span>View Full Calendar</span>
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 ml-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      className="h-4 w-4 ml-2"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M9 5l7 7-7 7"
+                      />
                     </svg>
                   </Link>
                 )}
@@ -703,7 +944,13 @@ export default function DashboardPage() {
         onClose={() => setShowEmailModal(false)}
         exportType="Financial Data"
         duration={selectedDuration}
-        limit={selectedDuration === 'weekly' ? 8 : selectedDuration === 'monthly' ? 12 : 5}
+        limit={
+          selectedDuration === "weekly"
+            ? 8
+            : selectedDuration === "monthly"
+            ? 12
+            : 5
+        }
       />
     </div>
   );
