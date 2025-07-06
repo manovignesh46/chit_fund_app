@@ -32,13 +32,29 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, onOpen }) => {
 
     let startX = 0;
     let startY = 0;
+    let canSwipeOpen = true;
 
     const handleTouchStart = (e) => {
       startX = e.touches[0].clientX;
       startY = e.touches[0].clientY;
+      canSwipeOpen = true;
+
+      let target = e.target;
+      while (target && target !== document.body) {
+        const isHorizontallyScrollable = target.scrollWidth > target.clientWidth;
+        if (isHorizontallyScrollable && target.scrollLeft > 0) {
+          canSwipeOpen = false;
+          break;
+        }
+        target = target.parentElement;
+      }
     };
 
     const handleTouchEnd = (e) => {
+      if (!canSwipeOpen) {
+        return;
+      }
+
       const endX = e.changedTouches[0].clientX;
       const endY = e.changedTouches[0].clientY;
       const deltaX = endX - startX;
