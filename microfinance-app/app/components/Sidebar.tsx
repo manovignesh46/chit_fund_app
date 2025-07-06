@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { useSwipeable } from 'react-swipeable';
 import SidebarUserMenu from './SidebarUserMenu';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -9,11 +10,55 @@ import { PartnerSelector } from '../contexts/PartnerContext';
 interface SidebarProps {
   isOpen: boolean;
   onClose: () => void;
+  onOpen: () => void;
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
+const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, onOpen }) => {
   const pathname = usePathname();
   const [isExpanded, setIsExpanded] = useState(false);
+
+  const swipeCloseHandlers = useSwipeable({
+    onSwipedLeft: () => onClose(),
+    preventDefaultTouchmoveEvent: true,
+    trackMouse: false,
+  });
+
+  // Effect to handle body swipes for opening sidebar
+  useEffect(() => {
+    // Don't attach listeners if sidebar is open or on desktop
+    if (isOpen || (typeof window !== 'undefined' && window.innerWidth >= 1024)) {
+      return;
+    }
+
+    let startX = 0;
+    let startY = 0;
+
+    const handleTouchStart = (e) => {
+      startX = e.touches[0].clientX;
+      startY = e.touches[0].clientY;
+    };
+
+    const handleTouchEnd = (e) => {
+      const endX = e.changedTouches[0].clientX;
+      const endY = e.changedTouches[0].clientY;
+      const deltaX = endX - startX;
+      const deltaY = endY - startY;
+      const minSwipeDistance = 100;
+
+      // Check for a clear right swipe
+      if (deltaX > minSwipeDistance && Math.abs(deltaX) > Math.abs(deltaY)) {
+        onOpen();
+      }
+    };
+
+    document.addEventListener('touchstart', handleTouchStart);
+    document.addEventListener('touchend', handleTouchEnd);
+
+    return () => {
+      document.removeEventListener('touchstart', handleTouchStart);
+      document.removeEventListener('touchend', handleTouchEnd);
+    };
+  }, [isOpen, onOpen]);
 
   // Initialize expanded state on desktop
   useEffect(() => {
@@ -125,13 +170,17 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
       {/* Mobile Overlay */}
       {isOpen && (
         <div 
+          {...swipeCloseHandlers}
           className="fixed inset-0 bg-black bg-opacity-50 z-40 lg:hidden"
           onClick={onClose}
         />
       )}
 
+      
+
       {/* Sidebar */}
       <div
+        {...swipeCloseHandlers}
         className={`
           fixed top-0 left-0 h-full bg-white shadow-lg z-50 transform transition-all duration-300 ease-in-out
           ${isOpen ? 'translate-x-0' : '-translate-x-full'}

@@ -400,6 +400,11 @@ export default function DashboardPage() {
   // Create stats array from dashboard data
   const stats = [
     {
+      label: "Active Loans",
+      value: dashboardData.activeLoans,
+      color: "bg-purple-500",
+    },
+    {
       label: "Active Chit Funds",
       value: dashboardData.activeChitFunds,
       color: "bg-blue-500",
@@ -408,11 +413,6 @@ export default function DashboardPage() {
       label: "Total Members",
       value: dashboardData.totalMembers,
       color: "bg-green-500",
-    },
-    {
-      label: "Active Loans",
-      value: dashboardData.activeLoans,
-      color: "bg-purple-500",
     },
   ];
 
@@ -667,19 +667,24 @@ export default function DashboardPage() {
           </div>
 
           {/* Stats Overview */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 sm:gap-6 mb-6 sm:mb-8">
+          <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 gap-4 sm:gap-6 mb-6 sm:mb-8">
             {stats.map((stat, index) => (
               <div
                 key={index}
-                className="bg-white rounded-lg shadow-md p-4 sm:p-6"
+                className={`bg-white rounded-lg shadow-md p-4 sm:p-6 flex flex-col items-center ${
+                  stats.length % 2 !== 0 && index === stats.length - 1
+                    ? "col-span-2 justify-self-center md:col-span-1 md:justify-self-auto"
+                    : ""
+                }`}
               >
                 <div
                   className={`${stat.color} text-white rounded-full w-12 h-12 flex items-center justify-center mb-4`}
                 >
-                  <span className="text-xl font-bold">{index + 1}</span>
+                  <span className="text-xl font-bold">{stat.value}</span>
                 </div>
-                <h3 className="text-gray-500 text-sm mb-1">{stat.label}</h3>
-                <p className="text-2xl font-bold">{stat.value}</p>
+                <h3 className="text-gray-500 text-sm text-center font-bold">
+                  {stat.label}
+                </h3>
               </div>
             ))}
           </div>

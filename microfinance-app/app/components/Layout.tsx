@@ -28,6 +28,10 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     setSidebarOpen(!sidebarOpen);
   };
 
+    const openSidebar = () => {
+    setSidebarOpen(true);
+  };
+
   const closeSidebar = () => {
     setSidebarOpen(false);
   };
@@ -47,7 +51,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   return (
     <div className="flex min-h-screen bg-gray-50">
       {/* Sidebar */}
-      <Sidebar isOpen={sidebarOpen} onClose={closeSidebar} />
+      <Sidebar isOpen={sidebarOpen} onOpen={openSidebar} onClose={closeSidebar} />
 
       {/* Main Content Area */}
       <div className={`flex-1 transition-all duration-300 ${sidebarExpanded ? 'lg:ml-64' : 'lg:ml-16'}`}>
