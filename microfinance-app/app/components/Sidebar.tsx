@@ -46,6 +46,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, onOpen }) => {
       lastTouchX: 0,
       lastTouchTime: 0,
       velocityX: 0,
+      isOriginLeftQuarter: false, // New property
     };
 
     const handleTouchStart = (e: TouchEvent) => {
@@ -57,6 +58,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, onOpen }) => {
       dragState.velocityX = 0; // Reset velocity on start
       dragState.isSwiping = false; // Reset active swiping state
       setIsDragging(false); // Reset dragging state
+      dragState.isOriginLeftQuarter = e.touches[0].clientX < window.innerWidth / 4; // Set origin flag
     };
 
     const handleTouchMove = (e: TouchEvent) => {
@@ -130,7 +132,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, onOpen }) => {
       }
 
       // --- Handle Sidebar Open (if not already handled by close or scroll) ---
-      const isSwipeToOpenSidebar = !isOpen && deltaX > 0; // Sidebar closed, swiping right
+      const isSwipeToOpenSidebar = !isOpen && deltaX > 0 && dragState.isOriginLeftQuarter; // Sidebar closed, swiping right, and originated from left quarter
 
       if (isSwipeToOpenSidebar) {
         if (!dragState.isSwiping) { // Only set once
