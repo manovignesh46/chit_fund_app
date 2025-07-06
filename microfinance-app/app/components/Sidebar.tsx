@@ -1,11 +1,9 @@
 'use client';
 
-import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { useSwipeable } from 'react-swipeable';
+import React, { useState, useEffect, useRef } from 'react';
 import SidebarUserMenu from './SidebarUserMenu';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { PartnerSelector } from '../contexts/PartnerContext';
 
 interface SidebarProps {
   isOpen: boolean;
@@ -17,79 +15,199 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, onOpen }) => {
   const pathname = usePathname();
   const [isExpanded, setIsExpanded] = useState(false);
 
-  const swipeCloseHandlers = useSwipeable({
-    onSwipedLeft: () => onClose(),
-    preventDefaultTouchmoveEvent: true,
-    trackMouse: false,
-  });
+  const sidebarWidth = 256; // w-64 in tailwind
+  const [translateX, setTranslateX] = useState(-sidebarWidth);
+  const [isDragging, setIsDragging] = useState(false);
+  const translateXRef = useRef(translateX);
 
-  // Effect to handle body swipes for opening sidebar
+  // Keep ref updated with the latest translateX value
   useEffect(() => {
-    // Don't attach listeners if sidebar is open or on desktop
-    if (isOpen || (typeof window !== 'undefined' && window.innerWidth >= 1024)) {
+    translateXRef.current = translateX;
+  }, [translateX]);
+
+  // Update position when isOpen prop changes or when dragging ends.
+  useEffect(() => {
+    if (!isDragging) {
+      setTranslateX(isOpen ? 0 : -sidebarWidth);
+    }
+  }, [isOpen, isDragging]);
+
+  // Effect to handle body swipes for opening/closing sidebar
+  useEffect(() => {
+    if (typeof window !== 'undefined' && window.innerWidth >= 1024) {
       return;
     }
 
-    let startX = 0;
-    let startY = 0;
-    let canSwipeOpen = true;
+    const dragState = {
+      startX: 0,
+      startY: 0,
+      initialTranslateX: 0,
+      isSwiping: false, // Indicates if we are actively controlling the sidebar movement
+      lastTouchX: 0,
+      lastTouchTime: 0,
+      velocityX: 0,
+    };
 
-    const handleTouchStart = (e) => {
-      startX = e.touches[0].clientX;
-      startY = e.touches[0].clientY;
-      canSwipeOpen = true;
+    const handleTouchStart = (e: TouchEvent) => {
+      dragState.startX = e.touches[0].clientX;
+      dragState.startY = e.touches[0].clientY;
+      dragState.initialTranslateX = translateXRef.current;
+      dragState.lastTouchX = e.touches[0].clientX;
+      dragState.lastTouchTime = Date.now();
+      dragState.velocityX = 0; // Reset velocity on start
+      dragState.isSwiping = false; // Reset active swiping state
+      setIsDragging(false); // Reset dragging state
+    };
 
-      let target = e.target;
-      while (target && target !== document.body) {
-        const isHorizontallyScrollable = target.scrollWidth > target.clientWidth;
-        if (isHorizontallyScrollable && target.scrollLeft > 0) {
-          canSwipeOpen = false;
-          break;
+    const handleTouchMove = (e: TouchEvent) => {
+      const currentX = e.touches[0].clientX;
+      const currentTime = Date.now();
+      const deltaX = currentX - dragState.startX;
+      const deltaY = e.touches[0].clientY - dragState.startY;
+
+      const absDeltaX = Math.abs(deltaX);
+      const absDeltaY = Math.abs(deltaY);
+
+      // Determine if it's primarily a horizontal swipe
+      const isHorizontalSwipeGesture = absDeltaX > absDeltaY && absDeltaX > 5; // Threshold for horizontal swipe
+
+      // If it's primarily a vertical swipe, or not a significant horizontal swipe, let the browser handle it.
+      if (absDeltaY > absDeltaX && absDeltaY > 5 || !isHorizontalSwipeGesture) {
+        // If we were already swiping the sidebar, release control
+        if (dragState.isSwiping) {
+          dragState.isSwiping = false;
+          setIsDragging(false);
+          // Reset translateX to its open/closed state if we release control mid-swipe
+          setTranslateX(isOpen ? 0 : -sidebarWidth);
         }
-        target = target.parentElement;
+        return; // Let browser handle native scroll or ignore small movements
+      }
+
+      // --- Prioritize Sidebar Close if Open and Swiping Left ---
+      if (isOpen && deltaX < 0) { // Sidebar is open, swiping left
+        if (!dragState.isSwiping) {
+          dragState.isSwiping = true;
+          setIsDragging(true);
+        }
+        e.preventDefault(); // Prevent default to take control of the swipe
+        const newTranslateX = dragState.initialTranslateX + deltaX;
+        const clampedX = Math.max(-sidebarWidth, Math.min(newTranslateX, 0));
+        setTranslateX(clampedX);
+
+        // Calculate velocity
+        const timeDiff = currentTime - dragState.lastTouchTime;
+        if (timeDiff > 0) {
+          dragState.velocityX = (currentX - dragState.lastTouchX) / timeDiff; // pixels per ms
+        }
+        dragState.lastTouchX = currentX;
+        dragState.lastTouchTime = currentTime;
+        return; // Handled by sidebar, no need to check for scrollable elements
+      }
+
+      // --- Check for Horizontal Scrollable Elements (for other cases) ---
+      let target = e.target as HTMLElement;
+      let isTargetHorizontallyScrollableAndCanScroll = false;
+      while (target && target !== document.body) {
+        if (target.scrollWidth > target.clientWidth) {
+          // Check if scrolling in the direction of the swipe is possible
+          if ((deltaX < 0 && target.scrollLeft < target.scrollWidth - target.clientWidth) || // Swiping left, can scroll left
+              (deltaX > 0 && target.scrollLeft > 0)) { // Swiping right, can scroll right
+            isTargetHorizontallyScrollableAndCanScroll = true;
+            break;
+          }
+        }
+        target = target.parentElement as HTMLElement;
+      }
+
+      // If it's a horizontal swipe on a scrollable element that can still scroll, let the browser handle it.
+      if (isTargetHorizontallyScrollableAndCanScroll) {
+        if (dragState.isSwiping) { // If we were controlling the sidebar, release it
+          dragState.isSwiping = false;
+          setIsDragging(false);
+          setTranslateX(isOpen ? 0 : -sidebarWidth); // Snap back
+        }
+        return; // Let browser handle horizontal scroll
+      }
+
+      // --- Handle Sidebar Open (if not already handled by close or scroll) ---
+      const isSwipeToOpenSidebar = !isOpen && deltaX > 0; // Sidebar closed, swiping right
+
+      if (isSwipeToOpenSidebar) {
+        if (!dragState.isSwiping) { // Only set once
+          dragState.isSwiping = true;
+          setIsDragging(true);
+        }
+        e.preventDefault(); // Prevent default only when we are actively controlling the sidebar
+
+        const newTranslateX = dragState.initialTranslateX + deltaX;
+        const clampedX = Math.max(-sidebarWidth, Math.min(newTranslateX, 0));
+        setTranslateX(clampedX);
+
+        // Calculate velocity
+        const timeDiff = currentTime - dragState.lastTouchTime;
+        if (timeDiff > 0) {
+          dragState.velocityX = (currentX - dragState.lastTouchX) / timeDiff; // pixels per ms
+        }
+        dragState.lastTouchX = currentX;
+        dragState.lastTouchTime = currentTime;
+      } else {
+        // If it's a horizontal swipe but not a valid sidebar gesture (e.g., swiping right when sidebar is open,
+        // or swiping left when sidebar is closed), and it's not a scrollable element,
+        // then we just let it be, but ensure sidebar control is released.
+        if (dragState.isSwiping) {
+          dragState.isSwiping = false;
+          setIsDragging(false);
+          setTranslateX(isOpen ? 0 : -sidebarWidth); // Snap back to original state
+        }
       }
     };
 
-    const handleTouchEnd = (e) => {
-      if (!canSwipeOpen) {
+    const handleTouchEnd = () => {
+      if (!dragState.isSwiping) {
+        // If we were not actively swiping the sidebar, do nothing
         return;
       }
 
-      const endX = e.changedTouches[0].clientX;
-      const endY = e.changedTouches[0].clientY;
-      const deltaX = endX - startX;
-      const deltaY = endY - startY;
-      const minSwipeDistance = 100;
+      dragState.isSwiping = false;
+      setIsDragging(false);
 
-      // Check for a clear right swipe
-      if (deltaX > minSwipeDistance && Math.abs(deltaX) > Math.abs(deltaY)) {
-        onOpen();
+      const lastTranslateX = translateXRef.current;
+      const velocityThreshold = 0.3; // pixels per ms
+
+      // Determine action based on velocity or distance
+      if (dragState.velocityX > velocityThreshold) {
+        onOpen(); // Fast swipe right
+      } else if (dragState.velocityX < -velocityThreshold) {
+        onClose(); // Fast swipe left
+      } else if (lastTranslateX < -sidebarWidth / 2) {
+        onClose(); // Distance-based close
+      } else {
+        onOpen(); // Distance-based open
       }
     };
 
-    document.addEventListener('touchstart', handleTouchStart);
+    document.addEventListener('touchstart', handleTouchStart, { passive: true });
+    document.addEventListener('touchmove', handleTouchMove, { passive: false });
     document.addEventListener('touchend', handleTouchEnd);
 
     return () => {
       document.removeEventListener('touchstart', handleTouchStart);
+      document.removeEventListener('touchmove', handleTouchMove);
       document.removeEventListener('touchend', handleTouchEnd);
     };
-  }, [isOpen, onOpen]);
+  }, [isOpen, onOpen, onClose]);
 
-  // Initialize expanded state on desktop
   useEffect(() => {
     if (typeof window !== 'undefined' && window.innerWidth >= 1024) {
-      setIsExpanded(false); // Start collapsed on desktop
+      setIsExpanded(false);
     }
   }, []);
 
-  // Dispatch expansion state changes to parent
   useEffect(() => {
     const event = new CustomEvent('sidebarExpansion', { detail: { expanded: isExpanded } });
     window.dispatchEvent(event);
   }, [isExpanded]);
 
-  // Navigation items with icons
   const navigationItems = [
     {
       name: 'Dashboard',
@@ -166,7 +284,6 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, onOpen }) => {
     }
   ];
 
-  // Check if current path matches navigation item
   const isActive = (href: string) => {
     if (href === '/dashboard') {
       return pathname === href;
@@ -174,9 +291,8 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, onOpen }) => {
     return pathname.startsWith(href);
   };
 
-  // Close sidebar when clicking on navigation items (mobile)
   const handleNavClick = () => {
-    if (window.innerWidth < 1024) { // lg breakpoint
+    if (window.innerWidth < 1024) {
       onClose();
     }
   };
@@ -184,35 +300,34 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, onOpen }) => {
   return (
     <>
       {/* Mobile Overlay */}
-      {isOpen && (
-        <div 
-          {...swipeCloseHandlers}
-          className="fixed inset-0 bg-black bg-opacity-50 z-40 lg:hidden"
+      {(isOpen || isDragging) && (
+        <div
+          className="fixed inset-0 bg-black z-40 lg:hidden"
           onClick={onClose}
+          style={{ 
+            opacity: (translateX + sidebarWidth) / sidebarWidth * 0.5,
+            transition: isDragging ? 'none' : 'opacity 0.3s ease-in-out'
+          }}
         />
       )}
 
-      
-
       {/* Sidebar */}
       <div
-        {...swipeCloseHandlers}
         className={`
-          fixed top-0 left-0 h-full bg-white shadow-lg z-50 transform transition-all duration-300 ease-in-out
-          ${isOpen ? 'translate-x-0' : '-translate-x-full'}
+          fixed top-0 left-0 h-full bg-white shadow-lg z-50
           lg:translate-x-0
           w-64 lg:${isExpanded ? 'w-64' : 'w-16'}
           flex flex-col
         `}
+        style={{
+          transform: `translateX(${translateX}px)`,
+          transition: isDragging ? 'none' : 'transform 0.3s ease-in-out',
+        }}
         onMouseEnter={() => {
-          if (window.innerWidth >= 1024) { // Only on desktop
-            setIsExpanded(true);
-          }
+          if (window.innerWidth >= 1024) { setIsExpanded(true); }
         }}
         onMouseLeave={() => {
-          if (window.innerWidth >= 1024) { // Only on desktop
-            setIsExpanded(false);
-          }
+          if (window.innerWidth >= 1024) { setIsExpanded(false); }
         }}
       >
         {/* Sidebar Header */}
@@ -237,7 +352,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, onOpen }) => {
           </button>
         </div>
 
-        {/* User Menu moved from Header */}
+        {/* User Menu */}
         <div className={`p-4 border-b border-gray-200 bg-gray-50 ${isExpanded ? 'block' : 'lg:hidden block'}`}>
           <SidebarUserMenu />
         </div>
@@ -262,11 +377,9 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, onOpen }) => {
                   <span className={`${isExpanded ? 'mr-3' : 'lg:mx-auto mr-3'} ${isActive(item.href) ? 'text-blue-700' : 'text-gray-500'}`}>
                     {item.icon}
                   </span>
-                  {/* Always show text on mobile, conditionally on desktop */}
                   <span className={`whitespace-nowrap ${isExpanded ? 'block' : 'lg:hidden block'}`}>
                     {item.name}
                   </span>
-                  {/* Tooltip for collapsed state - only on desktop */}
                   {!isExpanded && (
                     <div className="hidden lg:block absolute left-full ml-2 px-2 py-1 bg-gray-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-50">
                       {item.name}
