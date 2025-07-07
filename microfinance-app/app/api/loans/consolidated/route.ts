@@ -1044,7 +1044,7 @@ async function addRepayment(request: NextRequest, id: number, currentUserId: num
       data: {
         remainingAmount: newRemainingAmount,
         duration: updatedDuration,
-        status: newRemainingAmount <= 0 ? "Completed" : "Active",
+        status: newRemainingAmount + loan.interestRate <= 0 ? "Completed" : "Active",
         nextPaymentDate: newRemainingAmount <= 0 ? null : nextPaymentDate,
         overdueAmount,
         missedPayments,
