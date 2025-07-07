@@ -18,7 +18,17 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, onOpen }) => {
   const sidebarWidth = 256; // w-64 in tailwind
   const [translateX, setTranslateX] = useState(-sidebarWidth);
   const [isDragging, setIsDragging] = useState(false);
+  const [isDesktop, setIsDesktop] = useState(false);
   const translateXRef = useRef(translateX);
+
+  useEffect(() => {
+    const checkIsDesktop = () => {
+      setIsDesktop(window.innerWidth >= 1024);
+    };
+    checkIsDesktop();
+    window.addEventListener('resize', checkIsDesktop);
+    return () => window.removeEventListener('resize', checkIsDesktop);
+  }, []);
 
   // Keep ref updated with the latest translateX value
   useEffect(() => {
@@ -317,13 +327,14 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, onOpen }) => {
       <div
         className={`
           fixed top-0 left-0 h-full bg-white shadow-lg z-50
-          lg:translate-x-0
           w-64 lg:${isExpanded ? 'w-64' : 'w-16'}
           flex flex-col
         `}
         style={{
-          transform: `translateX(${translateX}px)`,
-          transition: isDragging ? 'none' : 'transform 0.3s ease-in-out',
+          transform: isDesktop ? 'translateX(0)' : `translateX(${translateX}px)`,
+          transition: isDesktop 
+            ? 'width 0.3s ease-in-out' 
+            : (isDragging ? 'none' : 'transform 0.3s ease-in-out'),
         }}
         onMouseEnter={() => {
           if (window.innerWidth >= 1024) { setIsExpanded(true); }
