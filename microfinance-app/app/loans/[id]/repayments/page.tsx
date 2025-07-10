@@ -276,18 +276,30 @@ const RepaymentsPage = () => {
 
   return (
     <div className="container mx-auto px-2 sm:px-4 py-6 sm:py-8 max-w-screen-xl w-full">
-      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-6 sm:mb-8">
-        <h1 className="text-2xl sm:text-3xl font-bold text-green-700">Repayment History</h1>
-        <div className="flex flex-col sm:flex-row gap-2 sm:gap-4 w-full sm:w-auto">
+      <div className="flex items-center justify-between mb-6 sm:mb-8 gap-4 flex-row-reverse">
+        <div className="flex flex-row gap-2 w-auto">
           {loan.status === 'Active' && (
-            <Link href={`/loans/${id}/repayments/new`} className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition duration-300">
-              Record New Payment
+            <Link href={`/loans/${id}/repayments/new`} className="p-2 sm:px-4 sm:py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition duration-300 flex items-center justify-center">
+              <span className="block sm:hidden">
+                {/* Plus Icon */}
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                </svg>
+              </span>
+              <span className="hidden sm:inline">Record New Payment</span>
             </Link>
           )}
-          <Link href={`/loans/${id}`} className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition duration-300">
-            Back to Loan Details
+          <Link href={`/loans/${id}`} className="p-2 sm:px-4 sm:py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition duration-300 flex items-center justify-center">
+            <span className="block sm:hidden">
+              {/* Arrow Left Icon */}
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+            </span>
+            <span className="hidden sm:inline">Back to Loan Details</span>
           </Link>
         </div>
+        <h1 className="text-2xl sm:text-3xl font-bold text-green-700">Repayment History</h1>
       </div>
 
       <div className="bg-white rounded-lg shadow-md p-2 sm:p-6 overflow-x-auto mb-6">
@@ -567,17 +579,17 @@ const RepaymentsPage = () => {
                     <p>{deleteError}</p>
                   </div>
                 )}
-                <div className="flex justify-end space-x-3">
+                <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 w-full">
                   <button
                     onClick={() => setShowDeleteModal(false)}
-                    className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition duration-300"
+                    className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition duration-300 w-full sm:w-auto"
                     disabled={isDeleting}
                   >
                     Cancel
                   </button>
                   <button
                     onClick={confirmDeleteRepayment}
-                    className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition duration-300 disabled:opacity-50 disabled:cursor-not-allowed w-full sm:w-auto"
                     disabled={isDeleting}
                   >
                     {isDeleting ? 'Deleting...' : 'Delete'}
@@ -606,17 +618,17 @@ const RepaymentsPage = () => {
                     <p>{bulkDeleteError}</p>
                   </div>
                 )}
-                <div className="flex justify-end space-x-3">
+                <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 w-full">
                   <button
                     onClick={() => setShowBulkDeleteModal(false)}
-                    className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition duration-300"
+                    className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition duration-300 w-full sm:w-auto"
                     disabled={isBulkDeleting}
                   >
                     Cancel
                   </button>
                   <button
                     onClick={confirmBulkDeleteRepayments}
-                    className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition duration-300 disabled:opacity-50 disabled:cursor-not-allowed w-full sm:w-auto"
                     disabled={isBulkDeleting}
                   >
                     {isBulkDeleting ? 'Deleting...' : 'Delete Selected'}

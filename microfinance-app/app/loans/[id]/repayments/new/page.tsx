@@ -137,11 +137,39 @@ export default function NewRepaymentPage() {
         const sortedSchedules = [...data].sort((a, b) => a.period - b.period);
         console.log('Sorted schedules:', sortedSchedules);
         setPendingSchedules(sortedSchedules);
+        
+        // Find the next unpaid schedule and pre-select it
+        const sortedByDueDate = [...sortedSchedules]
+          .filter(s => s.status !== 'PAID' && s.status !== 'COMPLETED' && s.status !== 'Interest Only')
+          .sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime());
+        
+        if (sortedByDueDate.length > 0) {
+          const nextDue = sortedByDueDate[0]; // Get the earliest due date
+          setFormData(prev => ({
+            ...prev,
+            scheduleId: nextDue.id.toString()
+          }));
+          console.log('Pre-selected next due schedule:', nextDue);
+        }
       } else if (data.schedules && Array.isArray(data.schedules)) {
         // Handle case where API might return an object with schedules property
         const sortedSchedules = [...data.schedules].sort((a, b) => a.period - b.period);
         console.log('Sorted schedules:', sortedSchedules);
         setPendingSchedules(sortedSchedules);
+        
+        // Find the next unpaid schedule and pre-select it
+        const sortedByDueDate = [...sortedSchedules]
+          .filter(s => s.status !== 'PAID' && s.status !== 'COMPLETED' && s.status !== 'Interest Only')
+          .sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime());
+        
+        if (sortedByDueDate.length > 0) {
+          const nextDue = sortedByDueDate[0]; // Get the earliest due date
+          setFormData(prev => ({
+            ...prev,
+            scheduleId: nextDue.id.toString()
+          }));
+          console.log('Pre-selected next due schedule:', nextDue);
+        }
       } else {
         console.warn('No schedules found in response or schedules is not an array:', data);
         setPendingSchedules([]);
@@ -575,7 +603,14 @@ export default function NewRepaymentPage() {
                   } appearance-none`}
                 >
                   <option value="">-- Select a payment schedule --</option>
-                  {pendingSchedules.map((schedule) => (
+                  {pendingSchedules
+                    .filter(s => 
+                      // Only show unpaid schedules - exclude PAID, COMPLETED, and Interest Only
+                      s.status !== 'PAID' && 
+                      s.status !== 'COMPLETED' && 
+                      s.status !== 'Interest Only'
+                    )
+                    .map((schedule) => (
                     <option key={schedule.id} value={schedule.id}>
                       {loan?.repaymentType === 'Weekly' ? `Week ${schedule.period}` : `Month ${schedule.period}`} -
                       Due: {new Date(schedule.dueDate).toLocaleDateString()} -
@@ -630,18 +665,42 @@ export default function NewRepaymentPage() {
                 />
               </div>
 
-              <div className="mt-8 flex justify-end">
-                <Link href={`/loans/${id}`} className="px-6 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition duration-300 mr-4">
-                  Cancel
-                </Link>
-                <button
-                  type="submit"
-                  disabled={submitting}
-                  className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {submitting ? 'Recording...' : 'Record Payment'}
-                </button>
-              </div>
+      <div className="mt-8 flex flex-col sm:flex-row gap-3 sm:gap-4 w-full">
+        <div className="flex flex-row gap-2 w-full justify-end">
+          <Link
+            href={`/loans/${id}`}
+            className="p-2 sm:px-6 sm:py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition duration-300 flex items-center justify-center min-w-[40px] sm:min-w-[auto]"
+          >
+            <span className="inline-block sm:hidden">
+              {/* Arrow Left Icon */}
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+            </span>
+            <span className="hidden sm:inline">Back to Loan Details</span>
+          </Link>
+          <button
+            type="submit"
+            disabled={submitting}
+            className="w-auto px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+          >
+            <span className="sm:hidden">
+              {submitting ? (
+                <svg className="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+              ) : (
+                /* Save/Check Icon */
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+              )}
+            </span>
+            <span className="hidden sm:inline">{submitting ? 'Recording...' : 'Record Payment'}</span>
+          </button>
+        </div>
+      </div>
         </form>
       </div>
     </div>

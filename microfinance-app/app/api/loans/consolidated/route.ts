@@ -433,6 +433,10 @@ async function getPaymentSchedules(
     // Calculate the date one week from now
     const oneWeekFromNow = new Date(today);
     oneWeekFromNow.setDate(today.getDate() + 7);
+    
+    // Calculate the date three days from now (for showing upcoming payments within 3 days)
+    const threeDaysFromNow = new Date(today);
+    threeDaysFromNow.setDate(today.getDate() + 3);
 
     // Generate dynamic payment schedules
     const schedules = [];
@@ -490,6 +494,9 @@ async function getPaymentSchedules(
 
       const isUpcoming =
         dueDateNormalized <= oneWeekFromNow && dueDateNormalized > today;
+        
+      // Check if the due date is within 3 days from now
+      const isWithinThreeDays = dueDateNormalized <= threeDaysFromNow && dueDateNormalized >= today;
 
       // Check if this is the next payment date (first unpaid period)
       const nextPaymentDate = loan.nextPaymentDate
@@ -503,17 +510,17 @@ async function getPaymentSchedules(
       // ALWAYS include the first payment if it's not paid yet
       const isFirstUnpaidPayment = period === 1 && !isPaid;
 
-      // If includeAll is true, include all periods regardless of status
-      // Otherwise, apply the filtering logic
-      const shouldInclude =
-        includeAll ||
-        isDueToday ||
-        isDueTomorrow ||
-        isOverdue ||
-        isUpcoming ||
-        isPaid ||
-        isNextPayment ||
-        isFirstUnpaidPayment;
+      // For Record Payment page (includeAll=true): Show all unpaid schedules
+      // For Loan Details page (includeAll=false): Show only paid schedules and upcoming due within 3 days
+      let shouldInclude;
+      
+      if (includeAll) {
+        // For Record Payment page - show all unpaid schedules
+        shouldInclude = !isPaid;
+      } else {
+        // For Loan Details page - show only paid schedules plus upcoming due within 3 days
+        shouldInclude = isPaid || isInterestOnly || (isNextPayment && isWithinThreeDays);
+      }
 
       if (shouldInclude) {
         schedules.push({
@@ -540,10 +547,10 @@ async function getPaymentSchedules(
           paidAmount: repayment ? repayment.amount : null,
         });
 
-        // Log if this is the next payment
-        if (isNextPayment) {
+        // Log if this is the next payment being included because it's within 3 days
+        if (isNextPayment && isWithinThreeDays) {
           console.log(
-            `Including next payment date: ${dueDate.toISOString()} for period ${period}`
+            `Including next payment date: ${dueDate.toISOString()} for period ${period} (within 3 days)`
           );
         }
       }
