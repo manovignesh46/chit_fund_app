@@ -241,7 +241,7 @@ export default function NewRepaymentPage() {
     } else if (loan) {
       const amount = Number(formData.amount);
       if (formData.paymentType === 'REGULAR' && amount > loan.remainingAmount) {
-        newErrors.amount = `Amount cannot exceed the remaining balance (${loan.remainingAmount})`;
+        // newErrors.amount = `Amount cannot exceed the remaining balance (${loan.remainingAmount})`;
       } else if (formData.paymentType === 'INTEREST_ONLY' && loan.interestRate && amount !== loan.interestRate) {
         newErrors.amount = `Interest-only payment must be exactly ${loan.interestRate}`;
       }
