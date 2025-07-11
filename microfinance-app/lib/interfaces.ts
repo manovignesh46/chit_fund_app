@@ -135,6 +135,7 @@ export interface Loan {
   disbursementDate: Date | string;
   repaymentType: string;
   remainingAmount: number;
+  remainingDue: number;
   overdueAmount: number;
   missedPayments: number;
   currentMonth: number;

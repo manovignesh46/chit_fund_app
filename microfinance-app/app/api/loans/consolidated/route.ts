@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "../../../../lib/prisma";
 import { getCurrentUserId } from "../../../../lib/auth";
-import {
+import { 
   generatePaymentSchedule,
   calculateNextPaymentDate,
   updateOverdueAmountFromRepayments,
 } from "../../../../lib/paymentSchedule";
+import { calculateRemainingDue } from "../../../../lib/loanCalculations";
 import { TRANSACTION_TYPES_CONFIG } from "../../../../config/config";
 
 // Use ISR with a 5-minute revalidation period
@@ -262,11 +263,21 @@ async function getLoansList(request: NextRequest, currentUserId: number) {
           select: { repayments: true },
         },
         borrower: true,
+        repayments: true,
       },
       orderBy: { createdAt: "desc" },
       skip,
       take: validPageSize,
     });
+
+    // Log the first loan's remainingDue for debugging
+    if (loans.length > 0) {
+      console.log("First loan in list:", JSON.stringify({
+        id: loans[0].id,
+        remainingDue: loans[0].remainingDue,
+        remainingAmount: loans[0].remainingAmount
+      }));
+    }
 
     return NextResponse.json({
       loans,
@@ -291,11 +302,12 @@ async function getLoanDetail(
   currentUserId: number
 ) {
   try {
-    // Check if the loan exists
+    // Check if the loan exists and has remainingDue field
     const loan = await prismaAny.loan.findUnique({
       where: { id },
       include: {
         borrower: true,
+        repayments: true,
         _count: {
           select: { repayments: true },
         },
@@ -305,6 +317,13 @@ async function getLoanDetail(
     if (!loan) {
       return NextResponse.json({ error: "Loan not found" }, { status: 404 });
     }
+
+    // Log the loan object to debug
+    console.log("Loan fetched from database:", JSON.stringify({
+      id: loan.id,
+      remainingDue: loan.remainingDue,
+      remainingAmount: loan.remainingAmount
+    }));
 
     // Check if the current user is the owner
     if (loan.createdById !== currentUserId) {
@@ -518,8 +537,11 @@ async function getPaymentSchedules(
         // For Record Payment page - show all unpaid schedules
         shouldInclude = !isPaid;
       } else {
-        // For Loan Details page - show only paid schedules plus upcoming due within 3 days
-        shouldInclude = isPaid || isInterestOnly || (isNextPayment && isWithinThreeDays);
+        // For Loan Details page:
+        // Show all paid schedules
+        // Show all schedules with dueDate in the past (including overdue)
+        // Show the next unpaid schedule if it's within 3 days
+        shouldInclude = isPaid || isInterestOnly || (dueDateNormalized < today) || (isNextPayment && isWithinThreeDays);
       }
 
       if (shouldInclude) {
@@ -914,6 +936,7 @@ async function createLoan(request: NextRequest, currentUserId: number) {
             disbursementDate,
             repaymentType: body.repaymentType,
             remainingAmount: parseFloat(body.amount),
+            remainingDue: parseInt(body.duration),
             status: "Active",
             purpose: body.purpose || null,
             createdById: currentUserId,
@@ -973,7 +996,7 @@ async function addRepayment(request: NextRequest, id: number, currentUserId: num
 
     const activePartnerName = request.headers.get("x-active-partner") || "Me";
 
-    // --- Input validation (remains the same) ... ---
+    // --- Input validation (remains the same) ---
 
     const collectorPartner = await prisma.partner.findUnique({ where: { id: parseInt(collected_by) } });
     if (!collectorPartner) {
@@ -998,68 +1021,143 @@ async function addRepayment(request: NextRequest, id: number, currentUserId: num
       throw new Error("Loan not found or permission denied");
     }
 
-    // --- REFACTORED REPAYMENT CREATION (PLAN B) ---
-    // 1. Create the Transaction and nest the Repayment inside it.
-    const createdTransaction = await prisma.transaction.create({
+    // --- REFACTORED REPAYMENT CREATION WITH TRANSACTION ---
+    // Only create the transaction and repayment inside the transaction
+    const createdTransaction = await prisma.$transaction(async (tx) => {
+      return await tx.transaction.create({
         data: {
-            type: TRANSACTION_TYPES_CONFIG.LOAN_REPAYMENT,
-            amount: paymentAmount,
-            date: new Date(paidDate),
-            note: `Repayment from ${loan.borrower?.name} - Period ${period}`,
-            createdById: currentUserId,
-            action_performer: collectorPartner.name,
-            entered_by: entryPartner.name,
-            to_partner_id: collectorPartner.id,
-            // Nest the Repayment creation
-            repayment: {
-                create: {
-                    loanId,
-                    amount: paymentAmount,
-                    paidDate: new Date(paidDate),
-                    paymentType,
-                    period,
-                    collected_by_id: collectorPartner.id,
-                    entered_by_id: entryPartner.id,
-                    createdById: currentUserId,
-                }
+          type: TRANSACTION_TYPES_CONFIG.LOAN_REPAYMENT,
+          amount: paymentAmount,
+          date: new Date(paidDate),
+          note: `Repayment from ${loan.borrower?.name} - Period ${period}`,
+          createdById: currentUserId,
+          action_performer: collectorPartner.name,
+          entered_by: entryPartner.name,
+          to_partner_id: collectorPartner.id,
+          repayment: {
+            create: {
+              loanId,
+              amount: paymentAmount,
+              paidDate: new Date(paidDate),
+              paymentType,
+              period,
+              collected_by_id: collectorPartner.id,
+              entered_by_id: entryPartner.id,
+              createdById: currentUserId,
             }
+          }
         },
         include: {
-            repayment: { // Include the new repayment in the response
-                include: {
-                    collectedBy: true
-                }
+          repayment: {
+            include: {
+              collectedBy: true
             }
+          }
         }
+      });
     });
 
-    // 2. Calculate the new loan state after the payment
-    let newRemainingAmount = loan.remainingAmount;
-    if (paymentType === "REGULAR") {
-      newRemainingAmount -= (paymentAmount - loan.interestRate);
-    } else if (paymentType === "PARTIAL") {
-      newRemainingAmount -= paymentAmount;
-    }
-    
-    const updatedDuration = paymentType === "INTEREST_ONLY" ? loan.duration + 1 : loan.duration;
-    const nextPaymentDate = await calculateNextPaymentDate(loanId);
-    const { overdueAmount, missedPayments } = await updateOverdueAmountFromRepayments(loanId) || { overdueAmount: 0, missedPayments: 0 };
+    // Now do all loan calculations and updates outside the transaction
+    let updatedLoan;
+    let recalculatedNextPaymentDate;
+    let overdueAmount = 0;
+    let missedPayments = 0;
 
-    // 3. Update the loan with the new state
-    await prisma.loan.update({
+    if (paymentType === "INTEREST_ONLY") {
+      // Only update nextPaymentDate and overdue info, do NOT update duration, remainingDue, remainingAmount
+      recalculatedNextPaymentDate = await calculateNextPaymentDate(loanId);
+      const overdueInfo = await updateOverdueAmountFromRepayments(loanId) || { overdueAmount: 0, missedPayments: 0 };
+      overdueAmount = overdueInfo.overdueAmount;
+      missedPayments = overdueInfo.missedPayments;
+
+      // Increase endDate (duration) by 1 for INTEREST_ONLY
+      const loan = await prisma.loan.findUnique({ where: { id: loanId } });
+      const newDuration = loan ? loan.duration + 1 : 1;
+      updatedLoan = await prisma.loan.update({
+        where: { id: loanId },
+        data: {
+          nextPaymentDate: recalculatedNextPaymentDate,
+          overdueAmount,
+          missedPayments,
+          duration: newDuration
+        },
+      });
+    } else {
+      // REGULAR payment: update all fields as before
+      // Reduce remainingDue by 1 for regular/full payment
+      // Also, if duration > remainingDue, reduce duration by 1 to keep them in sync
+      const loanBefore = await prisma.loan.findUnique({ where: { id: loanId } });
+      let newRemainingDue = loanBefore && loanBefore.remainingDue > 1 ? loanBefore.remainingDue - 1 : 1;
+      let newDuration = loanBefore && loanBefore.duration > 1 ? loanBefore.duration - 1 : 1;
+      // If duration > remainingDue, reduce duration
+      if (loanBefore && loanBefore.duration > loanBefore.remainingDue) {
+        newDuration = loanBefore.duration - 1;
+      }
+      await prisma.loan.update({
+        where: { id: loanId },
+        data: { remainingDue: newRemainingDue, duration: newDuration }
+      });
+      try {
+        await calculateRemainingDue(loanId, prisma);
+      } catch (error) {
+        console.error('Error updating remaining due:', error);
+      }
+      updatedLoan = await prisma.loan.findUnique({
+        where: { id: loanId }
+      });
+      if (!updatedLoan) {
+        throw new Error(`Loan with ID ${loanId} not found after updating remainingDue`);
+      }
+      recalculatedNextPaymentDate = await calculateNextPaymentDate(loanId);
+      const overdueInfo = await updateOverdueAmountFromRepayments(loanId) || { overdueAmount: 0, missedPayments: 0 };
+      overdueAmount = overdueInfo.overdueAmount;
+      missedPayments = overdueInfo.missedPayments;
+      await prisma.loan.update({
+        where: { id: loanId },
+        data: {
+          duration: updatedLoan.duration,
+          status: updatedLoan.remainingAmount <= 0 ? "Completed" : "Active",
+          nextPaymentDate: updatedLoan.remainingAmount <= 0 ? null : recalculatedNextPaymentDate,
+          overdueAmount,
+          missedPayments,
+          remainingAmount: updatedLoan.remainingAmount
+        },
+      });
+    }
+
+    // Return the repayment object and updated loan data
+    // --- FINAL SYNC STEP ---
+    let syncedLoan = await prisma.loan.findUnique({ where: { id: loanId } });
+    let syncData: any = {};
+    if (syncedLoan) {
+      let syncDuration = Math.max(1, syncedLoan.duration);
+      let syncRemainingDue = Math.max(1, Math.min(syncDuration, syncedLoan.remainingDue));
+      if (syncDuration !== syncedLoan.duration || syncRemainingDue !== syncedLoan.remainingDue) {
+        await prisma.loan.update({
+          where: { id: loanId },
+          data: { duration: syncDuration, remainingDue: syncRemainingDue }
+        });
+        console.log(`[SYNC] Loan ${loanId}: duration corrected to ${syncDuration}, remainingDue corrected to ${syncRemainingDue}`);
+      } else {
+        console.log(`[SYNC] Loan ${loanId}: duration=${syncDuration}, remainingDue=${syncRemainingDue}`);
+      }
+      syncData = { duration: syncDuration, remainingDue: syncRemainingDue };
+    }
+    const updatedLoanData = await prisma.loan.findUnique({
       where: { id: loanId },
-      data: {
-        remainingAmount: newRemainingAmount,
-        duration: updatedDuration,
-        status: newRemainingAmount + loan.interestRate <= 0 ? "Completed" : "Active",
-        nextPaymentDate: newRemainingAmount <= 0 ? null : nextPaymentDate,
-        overdueAmount,
-        missedPayments,
+      include: {
+        borrower: true,
+        repayments: true,
+        _count: {
+          select: { repayments: true },
+        },
       },
     });
-    
-    // Return the repayment object from the transaction response
-    return NextResponse.json({loan: createdTransaction.repayment}, { status: 201 });
+    return NextResponse.json({
+      loan: createdTransaction.repayment,
+      updatedLoan: updatedLoanData,
+      sync: syncData
+    }, { status: 201 });
 
   } catch (error) {
     console.error("Error creating repayment:", error);
@@ -1139,6 +1237,9 @@ async function updateLoan(
         repaymentType: body.repaymentType,
         remainingAmount: body.remainingAmount
           ? parseFloat(body.remainingAmount)
+          : undefined,
+        remainingDue: body.remainingDue
+          ? parseInt(body.remainingDue)
           : undefined,
         status: body.status,
         purpose: body.purpose,
@@ -1266,10 +1367,11 @@ async function deleteRepayment(request: NextRequest, id: number, currentUserId: 
             return NextResponse.json({ error: "Repayment ID is required" }, { status: 400 });
         }
 
-        // --- REFACTORED DELETION LOGIC ---
+        // --- MINIMAL DELETION LOGIC INSIDE TRANSACTION ---
+        let repayment, currentLoan;
         await prisma.$transaction(async (tx) => {
             // 1. Fetch the repayment to get its details and transactionId
-            const repayment = await tx.repayment.findUnique({
+            repayment = await tx.repayment.findUnique({
                 where: { id: repaymentId },
                 include: { loan: true },
             });
@@ -1277,7 +1379,7 @@ async function deleteRepayment(request: NextRequest, id: number, currentUserId: 
             if (!repayment || repayment.loan.createdById !== currentUserId) {
                 throw new Error("Repayment not found or permission denied.");
             }
-            
+
             // 2. Delete the associated transaction if it exists
             if (repayment.transactionId) {
                 await tx.transaction.delete({
@@ -1289,38 +1391,98 @@ async function deleteRepayment(request: NextRequest, id: number, currentUserId: 
             await tx.repayment.delete({
                 where: { id: repaymentId },
             });
-            
-            // 4. Recalculate loan state
-            const currentLoan = repayment.loan;
-            let newRemainingAmount = currentLoan.remainingAmount;
-            if (repayment.paymentType === "REGULAR") {
-                newRemainingAmount += (repayment.amount - currentLoan.interestRate);
-            } else if (repayment.paymentType === "PARTIAL") {
-                newRemainingAmount += repayment.amount;
+
+            // 4. Only decrease duration for INTEREST_ONLY repayments
+            currentLoan = repayment.loan;
+            if (repayment.paymentType === "INTEREST_ONLY") {
+                await tx.loan.update({
+                    where: { id: loanId },
+                    data: {
+                        duration: Math.max(1, currentLoan.duration - 1)
+                    },
+                });
             }
-
-            const newDuration = repayment.paymentType === "INTEREST_ONLY" 
-                ? Math.max(1, currentLoan.duration - 1) 
-                : currentLoan.duration;
-
-            const nextPaymentDate = await calculateNextPaymentDate(loanId, tx);
-            const { overdueAmount, missedPayments } = await updateOverdueAmountFromRepayments(loanId, tx) || { overdueAmount: 0, missedPayments: 0 };
-            
-            // 5. Update the loan
-            await tx.loan.update({
-                where: { id: loanId },
-                data: {
-                    remainingAmount: newRemainingAmount,
-                    duration: newDuration,
-                    status: "Active",
-                    nextPaymentDate,
-                    overdueAmount,
-                    missedPayments,
-                },
-            });
+            // For regular repayments, do not change duration here
         });
 
-        return NextResponse.json({ message: "Repayment deleted successfully" });
+        // --- Recalculate loan state outside transaction ---
+        // 1. Update remainingDue and remainingAmount
+        // If NOT INTEREST_ONLY, increase remainingDue by 1 (for REGULAR/full repayment)
+        if (repayment.paymentType !== "INTEREST_ONLY") {
+            const loan = await prisma.loan.findUnique({ where: { id: loanId } });
+            // Only increase remainingDue if loan.remainingDue < loan.duration
+            // This keeps duration and remainingDue in sync
+            let newRemainingDue = loan ? loan.remainingDue : 1;
+            if (loan && loan.remainingDue < loan.duration) {
+                newRemainingDue = loan.remainingDue + 1;
+            }
+            await prisma.loan.update({
+                where: { id: loanId },
+                data: { remainingDue: newRemainingDue }
+            });
+        }
+        await calculateRemainingDue(loanId, prisma);
+
+        // 2. Fetch updated loan
+        const updatedLoan = await prisma.loan.findUnique({
+            where: { id: loanId }
+        });
+        if (!updatedLoan) {
+            throw new Error(`Loan with ID ${loanId} not found after updating remainingDue`);
+        }
+
+        // 3. Recalculate next payment date
+        const recalculatedNextPaymentDate = await calculateNextPaymentDate(loanId);
+
+        // 4. Recalculate overdue info
+        const { overdueAmount, missedPayments } = await updateOverdueAmountFromRepayments(loanId) || { overdueAmount: 0, missedPayments: 0 };
+
+        // 5. Update loan with new state
+        await prisma.loan.update({
+            where: { id: loanId },
+            data: {
+                status: updatedLoan.remainingAmount <= 0 ? "Completed" : "Active",
+                nextPaymentDate: updatedLoan.remainingAmount <= 0 ? null : recalculatedNextPaymentDate,
+                overdueAmount,
+                missedPayments,
+                remainingAmount: updatedLoan.remainingAmount
+            },
+        });
+
+        // Get the updated loan data after all changes
+        // --- FINAL SYNC STEP ---
+        let syncedLoan = await prisma.loan.findUnique({ where: { id: loanId } });
+        let syncData: any = {};
+        if (syncedLoan) {
+            let syncDuration = Math.max(1, syncedLoan.duration);
+            let syncRemainingDue = Math.max(1, Math.min(syncDuration, syncedLoan.remainingDue));
+            if (syncDuration !== syncedLoan.duration || syncRemainingDue !== syncedLoan.remainingDue) {
+                await prisma.loan.update({
+                    where: { id: loanId },
+                    data: { duration: syncDuration, remainingDue: syncRemainingDue }
+                });
+                console.log(`[SYNC] Loan ${loanId}: duration corrected to ${syncDuration}, remainingDue corrected to ${syncRemainingDue}`);
+            } else {
+                console.log(`[SYNC] Loan ${loanId}: duration=${syncDuration}, remainingDue=${syncRemainingDue}`);
+            }
+            syncData = { duration: syncDuration, remainingDue: syncRemainingDue };
+        }
+        const finalLoanData = await prisma.loan.findUnique({
+            where: { id: loanId },
+            include: {
+                borrower: true,
+                repayments: true,
+                _count: {
+                    select: { repayments: true },
+                },
+            },
+        });
+
+        return NextResponse.json({ 
+            message: "Repayment deleted successfully",
+            updatedLoan: finalLoanData,
+            sync: syncData
+        });
     } catch (error) {
         console.error("Error deleting repayment:", error);
         const errorMessage = error instanceof Error ? error.message : "Unknown error";

@@ -17,12 +17,12 @@ model User {
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
   chitFunds     ChitFund[]
+  contributions Contribution[] @relation("CreatedContributions")
   globalMembers GlobalMember[]
   loans         Loan[]
   partners      Partner[]
   repayments    Repayment[]
   transactions  Transaction[]
-  contributions Contribution[] @relation("CreatedContributions")
 }
 
 model ChitFund {
@@ -88,43 +88,40 @@ model Member {
 }
 
 model Contribution {
-  id                     Int       @id @default(autoincrement())
-  amount                 Float
-  month                  Int
-  paidDate               DateTime
-  memberId               Int
-  chitFundId             Int
-  balance                Float     @default(0)
-  balancePaymentDate     DateTime?
-  balancePaymentStatus   String?   @default("Pending")
+  id                       Int          @id @default(autoincrement())
+  amount                   Float
+  month                    Int
+  paidDate                 DateTime
+  memberId                 Int
+  chitFundId               Int
+  balance                  Float        @default(0)
+  balancePaymentDate       DateTime?
+  balancePaymentStatus     String?      @default("Pending")
   actualBalancePaymentDate DateTime?
-  notes                  String?
-  collected_by_id        Int?
-  entered_by_id          Int?
-  createdById            Int?
-  createdAt              DateTime  @default(now())
-  updatedAt              DateTime  @updatedAt
-
-  // --- New Relation ---
-  transactionId          Int?        @unique
-  transaction            Transaction?  @relation(fields: [transactionId], references: [id])
-
-  chitFund               ChitFund  @relation(fields: [chitFundId], references: [id], map: "Contribution_chitFundId_fkey")
-  member                 Member    @relation(fields: [memberId], references: [id], map: "Contribution_memberId_fkey")
-  collectedBy            Partner?  @relation("CollectedContributions", fields: [collected_by_id], references: [id])
-  enteredBy              Partner?  @relation("EnteredContributions", fields: [entered_by_id], references: [id])
-  createdBy              User?     @relation("CreatedContributions", fields: [createdById], references: [id])
+  notes                    String?
+  collected_by_id          Int?
+  entered_by_id            Int?
+  createdById              Int?
+  createdAt                DateTime     @default(now())
+  updatedAt                DateTime     @updatedAt
+  transactionId            Int?         @unique
+  chitFund                 ChitFund     @relation(fields: [chitFundId], references: [id], map: "Contribution_chitFundId_fkey")
+  collectedBy              Partner?     @relation("CollectedContributions", fields: [collected_by_id], references: [id])
+  createdBy                User?        @relation("CreatedContributions", fields: [createdById], references: [id])
+  enteredBy                Partner?     @relation("EnteredContributions", fields: [entered_by_id], references: [id])
+  member                   Member       @relation(fields: [memberId], references: [id], map: "Contribution_memberId_fkey")
+  transaction              Transaction? @relation(fields: [transactionId], references: [id])
 
   @@index([chitFundId])
   @@index([memberId])
   @@index([collected_by_id])
   @@index([entered_by_id])
   @@index([createdById])
-  @@index([transactionId]) // Added index for the new foreign key
+  @@index([transactionId])
 }
 
 model Auction {
-  id              Int       @id @default(autoincrement())
+  id              Int          @id @default(autoincrement())
   chitFundId      Int
   month           Int
   date            DateTime
@@ -134,21 +131,16 @@ model Auction {
   highestBid      Float?
   numberOfBidders Int?
   notes           String?
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
-
-  // --- New Relations ---
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
   disbursed_by_id Int?
   entered_by_id   Int?
-  transactionId   Int?      @unique
-
-  disbursedBy     Partner?    @relation("DisbursedAuctions", fields: [disbursed_by_id], references: [id])
-  enteredBy       Partner?    @relation("EnteredAuctions", fields: [entered_by_id], references: [id])
-  transaction     Transaction?@relation(fields: [transactionId], references: [id])
-  // --- End New Relations ---
-
-  chitFund        ChitFund  @relation(fields: [chitFundId], references: [id], map: "Auction_chitFundId_fkey")
-  winner          Member    @relation(fields: [winnerId], references: [id], map: "Auction_winnerId_fkey")
+  transactionId   Int?         @unique
+  chitFund        ChitFund     @relation(fields: [chitFundId], references: [id], map: "Auction_chitFundId_fkey")
+  disbursedBy     Partner?     @relation("DisbursedAuctions", fields: [disbursed_by_id], references: [id])
+  enteredBy       Partner?     @relation("EnteredAuctions", fields: [entered_by_id], references: [id])
+  transaction     Transaction? @relation(fields: [transactionId], references: [id])
+  winner          Member       @relation(fields: [winnerId], references: [id], map: "Auction_winnerId_fkey")
 
   @@index([chitFundId])
   @@index([winnerId])
@@ -171,41 +163,37 @@ model ChitFundFixedAmount {
 }
 
 model Loan {
-  id                  Int       @id @default(autoincrement())
-  borrowerId          Int
-  loanType            String
-  amount              Float
-  interestRate        Float
-  documentCharge      Float     @default(0)
-  currentMonth        Int       @default(0)
-  installmentAmount   Float     @default(0)
-  duration            Int
-  disbursementDate    DateTime
-  repaymentType       String
-  remainingAmount     Float
-  overdueAmount       Float     @default(0)
-  missedPayments      Int       @default(0)
-  nextPaymentDate     DateTime?
-  status              String    @default("Active")
-  purpose             String?
-  createdAt           DateTime  @default(now())
-  updatedAt           DateTime  @updatedAt
-  createdById         Int
-
-  // --- New Relations ---
-  disbursed_by_id     Int?
-  entered_by_id       Int?
-  transactionId       Int?      @unique
-
-  disbursedBy         Partner?    @relation("DisbursedLoans", fields: [disbursed_by_id], references: [id])
-  enteredBy           Partner?    @relation("EnteredLoans", fields: [entered_by_id], references: [id])
-  transaction         Transaction?@relation(fields: [transactionId], references: [id])
-  // --- End New Relations ---
-
-  borrower            GlobalMember      @relation("BorrowerToLoan", fields: [borrowerId], references: [id], map: "Loan_borrowerId_fkey")
-  createdBy           User              @relation(fields: [createdById], references: [id], map: "Loan_createdById_fkey")
-  paymentSchedules    PaymentSchedule[]
-  repayments          Repayment[]
+  id                Int               @id @default(autoincrement())
+  borrowerId        Int
+  loanType          String
+  amount            Float
+  interestRate      Float
+  documentCharge    Float             @default(0)
+  currentMonth      Int               @default(0)
+  installmentAmount Float             @default(0)
+  duration          Int
+  disbursementDate  DateTime
+  repaymentType     String
+  remainingAmount   Float
+  overdueAmount     Float             @default(0)
+  missedPayments    Int               @default(0)
+  nextPaymentDate   DateTime?
+  status            String            @default("Active")
+  purpose           String?
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+  createdById       Int
+  disbursed_by_id   Int?
+  entered_by_id     Int?
+  transactionId     Int?              @unique
+  remainingDue      Int               @default(0)
+  borrower          GlobalMember      @relation("BorrowerToLoan", fields: [borrowerId], references: [id], map: "Loan_borrowerId_fkey")
+  createdBy         User              @relation(fields: [createdById], references: [id], map: "Loan_createdById_fkey")
+  disbursedBy       Partner?          @relation("DisbursedLoans", fields: [disbursed_by_id], references: [id])
+  enteredBy         Partner?          @relation("EnteredLoans", fields: [entered_by_id], references: [id])
+  transaction       Transaction?      @relation(fields: [transactionId], references: [id])
+  paymentSchedules  PaymentSchedule[]
+  repayments        Repayment[]
 
   @@index([borrowerId])
   @@index([createdById])
@@ -214,35 +202,31 @@ model Loan {
   @@index([transactionId])
 }
 
-
 model Repayment {
-  id            Int      @id @default(autoincrement())
-  amount        Float
-  paidDate      DateTime
-  period        Int
-  loanId        Int
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-  paymentType   String
+  id              Int          @id @default(autoincrement())
+  amount          Float
+  paidDate        DateTime
+  period          Int
+  loanId          Int
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+  paymentType     String
   collected_by_id Int?
-  createdById   Int?
-  entered_by_id Int?
-
-  // --- New Relation ---
-  transactionId Int?       @unique
-  transaction   Transaction? @relation(fields: [transactionId], references: [id])
-
-  collectedBy   Partner? @relation("CollectedRepayments", fields: [collected_by_id], references: [id])
-  createdBy     User?    @relation(fields: [createdById], references: [id])
-  enteredBy     Partner? @relation("EnteredRepayments", fields: [entered_by_id], references: [id])
-  loan          Loan     @relation(fields: [loanId], references: [id], onDelete: Cascade)
+  createdById     Int?
+  entered_by_id   Int?
+  transactionId   Int?         @unique
+  collectedBy     Partner?     @relation("CollectedRepayments", fields: [collected_by_id], references: [id])
+  createdBy       User?        @relation(fields: [createdById], references: [id])
+  enteredBy       Partner?     @relation("EnteredRepayments", fields: [entered_by_id], references: [id])
+  loan            Loan         @relation(fields: [loanId], references: [id], onDelete: Cascade)
+  transaction     Transaction? @relation(fields: [transactionId], references: [id])
 
   @@index([createdById])
   @@index([loanId])
   @@index([collected_by_id])
   @@index([entered_by_id])
   @@index([paidDate])
-  @@index([transactionId]) // Added index for the new foreign key
+  @@index([transactionId])
 }
 
 model PaymentSchedule {
@@ -279,59 +263,51 @@ model EmailLog {
 }
 
 model Partner {
-  id                       Int            @id @default(autoincrement())
-  name                     String
-  code                     String?
-  isActive                 Boolean        @default(true)
-  createdAt                DateTime       @default(now())
-  updatedAt                DateTime       @updatedAt
-  createdById              Int
-  
-  createdBy                User           @relation(fields: [createdById], references: [id])
-  
-  // --- Expanded Relations ---
-  collectedRepayments      Repayment[]    @relation("CollectedRepayments")
-  enteredRepayments        Repayment[]    @relation("EnteredRepayments")
-  collectedContributions   Contribution[] @relation("CollectedContributions")
-  enteredContributions     Contribution[] @relation("EnteredContributions")
-  disbursedAuctions        Auction[]      @relation("DisbursedAuctions")
-  enteredAuctions          Auction[]      @relation("EnteredAuctions")
-  disbursedLoans           Loan[]         @relation("DisbursedLoans")
-  enteredLoans             Loan[]         @relation("EnteredLoans")
-  // --- End Expanded Relations ---
-
-  fromTransactions         Transaction[]  @relation("FromPartnerTransactions")
-  toTransactions           Transaction[]  @relation("ToPartnerTransactions")
+  id                     Int            @id @default(autoincrement())
+  name                   String
+  code                   String?
+  isActive               Boolean        @default(true)
+  createdAt              DateTime       @default(now())
+  updatedAt              DateTime       @updatedAt
+  createdById            Int
+  disbursedAuctions      Auction[]      @relation("DisbursedAuctions")
+  enteredAuctions        Auction[]      @relation("EnteredAuctions")
+  collectedContributions Contribution[] @relation("CollectedContributions")
+  enteredContributions   Contribution[] @relation("EnteredContributions")
+  disbursedLoans         Loan[]         @relation("DisbursedLoans")
+  enteredLoans           Loan[]         @relation("EnteredLoans")
+  createdBy              User           @relation(fields: [createdById], references: [id])
+  collectedRepayments    Repayment[]    @relation("CollectedRepayments")
+  enteredRepayments      Repayment[]    @relation("EnteredRepayments")
+  fromTransactions       Transaction[]  @relation("FromPartnerTransactions")
+  toTransactions         Transaction[]  @relation("ToPartnerTransactions")
 
   @@unique([createdById, code], name: "Partner_createdById_code_key")
   @@index([createdById])
 }
 
 model Transaction {
-  id                Int       @id @default(autoincrement())
-  type              String
-  amount            Float
-  from_partner      String?
-  to_partner        String?
-  action_performer  String
-  entered_by        String
-  date              DateTime
-  note              String?
-  createdAt         DateTime  @default(now())
-  updatedAt         DateTime  @updatedAt
-  createdById       Int
-  from_partner_id   Int?
-  to_partner_id     Int?
-
-  createdBy         User      @relation(fields: [createdById], references: [id])
-  fromPartner       Partner?  @relation("FromPartnerTransactions", fields: [from_partner_id], references: [id])
-  toPartner         Partner?  @relation("ToPartnerTransactions", fields: [to_partner_id], references: [id])
-
-  // --- Expanded Relations ---
-  repayment         Repayment?
-  contribution      Contribution?
-  auction           Auction?
-  loan              Loan?
+  id               Int           @id @default(autoincrement())
+  type             String
+  amount           Float
+  from_partner     String?
+  to_partner       String?
+  action_performer String
+  entered_by       String
+  date             DateTime
+  note             String?
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+  createdById      Int
+  from_partner_id  Int?
+  to_partner_id    Int?
+  auction          Auction?
+  contribution     Contribution?
+  loan             Loan?
+  repayment        Repayment?
+  createdBy        User          @relation(fields: [createdById], references: [id])
+  fromPartner      Partner?      @relation("FromPartnerTransactions", fields: [from_partner_id], references: [id])
+  toPartner        Partner?      @relation("ToPartnerTransactions", fields: [to_partner_id], references: [id])
 
   @@index([createdById])
   @@index([from_partner_id])

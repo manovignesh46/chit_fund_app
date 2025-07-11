@@ -374,6 +374,14 @@ export default function NewRepaymentPage() {
       console.log('Adding repayment for loan ID:', numericId, 'with data:', requestData);
       const responseData = await loanAPI.addRepayment(numericId, requestData);
       console.log('Repayment added successfully:', responseData);
+      
+      // Log updated loan info if available
+      if (responseData.updatedLoan) {
+        console.log('Updated loan data:', {
+          remainingDue: responseData.updatedLoan.remainingDue,
+          remainingAmount: responseData.updatedLoan.remainingAmount
+        });
+      }
 
       router.push(`/loans/${id}`);
     } catch (error) {

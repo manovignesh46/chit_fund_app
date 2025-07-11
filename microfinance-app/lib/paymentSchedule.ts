@@ -564,17 +564,32 @@ export async function recordPaymentForPeriod(
       data: repaymentData
     });
 
-    // If this is a full payment, update the loan's remaining amount
+    // If this is a full payment, update the loan's remaining due and amount
     if (paymentType === 'full') {
-      const newRemainingAmount = Math.max(0, loan.remainingAmount - amount);
-
-      await prismaAny.loan.update({
-        where: { id: loanId },
-        data: {
-          remainingAmount: newRemainingAmount,
-          status: newRemainingAmount <= 0 ? 'Completed' : 'Active'
+      // Use the calculateRemainingDue function from loanCalculations to update both remainingDue and remainingAmount
+      try {
+        // Import dynamically because we can't directly import from TypeScript files
+        const { calculateRemainingDue } = require('./loanCalculations');
+        await calculateRemainingDue(loanId);
+        
+        // Get the updated loan to check if it's completed
+        const updatedLoan = await prismaAny.loan.findUnique({
+          where: { id: loanId }
+        });
+        
+        // Update the status based on the remainingAmount
+        if (updatedLoan && updatedLoan.remainingAmount <= 0) {
+          await prismaAny.loan.update({
+            where: { id: loanId },
+            data: {
+              status: 'Completed'
+            }
+          });
         }
-      });
+      } catch (error) {
+        console.error('Error calculating remaining due:', error);
+        // Continue even if the calculation fails
+      }
     }
 
     // Calculate the next payment date
@@ -756,17 +771,32 @@ export async function updatePaymentScheduleStatus(
           }
         });
 
-        // If this is a full payment (not interest-only), update the loan's remaining amount
+        // If this is a full payment (not interest-only), update the loan's remaining due and amount
         if (status === 'Paid') {
-          const newRemainingAmount = Math.max(0, loan.remainingAmount - amount);
-
-          await prismaAny.loan.update({
-            where: { id: loanId },
-            data: {
-              remainingAmount: newRemainingAmount,
-              status: newRemainingAmount <= 0 ? 'Completed' : 'Active'
+          // Use the calculateRemainingDue function from loanCalculations to update both remainingDue and remainingAmount
+          try {
+            // Import dynamically because we can't directly import from TypeScript files
+            const { calculateRemainingDue } = require('./loanCalculations');
+            await calculateRemainingDue(loanId);
+            
+            // Get the updated loan to check if it's completed
+            const updatedLoan = await prismaAny.loan.findUnique({
+              where: { id: loanId }
+            });
+            
+            // Update the status based on the remainingAmount
+            if (updatedLoan && updatedLoan.remainingAmount <= 0) {
+              await prismaAny.loan.update({
+                where: { id: loanId },
+                data: {
+                  status: 'Completed'
+                }
+              });
             }
-          });
+          } catch (error) {
+            console.error('Error calculating remaining due:', error);
+            // Continue even if the calculation fails
+          }
         }
       }
     } else if (status === 'Pending' && existingRepayment) {

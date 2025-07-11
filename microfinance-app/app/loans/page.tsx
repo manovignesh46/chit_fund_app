@@ -26,6 +26,7 @@ interface Loan {
   interestRate: number;
   duration: number;
   remainingAmount: number;
+  remainingDue: number;
   nextPaymentDate: string | null;
   status: string;
   overdueAmount: number;
@@ -453,7 +454,10 @@ export default function LoansPage() {
                     Duration
                   </th>
                   <th scope="col" className="px-2 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Remaining
+                    Remaining Amount
+                  </th>
+                  <th scope="col" className="px-2 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Remaining Due
                   </th>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Missed Payments
@@ -516,6 +520,9 @@ export default function LoansPage() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm text-gray-900">{formatCurrency(loan.remainingAmount)}</div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm text-gray-900">{loan.remainingDue}</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className={`text-sm ${loan.missedPayments > 0 ? 'text-red-600 font-medium' : 'text-green-600'}`}>

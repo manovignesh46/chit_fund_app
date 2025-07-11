@@ -126,11 +126,25 @@ const LoanDetailPage = () => {
 
       console.log('Payment recorded successfully:', responseData);
 
-      // Add a small delay before refreshing data
-      await new Promise(resolve => setTimeout(resolve, 500));
-
-      // Refresh loan details to get updated overdue amount and missed payments
-      await fetchLoanDetails();
+      // If the API returns the updated loan data, use it directly to update the state
+      if (responseData.updatedLoan) {
+        console.log('Using updated loan data from API response:', responseData.updatedLoan);
+        setLoan(responseData.updatedLoan);
+        
+        // We still need to refresh repayments
+        const repaymentsResponse = await fetch(`/api/loans/consolidated?action=repayments&id=${parseInt(id as string)}&page=${currentPage}&pageSize=${pageSize}`);
+        if (repaymentsResponse.ok) {
+          const repaymentsData = await repaymentsResponse.json();
+          setRepayments(repaymentsData.repayments || []);
+          setTotalRepayments(repaymentsData.total || 0);
+        }
+      } else {
+        // Fallback to the old method if the API doesn't return updated loan data
+        // Add a small delay before refreshing data
+        await new Promise(resolve => setTimeout(resolve, 500));
+        // Refresh loan details to get updated overdue amount and missed payments
+        await fetchLoanDetails();
+      }
     } catch (error) {
       console.error('Payment recording failed:', error);
       setScheduleError(error instanceof Error ? error.message : 'Failed to record payment');
@@ -221,6 +235,14 @@ const LoanDetailPage = () => {
       };
 
       console.log('Combined data for loan state:', combinedData);
+
+      // Log specific remaining due data
+      console.log('Remaining Due check:', {
+        rawValue: loanData.remainingDue,
+        type: typeof loanData.remainingDue,
+        parsed: parseInt(loanData.remainingDue),
+        asNumber: Number(loanData.remainingDue)
+      });
 
       // Log specific details about the loan for debugging profit calculation
       console.log('Loan details for profit calculation:', {
@@ -345,16 +367,39 @@ const LoanDetailPage = () => {
         throw new Error(errorData.error || 'Failed to delete repayment');
       }
 
-      // Show success message
-      setDeleteSuccess('Repayment deleted successfully');
+      // Parse the response
+      const responseData = await response.json();
+      console.log('Repayment deleted successfully:', responseData);
 
-      // Refresh data after a short delay
-      setTimeout(() => {
+      // If the API returns the updated loan data, use it directly to update the state
+      if (responseData.updatedLoan) {
+        console.log('Using updated loan data from API response:', responseData.updatedLoan);
+        setLoan(responseData.updatedLoan);
+        
+        // We still need to refresh repayments
+        const repaymentsResponse = await fetch(`/api/loans/consolidated?action=repayments&id=${numericId}&page=${currentPage}&pageSize=${pageSize}`);
+        if (repaymentsResponse.ok) {
+          const repaymentsData = await repaymentsResponse.json();
+          setRepayments(repaymentsData.repayments || []);
+          setTotalRepayments(repaymentsData.total || 0);
+        }
+
+        // Show success message and close the modal
+        setDeleteSuccess('Repayment deleted successfully');
         setShowDeleteModal(false);
         setRepaymentToDelete(null);
-        setDeleteSuccess(null);
-        fetchLoanDetails();
-      }, 1500);
+      } else {
+        // Show success message
+        setDeleteSuccess('Repayment deleted successfully');
+
+        // Refresh data after a short delay
+        setTimeout(() => {
+          setShowDeleteModal(false);
+          setRepaymentToDelete(null);
+          setDeleteSuccess(null);
+          fetchLoanDetails();
+        }, 1500);
+      }
     } catch (error) {
       console.error('Error deleting repayment:', error);
       setDeleteError(error instanceof Error ? error.message : 'An error occurred');
@@ -1190,6 +1235,10 @@ const LoanDetailPage = () => {
               <div>
                 <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-2">Duration</h3>
                 <p className="text-xl font-semibold">{loan.duration} {loan.loanType === 'Weekly' ? 'weeks' : 'months'}</p>
+              </div>
+              <div>
+                <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-2">Remaining Due</h3>
+                <p className="text-xl font-semibold">{loan.remainingDue}</p>
               </div>
               <div>
                 <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-2">Disbursement Date</h3>
