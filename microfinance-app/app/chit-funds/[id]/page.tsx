@@ -523,7 +523,8 @@ const ChitFundDetails = () => {
               </div>
             </div>
             <div className="p-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Responsive: 2 details per row on mobile, more on larger screens */}
+              <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-2 gap-6">
                 <div>
                   <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-2">Total Amount</h3>
                   <p className="text-xl font-semibold">{formatCurrency(chitFund.totalAmount)}</p>
@@ -655,7 +656,7 @@ const ChitFundDetails = () => {
                 <p className="text-sm text-gray-500 mt-1">Predefined auction amounts for each month</p>
               </div>
               <div className="p-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
                   {chitFund.fixedAmounts
                     .sort((a, b) => a.month - b.month)
                     .map((fixedAmount) => (
@@ -675,8 +676,8 @@ const ChitFundDetails = () => {
             <div className="p-6 border-b">
               <h2 className="text-xl font-semibold">Auction History</h2>
             </div>
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200 text-xs sm:text-sm">
+            <div className="overflow-x-auto w-full">
+              <table className="min-w-[700px] w-full divide-y divide-gray-200 text-xs sm:text-sm">
                 <thead className="bg-gray-50">
                   <tr>
                     <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -807,7 +808,7 @@ const ChitFundDetails = () => {
         <div className="p-6 border-b">
           <h2 className="text-xl font-semibold">Actions</h2>
         </div>
-        <div className="p-6 flex flex-wrap gap-4">
+        <div className="p-6 grid grid-cols-3 gap-4">
           <Link href={`/chit-funds/${chitFund.id}/members`} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-300">
             Manage Members
           </Link>

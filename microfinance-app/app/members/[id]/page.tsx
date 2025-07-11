@@ -270,8 +270,12 @@ export default function MemberDetailPage() {
 
       {/* Member Details */}
       <div className="bg-white rounded-lg shadow-md p-4 sm:p-6 mb-8">
-        <h2 className="text-lg sm:text-xl font-semibold text-blue-700 mb-4">Member Information</h2>
+        <h2 className="text-lg sm:text-xl font-semibold text-blue-700 mb-4">Member Details</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
+          <div>
+            <p className="text-gray-600 text-xs sm:text-sm">Name</p>
+            <p className="text-base sm:text-lg font-semibold">{member.name}</p>
+          </div>
           <div>
             <p className="text-gray-600 text-xs sm:text-sm">Contact</p>
             <p className="text-base sm:text-lg">{member.contact}</p>

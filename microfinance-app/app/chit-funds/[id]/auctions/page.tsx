@@ -370,34 +370,40 @@ export default function ChitFundAuctionsPage() {
     <div className="container mx-auto px-4 py-8">
       <div className="flex justify-between items-center mb-6">
         <div>
-          <h1 className="text-3xl font-bold text-blue-700">{chitFund.name} - Auctions</h1>
+          <h1 className="text-3xl font-bold text-blue-700">Auctions</h1>
           <p className="text-gray-600">
-            Month {chitFund.currentMonth} of {chitFund.duration} |
-            Monthly Contribution: {formatCurrency(chitFund.monthlyContribution)} |
+            Month {chitFund.currentMonth} of {chitFund.duration}
+            <br />
+            Monthly Contribution: {formatCurrency(chitFund.monthlyContribution)}
+            <br />
             Type: <span className="font-semibold">{chitFund.chitFundType || 'Auction'}</span>
             {chitFund.chitFundType === 'Fixed' && (
               <span className="text-blue-600 ml-2">(Fixed amounts per month)</span>
             )}
           </p>
         </div>
-        <div className="flex space-x-4">
-          <Link href={`/chit-funds/${chitFundId}`} className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition duration-300">
-            Back to Chit Fund
+        <div className="flex space-x-2 sm:space-x-4">
+          <Link href={`/chit-funds/${chitFundId}`} className="p-2 rounded-lg text-sm sm:text-base transition duration-300 flex items-center justify-center bg-gray-200 text-gray-700 hover:bg-gray-300 sm:px-4 sm:py-2">
+            <svg className="h-5 w-5 block sm:hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7"></path></svg>
+            <span className="hidden sm:inline-flex items-center"><svg className="h-5 w-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7"></path></svg>Back to Chit Fund</span>
           </Link>
-          <Link href={`/chit-funds/${chitFundId}/members`} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-300">
-            View Members
+          <Link href={`/chit-funds/${chitFundId}/members`} className="p-2 rounded-lg text-sm sm:text-base transition duration-300 flex items-center justify-center bg-blue-600 text-white hover:bg-blue-700 sm:px-4 sm:py-2">
+            <svg className="h-5 w-5 block sm:hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 20h5v-2a4 4 0 00-3-3.87M9 20H4v-2a4 4 0 013-3.87m9-4a4 4 0 10-8 0 4 4 0 008 0z" /></svg>
+            <span className="hidden sm:inline-flex items-center"><svg className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 20h5v-2a4 4 0 00-3-3.87M9 20H4v-2a4 4 0 013-3.87m9-4a4 4 0 10-8 0 4 4 0 008 0z" /></svg>View Members</span>
           </Link>
           {chitFund.status === 'Active' && (
             eligibleMembers.length > 0 ? (
               <button
                 onClick={() => setShowAddForm(true)}
-                className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition duration-300"
+                className="p-2 rounded-lg text-sm sm:text-base transition duration-300 flex items-center justify-center bg-purple-600 text-white hover:bg-purple-700 sm:px-4 sm:py-2"
               >
-                Record Auction
+                <svg className="h-5 w-5 block sm:hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" /></svg>
+                <span className="hidden sm:inline-flex items-center"><svg className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" /></svg>Record Auction</span>
               </button>
             ) : (
-              <div className="px-4 py-2 bg-gray-300 text-gray-600 rounded-lg cursor-not-allowed" title="All members have already won auctions">
-                Record Auction (No Eligible Members)
+              <div className="p-2 rounded-lg text-sm sm:text-base bg-gray-300 text-gray-600 cursor-not-allowed flex items-center justify-center sm:px-4 sm:py-2" title="All members have already won auctions">
+                <svg className="h-5 w-5 block sm:hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" /></svg>
+                <span className="hidden sm:inline-flex items-center"><svg className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" /></svg>Record Auction (No Eligible Members)</span>
               </div>
             )
           )}
@@ -406,8 +412,8 @@ export default function ChitFundAuctionsPage() {
 
       {/* Auctions Table */}
       <div className="bg-white rounded-lg shadow-md overflow-hidden mb-8">
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
+        <div className="overflow-x-auto w-full" style={{maxWidth: '100vw'}}>
+          <table className="w-full min-w-[700px] divide-y divide-gray-200 text-xs sm:text-sm">
             <thead className="bg-gray-50">
               <tr>
                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -493,12 +499,11 @@ export default function ChitFundAuctionsPage() {
                         <td className="px-6 py-4 whitespace-nowrap">
                           <button
                             onClick={() => handleDeleteAuction(auction.id)}
-                            className="text-red-600 hover:text-red-900"
+                            className="text-red-600 hover:text-red-900 flex items-center"
                             title="Delete auction"
                           >
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                            </svg>
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 block sm:hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                            <span className="hidden sm:inline-flex items-center"><svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>Delete</span>
                           </button>
                         </td>
                       </tr>

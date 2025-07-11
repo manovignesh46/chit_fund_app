@@ -815,9 +815,9 @@ export default function ChitFundMembersPage() {
   }
 
   return (
-    <div className="container w-full max-w-screen-lg mx-auto px-2 sm:px-4 py-4 sm:py-8">
+    <div className="container w-full max-w-screen-xl mx-auto px-2 sm:px-4 py-4 sm:py-8">
       <div className="flex flex-row flex-wrap items-center justify-between gap-2 mb-6 sm:mb-8">
-        <h1 className="text-2xl sm:text-3xl font-bold text-blue-700 break-words flex-shrink-0">{chitFund.name} - Members</h1>
+        <h1 className="text-2xl sm:text-3xl font-bold text-blue-700 break-words flex-shrink-0">Members</h1>
         <div className="flex flex-row flex-wrap gap-1 sm:gap-2 w-auto">
           {/* Back to Chit Fund */}
           <Link
@@ -923,7 +923,7 @@ export default function ChitFundMembersPage() {
       {/* Members Table */}
       <div className="bg-white rounded-lg shadow-md overflow-hidden mb-8">
         <div className="overflow-x-auto w-full" style={{maxWidth: '100vw'}}>
-          <table className="w-full divide-y divide-gray-200 text-xs sm:text-sm" style={{minWidth: '700px'}}>
+          <table className="w-full divide-y divide-gray-200 text-xs sm:text-sm" style={{minWidth: '1100px'}}>
             <thead className="bg-gray-50">
               <tr>
                 <th scope="col" className="px-2 sm:px-6 py-2 sm:py-3 text-left font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
