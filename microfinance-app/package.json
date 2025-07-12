@@ -8,7 +8,7 @@
     "start": "next start",
     "lint": "eslint .",
     "format": "prettier --write .",
-    "seed": "ts-node --compiler-options '{\"module\":\"CommonJS\"}' prisma/seed.ts",
+    "seed": "node -r ts-node/register prisma/seed.ts",
     "analyze": "ANALYZE=true next build",
     "optimize": "node optimize.js",
     "check-app": "node scripts/check-app.js",
@@ -66,6 +66,6 @@
     "node": ">=18.0.0"
   },
   "prisma": {
-    "seed": "ts-node --compiler-options '{\"module\":\"CommonJS\"}' prisma/seed.ts"
+    "seed": "node seed-wrapper.js"
   }
 }

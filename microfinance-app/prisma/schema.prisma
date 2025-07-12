@@ -302,6 +302,7 @@ model Partner {
 
   fromTransactions         Transaction[]  @relation("FromPartnerTransactions")
   toTransactions           Transaction[]  @relation("ToPartnerTransactions")
+  monthlySummaries         PartnerMonthlySummary[]
 
   @@unique([createdById, code], name: "Partner_createdById_code_key")
   @@index([createdById])
@@ -344,4 +345,22 @@ enum RepaymentType {
   REGULAR
   INTEREST_ONLY
   PARTIAL
+}
+// PartnerMonthlySummary: Monthly financial summary for each partner
+model PartnerMonthlySummary {
+  id                Int      @id @default(autoincrement())
+  partnerId         Int
+  month             Int      // Month as integer (1-12)
+  year              Int      // Year as integer (e.g., 2025)
+  closingBalance    Float    @default(0)
+  loanRepayment     Float    @default(0)
+  loanDisbursement  Float    @default(0)
+  chitContributions Float    @default(0)
+  auctionPayout     Float    @default(0)
+  remainingAmount   Float    @default(0)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  partner           Partner  @relation(fields: [partnerId], references: [id])
+  @@unique([partnerId, month, year])
 }

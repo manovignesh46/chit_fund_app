@@ -6,6 +6,7 @@ import PartnerBalanceCard from '../components/partners/PartnerBalanceCard';
 import PartnerSelector from '../components/partners/PartnerSelector';
 import TransactionForm from '../components/TransactionForm';
 import TransactionList from '../components/TransactionList';
+import PartnerMonthlySummaryTable from '../../components/partners/PartnerMonthlySummaryTable';
 
 interface PartnerWithBalance {
   id: number;
@@ -17,10 +18,10 @@ interface PartnerWithBalance {
 
 export default function PartnerManagementPage() {
   const { partners, refreshPartners, loading, error } = usePartner();
-  const [partnersWithBalances, setPartnersWithBalances] = useState<PartnerWithBalance[]>([]);
+  const [partnersWithBalances, setPartnersWithBalances] = useState([]);
   const [newPartnerName, setNewPartnerName] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [submitError, setSubmitError] = useState(null);
   const [loadingBalances, setLoadingBalances] = useState(false);
 
   // Fetch partners with balances
@@ -149,6 +150,11 @@ export default function PartnerManagementPage() {
             ))}
           </div>
         )}
+      </div>
+
+      {/* Monthly Summary Table */}
+      <div className="mb-10">
+        <PartnerMonthlySummaryTable />
       </div>
 
       {/* Record Manual Transaction Form */}

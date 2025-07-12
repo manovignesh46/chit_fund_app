@@ -46,9 +46,20 @@ async function main() {
       // Hash the password
       const hashedPassword = await hash(adminPassword, 10);
       
-      // Create the user
+      // Get the highest user ID and increment it by 1
+      const highestIdUser = await prisma.user.findFirst({
+        orderBy: {
+          id: 'desc',
+        },
+      });
+      
+      const nextId = highestIdUser ? highestIdUser.id + 1 : 1;
+      console.log(`Using next available ID: ${nextId}`);
+      
+      // Create the user with the next available ID
       await prisma.user.create({
         data: {
+          id: nextId,
           name: 'Admin',
           email: adminEmail,
           password: hashedPassword,

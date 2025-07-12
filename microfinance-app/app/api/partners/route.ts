@@ -23,7 +23,7 @@ export async function GET(req: NextRequest) {
     });
 
     if (!includeBalances) {
-      return NextResponse.json({ partners });
+      return NextResponse.json({ success: true, data: partners, partners });
     }
 
     // Pass the partner's ID (number) to the balance calculation function
@@ -37,7 +37,11 @@ export async function GET(req: NextRequest) {
       })
     );
 
-    return NextResponse.json({ partners: partnersWithBalances });
+    return NextResponse.json({ 
+      success: true, 
+      data: partnersWithBalances, 
+      partners: partnersWithBalances 
+    });
   } catch (error: any) {
     console.error('Error fetching partners:', error);
     return NextResponse.json(
