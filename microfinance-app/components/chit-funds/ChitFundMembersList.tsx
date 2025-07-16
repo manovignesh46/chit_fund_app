@@ -19,7 +19,7 @@ interface ChitFundMembersListProps {
 export default function ChitFundMembersList({
   members,
   showAuctionDetails = true,
-  maxDisplay = 5,
+  maxDisplay = 20,
   showAll = false,
   onViewMore,
 }: ChitFundMembersListProps) {

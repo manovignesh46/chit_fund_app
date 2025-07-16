@@ -724,7 +724,7 @@ const ChitFundDetails = () => {
           </div>
         </div>
 
-        <div>
+        {/* <div> */}
           {/* Use the ChitFundMembersList component */}
           <ChitFundMembersList
             members={members}
@@ -800,7 +800,7 @@ const ChitFundDetails = () => {
               </div>
             </div>
           )}
-        </div>
+        {/* </div> */}
       </div>
 
       {/* Actions Section */}

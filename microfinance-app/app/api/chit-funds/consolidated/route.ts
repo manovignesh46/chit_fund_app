@@ -901,7 +901,8 @@ async function addContribution(request: NextRequest, id: number, currentUserId: 
     return NextResponse.json({ error: `Partner "${activePartnerName}" not found` }, { status: 404 });
   }
 
-  const expectedAmount = chitFund.monthlyContribution;
+  console.log("month->", body.month)
+  const expectedAmount = body.month === 1 ? chitFund.firstMonthContribution : chitFund.monthlyContribution;
   const paidAmount = parseFloat(body.amount);
   const isPartialPayment = paidAmount < expectedAmount;
 

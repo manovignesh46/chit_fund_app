@@ -1017,18 +1017,17 @@ export default function ChitFundMembersPage() {
                                 }
                               }
 
-                              // Open the record contribution modal
-                              handleOpenRecordModal(
-                                member,
-                                missingMonth,
-                                setSelectedMemberForContribution,
-                                setSelectedMonth,
-                                setNewContribution,
-                                chitFund,
-                                setShowRecordContributionModal,
-                                setSubmitContributionError,
-                                setSubmitContributionSuccess
-                              );
+                              // Pre-populate amount based on month
+                              setSelectedMemberForContribution(member);
+                              setSelectedMonth(missingMonth);
+                              setNewContribution({
+                                amount: missingMonth === 1 ? String(chitFund?.firstMonthContribution || '') : String(chitFund?.monthlyContribution || ''),
+                                paidDate: new Date().toISOString().split('T')[0],
+                                notes: '',
+                              });
+                              setShowRecordContributionModal(true);
+                              setSubmitContributionError(null);
+                              setSubmitContributionSuccess(null);
                             }}
                             className="mt-1 px-2 py-1 bg-green-600 text-white text-xs rounded hover:bg-green-700 transition duration-300"
                           >
@@ -1478,6 +1477,7 @@ export default function ChitFundMembersPage() {
 
       {/* Record Contribution Modal */}
       {showRecordContributionModal && selectedMemberForContribution && selectedMonth !== null && (
+        console.log("selectedMonth", selectedMonth),
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-xs sm:max-w-md">
             <div className="flex justify-between items-center mb-4">
@@ -1504,7 +1504,7 @@ export default function ChitFundMembersPage() {
                 </div>
                 <div>
                   <p className="text-sm text-gray-500">Expected Amount</p>
-                  <p className="text-md font-semibold">{formatCurrency(chitFund?.monthlyContribution || 0)}</p>
+                  <p className="text-md font-semibold">{selectedMonth == 1 ? formatCurrency(chitFund?.firstMonthContribution || 0) : formatCurrency(chitFund?.monthlyContribution || 0)}</p>
                 </div>
               </div>
             </div>
