@@ -4,6 +4,8 @@
 import { useState, useEffect } from 'react';
 import { memberAPI, loanAPI, chitFundAPI } from '../../lib/api';
 import TransactionList from '../components/TransactionList';
+import DateFilter from '../components/DateFilter';
+import EmailExportModal from '../../components/EmailExportModal';
 import { usePartner } from '../contexts/PartnerContext';
 import { TRANSACTION_TYPES_CONFIG } from '../../config/config';
 
@@ -23,9 +25,16 @@ export default function TransactionsPage() {
   const [advMember, setAdvMember] = useState('');
   const [advEntity, setAdvEntity] = useState(''); // loanId or chitFundId
   const [advSubType, setAdvSubType] = useState(''); // 'disbursement' | 'repayment' | 'contribution' | 'auction'
-  const [members, setMembers] = useState<any[]>([]);
-  const [entities, setEntities] = useState<any[]>([]);
+  const [members, setMembers] = useState([] as any[]);
+  const [entities, setEntities] = useState([] as any[]);
   const [entityLoading, setEntityLoading] = useState(false);
+
+  // Date filter state
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
+
+  // Email modal state
+  const [showEmailModal, setShowEmailModal] = useState(false);
 
   // Fetch all members on mount
   useEffect(() => {
@@ -61,22 +70,64 @@ export default function TransactionsPage() {
     fetchEntities();
   }, [advType, advMember, showAdvanced]);
 
+  // Handle date filter changes
+  const handleDateRangeChange = (start?: string, end?: string) => {
+    setStartDate(start || '');
+    setEndDate(end || '');
+  };
+
+  // Handle export functionality
+  const handleExport = () => {
+    const params = new URLSearchParams();
+    
+    if (selectedPartnerId !== 'ALL') {
+      params.append('partner', selectedPartnerId);
+    }
+    if (filterType) {
+      params.append('type', filterType);
+    }
+    if (filterMember) {
+      params.append('member', filterMember);
+    }
+    if (startDate) {
+      params.append('startDate', startDate);
+    }
+    if (endDate) {
+      params.append('endDate', endDate);
+    }
+    if (showAdvanced) {
+      if (advType) params.append('advType', advType);
+      if (advMember) params.append('advMember', advMember);
+      if (advEntity) params.append('advEntity', advEntity);
+      if (advSubType) params.append('advSubType', advSubType);
+    }
+
+    const exportUrl = `/api/transactions/export?${params.toString()}`;
+    window.open(exportUrl, '_blank');
+  };
+
   return (
     <div className="container mx-auto p-4">
       <div className="mb-6">
         <h1 className="text-2xl font-bold mb-4">Transactions</h1>
-        <div className="mb-2">
-          <label className="block text-sm font-medium text-gray-700 mb-1">Partner</label>
-          <select
-            className="w-full max-w-xs px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-            value={selectedPartnerId}
-            onChange={e => setSelectedPartnerId(e.target.value)}
-          >
-            <option value="ALL">All Partners</option>
-            {partners.map((p) => (
-              <option key={p.id} value={p.name}>{p.name}</option>
-            ))}
-          </select>
+        <div className="mb-2 flex flex-col md:flex-row md:items-end md:space-x-4 md:space-y-0 space-y-2">
+          <div className="w-full md:w-1/3">
+            <label className="block text-sm font-medium text-gray-700 mb-1">Partner</label>
+            <select
+              className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+              value={selectedPartnerId}
+              onChange={e => setSelectedPartnerId(e.target.value)}
+            >
+              <option value="ALL">All Partners</option>
+              {partners.map((p) => (
+                <option key={p.id} value={p.name}>{p.name}</option>
+              ))}
+            </select>
+          </div>
+          <div className="w-full md:w-1/3">
+            <label className="block text-sm font-medium text-gray-700 mb-1">Date Filter</label>
+            <DateFilter onDateRangeChange={handleDateRangeChange} />
+          </div>
         </div>
       </div>
       {/* Advanced Filter Toggle */}
@@ -202,6 +253,52 @@ export default function TransactionsPage() {
         </div>
       </div>
 
+      {/* Export and Email Actions */}
+      <div className="mb-4 flex justify-end space-x-2">
+        <button
+          onClick={handleExport}
+          className="flex items-center px-4 py-2 text-sm bg-green-600 text-white rounded-md hover:bg-green-700 transition duration-300"
+          title="Export transactions to Excel"
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            className="h-4 w-4 mr-2"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+            />
+          </svg>
+          Export
+        </button>
+        <button
+          onClick={() => setShowEmailModal(true)}
+          className="flex items-center px-4 py-2 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700 transition duration-300"
+          title="Email transactions data"
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            className="h-4 w-4 mr-2"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+            />
+          </svg>
+          Email
+        </button>
+      </div>
+
       <TransactionList
         refresh={refreshList}
         filterType={filterType}
@@ -215,6 +312,17 @@ export default function TransactionsPage() {
         advMember={showAdvanced ? advMember : ''}
         advEntity={showAdvanced ? advEntity : ''}
         advSubType={showAdvanced ? advSubType : ''}
+        startDate={startDate}
+        endDate={endDate}
+      />
+
+      {/* Email Export Modal */}
+      <EmailExportModal
+        isOpen={showEmailModal}
+        onClose={() => setShowEmailModal(false)}
+        exportType="Transactions"
+        startDate={startDate}
+        endDate={endDate}
       />
     </div>
   );

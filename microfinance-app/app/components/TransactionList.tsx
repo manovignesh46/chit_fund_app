@@ -35,6 +35,8 @@ export function TransactionList(props: TransactionListProps & {
   advMember?: string,
   advEntity?: string,
   advSubType?: string,
+  startDate?: string,
+  endDate?: string,
 }) {
   const {
     refresh,
@@ -49,6 +51,8 @@ export function TransactionList(props: TransactionListProps & {
     advMember = '',
     advEntity = '',
     advSubType = '',
+    startDate = '',
+    endDate = '',
   } = props;
 
   // If activePartner is undefined or 'ALL', treat as all partners
@@ -63,7 +67,7 @@ export function TransactionList(props: TransactionListProps & {
 
   useEffect(() => {
     fetchTransactions();
-  }, [partnerToUse, refresh, currentPage, pageSize, filterType, filterMember, advType, advMember, advEntity, advSubType]);
+  }, [partnerToUse, refresh, currentPage, pageSize, filterType, filterMember, advType, advMember, advEntity, advSubType, startDate, endDate]);
 
   async function fetchTransactions() {
     try {
@@ -90,6 +94,12 @@ export function TransactionList(props: TransactionListProps & {
       }
       if (advSubType) {
         url += `&advSubType=${advSubType}`;
+      }
+      if (startDate) {
+        url += `&startDate=${startDate}`;
+      }
+      if (endDate) {
+        url += `&endDate=${endDate}`;
       }
       const response = await fetch(url);
       if (!response.ok) {
@@ -153,7 +163,7 @@ export function TransactionList(props: TransactionListProps & {
   if (error) return <div className="text-red-600">{error}</div>;
 
   // Helper to determine Credit/Debit for Cr/Dt column
-  function getCrDr(t: Transaction): 'Credit' | 'Debit' {
+  function getCrDr(t: Transaction): 'Credit' | 'Debit' | '-' {
     // If partnerToUse is set, use partner context
     if (partnerToUse) {
       if (t.to_partner && t.to_partner === partnerToUse) return 'Credit';

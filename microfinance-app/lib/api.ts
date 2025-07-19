@@ -361,6 +361,12 @@ export const dashboardAPI = {
     method: 'POST',
     body: JSON.stringify(data),
   }),
+
+  // Transaction email export
+  emailTransactions: (data: any) => fetchAPI<any>('/transactions?action=email-export', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  }),
 };
 
 // Email API functions

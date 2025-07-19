@@ -24,10 +24,10 @@ export default function EmailExportModal({
   startDate,
   endDate
 }: EmailExportModalProps) {
-  const [recipients, setRecipients] = useState<string[]>(['']);
+  const [recipients, setRecipients] = useState([''] as string[]);
   const [customMessage, setCustomMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [emailStatus, setEmailStatus] = useState<any>(null);
+  const [emailStatus, setEmailStatus] = useState(null as any);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [useDefaultRecipients, setUseDefaultRecipients] = useState(true);
@@ -112,8 +112,13 @@ export default function EmailExportModal({
         ...(duration === 'single' && { period, startDate, endDate })
       };
 
-      // Send email using dashboard API
-      const result = await dashboardAPI.emailExport(emailData);
+      // Send email using appropriate API based on export type
+      let result;
+      if (exportType === 'Transactions') {
+        result = await dashboardAPI.emailTransactions(emailData);
+      } else {
+        result = await dashboardAPI.emailExport(emailData);
+      }
 
       setSuccess(result.message || 'Email sent successfully!');
 
