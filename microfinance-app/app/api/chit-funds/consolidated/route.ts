@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import prisma from '../../../../lib/prisma';
 import { getCurrentUserId } from '../../../../lib/auth';
 import { TRANSACTION_TYPES_CONFIG } from '../../../../config/config';
+import { calculateTransactionBalance, getCurrentPartnerBalance, getCurrentTotalBalance, recalculateBalancesAfterDeletion } from '../../../../lib/balanceCalculator';
 
 // Use ISR with a 5-minute revalidation period
 export const revalidate = 300; // 5 minutes
@@ -907,18 +908,40 @@ async function addContribution(request: NextRequest, id: number, currentUserId: 
   const isPartialPayment = paidAmount < expectedAmount;
 
   try {
+    // Calculate balances before creating the transaction
+    const contributionDate = new Date(body.paidDate);
+    const affectedPartnerId = collector.id; // CHIT_CONTRIBUTION affects the receiving partner
+    
+    const currentPartnerBalance = await getCurrentPartnerBalance(affectedPartnerId, currentUserId);
+    const currentTotalBalance = await getCurrentTotalBalance(currentUserId);
+    
+    const balanceCalculation = calculateTransactionBalance(
+      {
+        type: TRANSACTION_TYPES_CONFIG.CHIT_CONTRIBUTION,
+        amount: paidAmount,
+        from_partner_id: null,
+        to_partner_id: collector.id
+      },
+      affectedPartnerId,
+      currentPartnerBalance,
+      currentTotalBalance
+    );
+
     // --- REFACTORED CONTRIBUTION CREATION (PLAN B) ---
     // Create the Transaction first and nest the Contribution inside it.
     const createdTransaction = await prisma.transaction.create({
       data: {
         type: TRANSACTION_TYPES_CONFIG.CHIT_CONTRIBUTION,
         amount: paidAmount,
-        date: new Date(body.paidDate),
+        date: contributionDate,
         note: `Chit contribution from ${member.globalMember.name} - ${chitFund.name} Month ${body.month}`,
         createdById: currentUserId,
         action_performer: collector.name,
         entered_by: collector.name,
         to_partner_id: collector.id,
+        // Add balance tracking
+        partnerBalance: balanceCalculation.partnerBalance,
+        totalBalance: balanceCalculation.totalBalance,
         // Nest the Contribution creation
         contribution: {
           create: {
@@ -926,7 +949,7 @@ async function addContribution(request: NextRequest, id: number, currentUserId: 
             chitFundId: id,
             month: parseInt(body.month),
             amount: paidAmount,
-            paidDate: new Date(body.paidDate),
+            paidDate: contributionDate,
             notes: body.notes || null,
             balance: isPartialPayment ? expectedAmount - paidAmount : 0,
             balancePaymentStatus: isPartialPayment ? 'Pending' : null,
@@ -1000,27 +1023,50 @@ async function addAuction(request: NextRequest, id: number, currentUserId: numbe
   }
 
   try {
+    // Calculate balances before creating the transaction
+    const auctionDate = new Date(body.date);
+    const auctionAmount = parseFloat(body.amount);
+    const affectedPartnerId = partner.id; // AUCTION_PAYOUT affects the sending partner
+    
+    const currentPartnerBalance = await getCurrentPartnerBalance(affectedPartnerId, currentUserId);
+    const currentTotalBalance = await getCurrentTotalBalance(currentUserId);
+    
+    const balanceCalculation = calculateTransactionBalance(
+      {
+        type: TRANSACTION_TYPES_CONFIG.AUCTION_PAYOUT,
+        amount: auctionAmount,
+        from_partner_id: partner.id,
+        to_partner_id: null
+      },
+      affectedPartnerId,
+      currentPartnerBalance,
+      currentTotalBalance
+    );
+
     // Use a transaction to ensure both auction creation and chit fund update are atomic
     const [auction] = await prisma.$transaction(async (tx) => {
       // 1. Create the Transaction and nest the Auction inside it.
       const createdTransaction = await tx.transaction.create({
         data: {
           type: TRANSACTION_TYPES_CONFIG.AUCTION_PAYOUT,
-          amount: parseFloat(body.amount),
-          date: new Date(body.date),
+          amount: auctionAmount,
+          date: auctionDate,
           note: `Auction payout to ${winner.globalMember.name} - ${chitFund.name} Month ${body.month}`,
           createdById: currentUserId,
           action_performer: partner.name,
           entered_by: partner.name,
           from_partner_id: partner.id,
+          // Add balance tracking
+          partnerBalance: balanceCalculation.partnerBalance,
+          totalBalance: balanceCalculation.totalBalance,
           // Nest the Auction creation
           auction: {
             create: {
               chitFundId: id,
               winnerId: parseInt(body.winnerId),
               month: parseInt(body.month),
-              amount: parseFloat(body.amount),
-              date: new Date(body.date),
+              amount: auctionAmount,
+              date: auctionDate,
               notes: body.notes || null,
               disbursed_by_id: partner.id,
               entered_by_id: partner.id,
@@ -1543,11 +1589,23 @@ async function deleteContribution(request: NextRequest, id: number, currentUserI
       // 1. Fetch the contribution to get its transactionId
       const contribution = await tx.contribution.findUnique({
         where: { id: parseInt(contributionId) },
+        include: {
+          transaction: {
+            select: {
+              id: true,
+              date: true,
+              createdAt: true
+            }
+          }
+        }
       });
 
       if (!contribution || contribution.chitFundId !== id) {
         throw new Error('Contribution not found or does not belong to this chit fund');
       }
+
+      const deletedTransactionDate = contribution.transaction?.date || new Date();
+      const deletedTransactionId = contribution.transaction?.id || 0;
 
       // 2. Delete the associated transaction if it exists
       if (contribution.transactionId) {
@@ -1560,6 +1618,15 @@ async function deleteContribution(request: NextRequest, id: number, currentUserI
       await tx.contribution.delete({
         where: { id: parseInt(contributionId) },
       });
+
+      // 4. Recalculate balances for all subsequent transactions
+      if (contribution.transaction) {
+        await recalculateBalancesAfterDeletion(
+          currentUserId,
+          deletedTransactionDate,
+          deletedTransactionId
+        );
+      }
     });
 
     return NextResponse.json({ success: true });
@@ -1589,11 +1656,23 @@ async function deleteAuction(request: NextRequest, id: number, currentUserId: nu
       // 1. Fetch the auction to get its transactionId
       const auction = await tx.auction.findUnique({
         where: { id: parseInt(auctionId) },
+        include: {
+          transaction: {
+            select: {
+              id: true,
+              date: true,
+              createdAt: true
+            }
+          }
+        }
       });
 
       if (!auction || auction.chitFundId !== id) {
         throw new Error('Auction not found or does not belong to this chit fund');
       }
+
+      const deletedTransactionDate = auction.transaction?.date || new Date();
+      const deletedTransactionId = auction.transaction?.id || 0;
 
       // 2. Delete the associated transaction if it exists
       if (auction.transactionId) {
@@ -1606,6 +1685,15 @@ async function deleteAuction(request: NextRequest, id: number, currentUserId: nu
       await tx.auction.delete({
         where: { id: parseInt(auctionId) },
       });
+
+      // 4. Recalculate balances for all subsequent transactions
+      if (auction.transaction) {
+        await recalculateBalancesAfterDeletion(
+          currentUserId,
+          deletedTransactionDate,
+          deletedTransactionId
+        );
+      }
     });
 
     return NextResponse.json({ success: true });

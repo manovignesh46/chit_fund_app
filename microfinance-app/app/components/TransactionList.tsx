@@ -15,6 +15,8 @@ interface Transaction {
   entered_by: string;
   date: string;
   note?: string;
+  partnerBalance?: number;
+  totalBalance?: number;
 }
 
 interface TransactionListProps {
@@ -63,6 +65,7 @@ export function TransactionList(props: TransactionListProps & {
   const [totalPages, setTotalPages] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
   const [noteModal, setNoteModal] = useState(null as null | { id: number; note: string });
+  const [refreshing, setRefreshing] = useState(false);
 
 
   useEffect(() => {
@@ -164,6 +167,36 @@ export function TransactionList(props: TransactionListProps & {
 
   // Helper to determine Credit/Debit for Cr/Dt column
   function getCrDr(t: Transaction): 'Credit' | 'Debit' | '-' {
+    // Special handling for PARTNER_TO_PARTNER transactions
+    if (t.type === 'PARTNER_TO_PARTNER') {
+      // For new format with separate transactions
+      if (t.from_partner && !t.to_partner) {
+        // Debit transaction (money going out from from_partner)
+        return 'Debit';
+      } else if (t.to_partner && !t.from_partner) {
+        // Credit transaction (money coming in to to_partner)
+        return 'Credit';
+      } else if (t.from_partner && t.to_partner) {
+        // Old format - determine based on partner context
+        if (partnerToUse) {
+          if (t.to_partner === partnerToUse) return 'Credit';
+          if (t.from_partner === partnerToUse) return 'Debit';
+        }
+        return '-'; // Fallback for old format when no partner context
+      }
+    }
+
+    // Special handling for RECORD AMOUNT transactions
+    if (t.type === 'RECORD_AMOUNT') {
+      if (t.to_partner) {
+        // Money coming in to to_partner (credit)
+        return 'Credit';
+      } else if (t.from_partner) {
+        // Money going out from from_partner (debit)
+        return 'Debit';
+      }
+    }
+
     // If partnerToUse is set, use partner context
     if (partnerToUse) {
       if (t.to_partner && t.to_partner === partnerToUse) return 'Credit';
@@ -171,11 +204,12 @@ export function TransactionList(props: TransactionListProps & {
       if (t.type === 'loan_repaid' || t.type === 'LOAN_REPAYMENT') return 'Credit';
       if (t.type === 'loan_given' || t.type === 'LOAN_DISBURSEMENT' || t.type === 'AUCTION_PAYOUT') return 'Debit';
     }
+    
     // Fallback for all partners
-    if (t.type === 'PARTNER_TO_PARTNER' || t.type === 'transfer') return '-';
+    if (t.type === 'transfer') return '-';
     if (t.type && typeof t.type === 'string') {
       const debitTypes = ['loan_given', 'LOAN_DISBURSEMENT', 'expense', 'balance_adjustment', 'AUCTION_PAYOUT'];
-      const creditTypes = ['loan_repaid', 'LOAN_REPAYMENT', 'collection', 'RECORD_AMOUNT'];
+      const creditTypes = ['loan_repaid', 'LOAN_REPAYMENT', 'collection', 'CHIT_CONTRIBUTION'];
       if (debitTypes.includes(t.type)) return 'Debit';
       if (creditTypes.includes(t.type)) return 'Credit';
     }
@@ -212,12 +246,82 @@ export function TransactionList(props: TransactionListProps & {
     return '-';
   }
 
+  // Helper to get the partner name for the transaction
+  function getPartnerName(t: Transaction): string {
+    // For PARTNER_TO_PARTNER transactions, show the partner who is involved
+    if (t.type === 'PARTNER_TO_PARTNER') {
+      if (t.from_partner && !t.to_partner) {
+        // Debit transaction - show from_partner
+        return t.from_partner;
+      } else if (t.to_partner && !t.from_partner) {
+        // Credit transaction - show to_partner
+        return t.to_partner;
+      } else if (t.from_partner && t.to_partner) {
+        // Old format with both partners - show based on context
+        return t.from_partner === partnerToUse ? t.from_partner : t.to_partner;
+      }
+    }
+    
+    // For other transaction types, show the action_performer
+    return t.action_performer || '-';
+  }
+
   return (
     <div className="bg-white rounded shadow p-4">
       <div className="flex justify-between items-center mb-4">
         <h2 className="text-xl font-bold">Recent Transactions</h2>
-        <div className="text-sm text-gray-600">
-          {totalCount > 0 && `${totalCount} total transactions`}
+        <div className="flex items-center space-x-3">
+          <button
+            onClick={async () => {
+              try {
+                setRefreshing(true);
+                const response = await fetch('/api/transactions?action=refresh-balances', {
+                  method: 'PUT',
+                  headers: { 'Content-Type': 'application/json' }
+                });
+                
+                if (response.ok) {
+                  alert('Balance refresh completed successfully!');
+                  // Trigger refresh of the transaction list
+                  fetchTransactions();
+                } else {
+                  const error = await response.json();
+                  alert(`Failed to refresh balances: ${error.error || 'Unknown error'}`);
+                }
+              } catch (error) {
+                console.error('Error refreshing balances:', error);
+                alert('Failed to refresh balances. Please try again.');
+              } finally {
+                setRefreshing(false);
+              }
+            }}
+            disabled={refreshing}
+            className={`flex items-center px-3 py-1 text-sm rounded-md transition duration-300 ${
+              refreshing 
+                ? 'bg-gray-400 text-gray-700 cursor-not-allowed' 
+                : 'bg-orange-500 text-white hover:bg-orange-600'
+            }`}
+            title="Refresh balance calculations for all transactions"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className={`h-4 w-4 mr-1 ${refreshing ? 'animate-spin' : ''}`}
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+              />
+            </svg>
+            {refreshing ? 'Refreshing...' : 'Refresh'}
+          </button>
+          <div className="text-sm text-gray-600">
+            {totalCount > 0 && `${totalCount} total transactions`}
+          </div>
         </div>
       </div>
 
@@ -241,17 +345,18 @@ export function TransactionList(props: TransactionListProps & {
         <p className="text-gray-500 text-center py-8">No transactions found</p>
       ) : (
         <>
-          <div className="overflow-x-auto w-full mb-6" style={{maxWidth: '80vw'}}>
-            <table className="w-full min-w-[900px] divide-y divide-gray-200 text-xs sm:text-sm">
+          <div className="overflow-x-auto w-full mb-6" style={{maxWidth: '90vw'}}>
+            <table className="w-full min-w-[1300px] divide-y divide-gray-200 text-xs sm:text-sm">
               <thead className="bg-gray-50">
                 <tr>
                   <th className="px-4 py-2 text-left font-medium text-gray-500 uppercase tracking-wider">Date</th>
                   <th className="px-4 py-2 text-left font-medium text-gray-500 uppercase tracking-wider">Type</th>
-                  {/* Removed Description column */}
                   <th className="px-4 py-2 text-left font-medium text-gray-500 uppercase tracking-wider">Member</th>
-                  {/* Removed Entered By column */}
+                  <th className="px-4 py-2 text-left font-medium text-gray-500 uppercase tracking-wider">Partner</th>
                   <th className="px-4 py-2 text-center font-medium text-gray-500 uppercase tracking-wider">Cr/Dt</th>
                   <th className="px-4 py-2 text-right font-medium text-gray-500 uppercase tracking-wider">Amount</th>
+                  <th className="px-4 py-2 text-right font-medium text-gray-500 uppercase tracking-wider">Partner Balance</th>
+                  <th className="px-4 py-2 text-right font-medium text-gray-500 uppercase tracking-wider">Total Balance</th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
@@ -274,6 +379,7 @@ export function TransactionList(props: TransactionListProps & {
                     </td>
                     <td className="px-4 py-2 whitespace-nowrap">{t.type.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}</td>
                     <td className="px-4 py-2 whitespace-nowrap">{extractMemberName(t.note)}</td>
+                    <td className="px-4 py-2 whitespace-nowrap">{getPartnerName(t)}</td>
                     {/* Removed Entered By column */}
                     <td className={
                       `px-4 py-2 whitespace-nowrap text-center font-semibold ` +
@@ -294,6 +400,16 @@ export function TransactionList(props: TransactionListProps & {
                         : 'text-blue-600')
                     }>
                       {formatCurrency(t.amount)}
+                    </td>
+                    <td className="px-4 py-2 whitespace-nowrap text-right font-medium text-gray-900">
+                      {t.partnerBalance !== null && t.partnerBalance !== undefined 
+                        ? formatCurrency(t.partnerBalance) 
+                        : '-'}
+                    </td>
+                    <td className="px-4 py-2 whitespace-nowrap text-right font-bold text-blue-900">
+                      {t.totalBalance !== null && t.totalBalance !== undefined 
+                        ? formatCurrency(t.totalBalance) 
+                        : '-'}
                     </td>
                   </tr>
                 ))}

@@ -7,6 +7,7 @@ import {
   updateOverdueAmountFromRepayments,
 } from "../../../../lib/paymentSchedule";
 import { TRANSACTION_TYPES_CONFIG } from "../../../../config/config";
+import { calculateTransactionBalance, getCurrentPartnerBalance, getCurrentTotalBalance, recalculateBalancesAfterDeletion } from "../../../../lib/balanceCalculator";
 
 // Use ISR with a 5-minute revalidation period
 export const revalidate = 300; // 5 minutes
@@ -889,31 +890,53 @@ async function createLoan(request: NextRequest, currentUserId: number) {
       initialNextPaymentDate.setDate(disbursementDate.getDate() + 7);
     }
 
+    // Calculate balances before creating the transaction
+    const loanAmount = parseFloat(body.amount);
+    const affectedPartnerId = partner.id; // LOAN_DISBURSEMENT affects the sending partner
+    
+    const currentPartnerBalance = await getCurrentPartnerBalance(affectedPartnerId, currentUserId);
+    const currentTotalBalance = await getCurrentTotalBalance(currentUserId);
+    
+    const balanceCalculation = calculateTransactionBalance(
+      {
+        type: TRANSACTION_TYPES_CONFIG.LOAN_DISBURSEMENT,
+        amount: loanAmount,
+        from_partner_id: partner.id,
+        to_partner_id: null
+      },
+      affectedPartnerId,
+      currentPartnerBalance,
+      currentTotalBalance
+    );
+
     // --- ALTERNATIVE LOGIC ---
     // Create the Transaction first, and nest the Loan creation inside it.
     const createdTransaction = await prisma.transaction.create({
       data: {
         type: TRANSACTION_TYPES_CONFIG.LOAN_DISBURSEMENT,
-        amount: parseFloat(body.amount),
+        amount: loanAmount,
         date: disbursementDate,
         note: `Loan disbursed to ${body.borrowerName}`,
         createdById: currentUserId,
         action_performer: partner.name,
         entered_by: partner.name,
         from_partner_id: partner.id,
+        // Add balance tracking
+        partnerBalance: balanceCalculation.partnerBalance,
+        totalBalance: balanceCalculation.totalBalance,
         // Nest the Loan creation here
         loan: {
           create: {
             borrowerId: globalMember.id,
             loanType: body.loanType,
-            amount: parseFloat(body.amount),
+            amount: loanAmount,
             interestRate: parseFloat(body.interestRate),
             documentCharge: body.documentCharge ? parseFloat(body.documentCharge) : 0,
             installmentAmount: body.installmentAmount ? parseFloat(body.installmentAmount) : 0,
             duration: parseInt(body.duration),
             disbursementDate,
             repaymentType: body.repaymentType,
-            remainingAmount: parseFloat(body.amount),
+            remainingAmount: loanAmount,
             status: "Active",
             purpose: body.purpose || null,
             createdById: currentUserId,
@@ -998,24 +1021,46 @@ async function addRepayment(request: NextRequest, id: number, currentUserId: num
       throw new Error("Loan not found or permission denied");
     }
 
+    // Calculate balances before creating the transaction
+    const transactionDate = new Date(paidDate);
+    const affectedPartnerId = collectorPartner.id; // LOAN_REPAYMENT affects the receiving partner
+    
+    const currentPartnerBalance = await getCurrentPartnerBalance(affectedPartnerId, currentUserId);
+    const currentTotalBalance = await getCurrentTotalBalance(currentUserId);
+    
+    const balanceCalculation = calculateTransactionBalance(
+      {
+        type: TRANSACTION_TYPES_CONFIG.LOAN_REPAYMENT,
+        amount: paymentAmount,
+        from_partner_id: null,
+        to_partner_id: collectorPartner.id
+      },
+      affectedPartnerId,
+      currentPartnerBalance,
+      currentTotalBalance
+    );
+
     // --- REFACTORED REPAYMENT CREATION (PLAN B) ---
     // 1. Create the Transaction and nest the Repayment inside it.
     const createdTransaction = await prisma.transaction.create({
         data: {
             type: TRANSACTION_TYPES_CONFIG.LOAN_REPAYMENT,
             amount: paymentAmount,
-            date: new Date(paidDate),
+            date: transactionDate,
             note: `Repayment from ${loan.borrower?.name} - Period ${period}`,
             createdById: currentUserId,
             action_performer: collectorPartner.name,
             entered_by: entryPartner.name,
             to_partner_id: collectorPartner.id,
+            // Add balance tracking
+            partnerBalance: balanceCalculation.partnerBalance,
+            totalBalance: balanceCalculation.totalBalance,
             // Nest the Repayment creation
             repayment: {
                 create: {
                     loanId,
                     amount: paymentAmount,
-                    paidDate: new Date(paidDate),
+                    paidDate: transactionDate,
                     paymentType,
                     period,
                     collected_by_id: collectorPartner.id,
@@ -1194,10 +1239,24 @@ async function deleteLoan(request: NextRequest, id: number, currentUserId: numbe
       const existingLoan = await tx.loan.findUnique({
         where: { id },
         include: {
+          transaction: {
+            select: {
+              id: true,
+              date: true,
+              createdAt: true
+            }
+          },
           repayments: {
             select: {
               id: true,
               transactionId: true,
+              transaction: {
+                select: {
+                  id: true,
+                  date: true,
+                  createdAt: true
+                }
+              }
             },
           },
         },
@@ -1211,14 +1270,26 @@ async function deleteLoan(request: NextRequest, id: number, currentUserId: numbe
         throw new Error("You do not have permission to delete this loan");
       }
 
-      // 2. Collect all transaction IDs to be deleted
+      // 2. Collect all transaction IDs to be deleted and find the earliest date
       const transactionIdsToDelete: number[] = [];
-      if (existingLoan.transactionId) {
-        transactionIdsToDelete.push(existingLoan.transactionId);
+      let earliestTransactionDate = new Date();
+      let earliestTransactionId = Number.MAX_SAFE_INTEGER;
+
+      if (existingLoan.transaction) {
+        transactionIdsToDelete.push(existingLoan.transaction.id);
+        if (existingLoan.transaction.date < earliestTransactionDate) {
+          earliestTransactionDate = existingLoan.transaction.date;
+          earliestTransactionId = existingLoan.transaction.id;
+        }
       }
+
       existingLoan.repayments.forEach(repayment => {
-        if (repayment.transactionId) {
-          transactionIdsToDelete.push(repayment.transactionId);
+        if (repayment.transaction) {
+          transactionIdsToDelete.push(repayment.transaction.id);
+          if (repayment.transaction.date < earliestTransactionDate) {
+            earliestTransactionDate = repayment.transaction.date;
+            earliestTransactionId = repayment.transaction.id;
+          }
         }
       });
 
@@ -1243,6 +1314,15 @@ async function deleteLoan(request: NextRequest, id: number, currentUserId: numbe
       await tx.loan.delete({
         where: { id },
       });
+
+      // 7. Recalculate balances for all subsequent transactions
+      if (transactionIdsToDelete.length > 0) {
+        await recalculateBalancesAfterDeletion(
+          currentUserId,
+          earliestTransactionDate,
+          earliestTransactionId
+        );
+      }
     });
 
     return NextResponse.json({ message: "Loan deleted successfully" });
@@ -1271,12 +1351,24 @@ async function deleteRepayment(request: NextRequest, id: number, currentUserId: 
             // 1. Fetch the repayment to get its details and transactionId
             const repayment = await tx.repayment.findUnique({
                 where: { id: repaymentId },
-                include: { loan: true },
+                include: { 
+                    loan: true,
+                    transaction: {
+                        select: {
+                            id: true,
+                            date: true,
+                            createdAt: true
+                        }
+                    }
+                },
             });
 
             if (!repayment || repayment.loan.createdById !== currentUserId) {
                 throw new Error("Repayment not found or permission denied.");
             }
+
+            const deletedTransactionDate = repayment.transaction?.date || new Date();
+            const deletedTransactionId = repayment.transaction?.id || 0;
             
             // 2. Delete the associated transaction if it exists
             if (repayment.transactionId) {
@@ -1303,8 +1395,8 @@ async function deleteRepayment(request: NextRequest, id: number, currentUserId: 
                 ? Math.max(1, currentLoan.duration - 1) 
                 : currentLoan.duration;
 
-            const nextPaymentDate = await calculateNextPaymentDate(loanId, tx);
-            const { overdueAmount, missedPayments } = await updateOverdueAmountFromRepayments(loanId, tx) || { overdueAmount: 0, missedPayments: 0 };
+            const nextPaymentDate = await calculateNextPaymentDate(loanId);
+            const { overdueAmount, missedPayments } = await updateOverdueAmountFromRepayments(loanId) || { overdueAmount: 0, missedPayments: 0 };
             
             // 5. Update the loan
             await tx.loan.update({
@@ -1318,6 +1410,15 @@ async function deleteRepayment(request: NextRequest, id: number, currentUserId: 
                     missedPayments,
                 },
             });
+
+            // 6. Recalculate balances for all subsequent transactions
+            if (repayment.transaction) {
+                await recalculateBalancesAfterDeletion(
+                    currentUserId,
+                    deletedTransactionDate,
+                    deletedTransactionId
+                );
+            }
         });
 
         return NextResponse.json({ message: "Repayment deleted successfully" });

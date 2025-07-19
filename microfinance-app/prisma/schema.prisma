@@ -317,6 +317,8 @@ model Transaction {
   entered_by        String
   date              DateTime
   note              String?
+  partnerBalance    Float?    @default(0) // Running balance for the affected partner
+  totalBalance      Float?    @default(0) // Running total balance across all partners
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
   createdById       Int

@@ -290,6 +290,8 @@ export async function GET(request: NextRequest) {
         'Entered By': transaction.entered_by,
         'Member': memberName || 'N/A',
         'Entity': entityName || 'N/A',
+        'Partner Balance': transaction.partnerBalance ? formatCurrency(transaction.partnerBalance) : 'N/A',
+        'Total Balance': transaction.totalBalance ? formatCurrency(transaction.totalBalance) : 'N/A',
         'Note': transaction.note || 'N/A',
         'Created At': formatDate(transaction.createdAt),
       };

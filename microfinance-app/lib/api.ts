@@ -410,6 +410,11 @@ export const memberAPI = {
   }),
 };
 
+// Balance API functions
+export const balanceAPI = {
+  getSummary: () => fetchAPI<any>('/balance/summary'),
+};
+
 // Transaction API functions (consolidated)
 export const transactionAPI = {
   getAll: (page = 1, pageSize = 10, type?: string, partner?: string) => {

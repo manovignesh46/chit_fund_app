@@ -4,6 +4,7 @@ import { getCurrentUserId } from '../../../lib/auth';
 import { TRANSACTION_TYPES_CONFIG } from '../../../config/config';
 import { sendEmail, emailTemplates } from '../../../lib/emailConfig';
 import * as XLSX from 'xlsx';
+import { calculateTransactionBalance, getCurrentPartnerBalance, getCurrentTotalBalance } from '../../../lib/balanceCalculator';
 
 // GET /api/transactions
 export async function GET(request: NextRequest) {
@@ -186,11 +187,33 @@ export async function GET(request: NextRequest) {
     }
 
     if (partner) {
+      // For PARTNER_TO_PARTNER transactions, only show transactions that directly affect the selected partner
+      // Since we now create separate transactions, each partner should only see their own transaction record
       where.OR = [
-        { from_partner: partner },
-        { to_partner: partner },
-        { action_performer: partner },
-        { entered_by: partner }
+        // For PARTNER_TO_PARTNER: Show transactions where this partner is the primary affected party
+        { 
+          AND: [
+            { type: 'PARTNER_TO_PARTNER' },
+            { 
+              OR: [
+                { from_partner: partner, to_partner: null }, // Partner's debit transaction
+                { to_partner: partner, from_partner: null }   // Partner's credit transaction
+              ]
+            }
+          ]
+        },
+        // For all other transaction types: Show where partner is action_performer or entered_by
+        { 
+          AND: [
+            { type: { not: 'PARTNER_TO_PARTNER' } },
+            { 
+              OR: [
+                { action_performer: partner },
+                { entered_by: partner }
+              ]
+            }
+          ]
+        }
       ];
     }
 
@@ -248,6 +271,114 @@ export async function GET(request: NextRequest) {
     console.error('Error fetching transactions:', error);
     return NextResponse.json({ error: 'Failed to fetch transactions' }, { status: 500 });
   }
+}
+
+/**
+ * Handle PARTNER_TO_PARTNER transfers by creating two separate transactions
+ * 1. Debit transaction for from_partner (money going out)
+ * 2. Credit transaction for to_partner (money coming in)
+ */
+async function handlePartnerToPartnerTransfer(
+  currentUserId: number,
+  fromPartnerId: number,
+  toPartnerId: number,
+  amount: number,
+  transactionDate: Date,
+  note: string,
+  activePartner: any
+) {
+  const fromPartner = await prisma.partner.findUnique({ where: { id: fromPartnerId }});
+  const toPartner = await prisma.partner.findUnique({ where: { id: toPartnerId }});
+
+  if (!fromPartner || !toPartner) {
+    return NextResponse.json({ error: 'Invalid partner IDs provided' }, { status: 400 });
+  }
+
+  // Use a transaction to ensure both records are created atomically
+  const result = await prisma.$transaction(async (tx) => {
+    // Get current balances for both partners and total balance
+    const fromPartnerCurrentBalance = await getCurrentPartnerBalance(fromPartnerId, currentUserId);
+    const toPartnerCurrentBalance = await getCurrentPartnerBalance(toPartnerId, currentUserId);
+    const currentTotalBalance = await getCurrentTotalBalance(currentUserId);
+
+    console.log(`Partner transfer: ${fromPartner.name} (₹${fromPartnerCurrentBalance}) → ${toPartner.name} (₹${toPartnerCurrentBalance})`);
+    console.log(`Current total balance: ₹${currentTotalBalance}`);
+
+    // 1. Create DEBIT transaction for from_partner (money going out)
+    // For this transaction: ONLY from_partner, no to_partner
+    const debitBalanceCalculation = calculateTransactionBalance(
+      {
+        type: 'PARTNER_TO_PARTNER',
+        amount: amount,
+        from_partner_id: fromPartnerId,
+        to_partner_id: null // No to_partner for debit transaction
+      },
+      fromPartnerId, // This transaction affects the from_partner
+      fromPartnerCurrentBalance,
+      currentTotalBalance
+    );
+
+    const debitTransaction = await tx.transaction.create({
+      data: {
+        type: 'PARTNER_TO_PARTNER',
+        amount: amount,
+        date: transactionDate,
+        note: `Transfer to ${toPartner.name}${note ? ` - ${note}` : ''}`,
+        createdById: currentUserId,
+        from_partner_id: fromPartnerId,
+        to_partner_id: null, // Only from_partner for debit transaction
+        partnerBalance: debitBalanceCalculation.partnerBalance, // from_partner's new balance
+        totalBalance: debitBalanceCalculation.totalBalance,
+        from_partner: fromPartner.name,
+        to_partner: null, // No to_partner
+        action_performer: activePartner.name,
+        entered_by: activePartner.name,
+      }
+    });
+
+    // 2. Create CREDIT transaction for to_partner (money coming in)
+    // For this transaction: ONLY to_partner, no from_partner
+    const creditBalanceCalculation = calculateTransactionBalance(
+      {
+        type: 'PARTNER_TO_PARTNER',
+        amount: amount,
+        from_partner_id: null, // No from_partner for credit transaction
+        to_partner_id: toPartnerId
+      },
+      toPartnerId, // This transaction affects the to_partner
+      toPartnerCurrentBalance,
+      debitBalanceCalculation.totalBalance // Use updated total balance from debit transaction
+    );
+
+    const creditTransaction = await tx.transaction.create({
+      data: {
+        type: 'PARTNER_TO_PARTNER',
+        amount: amount,
+        date: transactionDate,
+        note: `Transfer from ${fromPartner.name}${note ? ` - ${note}` : ''}`,
+        createdById: currentUserId,
+        from_partner_id: null, // No from_partner for credit transaction
+        to_partner_id: toPartnerId,
+        partnerBalance: creditBalanceCalculation.partnerBalance, // to_partner's new balance
+        totalBalance: creditBalanceCalculation.totalBalance, // Should be same as debit transaction
+        from_partner: null, // No from_partner
+        to_partner: toPartner.name,
+        action_performer: activePartner.name,
+        entered_by: activePartner.name,
+      }
+    });
+
+    console.log(`Debit transaction created: ${fromPartner.name} balance = ₹${debitBalanceCalculation.partnerBalance}`);
+    console.log(`Credit transaction created: ${toPartner.name} balance = ₹${creditBalanceCalculation.partnerBalance}`);
+
+    return { debitTransaction, creditTransaction };
+  });
+
+  return NextResponse.json({
+    message: 'Partner to partner transfer completed',
+    debitTransaction: result.debitTransaction,
+    creditTransaction: result.creditTransaction
+  }, { status: 201 });
 }
 
 // POST /api/transactions
@@ -317,6 +448,18 @@ export async function POST(request: NextRequest) {
         fromPartnerId = parseInt(from_partner_id);
         toPartnerId = parseInt(to_partner_id);
         actionPerformerId = activePartner.id; // The person recording the transfer
+        
+        // For PARTNER_TO_PARTNER, we need to create two transactions
+        // Handle this case separately and return early
+        return await handlePartnerToPartnerTransfer(
+          currentUserId,
+          fromPartnerId,
+          toPartnerId,
+          parseFloat(amount),
+          date ? new Date(date) : new Date(),
+          note,
+          activePartner
+        );
         break;
 
       case TRANSACTION_TYPES_CONFIG.RECORD_AMOUNT:
@@ -352,18 +495,87 @@ export async function POST(request: NextRequest) {
     const toPartner = toPartnerId ? await prisma.partner.findUnique({ where: { id: toPartnerId }}) : null;
     const actionPerformer = actionPerformerId ? await prisma.partner.findUnique({ where: { id: actionPerformerId }}) : activePartner;
 
+    console.log(`Transaction creation - Type: ${type}`);
+    console.log(`From Partner ID: ${fromPartnerId} (${fromPartner?.name || 'N/A'})`);
+    console.log(`To Partner ID: ${toPartnerId} (${toPartner?.name || 'N/A'})`);
+    console.log(`Active Partner: ${activePartner.name} (ID: ${activePartner.id})`);
+
+    // Calculate balance for this transaction
+    const transactionDate = date ? new Date(date) : new Date();
+    
+    // Determine which partner this transaction affects for balance calculation
+    let affectedPartnerId: number | null = null;
+    
+    switch (type) {
+      case 'collection':
+      case 'balance_adjustment':
+      case 'CHIT_CONTRIBUTION':
+      case 'LOAN_REPAYMENT':
+        // These transactions bring money in - affect the receiving partner
+        affectedPartnerId = toPartnerId;
+        break;
+        
+      case 'expense':
+      case 'LOAN_DISBURSEMENT':
+      case 'AUCTION_PAYOUT':
+        // These transactions send money out - affect the sending partner
+        affectedPartnerId = fromPartnerId;
+        break;
+        
+      case 'transfer':
+      case TRANSACTION_TYPES_CONFIG.PARTNER_TO_PARTNER:
+        // For transfers, we store the balance of the sending partner (from_partner)
+        // since they are the one whose balance decreases
+        affectedPartnerId = fromPartnerId;
+        break;
+        
+      default:
+        // For other types, use the primary partner involved
+        affectedPartnerId = toPartnerId || fromPartnerId;
+        break;
+    }
+
+    // Get current balances
+    const currentPartnerBalance = affectedPartnerId 
+      ? await getCurrentPartnerBalance(affectedPartnerId, currentUserId)
+      : 0;
+    const currentTotalBalance = await getCurrentTotalBalance(currentUserId);
+
+    console.log(`Balance calculation for transaction type: ${type}`);
+    console.log(`Affected Partner ID: ${affectedPartnerId}`);
+    console.log(`From Partner ID: ${fromPartnerId}, To Partner ID: ${toPartnerId}`);
+    console.log(`Current Partner Balance: ${currentPartnerBalance}`);
+    console.log(`Current Total Balance: ${currentTotalBalance}`);
+
+    // Calculate new balances
+    const balanceCalculation = calculateTransactionBalance(
+      {
+        type,
+        amount: parseFloat(amount),
+        from_partner_id: fromPartnerId,
+        to_partner_id: toPartnerId
+      },
+      affectedPartnerId,
+      currentPartnerBalance,
+      currentTotalBalance
+    );
+
     // Save the transaction using the new ID-based foreign keys
     const transaction = await prisma.transaction.create({
       data: {
         type,
         amount: parseFloat(amount),
-        date: date ? new Date(date) : new Date(),
+        date: transactionDate,
         note,
         createdById: currentUserId,
         
         // New ID-based foreign keys
         from_partner_id: fromPartnerId,
         to_partner_id: toPartnerId,
+        
+        // Balance tracking
+        partnerBalance: balanceCalculation.partnerBalance,
+        totalBalance: balanceCalculation.totalBalance,
         
         // Denormalized string fields for easy display (optional but recommended)
         from_partner: fromPartner?.name || null,
@@ -648,6 +860,8 @@ async function handleEmailExport(request: NextRequest) {
         'Entered By': transaction.entered_by,
         'Member': memberName || 'N/A',
         'Entity': entityName || 'N/A',
+        'Partner Balance': transaction.partnerBalance ? formatCurrency(transaction.partnerBalance) : 'N/A',
+        'Total Balance': transaction.totalBalance ? formatCurrency(transaction.totalBalance) : 'N/A',
         'Note': transaction.note || 'N/A',
         'Created At': formatDate(transaction.createdAt),
       };

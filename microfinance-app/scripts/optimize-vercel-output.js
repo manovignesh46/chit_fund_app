@@ -137,7 +137,7 @@ if (fs.existsSync(outputDir)) {
     if (fs.existsSync(pagesDir)) {
       removeFilesByPattern(pagesDir, /\/_error/);
       removeFilesByPattern(pagesDir, /\/_app/);
-      removeFilesByPattern(pagesDir, /\/_document/);
+      // removeFilesByPattern(pagesDir, /\/_document/);
     }
   }
   
