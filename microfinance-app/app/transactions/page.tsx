@@ -51,12 +51,10 @@ export default function TransactionsPage() {
         const filtered = (res.loans || res.data || []).filter((l: any) => l.borrowerId == advMember);
         setEntities(filtered);
       } else if (advType === 'chit') {
-        const res = await chitFundAPI.getAll(1, 1000);
-        // Filter chit funds where any member.globalMemberId == advMember
-        const filtered = (res.chitFunds || res.data || []).filter((c: any) =>
-          (c.members || []).some((m: any) => m.globalMemberId == advMember)
-        );
-        setEntities(filtered);
+        // Use new API to get chit funds for the selected member
+        const res = await fetch(`/api/chit-funds/by-member?globalMemberId=${advMember}`);
+        const data = await res.json();
+        setEntities(data.chitFunds || []);
       }
       setEntityLoading(false);
     };

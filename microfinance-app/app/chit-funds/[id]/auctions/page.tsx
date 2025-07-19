@@ -412,7 +412,7 @@ export default function ChitFundAuctionsPage() {
 
       {/* Auctions Table */}
       <div className="bg-white rounded-lg shadow-md overflow-hidden mb-8">
-        <div className="overflow-x-auto w-full" style={{maxWidth: '100vw'}}>
+        <div className="overflow-x-auto w-full" style={{maxWidth: '80vw'}}>
           <table className="w-full min-w-[700px] divide-y divide-gray-200 text-xs sm:text-sm">
             <thead className="bg-gray-50">
               <tr>

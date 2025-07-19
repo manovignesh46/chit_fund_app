@@ -39,24 +39,124 @@ export async function GET(request: NextRequest) {
       createdById: currentUserId
     };
 
-    // Advanced filter logic
-    if (advType && advMember && advEntity && advSubType) {
+    // Advanced filter logic: apply each filter independently
+    if (advType) {
       if (advType === 'loan') {
-        // Find transactions linked to this loan, filter by subtype
-        where.loan = { id: parseInt(advEntity) };
+        // Only show loan-related transactions
+        where.OR = [
+          { type: { in: ['loan_given', 'LOAN_DISBURSEMENT', 'loan_repaid', 'LOAN_REPAYMENT'] } },
+          { loan: { is: { } } }
+        ];
+        if (advEntity) {
+          where.loan = { id: parseInt(advEntity) };
+        }
         if (advSubType === 'disbursement') {
-          where.type = ['loan_given', 'LOAN_DISBURSEMENT'];
+          where.type = { in: ['loan_given', 'LOAN_DISBURSEMENT'] };
         } else if (advSubType === 'repayment') {
-          where.type = ['loan_repaid', 'LOAN_REPAYMENT'];
+          where.type = { in: ['loan_repaid', 'LOAN_REPAYMENT'] };
+        }
+        // Filter by member name in note if advMember is set
+        if (advMember) {
+          // Look up member name by ID (via Member -> GlobalMember)
+          const memberId = parseInt(advMember);
+          const member = await prisma.globalMember.findUnique({
+            where: { id: memberId },
+          });
+          const memberName = member?.name;
+          if (memberName) {
+            where.note = {
+              contains: memberName,
+              mode: 'insensitive',
+            };
+          } else {
+            // If member not found, filter by impossible string
+            where.note = { contains: '__NO_MATCH__' };
+          }
         }
       } else if (advType === 'chit') {
-        // Find transactions linked to this chit fund (via contribution or auction), filter by subtype
-        if (advSubType === 'contribution') {
-          where.contribution = { chitFundId: parseInt(advEntity), member: { globalMemberId: parseInt(advMember) } };
-          where.type = ['CHIT_CONTRIBUTION'];
+        // Only show chit-related transactions
+        where.OR = [
+          { type: { in: ['CHIT_CONTRIBUTION', 'AUCTION_PAYOUT'] } },
+          { contribution: { is: { } } },
+          { auction: { is: { } } }
+        ];
+        // Always filter by member if advMember is set
+        if (advMember) {
+          const memberId = parseInt(advMember);
+          if (advSubType === 'auction') {
+            // Only auction transactions for this member and chit fund
+            if (advEntity) {
+              where.auction = { 
+                chitFundId: parseInt(advEntity), 
+                winner: { globalMemberId: memberId } 
+              };
+              where.type = { in: ['AUCTION_PAYOUT'] };
+            } else {
+              where.auction = { 
+                winner: { globalMemberId: memberId } 
+              };
+              where.type = { in: ['AUCTION_PAYOUT'] };
+            }
+          } else if (advSubType === 'contribution') {
+            // Only contribution transactions for this member and chit fund
+            if (advEntity) {
+              where.contribution = { 
+                chitFundId: parseInt(advEntity), 
+                member: { globalMemberId: memberId } 
+              };
+              where.type = { in: ['CHIT_CONTRIBUTION'] };
+            } else {
+              where.contribution = { 
+                member: { globalMemberId: memberId } 
+              };
+              where.type = { in: ['CHIT_CONTRIBUTION'] };
+            }
+          } else {
+            // No specific subtype - show both contributions and auctions for this member
+            if (advEntity) {
+              where.OR = [
+                {
+                  contribution: { 
+                    chitFundId: parseInt(advEntity), 
+                    member: { globalMemberId: memberId } 
+                  },
+                  type: { in: ['CHIT_CONTRIBUTION'] }
+                },
+                {
+                  auction: { 
+                    chitFundId: parseInt(advEntity), 
+                    winner: { globalMemberId: memberId } 
+                  },
+                  type: { in: ['AUCTION_PAYOUT'] }
+                }
+              ];
+            } else {
+              where.OR = [
+                {
+                  contribution: { 
+                    member: { globalMemberId: memberId } 
+                  },
+                  type: { in: ['CHIT_CONTRIBUTION'] }
+                },
+                {
+                  auction: { 
+                    winner: { globalMemberId: memberId } 
+                  },
+                  type: { in: ['AUCTION_PAYOUT'] }
+                }
+              ];
+            }
+          }
+        } else if (advSubType === 'contribution') {
+          if (advEntity) {
+            where.contribution = { chitFundId: parseInt(advEntity) };
+            where.type = { in: ['CHIT_CONTRIBUTION'] };
+          }
         } else if (advSubType === 'auction') {
-          where.auction = { chitFundId: parseInt(advEntity) };
-          where.type = ['AUCTION_PAYOUT'];
+          if (advEntity) {
+            where.auction = { chitFundId: parseInt(advEntity) };
+            where.type = { in: ['AUCTION_PAYOUT'] };
+          }
         }
       }
     }
@@ -107,19 +207,23 @@ export async function GET(request: NextRequest) {
       };
     }
 
+    console.log("where clause:", where);  
     // Get total count for pagination
     const totalCount = await prisma.transaction.count({ where });
 
     // Get paginated transactions
     const transactions = await prisma.transaction.findMany({
       where,
-      orderBy: { createdAt: 'desc' },
+      orderBy: [
+        { date: 'desc' },
+        { createdAt: 'desc' }
+      ],
       skip,
       take: validPageSize,
       include: {
         loan: true,
         contribution: { include: { member: true } },
-        auction: true,
+        auction: { include: { winner: true } },
       },
     });
 

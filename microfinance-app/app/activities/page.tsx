@@ -225,7 +225,7 @@ export default function ActivitiesPage() {
               <p className="text-gray-500">There are no recent activities to display.</p>
             </div>
           ) : (
-            <div className="overflow-x-auto w-full" style={{maxWidth: '100vw'}}>
+            <div className="overflow-x-auto w-full" style={{maxWidth: '80vw'}}>
               <table className="w-full divide-y divide-gray-200 text-xs sm:text-sm" style={{minWidth: '600px'}}>
               <thead className="bg-gray-50">
                 <tr>

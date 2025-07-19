@@ -490,7 +490,7 @@ export default function MembersPage() {
       {/* Members Table */}
       <div className="bg-white rounded-lg shadow-md mb-6 overflow-hidden">
         {/* Table container with proper mobile scrolling - constrained width */}
-        <div className="overflow-x-auto w-full" style={{maxWidth: '100vw'}}>
+        <div className="overflow-x-auto w-full" style={{maxWidth: '80vw'}}>
           <table className="w-full divide-y divide-gray-200 text-xs sm:text-sm" style={{minWidth: '600px'}}>
           <thead className="bg-gray-50">
             <tr>

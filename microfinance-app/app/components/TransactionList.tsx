@@ -50,6 +50,7 @@ export function TransactionList(props: TransactionListProps & {
     advEntity = '',
     advSubType = '',
   } = props;
+
   // If activePartner is undefined or 'ALL', treat as all partners
   const partnerToUse = activePartner && activePartner !== 'ALL' ? activePartner : null;
   const [transactions, setTransactions] = useState([]);
@@ -57,7 +58,7 @@ export function TransactionList(props: TransactionListProps & {
   const [error, setError] = useState('');
   const [totalPages, setTotalPages] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
-
+  const [noteModal, setNoteModal] = useState(null as null | { id: number; note: string });
 
 
   useEffect(() => {
@@ -77,9 +78,18 @@ export function TransactionList(props: TransactionListProps & {
       if (filterMember) {
         url += `&member=${encodeURIComponent(filterMember)}`;
       }
-      // Advanced filter logic
-      if (advType && advMember && advEntity && advSubType) {
-        url += `&advType=${advType}&advMember=${advMember}&advEntity=${advEntity}&advSubType=${advSubType}`;
+      // Advanced filter logic: apply each filter independently
+      if (advType) {
+        url += `&advType=${advType}`;
+      }
+      if (advMember) {
+        url += `&advMember=${advMember}`;
+      }
+      if (advEntity) {
+        url += `&advEntity=${advEntity}`;
+      }
+      if (advSubType) {
+        url += `&advSubType=${advSubType}`;
       }
       const response = await fetch(url);
       if (!response.ok) {
@@ -142,6 +152,56 @@ export function TransactionList(props: TransactionListProps & {
   if (loading) return <div>Loading transactions...</div>;
   if (error) return <div className="text-red-600">{error}</div>;
 
+  // Helper to determine Credit/Debit for Cr/Dt column
+  function getCrDr(t: Transaction): 'Credit' | 'Debit' {
+    // If partnerToUse is set, use partner context
+    if (partnerToUse) {
+      if (t.to_partner && t.to_partner === partnerToUse) return 'Credit';
+      if (t.from_partner && t.from_partner === partnerToUse) return 'Debit';
+      if (t.type === 'loan_repaid' || t.type === 'LOAN_REPAYMENT') return 'Credit';
+      if (t.type === 'loan_given' || t.type === 'LOAN_DISBURSEMENT' || t.type === 'AUCTION_PAYOUT') return 'Debit';
+    }
+    // Fallback for all partners
+    if (t.type === 'PARTNER_TO_PARTNER' || t.type === 'transfer') return '-';
+    if (t.type && typeof t.type === 'string') {
+      const debitTypes = ['loan_given', 'LOAN_DISBURSEMENT', 'expense', 'balance_adjustment', 'AUCTION_PAYOUT'];
+      const creditTypes = ['loan_repaid', 'LOAN_REPAYMENT', 'collection', 'RECORD_AMOUNT'];
+      if (debitTypes.includes(t.type)) return 'Debit';
+      if (creditTypes.includes(t.type)) return 'Credit';
+    }
+    // fallback: use amount sign if type is unknown
+    if (typeof t.amount === 'number') {
+      if (t.amount > 0) return 'Credit';
+      if (t.amount < 0) return 'Debit';
+    }
+    return 'Credit';
+  }
+
+
+
+  // Helper to extract member name from note string
+  function extractMemberName(note?: string): string {
+    if (!note) return '-';
+    // Pattern 1: Repayment from Arunkumar - Period 1
+    let match = note.match(/Repayment from ([^-]+?)(?: -|$)/i);
+    if (match) return match[1].trim();
+    // Pattern 2: Loan disbursed to Arunkumar
+    match = note.match(/Loan disbursed to ([^-]+?)(?: -|$)/i);
+    if (match) return match[1].trim();
+    // Pattern 3: Auction payout to ([^-]+?)(?: -|$)
+    match = note.match(/Auction payout to ([^-]+?)(?: -|$)/i);
+    if (match) return match[1].trim();
+    // Pattern 4: Chit contribution from ([^-]+?)(?: -|$)
+    match = note.match(/Chit contribution from ([^-]+?)(?: -|$)/i);
+    if (match) return match[1].trim();
+    // Pattern 5: fallback for 'from' or 'to' member
+    match = note.match(/from ([^-]+?)(?: -|$)/i);
+    if (match) return match[1].trim();
+    match = note.match(/to ([^-]+?)(?: -|$)/i);
+    if (match) return match[1].trim();
+    return '-';
+  }
+
   return (
     <div className="bg-white rounded shadow p-4">
       <div className="flex justify-between items-center mb-4">
@@ -151,60 +211,84 @@ export function TransactionList(props: TransactionListProps & {
         </div>
       </div>
 
+      {/* Note Modal/Tooltip */}
+      {noteModal && (
+        <div
+          className="fixed z-50 left-0 top-0 w-screen h-screen flex items-center justify-center bg-black bg-opacity-40"
+          onClick={() => setNoteModal(null)}
+        >
+          <div
+            className="bg-gray-800 text-white text-sm rounded px-6 py-4 shadow-lg max-w-xs break-words text-center whitespace-pre-line"
+            style={{ zIndex: 1001 }}
+            onClick={e => e.stopPropagation()}
+          >
+            {noteModal.note}
+          </div>
+        </div>
+      )}
+
       {transactions.length === 0 ? (
         <p className="text-gray-500 text-center py-8">No transactions found</p>
       ) : (
         <>
-          <div className="space-y-4 mb-6">
-            {transactions.map((t) => (
-              <div key={t.id} className="border-b pb-3">
-                <div className="flex justify-between items-start">
-                  <div>
-                    <div className="font-medium">
-                      {getTransactionDescription(t)}
-                    </div>
-                    <div className="text-sm text-gray-600">
+          <div className="overflow-x-auto w-full mb-6" style={{maxWidth: '80vw'}}>
+            <table className="w-full min-w-[900px] divide-y divide-gray-200 text-xs sm:text-sm">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-4 py-2 text-left font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                  <th className="px-4 py-2 text-left font-medium text-gray-500 uppercase tracking-wider">Type</th>
+                  {/* Removed Description column */}
+                  <th className="px-4 py-2 text-left font-medium text-gray-500 uppercase tracking-wider">Member</th>
+                  {/* Removed Entered By column */}
+                  <th className="px-4 py-2 text-center font-medium text-gray-500 uppercase tracking-wider">Cr/Dt</th>
+                  <th className="px-4 py-2 text-right font-medium text-gray-500 uppercase tracking-wider">Amount</th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {transactions.map((t: Transaction) => (
+                  <tr
+                    key={t.id}
+                    className="hover:bg-gray-50 cursor-pointer group"
+                    tabIndex={0}
+                    onClick={() => {
+                      if (!t.note) return;
+                      if (noteModal && noteModal.id === t.id) {
+                        setNoteModal(null);
+                      } else {
+                        setNoteModal({ id: t.id, note: t.note });
+                      }
+                    }}
+                  >
+                    <td className="px-4 py-2 whitespace-nowrap relative">
                       {new Date(t.date).toLocaleDateString()}
-                    </div>
-                    {t.note && (
-                      <div className="text-sm text-gray-500 mt-1">{t.note}</div>
-                    )}
-                  </div>
-                  <div className="font-medium">
-                    <span
-                      className={(() => {
-                        if (partnerToUse) {
-                          if (t.to_partner && t.to_partner === partnerToUse) return 'text-green-600 font-bold';
-                          if (t.from_partner && t.from_partner === partnerToUse) return 'text-red-600 font-bold';
-                          if (t.type === 'loan_repaid' || t.type === 'LOAN_REPAYMENT') return 'text-green-600 font-bold';
-                          if (t.type === 'loan_given' || t.type === 'LOAN_DISBURSEMENT') return 'text-red-600 font-bold';
-                          return 'text-gray-900';
-                        }
-                        // All Partners: always use type for color except transfer
-                        if (t.type === 'PARTNER_TO_PARTNER' || t.type === 'transfer') return 'text-blue-600 font-bold';
-                        if (t.type && typeof t.type === 'string') {
-                          const debitTypes = ['loan_given', 'LOAN_DISBURSEMENT', 'expense', 'balance_adjustment'];
-                          const creditTypes = ['loan_repaid', 'LOAN_REPAYMENT', 'collection', 'RECORD_AMOUNT'];
-                          if (debitTypes.includes(t.type)) return 'text-red-600 font-bold';
-                          if (creditTypes.includes(t.type)) return 'text-green-600 font-bold';
-                        }
-                        // fallback: use amount sign if type is unknown
-                        if (typeof t.amount === 'number') {
-                          if (t.amount > 0) return 'text-green-600 font-bold';
-                          if (t.amount < 0) return 'text-red-600 font-bold';
-                        }
-                        return 'text-gray-900';
-                      })()}
-                    >
+                    </td>
+                    <td className="px-4 py-2 whitespace-nowrap">{t.type.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}</td>
+                    <td className="px-4 py-2 whitespace-nowrap">{extractMemberName(t.note)}</td>
+                    {/* Removed Entered By column */}
+                    <td className={
+                      `px-4 py-2 whitespace-nowrap text-center font-semibold ` +
+                      (getCrDr(t) === 'Credit'
+                        ? 'text-green-600'
+                        : getCrDr(t) === 'Debit'
+                        ? 'text-red-600'
+                        : 'text-blue-600')
+                    }>
+                      {getCrDr(t)}
+                    </td>
+                    <td className={
+                      `px-4 py-2 whitespace-nowrap text-right font-semibold ` +
+                      (getCrDr(t) === 'Credit'
+                        ? 'text-green-600'
+                        : getCrDr(t) === 'Debit'
+                        ? 'text-red-600'
+                        : 'text-blue-600')
+                    }>
                       {formatCurrency(t.amount)}
-                    </span>
-                  </div>
-                </div>
-                <div className="text-xs text-gray-500 mt-1">
-                  Performed by: {t.action_performer} | Entered by: {t.entered_by}
-                </div>
-              </div>
-            ))}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
 
           {/* Pagination controls */}
@@ -218,21 +302,21 @@ export function TransactionList(props: TransactionListProps & {
                   <label htmlFor="pageSize" className="text-xs sm:text-sm text-gray-600 mr-2">
                     Show:
                   </label>
-                    <select
-                      id="pageSize"
-                      value={pageSize}
-                      onChange={(e) => {
-                        setPageSize(Number(e.target.value));
-                        setCurrentPage(1);
-                      }}
-                      className="border border-gray-300 rounded-md text-xs sm:text-sm py-1 pl-2 pr-8"
-                    >
-                      <option value="5">5</option>
-                      <option value="10">10</option>
-                      <option value="20">20</option>
-                      <option value="50">50</option>
-                      <option value="100">100</option>
-                    </select>
+                  <select
+                    id="pageSize"
+                    value={pageSize}
+                    onChange={(e) => {
+                      setPageSize(Number(e.target.value));
+                      setCurrentPage(1);
+                    }}
+                    className="border border-gray-300 rounded-md text-xs sm:text-sm py-1 pl-2 pr-8"
+                  >
+                    <option value="5">5</option>
+                    <option value="10">10</option>
+                    <option value="20">20</option>
+                    <option value="50">50</option>
+                    <option value="100">100</option>
+                  </select>
                 </div>
               </div>
 
