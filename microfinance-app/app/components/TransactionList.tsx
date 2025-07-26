@@ -201,18 +201,18 @@ export function TransactionList(props: TransactionListProps & {
     if (partnerToUse) {
       if (t.to_partner && t.to_partner === partnerToUse) return 'Credit';
       if (t.from_partner && t.from_partner === partnerToUse) return 'Debit';
-      if (t.type === 'loan_repaid' || t.type === 'LOAN_REPAYMENT') return 'Credit';
-      if (t.type === 'loan_given' || t.type === 'LOAN_DISBURSEMENT' || t.type === 'AUCTION_PAYOUT') return 'Debit';
+      if (t.type === 'LOAN_REPAYMENT') return 'Credit';
+      if (t.type === 'LOAN_DISBURSEMENT' || t.type === 'AUCTION_PAYOUT') return 'Debit';
     }
     
-    // Fallback for all partners
-    if (t.type === 'transfer') return '-';
+    // Fallback for all partners - categorize based on standardized transaction types
     if (t.type && typeof t.type === 'string') {
-      const debitTypes = ['loan_given', 'LOAN_DISBURSEMENT', 'expense', 'balance_adjustment', 'AUCTION_PAYOUT'];
-      const creditTypes = ['loan_repaid', 'LOAN_REPAYMENT', 'collection', 'CHIT_CONTRIBUTION'];
+      const debitTypes = ['LOAN_DISBURSEMENT', 'AUCTION_PAYOUT'];
+      const creditTypes = ['LOAN_REPAYMENT', 'CHIT_CONTRIBUTION'];
       if (debitTypes.includes(t.type)) return 'Debit';
       if (creditTypes.includes(t.type)) return 'Credit';
     }
+    
     // fallback: use amount sign if type is unknown
     if (typeof t.amount === 'number') {
       if (t.amount > 0) return 'Credit';

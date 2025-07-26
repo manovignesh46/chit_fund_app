@@ -239,15 +239,13 @@ export async function GET(request: NextRequest) {
       },
     });
 
-    // Format data for Excel export
+    // Format data for Excel export to match UI table format
     const exportData = transactions.map((transaction: any) => {
       const formatDate = (date: string | Date) => {
         return new Date(date).toLocaleDateString('en-IN', {
           year: 'numeric',
           month: 'short',
-          day: 'numeric',
-          hour: '2-digit',
-          minute: '2-digit'
+          day: 'numeric'
         });
       };
 
@@ -259,47 +257,132 @@ export async function GET(request: NextRequest) {
         }).format(amount);
       };
 
-      let memberName = '';
-      let entityName = '';
-      
-      if (transaction.contribution) {
-        memberName = transaction.contribution.member?.globalMember?.name || '';
-        entityName = transaction.contribution.chitFund?.name || '';
-      } else if (transaction.auction) {
-        memberName = transaction.auction.winner?.globalMember?.name || '';
-        entityName = transaction.auction.chitFund?.name || '';
-      } else if (transaction.loan) {
-        // For loans, extract member name from the note or loan borrower
-        if (transaction.loan.borrower?.name) {
-          memberName = transaction.loan.borrower.name;
-        } else if (transaction.note) {
-          // Try to extract member name from note
-          memberName = transaction.note;
+      // Helper to extract member name from note string (same as UI logic)
+      function extractMemberName(note?: string): string {
+        if (!note) return '-';
+        // Pattern 1: Repayment from Arunkumar - Period 1
+        let match = note.match(/Repayment from ([^-]+?)(?: -|$)/i);
+        if (match) return match[1].trim();
+        // Pattern 2: Loan disbursed to Arunkumar
+        match = note.match(/Loan disbursed to ([^-]+?)(?: -|$)/i);
+        if (match) return match[1].trim();
+        // Pattern 3: Auction payout to ([^-]+?)(?: -|$)
+        match = note.match(/Auction payout to ([^-]+?)(?: -|$)/i);
+        if (match) return match[1].trim();
+        // Pattern 4: Chit contribution from ([^-]+?)(?: -|$)
+        match = note.match(/Chit contribution from ([^-]+?)(?: -|$)/i);
+        if (match) return match[1].trim();
+        // Pattern 5: fallback for 'from' or 'to' member
+        match = note.match(/from ([^-]+?)(?: -|$)/i);
+        if (match) return match[1].trim();
+        match = note.match(/to ([^-]+?)(?: -|$)/i);
+        if (match) return match[1].trim();
+        return '-';
+      }
+
+      // Helper to get the partner name for the transaction (same as UI logic)
+      function getPartnerName(t: any): string {
+        // For PARTNER_TO_PARTNER transactions, show the partner who is involved
+        if (t.type === 'PARTNER_TO_PARTNER') {
+          if (t.from_partner && !t.to_partner) {
+            // Debit transaction - show from_partner
+            return t.from_partner;
+          } else if (t.to_partner && !t.from_partner) {
+            // Credit transaction - show to_partner
+            return t.to_partner;
+          } else if (t.from_partner && t.to_partner) {
+            // Old format with both partners - show both partners
+            return `${t.from_partner} → ${t.to_partner}`;
+          }
         }
-        entityName = `${transaction.loan.loanType || 'Loan'} #${transaction.loan.id} - ₹${transaction.loan.amount?.toLocaleString() || transaction.loan.amount}`;
+        
+        // For other transaction types, show the action_performer
+        return t.action_performer || '-';
+      }
+
+      // Helper to determine Credit/Debit (same as UI logic)
+      function getCrDr(t: any): 'Credit' | 'Debit' | '-' {
+        // Special handling for PARTNER_TO_PARTNER transactions
+        if (t.type === 'PARTNER_TO_PARTNER') {
+          // For new format with separate transactions
+          if (t.from_partner && !t.to_partner) {
+            // Debit transaction (money going out from from_partner)
+            return 'Debit';
+          } else if (t.to_partner && !t.from_partner) {
+            // Credit transaction (money coming in to to_partner)
+            return 'Credit';
+          } else if (t.from_partner && t.to_partner) {
+            // Old format - show as transfer
+            return '-';
+          }
+        }
+
+        // Special handling for RECORD AMOUNT transactions
+        if (t.type === 'RECORD_AMOUNT') {
+          if (t.to_partner) {
+            // Money coming in to to_partner (credit)
+            return 'Credit';
+          } else if (t.from_partner) {
+            // Money going out from from_partner (debit)
+            return 'Debit';
+          }
+        }
+
+        // Categorize based on standardized transaction types
+        if (t.type && typeof t.type === 'string') {
+          const debitTypes = ['LOAN_DISBURSEMENT', 'AUCTION_PAYOUT'];
+          const creditTypes = ['LOAN_REPAYMENT', 'CHIT_CONTRIBUTION'];
+          if (debitTypes.includes(t.type)) return 'Debit';
+          if (creditTypes.includes(t.type)) return 'Credit';
+        }
+        
+        // fallback: use amount sign if type is unknown
+        if (typeof t.amount === 'number') {
+          if (t.amount > 0) return 'Credit';
+          if (t.amount < 0) return 'Debit';
+        }
+        return 'Credit';
       }
 
       return {
-        'Transaction ID': transaction.id,
         'Date': formatDate(transaction.date),
-        'Type': transaction.type,
+        'Type': transaction.type.replace(/_/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase()),
+        'Member': extractMemberName(transaction.note),
+        'Partner': getPartnerName(transaction),
+        'Cr/Dt': getCrDr(transaction),
         'Amount': formatCurrency(transaction.amount),
-        'From Partner': transaction.from_partner || 'N/A',
-        'To Partner': transaction.to_partner || 'N/A',
-        'Action Performer': transaction.action_performer,
-        'Entered By': transaction.entered_by,
-        'Member': memberName || 'N/A',
-        'Entity': entityName || 'N/A',
-        'Partner Balance': transaction.partnerBalance ? formatCurrency(transaction.partnerBalance) : 'N/A',
-        'Total Balance': transaction.totalBalance ? formatCurrency(transaction.totalBalance) : 'N/A',
-        'Note': transaction.note || 'N/A',
-        'Created At': formatDate(transaction.createdAt),
+        'Partner Balance': transaction.partnerBalance !== null && transaction.partnerBalance !== undefined 
+          ? formatCurrency(transaction.partnerBalance) 
+          : '-',
+        'Total Balance': transaction.totalBalance !== null && transaction.totalBalance !== undefined 
+          ? formatCurrency(transaction.totalBalance) 
+          : '-',
       };
     });
 
     // Create workbook
     const wb = XLSX.utils.book_new();
     const ws = XLSX.utils.json_to_sheet(exportData);
+
+    // Set column widths to match UI table
+    ws['!cols'] = [
+      { width: 12 }, // Date
+      { width: 18 }, // Type
+      { width: 20 }, // Member
+      { width: 20 }, // Partner
+      { width: 8 },  // Cr/Dt
+      { width: 15 }, // Amount
+      { width: 18 }, // Partner Balance
+      { width: 18 }  // Total Balance
+    ];
+
+    // Apply bold formatting to header row
+    const range = XLSX.utils.decode_range(ws['!ref'] || 'A1:H1');
+    for (let col = range.s.c; col <= range.e.c; col++) {
+      const cellRef = XLSX.utils.encode_cell({ r: 0, c: col });
+      if (!ws[cellRef]) continue;
+      ws[cellRef].s = { font: { bold: true } };
+    }
 
     // Add the worksheet to the workbook
     XLSX.utils.book_append_sheet(wb, ws, 'Transactions');
