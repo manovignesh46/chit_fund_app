@@ -7,6 +7,7 @@ import TransactionList from '../components/TransactionList';
 import DateFilter from '../components/DateFilter';
 import EmailExportModal from '../../components/EmailExportModal';
 import BalanceSummary from '../components/BalanceSummary';
+import TransactionSummary from '../components/TransactionSummary';
 import { usePartner } from '../contexts/PartnerContext';
 import { TRANSACTION_TYPES_CONFIG } from '../../config/config';
 
@@ -111,9 +112,6 @@ export default function TransactionsPage() {
     <div className="container mx-auto p-4">
       <div className="mb-6">
         <h1 className="text-2xl font-bold mb-4">Transactions</h1>
-        
-        {/* Balance Summary */}
-        <BalanceSummary refreshTrigger={refreshList} />
         
         <div className="mb-2 flex flex-col md:flex-row md:items-end md:space-x-4 md:space-y-0 space-y-2">
           <div className="w-full md:w-1/3">
@@ -303,6 +301,22 @@ export default function TransactionsPage() {
           Email
         </button>
       </div>
+
+      {/* Balance Summary and Transaction Summary - Now below filters */}
+      <BalanceSummary refreshTrigger={refreshList} />
+      
+      <TransactionSummary
+        selectedPartnerId={selectedPartnerId}
+        filterType={filterType}
+        filterMember={filterMember}
+        advType={showAdvanced ? advType : ''}
+        advMember={showAdvanced ? advMember : ''}
+        advEntity={showAdvanced ? advEntity : ''}
+        advSubType={showAdvanced ? advSubType : ''}
+        startDate={startDate}
+        endDate={endDate}
+        refreshTrigger={refreshList}
+      />
 
       <TransactionList
         refresh={refreshList}

@@ -30,6 +30,33 @@ export default function TransactionForm({ onSuccess }: TransactionFormProps) {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
+  // Function to handle From Partner selection and auto-select To Partner
+  function handleFromPartnerChange(newFromPartnerId: string) {
+    setFromPartnerId(newFromPartnerId);
+    
+    // Auto-select a different partner for "To Partner" to prevent self-transfers
+    if (newFromPartnerId) {
+      const availableToPartners = partners.filter(p => p.id.toString() !== newFromPartnerId);
+      if (availableToPartners.length > 0) {
+        // If current toPartnerId is the same as newFromPartnerId, select a different one
+        if (toPartnerId === newFromPartnerId) {
+          setToPartnerId(availableToPartners[0].id.toString());
+        }
+        // If toPartnerId is empty or not set, select the first available partner
+        else if (!toPartnerId) {
+          setToPartnerId(availableToPartners[0].id.toString());
+        }
+        // If toPartnerId is already different, keep it as is
+      } else {
+        // No other partners available, clear toPartnerId
+        setToPartnerId("");
+      }
+    } else {
+      // If no fromPartnerId selected, clear toPartnerId
+      setToPartnerId("");
+    }
+  }
+
   useEffect(() => {
     handleTypeChange(type);
   }, [selectedPartner]);
@@ -40,9 +67,16 @@ export default function TransactionForm({ onSuccess }: TransactionFormProps) {
     setSuccess("");
 
     if (newType === TRANSACTION_TYPES_CONFIG.PARTNER_TO_PARTNER) {
-      setFromPartnerId(selectedPartner?.id?.toString() || "");
-      const defaultToPartner = partners.find(p => p.id !== selectedPartner?.id);
-      setToPartnerId(defaultToPartner?.id?.toString() || "");
+      const selectedPartnerId = selectedPartner?.id?.toString() || "";
+      setFromPartnerId(selectedPartnerId);
+      
+      // Auto-select a different partner for "To Partner"
+      if (selectedPartnerId) {
+        const availableToPartners = partners.filter(p => p.id.toString() !== selectedPartnerId);
+        setToPartnerId(availableToPartners.length > 0 ? availableToPartners[0].id.toString() : "");
+      } else {
+        setToPartnerId("");
+      }
     } else if (newType === TRANSACTION_TYPES_CONFIG.RECORD_AMOUNT) {
       // Default to crediting the active partner
       setAdjustmentType("credit");
@@ -149,7 +183,7 @@ export default function TransactionForm({ onSuccess }: TransactionFormProps) {
             <select
               className="w-full border-gray-300 rounded-md p-2 mt-1 shadow-sm"
               value={fromPartnerId}
-              onChange={(e) => setFromPartnerId(e.target.value)}
+              onChange={(e) => handleFromPartnerChange(e.target.value)}
               required
             >
               <option value="">Select Partner</option>
@@ -167,9 +201,11 @@ export default function TransactionForm({ onSuccess }: TransactionFormProps) {
               required
             >
               <option value="">Select Partner</option>
-              {partners.map((p) => (
-                <option key={p.id} value={p.id}>{p.name}</option>
-              ))}
+              {partners
+                .filter(p => p.id.toString() !== fromPartnerId) // Exclude the selected "From Partner"
+                .map((p) => (
+                  <option key={p.id} value={p.id}>{p.name}</option>
+                ))}
             </select>
           </div>
         </div>

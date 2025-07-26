@@ -701,7 +701,7 @@ export default function ChitFundContributionsPage() {
 
       {/* Contributions Table */}
       <div className="bg-white rounded-lg shadow-md overflow-hidden mb-8">
-        <div className="overflow-x-auto w-full" style={{maxWidth: '80vw'}}>
+        <div className="overflow-x-auto w-full" style={{maxWidth: '85vw'}}>
           {memberDetail ? (
             // Member View
             <table className="w-full min-w-[700px] divide-y divide-gray-200 text-xs sm:text-sm">

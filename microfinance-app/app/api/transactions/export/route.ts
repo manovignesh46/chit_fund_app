@@ -362,6 +362,8 @@ export async function GET(request: NextRequest) {
 
     // Create workbook
     const wb = XLSX.utils.book_new();
+    
+    // Add transactions worksheet
     const ws = XLSX.utils.json_to_sheet(exportData);
 
     // Set column widths to match UI table
@@ -384,8 +386,282 @@ export async function GET(request: NextRequest) {
       ws[cellRef].s = { font: { bold: true } };
     }
 
-    // Add the worksheet to the workbook
+    // Add the transactions worksheet
     XLSX.utils.book_append_sheet(wb, ws, 'Transactions');
+
+    // Fetch and add Transaction Summary data
+    try {
+      // Build summary API URL with same filters
+      let summaryUrl = `/api/transactions/summary?`;
+      const params = new URLSearchParams();
+      
+      if (partner && partner !== 'ALL') params.append('partner', partner);
+      if (type) params.append('type', type);
+      if (member) params.append('member', member);
+      if (advType) params.append('advType', advType);
+      if (advMember) params.append('advMember', advMember);
+      if (advEntity) params.append('advEntity', advEntity);
+      if (advSubType) params.append('advSubType', advSubType);
+      if (startDate) params.append('startDate', startDate);
+      if (endDate) params.append('endDate', endDate);
+      
+      summaryUrl += params.toString();
+
+      // Fetch summary data (simulate internal API call)
+      const summaryWhere = { ...where }; // Use same where clause
+      
+      // Calculate summary data directly
+      const summaryTransactions = await prisma.transaction.findMany({
+        where: summaryWhere,
+        orderBy: { date: 'desc' },
+      });
+
+      // Calculate summary statistics
+      let totalLoanRepayment = 0;
+      let totalLoanDisbursement = 0;
+      let totalChitContributions = 0;
+      let totalAuctionPayouts = 0;
+      let totalRecordedAmountCredit = 0;
+      let totalRecordedAmountDebit = 0;
+      let totalPartnerTransfers = 0;
+
+      // Partner breakdown tracking
+      const partnerStats: { [key: string]: {
+        balance: number;
+        totalCredits: number;
+        totalDebits: number;
+        transactionCount: number;
+        loanRepayments: number;
+        loanDisbursements: number;
+        chitContributions: number;
+        auctionPayouts: number;
+        recordedAmounts: number;
+        partnerTransfersIn: number;
+        partnerTransfersOut: number;
+      } } = {};
+
+      // Helper function to determine credit/debit status for a partner (same as in summary route)
+      function getCreditDebitStatus(transaction: any, partnerName: string): boolean {
+        if (transaction.type === 'PARTNER_TO_PARTNER') {
+          if (transaction.from_partner && !transaction.to_partner) {
+            return transaction.from_partner !== partnerName;
+          } else if (transaction.to_partner && !transaction.from_partner) {
+            return transaction.to_partner === partnerName;
+          } else if (transaction.from_partner && transaction.to_partner) {
+            return transaction.to_partner === partnerName;
+          }
+        }
+
+        if (transaction.type === 'RECORD_AMOUNT') {
+          if (transaction.to_partner === partnerName) return true;
+          if (transaction.from_partner === partnerName) return false;
+        }
+
+        const creditTypes = ['LOAN_REPAYMENT', 'CHIT_CONTRIBUTION'];
+        const debitTypes = ['LOAN_DISBURSEMENT', 'AUCTION_PAYOUT'];
+        
+        if (creditTypes.includes(transaction.type)) return true;
+        if (debitTypes.includes(transaction.type)) return false;
+        
+        return (transaction.amount || 0) >= 0;
+      }
+
+      // Process each transaction for summary
+      for (const transaction of summaryTransactions) {
+        const amount = Math.abs(transaction.amount || 0);
+        const signedAmount = transaction.amount || 0;
+
+        // Categorize by transaction type
+        switch (transaction.type) {
+          case 'LOAN_REPAYMENT':
+            totalLoanRepayment += amount;
+            break;
+          case 'LOAN_DISBURSEMENT':
+            totalLoanDisbursement += amount;
+            break;
+          case 'CHIT_CONTRIBUTION':
+            totalChitContributions += amount;
+            break;
+          case 'AUCTION_PAYOUT':
+            totalAuctionPayouts += amount;
+            break;
+          case 'RECORD_AMOUNT':
+            if (transaction.to_partner) {
+              totalRecordedAmountCredit += amount;
+            } else if (transaction.from_partner) {
+              totalRecordedAmountDebit += amount;
+            } else {
+              if (signedAmount >= 0) {
+                totalRecordedAmountCredit += amount;
+              } else {
+                totalRecordedAmountDebit += amount;
+              }
+            }
+            break;
+          case 'PARTNER_TO_PARTNER':
+            totalPartnerTransfers += amount;
+            break;
+        }
+
+        // Track partner statistics
+        const getPartnerForTransaction = (t: any) => {
+          if (t.type === 'PARTNER_TO_PARTNER') {
+            if (t.from_partner && !t.to_partner) return t.from_partner;
+            if (t.to_partner && !t.from_partner) return t.to_partner;
+            if (partner && partner !== 'ALL') {
+              return partner;
+            }
+            return t.from_partner || t.to_partner;
+          }
+          return t.action_performer;
+        };
+
+        const partnerName = getPartnerForTransaction(transaction);
+        if (partnerName) {
+          if (!partnerStats[partnerName]) {
+            partnerStats[partnerName] = {
+              balance: 0,
+              totalCredits: 0,
+              totalDebits: 0,
+              transactionCount: 0,
+              loanRepayments: 0,
+              loanDisbursements: 0,
+              chitContributions: 0,
+              auctionPayouts: 0,
+              recordedAmounts: 0,
+              partnerTransfersIn: 0,
+              partnerTransfersOut: 0
+            };
+          }
+
+          partnerStats[partnerName].transactionCount++;
+
+          // Add to specific transaction type totals for this partner
+          switch (transaction.type) {
+            case 'LOAN_REPAYMENT':
+              partnerStats[partnerName].loanRepayments += amount;
+              break;
+            case 'LOAN_DISBURSEMENT':
+              partnerStats[partnerName].loanDisbursements += amount;
+              break;
+            case 'CHIT_CONTRIBUTION':
+              partnerStats[partnerName].chitContributions += amount;
+              break;
+            case 'AUCTION_PAYOUT':
+              partnerStats[partnerName].auctionPayouts += amount;
+              break;
+            case 'RECORD_AMOUNT':
+              if (transaction.to_partner === partnerName) {
+                partnerStats[partnerName].recordedAmounts += amount;
+              } else if (transaction.from_partner === partnerName) {
+                partnerStats[partnerName].recordedAmounts -= amount;
+              } else if (partnerName === transaction.action_performer) {
+                partnerStats[partnerName].recordedAmounts += signedAmount;
+              }
+              break;
+            case 'PARTNER_TO_PARTNER':
+              // Track incoming vs outgoing transfers for net calculation
+              if (transaction.to_partner === partnerName) {
+                partnerStats[partnerName].partnerTransfersIn += amount;
+              } else if (transaction.from_partner === partnerName) {
+                partnerStats[partnerName].partnerTransfersOut += amount;
+              }
+              break;
+          }
+
+          // Determine if this is a credit or debit for the partner
+          const isCredit = getCreditDebitStatus(transaction, partnerName);
+          if (isCredit) {
+            partnerStats[partnerName].totalCredits += amount;
+            partnerStats[partnerName].balance += signedAmount;
+          } else {
+            partnerStats[partnerName].totalDebits += amount;
+            partnerStats[partnerName].balance += signedAmount;
+          }
+        }
+      }
+
+      // Create summary data for export
+      const netRecordedAmount = totalRecordedAmountCredit - totalRecordedAmountDebit;
+      const totalAmount = (totalLoanRepayment + totalChitContributions + totalRecordedAmountCredit) - (totalLoanDisbursement + totalAuctionPayouts + totalRecordedAmountDebit);
+
+      // Helper function for formatting currency in summary
+      const formatSummaryCurrency = (amount: number) => {
+        return new Intl.NumberFormat('en-IN', {
+          style: 'currency',
+          currency: 'INR',
+          minimumFractionDigits: 0,
+        }).format(amount);
+      };
+
+      const summaryExportData = Object.entries(partnerStats).map(([name, stats]) => {
+        const partnerTotalAmount = (stats.loanRepayments + stats.chitContributions + stats.recordedAmounts) - (stats.loanDisbursements + stats.auctionPayouts);
+        const netPartnerTransfers = stats.partnerTransfersIn - stats.partnerTransfersOut;
+        const finalTotalAmount = partnerTotalAmount + netPartnerTransfers;
+        return {
+          'Partner': name,
+          'Loan Repayments': formatSummaryCurrency(stats.loanRepayments || 0),
+          'Chit Contributions': formatSummaryCurrency(stats.chitContributions || 0),
+          'Recorded Amounts': formatSummaryCurrency(stats.recordedAmounts || 0),
+          'Loan Disbursements': formatSummaryCurrency(stats.loanDisbursements || 0),
+          'Auction Payouts': formatSummaryCurrency(stats.auctionPayouts || 0),
+          'Partner Transfers': formatSummaryCurrency(netPartnerTransfers),
+          'Total Amount': formatSummaryCurrency(finalTotalAmount)
+        };
+      });
+
+      // Add totals row
+      const totalNetPartnerTransfers = Object.values(partnerStats).reduce((sum, stats) => sum + (stats.partnerTransfersIn - stats.partnerTransfersOut), 0);
+      const finalTotalAmount = totalAmount + totalNetPartnerTransfers;
+      summaryExportData.push({
+        'Partner': 'TOTAL',
+        'Loan Repayments': formatSummaryCurrency(totalLoanRepayment),
+        'Chit Contributions': formatSummaryCurrency(totalChitContributions),
+        'Recorded Amounts': formatSummaryCurrency(netRecordedAmount),
+        'Loan Disbursements': formatSummaryCurrency(totalLoanDisbursement),
+        'Auction Payouts': formatSummaryCurrency(totalAuctionPayouts),
+        'Partner Transfers': formatSummaryCurrency(totalNetPartnerTransfers),
+        'Total Amount': formatSummaryCurrency(finalTotalAmount)
+      });
+
+      // Create summary worksheet
+      const summaryWs = XLSX.utils.json_to_sheet(summaryExportData);
+
+      // Set column widths for summary
+      summaryWs['!cols'] = [
+        { width: 15 }, // Partner
+        { width: 18 }, // Loan Repayments
+        { width: 18 }, // Chit Contributions
+        { width: 18 }, // Recorded Amounts
+        { width: 18 }, // Loan Disbursements
+        { width: 18 }, // Auction Payouts
+        { width: 18 }, // Partner Transfers
+        { width: 18 }  // Total Amount
+      ];
+
+      // Apply bold formatting to header row
+      const summaryRange = XLSX.utils.decode_range(summaryWs['!ref'] || 'A1:H1');
+      for (let col = summaryRange.s.c; col <= summaryRange.e.c; col++) {
+        const cellRef = XLSX.utils.encode_cell({ r: 0, c: col });
+        if (!summaryWs[cellRef]) continue;
+        summaryWs[cellRef].s = { font: { bold: true } };
+      }
+
+      // Bold the totals row (last row)
+      const lastRowIndex = summaryExportData.length; // 1-based index due to header
+      for (let col = summaryRange.s.c; col <= summaryRange.e.c; col++) {
+        const cellRef = XLSX.utils.encode_cell({ r: lastRowIndex, c: col });
+        if (!summaryWs[cellRef]) continue;
+        summaryWs[cellRef].s = { font: { bold: true } };
+      }
+
+      // Add the summary worksheet
+      XLSX.utils.book_append_sheet(wb, summaryWs, 'Transaction Summary');
+
+    } catch (summaryError) {
+      console.error('Error generating summary data:', summaryError);
+      // Continue without summary data if there's an error
+    }
 
     // Generate buffer
     const excelBuffer = XLSX.write(wb, { bookType: 'xlsx', type: 'buffer' });

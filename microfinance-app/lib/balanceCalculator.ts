@@ -158,16 +158,34 @@ export async function getCurrentPartnerBalance(
     where: {
       ...whereClause,
       OR: [
-        // Transactions where this partner was the primary partner (balance stored)
+        // For PARTNER_TO_PARTNER transactions, find where this partner is the primary affected party
         { 
           AND: [
-            { to_partner_id: partnerId },
+            { from_partner_id: partnerId },
+            { to_partner_id: null }, // Debit transaction for this partner
             { partnerBalance: { not: null } }
           ]
         },
-        // Fallback: any transaction involving this partner
-        { from_partner_id: partnerId },
-        { to_partner_id: partnerId }
+        { 
+          AND: [
+            { to_partner_id: partnerId },
+            { from_partner_id: null }, // Credit transaction for this partner
+            { partnerBalance: { not: null } }
+          ]
+        },
+        // For other transaction types, find where this partner was involved and balance was stored
+        { 
+          AND: [
+            { 
+              OR: [
+                { from_partner_id: partnerId },
+                { to_partner_id: partnerId }
+              ]
+            },
+            { partnerBalance: { not: null } },
+            { type: { not: 'PARTNER_TO_PARTNER' } } // Exclude PARTNER_TO_PARTNER since we handle them above
+          ]
+        }
       ]
     },
     orderBy: [

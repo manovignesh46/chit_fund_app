@@ -476,7 +476,7 @@ export default function ChitFundsPage() {
           </div>
 
           {/* Table container with proper mobile scrolling - constrained width */}
-          <div className="overflow-x-auto w-full" style={{maxWidth: '80vw'}}>
+          <div className="overflow-x-auto w-full" style={{maxWidth: '85vw'}}>
             <table className="w-full divide-y divide-gray-200 text-xs sm:text-sm" style={{minWidth: '700px'}}>
               <thead className="bg-gray-50">
                 <tr>

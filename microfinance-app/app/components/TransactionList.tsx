@@ -345,7 +345,7 @@ export function TransactionList(props: TransactionListProps & {
         <p className="text-gray-500 text-center py-8">No transactions found</p>
       ) : (
         <>
-          <div className="overflow-x-auto w-full mb-6" style={{maxWidth: '90vw'}}>
+          <div className="overflow-x-auto w-full mb-6" style={{maxWidth: '85vw'}}>
             <table className="w-full min-w-[1300px] divide-y divide-gray-200 text-xs sm:text-sm">
               <thead className="bg-gray-50">
                 <tr>
