@@ -28,11 +28,16 @@ export default function DateFilter({ onDateRangeChange, className = '' }: DateFi
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const getDateRange = (period: string) => {
+    const getDateRange = (filter: string, customStart?: string, customEnd?: string) => {
+    if (filter === 'custom') {
+      return { start: customStart, end: customEnd };
+    }
+
     const now = new Date();
-    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    
-    switch (period) {
+    // Use UTC for today to avoid timezone issues
+    const today = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
+
+    switch (filter) {
       case 'today':
         return {
           start: today.toISOString().split('T')[0],
@@ -40,41 +45,45 @@ export default function DateFilter({ onDateRangeChange, className = '' }: DateFi
         };
       
       case 'yesterday':
-        const yesterday = new Date(today);
-        yesterday.setDate(yesterday.getDate() - 1);
+        const yesterday = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate() - 1));
         return {
           start: yesterday.toISOString().split('T')[0],
           end: yesterday.toISOString().split('T')[0]
         };
       
+      case 'thisWeek':
+        const weekStart = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate() - now.getDay()));
+        return {
+          start: weekStart.toISOString().split('T')[0],
+          end: today.toISOString().split('T')[0]
+        };
+      
       case 'lastWeek':
-        const lastWeekStart = new Date(today);
-        lastWeekStart.setDate(lastWeekStart.getDate() - 7);
-        const lastWeekEnd = new Date(today);
-        lastWeekEnd.setDate(lastWeekEnd.getDate() - 1);
+        const lastWeekStart = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate() - now.getDay() - 7));
+        const lastWeekEnd = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate() - now.getDay() - 1));
         return {
           start: lastWeekStart.toISOString().split('T')[0],
           end: lastWeekEnd.toISOString().split('T')[0]
         };
       
       case 'last7Days':
-        const last7Start = new Date(today);
-        last7Start.setDate(last7Start.getDate() - 7);
+        const last7Start = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate() - 7));
         return {
           start: last7Start.toISOString().split('T')[0],
           end: today.toISOString().split('T')[0]
         };
       
       case 'thisMonth':
-        const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+        const thisMonthStart = new Date(Date.UTC(now.getFullYear(), now.getMonth(), 1));
         return {
           start: thisMonthStart.toISOString().split('T')[0],
           end: today.toISOString().split('T')[0]
         };
       
       case 'lastMonth':
-        const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-        const lastMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0);
+        // Use UTC methods to avoid timezone issues
+        const lastMonthStart = new Date(Date.UTC(now.getFullYear(), now.getMonth() - 1, 1));
+        const lastMonthEnd = new Date(Date.UTC(now.getFullYear(), now.getMonth(), 0));
         return {
           start: lastMonthStart.toISOString().split('T')[0],
           end: lastMonthEnd.toISOString().split('T')[0]
