@@ -10,6 +10,7 @@ import BalanceSummary from '../components/BalanceSummary';
 import TransactionSummary from '../components/TransactionSummary';
 import { usePartner } from '../contexts/PartnerContext';
 import { TRANSACTION_TYPES_CONFIG } from '../../config/config';
+import { buildTransactionFilterParams, type TransactionFilters } from '../../lib/transactionFilterUtils';
 
 export default function TransactionsPage() {
   const [refreshList, setRefreshList] = useState(false);
@@ -79,31 +80,21 @@ export default function TransactionsPage() {
   };
 
   // Handle export functionality
-  const handleExport = () => {
-    const params = new URLSearchParams();
-    
-    if (selectedPartnerId !== 'ALL') {
-      params.append('partner', selectedPartnerId);
-    }
-    if (filterType) {
-      params.append('type', filterType);
-    }
-    if (filterMember) {
-      params.append('member', filterMember);
-    }
-    if (startDate) {
-      params.append('startDate', startDate);
-    }
-    if (endDate) {
-      params.append('endDate', endDate);
-    }
-    if (showAdvanced) {
-      if (advType) params.append('advType', advType);
-      if (advMember) params.append('advMember', advMember);
-      if (advEntity) params.append('advEntity', advEntity);
-      if (advSubType) params.append('advSubType', advSubType);
-    }
+  const getCurrentFilters = (): TransactionFilters => ({
+    selectedPartnerId,
+    filterType,
+    filterMember,
+    startDate,
+    endDate,
+    showAdvanced,
+    advType,
+    advMember,
+    advEntity,
+    advSubType
+  });
 
+  const handleExport = () => {
+    const params = buildTransactionFilterParams(getCurrentFilters());
     const exportUrl = `/api/transactions/export?${params.toString()}`;
     window.open(exportUrl, '_blank');
   };
@@ -342,6 +333,7 @@ export default function TransactionsPage() {
         exportType="Transactions"
         startDate={startDate}
         endDate={endDate}
+        transactionFilters={getCurrentFilters()}
       />
     </div>
   );

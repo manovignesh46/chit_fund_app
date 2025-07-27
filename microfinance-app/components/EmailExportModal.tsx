@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { emailAPI, dashboardAPI } from '../lib/api';
+import { buildTransactionFilterObject, type TransactionFilters } from '../lib/transactionFilterUtils';
 
 interface EmailExportModalProps {
   isOpen: boolean;
@@ -12,6 +13,7 @@ interface EmailExportModalProps {
   period?: string;
   startDate?: string;
   endDate?: string;
+  transactionFilters?: TransactionFilters;
 }
 
 export default function EmailExportModal({
@@ -22,7 +24,8 @@ export default function EmailExportModal({
   limit = 12,
   period,
   startDate,
-  endDate
+  endDate,
+  transactionFilters
 }: EmailExportModalProps) {
   const [recipients, setRecipients] = useState([''] as string[]);
   const [customMessage, setCustomMessage] = useState('');
@@ -109,7 +112,9 @@ export default function EmailExportModal({
         duration,
         limit,
         customMessage: customMessage.trim(),
-        ...(duration === 'single' && { period, startDate, endDate })
+        ...(duration === 'single' && { period, startDate, endDate }),
+        // Include transaction filters for transaction exports
+        ...(exportType === 'Transactions' && transactionFilters && buildTransactionFilterObject(transactionFilters))
       };
 
       // Send email using appropriate API based on export type
