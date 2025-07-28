@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import prisma from '../../../../lib/prisma';
 import { getCurrentUserId } from '../../../../lib/auth';
 import { TRANSACTION_TYPES_CONFIG } from '../../../../config/config';
+import { buildTransactionWhereClause } from '../../../../lib/transactionWhereBuilder';
 
 // GET /api/transactions/summary
 export async function GET(request: NextRequest) {
@@ -27,101 +28,18 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Build where clause for filtering
-    const where: any = {
-      createdById: currentUserId
-    };
-
-    // Apply filters
-    if (partner && partner !== 'ALL') {
-      where.OR = [
-        { action_performer: partner },
-        { from_partner: partner },
-        { to_partner: partner }
-      ];
-    }
-
-    if (type) {
-      where.type = type;
-    }
-
-    if (member) {
-      where.note = {
-        contains: member,
-        mode: 'insensitive'
-      };
-    }
-
-    if (startDate || endDate) {
-      where.date = {};
-      if (startDate) {
-        where.date.gte = new Date(startDate);
-      }
-      if (endDate) {
-        where.date.lte = new Date(endDate + 'T23:59:59.999Z');
-      }
-    }
-
-    // Advanced filters
-    if (advType || advMember || advEntity || advSubType) {
-      if (advType === 'loan') {
-        if (advSubType === 'disbursement') {
-          where.type = TRANSACTION_TYPES_CONFIG.LOAN_DISBURSEMENT;
-        } else if (advSubType === 'repayment') {
-          where.type = TRANSACTION_TYPES_CONFIG.LOAN_REPAYMENT;
-        } else if (!advSubType) {
-          where.type = {
-            in: [TRANSACTION_TYPES_CONFIG.LOAN_DISBURSEMENT, TRANSACTION_TYPES_CONFIG.LOAN_REPAYMENT]
-          };
-        }
-        
-        // Filter by specific loan entity if provided
-        if (advEntity) {
-          const loanId = parseInt(advEntity);
-          
-          // For loan-related transactions, we need to check:
-          // 1. Direct loan relation (for disbursements)
-          // 2. Repayment relation where repayment belongs to the loan (for repayments)
-          if (advSubType === 'disbursement') {
-            where.loan = { id: loanId };
-          } else if (advSubType === 'repayment') {
-            where.repayment = { loanId: loanId };
-          } else {
-            // No specific subtype - show both disbursement and repayment
-            where.OR = [
-              { loan: { id: loanId } }, // Direct loan relation (disbursements)
-              { repayment: { loanId: loanId } } // Repayment relation (repayments)
-            ];
-          }
-        }
-      } else if (advType === 'chit') {
-        if (advSubType === 'contribution') {
-          where.type = TRANSACTION_TYPES_CONFIG.CHIT_CONTRIBUTION;
-        } else if (advSubType === 'auction') {
-          where.type = TRANSACTION_TYPES_CONFIG.AUCTION_PAYOUT;
-        } else if (!advSubType) {
-          where.type = {
-            in: [TRANSACTION_TYPES_CONFIG.CHIT_CONTRIBUTION, TRANSACTION_TYPES_CONFIG.AUCTION_PAYOUT]
-          };
-        }
-      }
-
-      if (advMember) {
-        where.note = {
-          contains: advMember,
-          mode: 'insensitive'
-        };
-      }
-
-      // Entity filtering for chit funds only (loan entity filtering is handled above)
-      if (advEntity && advType === 'chit') {
-        // For chit fund filtering, we need to check both contribution and auction relations
-        where.OR = [
-          { contribution: { chitFundId: parseInt(advEntity) } },
-          { auction: { chitFundId: parseInt(advEntity) } }
-        ];
-      }
-    }
+    // Build where clause using the same common utility as main transactions API
+    const where = await buildTransactionWhereClause(currentUserId, {
+      partner,
+      type,
+      member,
+      startDate,
+      endDate,
+      advType,
+      advMember,
+      advEntity,
+      advSubType
+    });
 
     // Fetch all transactions that match the filter
     const transactions = await prisma.transaction.findMany({
