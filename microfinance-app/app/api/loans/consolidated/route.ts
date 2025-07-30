@@ -374,8 +374,38 @@ async function getRepayments(
       take: validPageSize,
     });
 
+    // Fetch loan details to calculate dueDate for each repayment
+
+    const loanForDueDate = await prismaAny.loan.findUnique({ where: { id } });
+    let disbursementDate, repaymentType;
+    if (loanForDueDate) {
+      disbursementDate = new Date(loanForDueDate.disbursementDate);
+      repaymentType = loanForDueDate.repaymentType;
+    }
+
+    // Add dueDate to each repayment
+    const repaymentsWithDueDate = repayments.map((repayment) => {
+      let dueDate = null;
+      if (disbursementDate && repayment.period) {
+        dueDate = new Date(disbursementDate);
+        if (repaymentType === "Monthly") {
+          dueDate.setMonth(disbursementDate.getMonth() + repayment.period);
+        } else if (repaymentType === "Weekly") {
+          dueDate.setDate(disbursementDate.getDate() + repayment.period * 7);
+        }
+      }
+      return { ...repayment, dueDate: dueDate ? dueDate.toISOString() : null };
+    });
+
+    // Sort repayments by dueDate descending
+    repaymentsWithDueDate.sort((a, b) => {
+      const dateA = a.dueDate ? new Date(a.dueDate).getTime() : 0;
+      const dateB = b.dueDate ? new Date(b.dueDate).getTime() : 0;
+      return dateB - dateA;
+    });
+
     return NextResponse.json({
-      repayments,
+      repayments: repaymentsWithDueDate,
       totalCount,
       page: validPage,
       pageSize: validPageSize,
@@ -512,15 +542,16 @@ async function getPaymentSchedules(
       const isFirstUnpaidPayment = period === 1 && !isPaid;
 
       // For Record Payment page (includeAll=true): Show all unpaid schedules
-      // For Loan Details page (includeAll=false): Show only paid schedules and upcoming due within 3 days
+      // For Loan Details page (includeAll=false): Show all past schedules (including overdue) and upcoming 1 schedule if within 3 days
       let shouldInclude;
       
       if (includeAll) {
         // For Record Payment page - show all unpaid schedules
         shouldInclude = !isPaid;
       } else {
-        // For Loan Details page - show only paid schedules plus upcoming due within 3 days
-        shouldInclude = isPaid || isInterestOnly || (isNextPayment && isWithinThreeDays);
+        // For Loan Details page - show all past schedules (including overdue) and upcoming 1 schedule if within 3 days
+        const isPast = dueDateNormalized <= today;
+        shouldInclude = isPast || (isNextPayment && isWithinThreeDays);
       }
 
       if (shouldInclude) {
@@ -551,7 +582,7 @@ async function getPaymentSchedules(
         // Log if this is the next payment being included because it's within 3 days
         if (isNextPayment && isWithinThreeDays) {
           console.log(
-            `Including next payment date: ${dueDate.toISOString()} for period ${period} (within 3 days)`
+            `Including upcoming payment date: ${dueDate.toISOString()} for period ${period} (within 3 days)`
           );
         }
       }

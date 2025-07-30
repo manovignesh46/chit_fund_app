@@ -1233,16 +1233,19 @@ const LoanDetailPage = () => {
             <thead className="bg-gray-50">
               <tr>
                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Period
+                </th>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Due Date
+                </th>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Payment Date
                 </th>
                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Amount
                 </th>
                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Status
-                </th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Payment Date
                 </th>
                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Actions
@@ -1263,10 +1266,10 @@ const LoanDetailPage = () => {
                 <tr>
                   <td colSpan={5} className="px-6 py-4 text-center text-gray-500">
                     <p className="mb-4">
-                      No payment schedules are due, overdue, or upcoming.
+                      No payment schedules to display.
                     </p>
                     <p className="mb-4 text-sm">
-                      Payment schedules appear automatically when they are due within the next 7 days, when overdue, or when payments have been made. The next upcoming payment is always shown.
+                      Payment schedules show all past payments (including overdue) and the next upcoming payment if it's due within 3 days.
                     </p>
                   </td>
                 </tr>
@@ -1293,97 +1296,100 @@ const LoanDetailPage = () => {
                     (schedule.status === 'Pending' || schedule.status === 'Overdue');
 
                   return (
-                    <tr key={schedule.id} className={`hover:bg-gray-50 ${
-                      isOverdue ? 'bg-red-50' :
-                      isDueTomorrow ? 'bg-yellow-50' : ''
-                    }`}>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">{formatDate(schedule.dueDate)}</div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">{formatCurrency(schedule.amount)}</div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex flex-col space-y-1">
-                        <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
-                          schedule.status === 'Paid' ? 'bg-green-100 text-green-800' :
-                          schedule.status === 'Pending' ? (
-                            isOverdue ? 'bg-red-100 text-red-800' : 'bg-yellow-100 text-yellow-800'
-                          ) :
-                          schedule.status === 'Overdue' ? 'bg-red-100 text-red-800' :
-                          schedule.status === 'Missed' ? 'bg-red-100 text-red-800' :
-                          schedule.status === 'Interest Only' ? 'bg-blue-100 text-blue-800' :
-                          schedule.status === 'InterestOnly' ? 'bg-blue-100 text-blue-800' : // Keep backward compatibility
-                          'bg-gray-100 text-gray-800'
-                        }`}>
-                          {isOverdue ? 'Overdue' : schedule.status}
-                        </span>
+                <tr key={schedule.id} className={`hover:bg-gray-50 ${
+                  isOverdue ? 'bg-red-50' :
+                  isDueTomorrow ? 'bg-yellow-50' : ''
+                }`}>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="text-sm text-gray-900">{schedule.period}</div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="text-sm text-gray-900">{formatDate(schedule.dueDate)}</div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="text-sm text-gray-900">
+                      {/* Show payment date from schedule.repayment if present, else fallback to loan.repayments by period */}
+                      {(() => {
+                        if (schedule.repayment && schedule.repayment.paidDate) {
+                          return formatDate(schedule.repayment.paidDate);
+                        }
+                        if (loan.repayments && Array.isArray(loan.repayments)) {
+                          const repayment = loan.repayments.find((r: any) => r.period === schedule.period);
+                          return repayment && repayment.paidDate ? formatDate(repayment.paidDate) : '-';
+                        }
+                        return '-';
+                      })()}
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="text-sm text-gray-900">{formatCurrency(schedule.amount)}</div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="flex flex-col space-y-1">
+                      <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
+                        schedule.status === 'Paid' ? 'bg-green-100 text-green-800' :
+                        schedule.status === 'Pending' ? (
+                          isOverdue ? 'bg-red-100 text-red-800' : 'bg-yellow-100 text-yellow-800'
+                        ) :
+                        schedule.status === 'Overdue' ? 'bg-red-100 text-red-800' :
+                        schedule.status === 'Missed' ? 'bg-red-100 text-red-800' :
+                        schedule.status === 'Interest Only' ? 'bg-blue-100 text-blue-800' :
+                        schedule.status === 'InterestOnly' ? 'bg-blue-100 text-blue-800' : // Keep backward compatibility
+                        'bg-gray-100 text-gray-800'
+                      }`}>
+                        {isOverdue ? 'Overdue' : schedule.status}
+                      </span>
 
-                        {isDueTomorrow && (
-                          <span className="px-2 py-1 text-xs font-semibold rounded-full bg-amber-100 text-amber-800 border border-amber-200"
-                                title="This loan payment is due tomorrow">
+                      {isDueTomorrow && (
+                        <span className="px-2 py-1 text-xs font-semibold rounded-full bg-amber-100 text-amber-800 border border-amber-200"
+                              title="This loan payment is due tomorrow">
                             Due Tomorrow
-                          </span>
-                        )}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">
-                        {/* Show payment date from schedule.repayment if present, else fallback to loan.repayments by period */}
-                        {(() => {
-                          if (schedule.repayment && schedule.repayment.paidDate) {
-                            return formatDate(schedule.repayment.paidDate);
-                          }
-                          if (loan.repayments && Array.isArray(loan.repayments)) {
-                            const repayment = loan.repayments.find((r: any) => r.period === schedule.period);
-                            return repayment && repayment.paidDate ? formatDate(repayment.paidDate) : '-';
-                          }
-                          return '-';
-                        })()}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex space-x-2">
-                        {(schedule.status === 'Pending' || schedule.status === 'Missed') && (
-                          <>
-                            <button
-                              onClick={() => handleRecordPayment(schedule.period, 'Paid')}
-                              disabled={updatingSchedule === schedule.period}
-                              className="inline-flex items-center px-2 py-1 border border-transparent text-xs font-medium rounded text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50 disabled:cursor-not-allowed"
-                            >
-                              <svg className="h-3 w-3 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
-                              </svg>
-                              {updatingSchedule === schedule.period ? 'Processing...' : 'Mark Paid'}
-                            </button>
-                            {loan.repaymentType === 'Monthly' && (
-                              <button
-                                onClick={() => handleRecordPayment(schedule.period, 'InterestOnly')}
-                                disabled={updatingSchedule === schedule.period}
-                                className="inline-flex items-center px-2 py-1 border border-transparent text-xs font-medium rounded text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
-                              >
-                                <svg className="h-3 w-3 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
-                                </svg>
-                                {updatingSchedule === schedule.period ? 'Processing...' : 'Interest Only'}
-                              </button>
-                            )}
-                          </>
-                        )}
-                        {schedule.repayment && (
-                          <Link
-                            href={`/loans/${id}/repayments`}
-                            className="inline-flex items-center px-2 py-1 border border-gray-300 text-xs font-medium rounded text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                        </span>
+                      )}
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="flex space-x-2">
+                      {(schedule.status === 'Pending' || schedule.status === 'Missed') && (
+                        <>
+                          <button
+                            onClick={() => handleRecordPayment(schedule.period, 'Paid')}
+                            disabled={updatingSchedule === schedule.period}
+                            className="inline-flex items-center px-2 py-1 border border-transparent text-xs font-medium rounded text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50 disabled:cursor-not-allowed"
                           >
                             <svg className="h-3 w-3 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
                             </svg>
-                            View Payment
-                          </Link>
-                        )}
-                      </div>
-                    </td>
+                            {updatingSchedule === schedule.period ? 'Processing...' : 'Mark Paid'}
+                          </button>
+                          {loan.repaymentType === 'Monthly' && (
+                            <button
+                              onClick={() => handleRecordPayment(schedule.period, 'InterestOnly')}
+                              disabled={updatingSchedule === schedule.period}
+                              className="inline-flex items-center px-2 py-1 border border-transparent text-xs font-medium rounded text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                              <svg className="h-3 w-3 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
+                              </svg>
+                              {updatingSchedule === schedule.period ? 'Processing...' : 'Interest Only'}
+                            </button>
+                          )}
+                        </>
+                      )}
+                      {schedule.repayment && (
+                        <Link
+                          href={`/loans/${id}/repayments`}
+                          className="inline-flex items-center px-2 py-1 border border-gray-300 text-xs font-medium rounded text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                        >
+                          <svg className="h-3 w-3 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                          </svg>
+                          View Payment
+                        </Link>
+                      )}
+                    </div>
+                  </td>
                   </tr>
                 );
               })
