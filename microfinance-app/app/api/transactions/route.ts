@@ -792,6 +792,12 @@ async function handleEmailExport(request: NextRequest) {
     const netRecordedAmount = totalRecordedAmountCredit - totalRecordedAmountDebit;
     const summaryTotalAmount = (totalLoanRepayment + totalChitContributions + totalRecordedAmountCredit) - (totalLoanDisbursement + totalAuctionPayouts + totalRecordedAmountDebit);
 
+      // Remove ₹ symbol for Amount, Partner Balance, Total Balance
+      const stripRupee = (val: any) => {
+        if (typeof val === 'string') return val.replace(/^\s*₹\s*/, '').replace(/,/g, '');
+        return val;
+      };
+
     const exportData = transactions.map((transaction: any) => {
       return {
         'Date': formatDate(transaction.date),
@@ -799,13 +805,14 @@ async function handleEmailExport(request: NextRequest) {
         'Member': extractMemberName(transaction.note),
         'Partner': getPartnerName(transaction),
         'Cr/Dt': getCrDr(transaction),
-        'Amount': formatCurrency(transaction.amount),
+        'Amount': stripRupee(transaction.amount),
         'Partner Balance': transaction.partnerBalance !== null && transaction.partnerBalance !== undefined 
-          ? formatCurrency(transaction.partnerBalance) 
+          ? stripRupee(transaction.partnerBalance) 
           : '-',
         'Total Balance': transaction.totalBalance !== null && transaction.totalBalance !== undefined 
-          ? formatCurrency(transaction.totalBalance) 
+          ? stripRupee(transaction.totalBalance) 
           : '-',
+        'Note': transaction.note || '-',
       };
     });
 

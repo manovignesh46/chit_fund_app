@@ -193,19 +193,25 @@ export async function GET(request: NextRequest) {
         return 'Credit';
       }
 
+      // Remove ₹ symbol for Amount, Partner Balance, Total Balance
+      const stripRupee = (val: any) => {
+        if (typeof val === 'string') return val.replace(/^\s*₹\s*/, '').replace(/,/g, '');
+        return val;
+      };
       return {
         'Date': formatDate(transaction.date),
         'Type': transaction.type.replace(/_/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase()),
         'Member': extractMemberName(transaction.note),
         'Partner': getPartnerName(transaction),
         'Cr/Dt': getCrDr(transaction),
-        'Amount': formatCurrency(transaction.amount),
+        'Amount': stripRupee(transaction.amount),
         'Partner Balance': transaction.partnerBalance !== null && transaction.partnerBalance !== undefined 
-          ? formatCurrency(transaction.partnerBalance) 
+          ? stripRupee(transaction.partnerBalance) 
           : '-',
         'Total Balance': transaction.totalBalance !== null && transaction.totalBalance !== undefined 
-          ? formatCurrency(transaction.totalBalance) 
+          ? stripRupee(transaction.totalBalance) 
           : '-',
+        'Note': transaction.note || ''
       };
     });
 
@@ -224,11 +230,12 @@ export async function GET(request: NextRequest) {
       { width: 8 },  // Cr/Dt
       { width: 15 }, // Amount
       { width: 18 }, // Partner Balance
-      { width: 18 }  // Total Balance
+      { width: 18 }, // Total Balance
+      { width: 30 }  // Note
     ];
 
     // Apply bold formatting to header row
-    const range = XLSX.utils.decode_range(ws['!ref'] || 'A1:H1');
+    const range = XLSX.utils.decode_range(ws['!ref'] || 'A1:I1');
     for (let col = range.s.c; col <= range.e.c; col++) {
       const cellRef = XLSX.utils.encode_cell({ r: 0, c: col });
       if (!ws[cellRef]) continue;
