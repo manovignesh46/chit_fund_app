@@ -1151,8 +1151,6 @@ async function addRepayment(request: NextRequest, id: number, currentUserId: num
     });
 
     // 2. Calculate the new loan state after the payment
-    // Instead of subtracting from remaining amount, recalculate based on completed periods
-
     // Get all repayments for this loan (including the one we just added)
     const allRepayments = await prisma.repayment.findMany({
       where: { loanId },
@@ -1166,7 +1164,7 @@ async function addRepayment(request: NextRequest, id: number, currentUserId: num
         .map(r => r.period)
     ).size;
 
-    let newRemainingAmount;
+    let newRemainingAmount: number;
     if (loan.loanType === "Weekly") {
       // For weekly loans: remaining = original amount - (completed periods / (total periods - 1)) * original amount
       const progressRatio = completedPeriods / (loan.duration - 1);
@@ -1443,100 +1441,105 @@ async function deleteRepayment(request: NextRequest, id: number, currentUserId: 
             return NextResponse.json({ error: "Repayment ID is required" }, { status: 400 });
         }
 
-        // --- REFACTORED DELETION LOGIC ---
-        await prisma.$transaction(async (tx) => {
-            // 1. Fetch the repayment to get its details and transactionId
-            const repayment = await tx.repayment.findUnique({
-                where: { id: repaymentId },
-                include: { 
-                    loan: true,
-                    transaction: {
-                        select: {
-                            id: true,
-                            date: true,
-                            createdAt: true
-                        }
+        // --- OPTIMIZED DELETION LOGIC ---
+        // First, get the repayment details outside the transaction
+        const repaymentToDelete = await prisma.repayment.findUnique({
+            where: { id: repaymentId },
+            include: {
+                loan: true,
+                transaction: {
+                    select: {
+                        id: true,
+                        date: true,
+                        createdAt: true
                     }
-                },
-            });
+                }
+            },
+        });
 
-            if (!repayment || repayment.loan.createdById !== currentUserId) {
-                throw new Error("Repayment not found or permission denied.");
-            }
+        if (!repaymentToDelete || repaymentToDelete.loan.createdById !== currentUserId) {
+            throw new Error("Repayment not found or permission denied.");
+        }
 
-            const deletedTransactionDate = repayment.transaction?.date || new Date();
-            const deletedTransactionId = repayment.transaction?.id || 0;
-            
-            // 2. Delete the associated transaction if it exists
-            if (repayment.transactionId) {
+        const deletedTransactionDate = repaymentToDelete.transaction?.date || new Date();
+        const deletedTransactionId = repaymentToDelete.transaction?.id || 0;
+
+        // Now run the fast transaction
+        await prisma.$transaction(async (tx) => {
+            // 1. Delete the associated transaction if it exists
+            if (repaymentToDelete.transactionId) {
                 await tx.transaction.delete({
-                    where: { id: repayment.transactionId },
+                    where: { id: repaymentToDelete.transactionId },
                 });
             }
 
-            // 3. Delete the repayment itself
+            // 2. Delete the repayment itself
             await tx.repayment.delete({
                 where: { id: repaymentId },
             });
-            
-            // 4. Recalculate loan state after deletion
-            const currentLoan = repayment.loan;
-
-            // Get remaining repayments after this deletion (excluding the one we just deleted)
-            const remainingRepayments = await tx.repayment.findMany({
-                where: { loanId },
-                select: { period: true, paymentType: true }
-            });
-
-            // Count completed periods (excluding interest-only payments)
-            const completedPeriods = new Set(
-                remainingRepayments
-                    .filter(r => r.paymentType !== 'interestOnly')
-                    .map(r => r.period)
-            ).size;
-
-            let newRemainingAmount;
-            if (currentLoan.loanType === "Weekly") {
-                // For weekly loans: remaining = original amount - (completed periods / (total periods - 1)) * original amount
-                const progressRatio = completedPeriods / (currentLoan.duration - 1);
-                const paidAmount = progressRatio * currentLoan.amount;
-                newRemainingAmount = Math.max(0, currentLoan.amount - paidAmount);
-            } else {
-                // For monthly loans: remaining = original amount - (completed periods / total periods) * original amount
-                const progressRatio = completedPeriods / currentLoan.duration;
-                const paidAmount = progressRatio * currentLoan.amount;
-                newRemainingAmount = Math.max(0, currentLoan.amount - paidAmount);
-            }
-
-            const newDuration = repayment.paymentType === "INTEREST_ONLY" 
-                ? Math.max(1, currentLoan.duration - 1) 
-                : currentLoan.duration;
-
-            const nextPaymentDate = await calculateNextPaymentDate(loanId);
-            const { overdueAmount, missedPayments } = await updateOverdueAmountFromRepayments(loanId) || { overdueAmount: 0, missedPayments: 0 };
-            
-            // 5. Update the loan
-            await tx.loan.update({
-                where: { id: loanId },
-                data: {
-                    remainingAmount: newRemainingAmount,
-                    duration: newDuration,
-                    status: "Active",
-                    nextPaymentDate,
-                    overdueAmount,
-                    missedPayments,
-                },
-            });
-
-            // 6. Recalculate balances for all subsequent transactions
-            if (repayment.transaction) {
-                await recalculateBalancesAfterDeletion(
-                    currentUserId,
-                    deletedTransactionDate,
-                    deletedTransactionId
-                );
-            }
         });
+
+        // 3. Recalculate loan state after deletion (outside transaction)
+        const currentLoan = repaymentToDelete.loan;
+
+        // Get remaining repayments after deletion
+        const remainingRepayments = await prisma.repayment.findMany({
+            where: { loanId },
+            select: { period: true, paymentType: true }
+        });
+
+        // Count completed periods (excluding interest-only payments)
+        const completedPeriods = new Set(
+            remainingRepayments
+                .filter(r => r.paymentType !== 'interestOnly')
+                .map(r => r.period)
+        ).size;
+
+        let newRemainingAmount: number;
+        if (currentLoan.loanType === "Weekly") {
+            // For weekly loans: remaining = original amount - (completed periods / (total periods - 1)) * original amount
+            const progressRatio = completedPeriods / (currentLoan.duration - 1);
+            const paidAmount = progressRatio * currentLoan.amount;
+            newRemainingAmount = Math.max(0, currentLoan.amount - paidAmount);
+        } else {
+            // For monthly loans: remaining = original amount - (completed periods / total periods) * original amount
+            const progressRatio = completedPeriods / currentLoan.duration;
+            const paidAmount = progressRatio * currentLoan.amount;
+            newRemainingAmount = Math.max(0, currentLoan.amount - paidAmount);
+        }
+
+        const newDuration = repaymentToDelete.paymentType === "INTEREST_ONLY"
+            ? Math.max(1, currentLoan.duration - 1)
+            : currentLoan.duration;
+
+        // Check if all periods are completed to determine status
+        const allPeriodsCompleted = await areAllPeriodsCompleted(loanId);
+        const newStatus = allPeriodsCompleted ? "Completed" : "Active";
+
+        const nextPaymentDate = await calculateNextPaymentDate(loanId);
+        const { overdueAmount, missedPayments } = await updateOverdueAmountFromRepayments(loanId) || { overdueAmount: 0, missedPayments: 0 };
+
+        // 4. Update the loan (outside transaction)
+        await prisma.loan.update({
+            where: { id: loanId },
+            data: {
+                remainingAmount: newRemainingAmount,
+                duration: newDuration,
+                status: newStatus,
+                nextPaymentDate,
+                overdueAmount,
+                missedPayments,
+            },
+        });
+
+        // 5. Recalculate balances for all subsequent transactions
+        if (repaymentToDelete.transaction) {
+            await recalculateBalancesAfterDeletion(
+                currentUserId,
+                deletedTransactionDate,
+                deletedTransactionId
+            );
+        }
 
         return NextResponse.json({ message: "Repayment deleted successfully" });
     } catch (error) {
