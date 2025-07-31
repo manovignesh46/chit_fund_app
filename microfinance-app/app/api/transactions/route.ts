@@ -76,8 +76,8 @@ export async function GET(request: NextRequest) {
     const transactions = await prisma.transaction.findMany({
       where,
       orderBy: [
-        { date: 'desc' },
-        { createdAt: 'desc' }
+        { createdAt: 'desc' },
+        { date: 'desc' }
       ],
       skip,
       take: validPageSize,
@@ -495,24 +495,24 @@ async function handleEmailExport(request: NextRequest) {
     // Get transactions
     const transactions = await prisma.transaction.findMany({
       where,
-      orderBy: [{ date: 'desc' }, { createdAt: 'desc' }],
+      orderBy: [{ createdAt: 'desc' }, { date: 'desc' }],
       include: {
         loan: {
           include: {
             borrower: true
           }
         },
-        contribution: { 
-          include: { 
+        contribution: {
+          include: {
             member: { include: { globalMember: true } },
             chitFund: true
-          } 
+          }
         },
-        auction: { 
-          include: { 
+        auction: {
+          include: {
             winner: { include: { globalMember: true } },
             chitFund: true
-          } 
+          }
         },
         fromPartner: true,
         toPartner: true,
@@ -800,17 +800,18 @@ async function handleEmailExport(request: NextRequest) {
 
     const exportData = transactions.map((transaction: any) => {
       return {
-        'Date': formatDate(transaction.date),
+        'Date': formatDate(transaction.createdAt),
+        'Payment Date': formatDate(transaction.date),
         'Type': transaction.type.replace(/_/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase()),
         'Member': extractMemberName(transaction.note),
         'Partner': getPartnerName(transaction),
         'Cr/Dt': getCrDr(transaction),
         'Amount': stripRupee(transaction.amount),
-        'Partner Balance': transaction.partnerBalance !== null && transaction.partnerBalance !== undefined 
-          ? stripRupee(transaction.partnerBalance) 
+        'Partner Balance': transaction.partnerBalance !== null && transaction.partnerBalance !== undefined
+          ? stripRupee(transaction.partnerBalance)
           : '-',
-        'Total Balance': transaction.totalBalance !== null && transaction.totalBalance !== undefined 
-          ? stripRupee(transaction.totalBalance) 
+        'Total Balance': transaction.totalBalance !== null && transaction.totalBalance !== undefined
+          ? stripRupee(transaction.totalBalance)
           : '-',
         'Note': transaction.note || '-',
       };
@@ -856,17 +857,19 @@ async function handleEmailExport(request: NextRequest) {
     // Set column widths to match UI table
     ws['!cols'] = [
       { width: 12 }, // Date
+      { width: 12 }, // Payment Date
       { width: 18 }, // Type
       { width: 20 }, // Member
       { width: 20 }, // Partner
       { width: 8 },  // Cr/Dt
       { width: 15 }, // Amount
       { width: 18 }, // Partner Balance
-      { width: 18 }  // Total Balance
+      { width: 18 }, // Total Balance
+      { width: 30 }  // Note
     ];
 
     // Apply bold formatting to header row
-    const range = XLSX.utils.decode_range(ws['!ref'] || 'A1:H1');
+    const range = XLSX.utils.decode_range(ws['!ref'] || 'A1:J1');
     for (let col = range.s.c; col <= range.e.c; col++) {
       const cellRef = XLSX.utils.encode_cell({ r: 0, c: col });
       if (!ws[cellRef]) continue;

@@ -54,8 +54,8 @@ export async function GET(request: NextRequest) {
     const transactions = await prisma.transaction.findMany({
       where,
       orderBy: [
-        { date: 'desc' },
-        { createdAt: 'desc' }
+        { createdAt: 'desc' },
+        { date: 'desc' }
       ],
       include: {
         loan: {
@@ -63,25 +63,25 @@ export async function GET(request: NextRequest) {
             borrower: true
           }
         },
-        contribution: { 
-          include: { 
-            member: { 
-              include: { 
-                globalMember: true 
-              } 
+        contribution: {
+          include: {
+            member: {
+              include: {
+                globalMember: true
+              }
             },
             chitFund: true
-          } 
+          }
         },
-        auction: { 
-          include: { 
-            winner: { 
-              include: { 
-                globalMember: true 
-              } 
+        auction: {
+          include: {
+            winner: {
+              include: {
+                globalMember: true
+              }
             },
             chitFund: true
-          } 
+          }
         },
         fromPartner: true,
         toPartner: true,
@@ -199,17 +199,18 @@ export async function GET(request: NextRequest) {
         return val;
       };
       return {
-        'Date': formatDate(transaction.date),
+        'Date': formatDate(transaction.createdAt),
+        'Payment Date': formatDate(transaction.date),
         'Type': transaction.type.replace(/_/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase()),
         'Member': extractMemberName(transaction.note),
         'Partner': getPartnerName(transaction),
         'Cr/Dt': getCrDr(transaction),
         'Amount': stripRupee(transaction.amount),
-        'Partner Balance': transaction.partnerBalance !== null && transaction.partnerBalance !== undefined 
-          ? stripRupee(transaction.partnerBalance) 
+        'Partner Balance': transaction.partnerBalance !== null && transaction.partnerBalance !== undefined
+          ? stripRupee(transaction.partnerBalance)
           : '-',
-        'Total Balance': transaction.totalBalance !== null && transaction.totalBalance !== undefined 
-          ? stripRupee(transaction.totalBalance) 
+        'Total Balance': transaction.totalBalance !== null && transaction.totalBalance !== undefined
+          ? stripRupee(transaction.totalBalance)
           : '-',
         'Note': transaction.note || ''
       };
@@ -224,6 +225,7 @@ export async function GET(request: NextRequest) {
     // Set column widths to match UI table
     ws['!cols'] = [
       { width: 12 }, // Date
+      { width: 12 }, // Payment Date
       { width: 18 }, // Type
       { width: 20 }, // Member
       { width: 20 }, // Partner
@@ -235,7 +237,7 @@ export async function GET(request: NextRequest) {
     ];
 
     // Apply bold formatting to header row
-    const range = XLSX.utils.decode_range(ws['!ref'] || 'A1:I1');
+    const range = XLSX.utils.decode_range(ws['!ref'] || 'A1:J1');
     for (let col = range.s.c; col <= range.e.c; col++) {
       const cellRef = XLSX.utils.encode_cell({ r: 0, c: col });
       if (!ws[cellRef]) continue;
@@ -269,7 +271,7 @@ export async function GET(request: NextRequest) {
       // Calculate summary data directly
       const summaryTransactions = await prisma.transaction.findMany({
         where: summaryWhere,
-        orderBy: { date: 'desc' },
+        orderBy: { createdAt: 'desc' },
       });
 
       // Calculate summary statistics

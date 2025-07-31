@@ -14,6 +14,7 @@ interface Transaction {
   action_performer: string;
   entered_by: string;
   date: string;
+  createdAt: string;
   note?: string;
   partnerBalance?: number;
   totalBalance?: number;
@@ -346,10 +347,11 @@ export function TransactionList(props: TransactionListProps & {
       ) : (
         <>
           <div className="overflow-x-auto w-full mb-6" style={{maxWidth: '85vw'}}>
-            <table className="w-full min-w-[1300px] divide-y divide-gray-200 text-xs sm:text-sm">
+            <table className="w-full min-w-[1400px] divide-y divide-gray-200 text-xs sm:text-sm">
               <thead className="bg-gray-50">
                 <tr>
                   <th className="px-4 py-2 text-left font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                  <th className="px-4 py-2 text-left font-medium text-gray-500 uppercase tracking-wider">Payment Date</th>
                   <th className="px-4 py-2 text-left font-medium text-gray-500 uppercase tracking-wider">Type</th>
                   <th className="px-4 py-2 text-left font-medium text-gray-500 uppercase tracking-wider">Member</th>
                   <th className="px-4 py-2 text-left font-medium text-gray-500 uppercase tracking-wider">Partner</th>
@@ -374,6 +376,9 @@ export function TransactionList(props: TransactionListProps & {
                       }
                     }}
                   >
+                    <td className="px-4 py-2 whitespace-nowrap relative">
+                      {new Date(t.createdAt).toLocaleDateString()}
+                    </td>
                     <td className="px-4 py-2 whitespace-nowrap relative">
                       {new Date(t.date).toLocaleDateString()}
                     </td>

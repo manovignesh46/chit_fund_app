@@ -547,7 +547,50 @@ export async function recalculateAllBalances(userId: number): Promise<void> {
 }
 
 /**
- * Get balance summary for all partners
+ * Calculate partner balance using the same logic as Partner Management page
+ */
+async function calculatePartnerBalanceForSummary(partnerId: number, userId: number): Promise<number> {
+  try {
+    // 1. Calculate the total amount of money received by the partner.
+    // This includes loan repayments, chit contributions, and incoming transfers.
+    const moneyIn = await prisma.transaction.aggregate({
+      _sum: {
+        amount: true,
+      },
+      where: {
+        createdById: userId,
+        to_partner_id: partnerId,
+      },
+    });
+
+    // 2. Calculate the total amount of money sent out by the partner.
+    // This includes loan disbursements, auction payouts, and outgoing transfers.
+    const moneyOut = await prisma.transaction.aggregate({
+      _sum: {
+        amount: true,
+      },
+      where: {
+        createdById: userId,
+        from_partner_id: partnerId,
+      },
+    });
+
+    const totalIn = moneyIn._sum.amount || 0;
+    const totalOut = moneyOut._sum.amount || 0;
+
+    // 3. The final balance is the difference.
+    const balance = totalIn - totalOut;
+
+    return balance;
+  } catch (error) {
+    console.error(`Error calculating balance for partner ${partnerId}:`, error);
+    // Return 0 in case of an error to prevent breaking the UI.
+    return 0;
+  }
+}
+
+/**
+ * Get balance summary for all partners using the same logic as Partner Management page
  */
 export async function getBalanceSummary(userId: number): Promise<{
   totalBalance: number;
@@ -558,19 +601,23 @@ export async function getBalanceSummary(userId: number): Promise<{
     select: { id: true, name: true }
   });
 
-  const balanceSummary = {
-    totalBalance: await getCurrentTotalBalance(userId),
-    partnerBalances: [] as Array<{ partnerId: number; partnerName: string; balance: number }>
+  // Calculate balances for each partner using the same logic as Partner Management page
+  const partnerBalances = await Promise.all(
+    partners.map(async (partner) => {
+      const balance = await calculatePartnerBalanceForSummary(partner.id, userId);
+      return {
+        partnerId: partner.id,
+        partnerName: partner.name,
+        balance
+      };
+    })
+  );
+
+  // Calculate total balance by summing all partner balances
+  const totalBalance = partnerBalances.reduce((sum, partner) => sum + partner.balance, 0);
+
+  return {
+    totalBalance,
+    partnerBalances
   };
-
-  for (const partner of partners) {
-    const balance = await getCurrentPartnerBalance(partner.id, userId);
-    balanceSummary.partnerBalances.push({
-      partnerId: partner.id,
-      partnerName: partner.name,
-      balance
-    });
-  }
-
-  return balanceSummary;
 }
