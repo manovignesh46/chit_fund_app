@@ -4,6 +4,49 @@ import prisma from './/prisma';
 const prismaAny = prisma as any;
 
 /**
+ * Check if all periods of a loan have been completed (paid)
+ * @param loanId The ID of the loan to check
+ * @returns Promise<boolean> True if all periods are completed
+ */
+async function areAllPeriodsCompleted(loanId: number): Promise<boolean> {
+  try {
+    // Get the loan details
+    const loan = await prisma.loan.findUnique({
+      where: { id: loanId },
+      select: { duration: true }
+    });
+
+    if (!loan) {
+      return false;
+    }
+
+    // Get all repayments for this loan (excluding interest-only payments)
+    const repayments = await prisma.repayment.findMany({
+      where: {
+        loanId,
+        paymentType: { not: 'interestOnly' }
+      },
+      select: { period: true }
+    });
+
+    // Get unique periods that have been paid
+    const paidPeriods = new Set(repayments.map(r => r.period));
+
+    // Check if all periods from 1 to duration have been paid
+    for (let period = 1; period <= loan.duration; period++) {
+      if (!paidPeriods.has(period)) {
+        return false; // Found an unpaid period
+      }
+    }
+
+    return true; // All periods have been paid
+  } catch (error) {
+    console.error('Error checking if all periods are completed:', error);
+    return false;
+  }
+}
+
+/**
  * Calculate the correct period (week number) for a repayment date based on the loan's disbursement date
  * @param disbursementDate The loan's disbursement date
  * @param repaymentDate The date of the repayment
@@ -568,11 +611,15 @@ export async function recordPaymentForPeriod(
     if (paymentType === 'full') {
       const newRemainingAmount = Math.max(0, loan.remainingAmount - amount);
 
+      // Check if all periods are completed to determine status
+      const allPeriodsCompleted = await areAllPeriodsCompleted(loanId);
+      const newStatus = allPeriodsCompleted ? 'Completed' : 'Active';
+
       await prismaAny.loan.update({
         where: { id: loanId },
         data: {
           remainingAmount: newRemainingAmount,
-          status: newRemainingAmount <= 0 ? 'Completed' : 'Active'
+          status: newStatus
         }
       });
     }
@@ -760,11 +807,15 @@ export async function updatePaymentScheduleStatus(
         if (status === 'Paid') {
           const newRemainingAmount = Math.max(0, loan.remainingAmount - amount);
 
+          // Check if all periods are completed to determine status
+          const allPeriodsCompleted = await areAllPeriodsCompleted(loanId);
+          const newStatus = allPeriodsCompleted ? 'Completed' : 'Active';
+
           await prismaAny.loan.update({
             where: { id: loanId },
             data: {
               remainingAmount: newRemainingAmount,
-              status: newRemainingAmount <= 0 ? 'Completed' : 'Active'
+              status: newStatus
             }
           });
         }

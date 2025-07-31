@@ -75,6 +75,8 @@ const RepaymentsPage = () => {
         setTotalCount(Array.isArray(repaymentsData) ? repaymentsData.length : 0);
       }
 
+
+
       // Clear selected repayments when page changes
       setSelectedRepayments([]);
       setSelectAll(false);

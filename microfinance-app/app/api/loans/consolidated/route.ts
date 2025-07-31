@@ -9,6 +9,49 @@ import {
 import { TRANSACTION_TYPES_CONFIG } from "../../../../config/config";
 import { calculateTransactionBalance, getCurrentPartnerBalance, getCurrentTotalBalance, recalculateBalancesAfterDeletion } from "../../../../lib/balanceCalculator";
 
+/**
+ * Check if all periods of a loan have been completed (paid)
+ * @param loanId The ID of the loan to check
+ * @returns Promise<boolean> True if all periods are completed
+ */
+async function areAllPeriodsCompleted(loanId: number): Promise<boolean> {
+  try {
+    // Get the loan details
+    const loan = await prisma.loan.findUnique({
+      where: { id: loanId },
+      select: { duration: true }
+    });
+
+    if (!loan) {
+      return false;
+    }
+
+    // Get all repayments for this loan (excluding interest-only payments)
+    const repayments = await prisma.repayment.findMany({
+      where: {
+        loanId,
+        paymentType: { not: 'interestOnly' }
+      },
+      select: { period: true }
+    });
+
+    // Get unique periods that have been paid
+    const paidPeriods = new Set(repayments.map(r => r.period));
+
+    // Check if all periods from 1 to duration have been paid
+    for (let period = 1; period <= loan.duration; period++) {
+      if (!paidPeriods.has(period)) {
+        return false; // Found an unpaid period
+      }
+    }
+
+    return true; // All periods have been paid
+  } catch (error) {
+    console.error('Error checking if all periods are completed:', error);
+    return false;
+  }
+}
+
 // Use ISR with a 5-minute revalidation period
 export const revalidate = 300; // 5 minutes
 
@@ -369,7 +412,10 @@ async function getRepayments(
     // Get paginated repayments
     const repayments = await prismaAny.repayment.findMany({
       where: { loanId: id },
-      orderBy: { paidDate: "desc" },
+      orderBy: [
+        { period: "desc" },
+        { paidDate: "desc" }
+      ],
       skip,
       take: validPageSize,
     });
@@ -397,12 +443,7 @@ async function getRepayments(
       return { ...repayment, dueDate: dueDate ? dueDate.toISOString() : null };
     });
 
-    // Sort repayments by dueDate descending
-    repaymentsWithDueDate.sort((a, b) => {
-      const dateA = a.dueDate ? new Date(a.dueDate).getTime() : 0;
-      const dateB = b.dueDate ? new Date(b.dueDate).getTime() : 0;
-      return dateB - dateA;
-    });
+    // No need to sort here since we're already sorting by period in the database query
 
     return NextResponse.json({
       repayments: repaymentsWithDueDate,
@@ -1110,16 +1151,41 @@ async function addRepayment(request: NextRequest, id: number, currentUserId: num
     });
 
     // 2. Calculate the new loan state after the payment
-    let newRemainingAmount = loan.remainingAmount;
-    if (paymentType === "REGULAR") {
-      newRemainingAmount -= (paymentAmount - loan.interestRate);
-    } else if (paymentType === "PARTIAL") {
-      newRemainingAmount -= paymentAmount;
+    // Instead of subtracting from remaining amount, recalculate based on completed periods
+
+    // Get all repayments for this loan (including the one we just added)
+    const allRepayments = await prisma.repayment.findMany({
+      where: { loanId },
+      select: { period: true, paymentType: true }
+    });
+
+    // Count completed periods (excluding interest-only payments)
+    const completedPeriods = new Set(
+      allRepayments
+        .filter(r => r.paymentType !== 'interestOnly')
+        .map(r => r.period)
+    ).size;
+
+    let newRemainingAmount;
+    if (loan.loanType === "Weekly") {
+      // For weekly loans: remaining = original amount - (completed periods / (total periods - 1)) * original amount
+      const progressRatio = completedPeriods / (loan.duration - 1);
+      const paidAmount = progressRatio * loan.amount;
+      newRemainingAmount = Math.max(0, loan.amount - paidAmount);
+    } else {
+      // For monthly loans: remaining = original amount - (completed periods / total periods) * original amount
+      const progressRatio = completedPeriods / loan.duration;
+      const paidAmount = progressRatio * loan.amount;
+      newRemainingAmount = Math.max(0, loan.amount - paidAmount);
     }
     
     const updatedDuration = paymentType === "INTEREST_ONLY" ? loan.duration + 1 : loan.duration;
     const nextPaymentDate = await calculateNextPaymentDate(loanId);
     const { overdueAmount, missedPayments } = await updateOverdueAmountFromRepayments(loanId) || { overdueAmount: 0, missedPayments: 0 };
+
+    // Check if all periods are completed to determine status
+    const allPeriodsCompleted = await areAllPeriodsCompleted(loanId);
+    const newStatus = allPeriodsCompleted ? "Completed" : "Active";
 
     // 3. Update the loan with the new state
     await prisma.loan.update({
@@ -1127,8 +1193,8 @@ async function addRepayment(request: NextRequest, id: number, currentUserId: num
       data: {
         remainingAmount: newRemainingAmount,
         duration: updatedDuration,
-        status: newRemainingAmount + loan.interestRate <= 0 ? "Completed" : "Active",
-        nextPaymentDate: newRemainingAmount <= 0 ? null : nextPaymentDate,
+        status: newStatus,
+        nextPaymentDate: allPeriodsCompleted ? null : nextPaymentDate,
         overdueAmount,
         missedPayments,
       },
@@ -1413,13 +1479,33 @@ async function deleteRepayment(request: NextRequest, id: number, currentUserId: 
                 where: { id: repaymentId },
             });
             
-            // 4. Recalculate loan state
+            // 4. Recalculate loan state after deletion
             const currentLoan = repayment.loan;
-            let newRemainingAmount = currentLoan.remainingAmount;
-            if (repayment.paymentType === "REGULAR") {
-                newRemainingAmount += (repayment.amount - currentLoan.interestRate);
-            } else if (repayment.paymentType === "PARTIAL") {
-                newRemainingAmount += repayment.amount;
+
+            // Get remaining repayments after this deletion (excluding the one we just deleted)
+            const remainingRepayments = await tx.repayment.findMany({
+                where: { loanId },
+                select: { period: true, paymentType: true }
+            });
+
+            // Count completed periods (excluding interest-only payments)
+            const completedPeriods = new Set(
+                remainingRepayments
+                    .filter(r => r.paymentType !== 'interestOnly')
+                    .map(r => r.period)
+            ).size;
+
+            let newRemainingAmount;
+            if (currentLoan.loanType === "Weekly") {
+                // For weekly loans: remaining = original amount - (completed periods / (total periods - 1)) * original amount
+                const progressRatio = completedPeriods / (currentLoan.duration - 1);
+                const paidAmount = progressRatio * currentLoan.amount;
+                newRemainingAmount = Math.max(0, currentLoan.amount - paidAmount);
+            } else {
+                // For monthly loans: remaining = original amount - (completed periods / total periods) * original amount
+                const progressRatio = completedPeriods / currentLoan.duration;
+                const paidAmount = progressRatio * currentLoan.amount;
+                newRemainingAmount = Math.max(0, currentLoan.amount - paidAmount);
             }
 
             const newDuration = repayment.paymentType === "INTEREST_ONLY" 
