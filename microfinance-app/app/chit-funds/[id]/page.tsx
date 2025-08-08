@@ -9,6 +9,7 @@ import { formatCurrency, formatDate, calculateChitFundProfit, calculateChitFundP
 import ChitFundCard from '../../../components/chit-funds/ChitFundCard';
 // import ChitFundMembersList from '../../../components/chit-funds/ChitFundMembersList';
 import ChitFundMembersList from './../../../components/chit-funds/ChitFundMembersList';
+import ChitFundContributionsOverview from '../../../components/chit-funds/ChitFundContributionsOverview';
 import ChitFundFinancialSummary from '../../../components/chit-funds/ChitFundFinancialSummary';
 import dynamic from 'next/dynamic';
 import { ChitFundDetailSkeleton } from '../../components/skeletons/DetailSkeletons';
@@ -39,6 +40,8 @@ const ChitFundDetails = () => {
   const [members, setMembers] = useState<Member[]>([]);
   const [auctions, setAuctions] = useState<Auction[]>([]);
   const [contributions, setContributions] = useState<any[]>([]);
+  const [allContributions, setAllContributions] = useState<any[]>([]);
+  const [contributionsByMonth, setContributionsByMonth] = useState<any[]>([]);
   const [totalBalance, setTotalBalance] = useState<number>(0);
   // Define the type for member balance data
   interface MemberBalanceData {
@@ -51,6 +54,12 @@ const ChitFundDetails = () => {
   const [membersWithBalance, setMembersWithBalance] = useState<MemberBalanceData[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Individual loading states for progressive rendering
+  const [chitFundLoading, setChitFundLoading] = useState(true);
+  const [membersLoading, setMembersLoading] = useState(true);
+  const [auctionsLoading, setAuctionsLoading] = useState(true);
+  const [contributionsLoading, setContributionsLoading] = useState(true);
   const [totalProfit, setTotalProfit] = useState<number>(0);
   const [cashInflow, setCashInflow] = useState<number>(0);
   const [cashOutflow, setCashOutflow] = useState<number>(0);
@@ -63,11 +72,10 @@ const ChitFundDetails = () => {
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
   useEffect(() => {
-    const fetchChitFundData = async () => {
+    // Fetch chit fund details first
+    const fetchChitFundDetails = async () => {
       try {
-        setLoading(true);
-
-        // Fetch chit fund details using the consolidated API endpoint
+        setChitFundLoading(true);
         const chitFundResponse = await fetch(`/api/chit-funds/consolidated?action=detail&id=${id}`);
         if (!chitFundResponse.ok) {
           const errorData = await chitFundResponse.json().catch(() => ({}));
@@ -77,37 +85,33 @@ const ChitFundDetails = () => {
           if (chitFundResponse.status === 404) {
             setChitFund(null);
             setError(`Chit fund with ID ${id} not found. It may have been deleted or you don't have permission to view it.`);
+            setChitFundLoading(false);
             setLoading(false);
-            return; // Exit early
+            return;
           }
 
           throw new Error(`Failed to fetch chit fund details: ${chitFundResponse.status} ${errorData.error || ''}`);
         }
         const chitFundData = await chitFundResponse.json();
+        setChitFund(chitFundData);
+        setChitFundLoading(false);
+      } catch (error) {
+        console.error('Error fetching chit fund details:', error);
+        setError(error.message || 'Failed to fetch chit fund details');
+        setChitFundLoading(false);
+        setLoading(false);
+      }
+    };
 
-        // Fetch members using the consolidated API endpoint
-        const membersResponse = await fetch(`/api/chit-funds/consolidated?action=members&id=${id}`);
+    // Fetch members independently
+    const fetchMembers = async () => {
+      try {
+        setMembersLoading(true);
+        const membersResponse = await fetch(`/api/chit-funds/consolidated?action=members&id=${id}&page=1&pageSize=1000`);
         if (!membersResponse.ok) {
           throw new Error('Failed to fetch members');
         }
         const membersData = await membersResponse.json();
-
-        // Fetch auctions using the consolidated API endpoint
-        const auctionsResponse = await fetch(`/api/chit-funds/consolidated?action=auctions&id=${id}`);
-        if (!auctionsResponse.ok) {
-          throw new Error('Failed to fetch auctions');
-        }
-        const auctionsData = await auctionsResponse.json();
-
-        // Fetch contributions using the consolidated API endpoint
-        const contributionsResponse = await fetch(`/api/chit-funds/consolidated?action=contributions&id=${id}&page=1&pageSize=1000`);
-        if (!contributionsResponse.ok) {
-          throw new Error('Failed to fetch contributions');
-        }
-        const contributionsData = await contributionsResponse.json();
-
-        // Set the data
-        setChitFund(chitFundData);
 
         // Handle the new paginated response format for members
         if (membersData.members && Array.isArray(membersData.members)) {
@@ -116,6 +120,22 @@ const ChitFundDetails = () => {
           // Fallback for backward compatibility
           setMembers(Array.isArray(membersData) ? membersData : []);
         }
+        setMembersLoading(false);
+      } catch (error) {
+        console.error('Error fetching members:', error);
+        setMembersLoading(false);
+      }
+    };
+
+    // Fetch auctions independently
+    const fetchAuctions = async () => {
+      try {
+        setAuctionsLoading(true);
+        const auctionsResponse = await fetch(`/api/chit-funds/consolidated?action=auctions&id=${id}`);
+        if (!auctionsResponse.ok) {
+          throw new Error('Failed to fetch auctions');
+        }
+        const auctionsData = await auctionsResponse.json();
 
         // Handle the paginated response format for auctions
         const auctionsArray = auctionsData.auctions && Array.isArray(auctionsData.auctions)
@@ -123,6 +143,22 @@ const ChitFundDetails = () => {
           : (Array.isArray(auctionsData) ? auctionsData : []);
 
         setAuctions(auctionsArray);
+        setAuctionsLoading(false);
+      } catch (error) {
+        console.error('Error fetching auctions:', error);
+        setAuctionsLoading(false);
+      }
+    };
+
+    // Fetch contributions independently
+    const fetchContributions = async () => {
+      try {
+        setContributionsLoading(true);
+        const contributionsResponse = await fetch(`/api/chit-funds/consolidated?action=contributions&id=${id}&page=1&pageSize=1000`);
+        if (!contributionsResponse.ok) {
+          throw new Error('Failed to fetch contributions');
+        }
+        const contributionsData = await contributionsResponse.json();
 
         // Handle the paginated response format for contributions
         const contributionsArray = contributionsData.contributions && Array.isArray(contributionsData.contributions)
@@ -132,140 +168,181 @@ const ChitFundDetails = () => {
         // Set the contributions state
         setContributions(contributionsArray);
 
-        // Calculate total balance and members with balance
-        let totalBalanceAmount = 0;
+        // Set all contributions for month-wise analysis
+        const allContributionsArray = contributionsData.allContributions && Array.isArray(contributionsData.allContributions)
+          ? contributionsData.allContributions
+          : contributionsArray;
+        setAllContributions(allContributionsArray);
 
-        const membersWithBalanceData: MemberBalanceData[] = [];
-
-        // Create a map to track balances by member
-        const memberBalances = new Map<number, MemberBalanceData>();
-
-        // Process all contributions to calculate balances
-        for (const contribution of contributionsArray) {
-          // Only count balances that are not marked as "Paid"
-          if (contribution.balance > 0 && contribution.balancePaymentStatus !== 'Paid') {
-            totalBalanceAmount += contribution.balance;
-
-            // Track balance by member
-            const memberId = contribution.memberId;
-            const memberName = contribution.member?.globalMember?.name || 'Unknown';
-            const currentBalance = memberBalances.get(memberId) || {
-              id: memberId,
-              name: memberName,
-              totalBalance: 0,
-              months: [] as Array<{month: number; balance: number}>
-            };
-
-            currentBalance.totalBalance += contribution.balance;
-            currentBalance.months.push({
-              month: contribution.month,
-              balance: contribution.balance
-            });
-
-            memberBalances.set(memberId, currentBalance);
-          }
-        }
-
-        // Convert map to array for state
-        memberBalances.forEach(memberData => {
-          membersWithBalanceData.push(memberData);
-        });
-
-        setTotalBalance(totalBalanceAmount);
-        setMembersWithBalance(membersWithBalanceData);
-
-        // Calculate financial metrics using centralized utility functions
-        let totalInflow = 0;
-        let totalOutflow = 0;
-
-        // Calculate cash inflow from contributions
-        if (contributionsArray && contributionsArray.length > 0) {
-          totalInflow = contributionsArray.reduce((sum: number, contribution: any) => sum + contribution.amount, 0);
-        }
-
-        // Calculate cash outflow from auctions
-        if (auctionsArray && auctionsArray.length > 0) {
-          totalOutflow = auctionsArray.reduce((sum: number, auction: any) => sum + auction.amount, 0);
-        }
-
-        // Calculate next auction date if not set
-        if (!chitFundData.nextAuctionDate && chitFundData.status === 'Active' && chitFundData.currentMonth < chitFundData.duration) {
-          const startDate = new Date(chitFundData.startDate);
-          const nextAuctionDate = new Date(startDate);
-          nextAuctionDate.setMonth(startDate.getMonth() + chitFundData.currentMonth);
-          chitFundData.nextAuctionDate = nextAuctionDate.toISOString();
-        }
-
-        setChitFund(chitFundData);
-
-        // Use derived fields from API response if available, otherwise calculate locally
-        if (chitFundData.derivedFields) {
-          setCashInflow(chitFundData.derivedFields.cashInflow);
-          setCashOutflow(chitFundData.derivedFields.cashOutflow);
-          setTotalProfit(chitFundData.derivedFields.totalProfit);
-          setOutsideAmount(chitFundData.derivedFields.outsideAmount);
-        } else {
-          // Fallback to local calculation for backward compatibility
-          const profitAmount = calculateChitFundProfitUpToCurrentMonth(chitFundData, contributionsArray, auctionsArray);
-          const outsideAmountValue = calculateChitFundOutsideAmount(chitFundData, contributionsArray, auctionsArray);
-
-          setCashInflow(totalInflow);
-          setCashOutflow(totalOutflow);
-          setTotalProfit(profitAmount);
-          setOutsideAmount(outsideAmountValue);
-        }
-
-        // Calculate next payout details if there are auctions
-        if (auctionsArray.length > 0 && chitFundData.currentMonth < chitFundData.duration) {
-          // Get the members array from the response
-          const membersArray = membersData.members && Array.isArray(membersData.members)
-            ? membersData.members
-            : (Array.isArray(membersData) ? membersData : []);
-
-          // Find members who haven't won an auction yet
-          const eligibleMembers = membersArray.filter((member: Member) => !member.auctionWon);
-
-          if (eligibleMembers.length > 0) {
-            // For simplicity, we'll just pick the first eligible member as the next receiver
-            const nextReceiver = eligibleMembers[0];
-            chitFundData.nextPayoutReceiver = nextReceiver.name;
-
-            // Calculate final payout based on previous auctions average or total amount
-            if (auctionsArray.length > 0) {
-              const avgAmount = auctionsArray.reduce((sum: number, auction: Auction) => sum + auction.amount, 0) / auctionsArray.length;
-              chitFundData.finalPayout = Math.round(avgAmount);
-            } else {
-              chitFundData.finalPayout = chitFundData.totalAmount;
-            }
-          }
-        }
-
-        setError(null);
-      } catch (err: any) {
-        console.error('Error fetching data:', err);
-        // Check if the error is related to authentication
-        if (err.message && (
-          err.message.includes('401') ||
-          err.message.includes('Unauthorized') ||
-          err.message.toLowerCase().includes('authentication')
-        )) {
-          setError('Authentication error. Please log in again to continue.');
-          // Redirect to login page after a short delay
-          setTimeout(() => {
-            window.location.href = `/login?from=/chit-funds/${id}&error=session_expired`;
-          }, 3000);
-        } else {
-          setError(`Failed to load data: ${err.message || 'Unknown error'}. Please try again later.`);
-        }
-      } finally {
-        setLoading(false);
+        setContributionsLoading(false);
+      } catch (error) {
+        console.error('Error fetching contributions:', error);
+        setContributionsLoading(false);
       }
     };
 
+    // Start all API calls
     if (id) {
-      fetchChitFundData();
+      fetchChitFundDetails();
+      fetchMembers();
+      fetchAuctions();
+      fetchContributions();
     }
   }, [id]);
+
+  // Calculate contributions by month when data is available
+  useEffect(() => {
+    if (!chitFund || !members.length || !allContributions.length) return;
+
+    const calculateContributionsByMonth = () => {
+      const monthlyContributions = [];
+
+      // Create an array of all months up to the chit fund duration
+      for (let month = 1; month <= (chitFund?.duration || 0); month++) {
+        const contributionsForMonth = allContributions.filter(
+          (c) => c.month === month
+        );
+
+        // Get all members with their status for this month
+        const membersWithStatus = [];
+        for (const member of members) {
+          const contribution = allContributions.find(
+            (c) => c.memberId === member.id && c.month === month
+          );
+
+          if (contribution) {
+            membersWithStatus.push({
+              member,
+              status: "paid",
+              contribution,
+            });
+          } else {
+            membersWithStatus.push({
+              member,
+              status: "pending",
+              contribution: null,
+            });
+          }
+        }
+
+        const pendingMembers = membersWithStatus.filter(
+          (m) => m.status === "pending"
+        );
+        const pendingCount = pendingMembers.length;
+        const contributionCount = contributionsForMonth.length;
+
+        // Calculate totals for this month
+        const actualMembersCount = members.length;
+        const totalExpected = chitFund.monthlyContribution * actualMembersCount;
+        const totalCollected = contributionsForMonth.reduce(
+          (sum, c) => sum + c.amount,
+          0
+        );
+
+        // Calculate total balance
+        const balanceFromPartialPayments = contributionsForMonth.reduce(
+          (sum, c) => sum + (c.balance || 0),
+          0
+        );
+        const pendingMembersExpectedAmount = pendingCount * chitFund.monthlyContribution;
+        const totalBalance = balanceFromPartialPayments + pendingMembersExpectedAmount;
+
+        monthlyContributions.push({
+          month,
+          contributionCount,
+          memberCount: actualMembersCount,
+          pendingCount,
+          totalExpected,
+          totalCollected,
+          totalBalance,
+          pendingMembers,
+        });
+      }
+
+      return monthlyContributions;
+    };
+
+    const monthlyData = calculateContributionsByMonth();
+    setContributionsByMonth(monthlyData);
+  }, [chitFund, members, allContributions]);
+
+  // Calculate financial metrics when contributions and auctions are available
+  useEffect(() => {
+    if (!chitFund || !contributions.length) return;
+
+    // Calculate total balance and members with balance
+    let totalBalanceAmount = 0;
+    const membersWithBalanceData: MemberBalanceData[] = [];
+    const memberBalances = new Map<number, MemberBalanceData>();
+
+    // Process all contributions to calculate balances
+    for (const contribution of contributions) {
+      // Only count balances that are not marked as "Paid"
+      if (contribution.balance > 0 && contribution.balancePaymentStatus !== 'Paid') {
+        totalBalanceAmount += contribution.balance;
+
+        // Track balance by member
+        const memberId = contribution.memberId;
+        const memberName = contribution.member?.globalMember?.name || 'Unknown';
+        const currentBalance = memberBalances.get(memberId) || {
+          id: memberId,
+          name: memberName,
+          totalBalance: 0,
+          months: [] as Array<{month: number; balance: number}>
+        };
+
+        currentBalance.totalBalance += contribution.balance;
+        currentBalance.months.push({
+          month: contribution.month,
+          balance: contribution.balance
+        });
+
+        memberBalances.set(memberId, currentBalance);
+      }
+    }
+
+    // Convert map to array for state
+    memberBalances.forEach(memberData => {
+      membersWithBalanceData.push(memberData);
+    });
+
+    setTotalBalance(totalBalanceAmount);
+    setMembersWithBalance(membersWithBalanceData);
+
+    // Calculate financial metrics
+    let totalInflow = 0;
+    let totalOutflow = 0;
+
+    // Calculate cash inflow from contributions
+    if (contributions && contributions.length > 0) {
+      totalInflow = contributions.reduce((sum: number, contribution: any) => sum + contribution.amount, 0);
+    }
+
+    // Calculate cash outflow from auctions
+    if (auctions && auctions.length > 0) {
+      totalOutflow = auctions.reduce((sum: number, auction: any) => sum + auction.amount, 0);
+    }
+
+    // Use derived fields from API response if available, otherwise calculate locally
+    if (chitFund.derivedFields) {
+      setCashInflow(chitFund.derivedFields.cashInflow);
+      setCashOutflow(chitFund.derivedFields.cashOutflow);
+      setTotalProfit(chitFund.derivedFields.totalProfit);
+      setOutsideAmount(chitFund.derivedFields.outsideAmount);
+    } else {
+      // Fallback to local calculation for backward compatibility
+      const profitAmount = calculateChitFundProfitUpToCurrentMonth(chitFund, contributions, auctions);
+      const outsideAmountValue = calculateChitFundOutsideAmount(chitFund, contributions, auctions);
+
+      setCashInflow(totalInflow);
+      setCashOutflow(totalOutflow);
+      setTotalProfit(profitAmount);
+      setOutsideAmount(outsideAmountValue);
+    }
+
+    // Update loading state when all calculations are done
+    setLoading(false);
+  }, [chitFund, contributions, auctions]);
 
   // Using centralized formatting functions from formatUtils.ts
 
@@ -419,7 +496,8 @@ const ChitFundDetails = () => {
     }
   };
 
-  if (loading) {
+  // Show skeleton only if chit fund details are still loading
+  if (chitFundLoading) {
     return <ChitFundDetailSkeleton />;
   }
 
@@ -731,50 +809,98 @@ const ChitFundDetails = () => {
           </div>
         </div>
 
-        {/* <div> */}
-          {/* Use the ChitFundMembersList component */}
-          <ChitFundMembersList
-            members={members}
-            showAuctionDetails={true}
-            maxDisplay={5}
-            showAll={false}
-            onViewMore={() => window.location.href = `/chit-funds/${chitFund.id}/members`}
-          />
-
+        {/* Contributions Overview - Show when contributions are loaded */}
+        {contributionsLoading ? (
           <div className="bg-white rounded-lg shadow-md overflow-hidden mt-6">
             <div className="p-6 border-b">
-              <h2 className="text-xl font-semibold">Next Payout</h2>
+              <h2 className="text-xl font-semibold">Contributions Overview</h2>
             </div>
             <div className="p-6">
-              {chitFund.status === 'Completed' ? (
-                <div className="text-center text-gray-500">
-                  <p>This chit fund has been completed.</p>
-                </div>
-              ) : chitFund.currentMonth >= chitFund.duration ? (
-                <div className="text-center text-gray-500">
-                  <p>All payouts have been distributed.</p>
-                </div>
-              ) : !(chitFund as any).nextPayoutReceiver ? (
-                <div className="text-center text-gray-500">
-                  <p>No eligible members for next payout.</p>
-                </div>
-              ) : (
-                <>
-                  <div className="mb-4">
-                    <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-2">Receiver</h3>
-                    <p className="text-xl font-semibold">{(chitFund as any).nextPayoutReceiver}</p>
-                  </div>
-                  <div>
-                    <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-2">Estimated Amount</h3>
-                    <p className="text-xl font-semibold">{(chitFund as any).finalPayout ? formatCurrency((chitFund as any).finalPayout) : 'To be determined'}</p>
-                  </div>
-                </>
-              )}
+              <div className="animate-pulse">
+                <div className="h-4 bg-gray-200 rounded w-3/4 mb-4"></div>
+                <div className="h-4 bg-gray-200 rounded w-1/2 mb-4"></div>
+                <div className="h-4 bg-gray-200 rounded w-2/3"></div>
+              </div>
             </div>
           </div>
+        ) : (
+          <ChitFundContributionsOverview
+            chitFundId={chitFund.id}
+            contributionsByMonth={contributionsByMonth}
+            showAll={true}
+            onViewMore={() => window.location.href = `/chit-funds/${chitFund.id}/contributions`}
+          />
+        )}
 
-          {/* Outstanding Balances Section */}
-          {membersWithBalance.length > 0 && (
+          {/* Next Payout Section - Show when auctions and members are loaded */}
+          {auctionsLoading || membersLoading ? (
+            <div className="bg-white rounded-lg shadow-md overflow-hidden mt-6">
+              <div className="p-6 border-b">
+                <h2 className="text-xl font-semibold">Next Payout</h2>
+              </div>
+              <div className="p-6">
+                <div className="animate-pulse">
+                  <div className="h-4 bg-gray-200 rounded w-1/4 mb-2"></div>
+                  <div className="h-6 bg-gray-200 rounded w-1/2 mb-4"></div>
+                  <div className="h-4 bg-gray-200 rounded w-1/4 mb-2"></div>
+                  <div className="h-6 bg-gray-200 rounded w-1/3"></div>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="bg-white rounded-lg shadow-md overflow-hidden mt-6">
+              <div className="p-6 border-b">
+                <h2 className="text-xl font-semibold">Next Payout</h2>
+              </div>
+              <div className="p-6">
+                {chitFund.status === 'Completed' ? (
+                  <div className="text-center text-gray-500">
+                    <p>This chit fund has been completed.</p>
+                  </div>
+                ) : chitFund.currentMonth >= chitFund.duration ? (
+                  <div className="text-center text-gray-500">
+                    <p>All payouts have been distributed.</p>
+                  </div>
+                ) : !(chitFund as any).nextPayoutReceiver ? (
+                  <div className="text-center text-gray-500">
+                    <p>No eligible members for next payout.</p>
+                  </div>
+                ) : (
+                  <>
+                    <div className="mb-4">
+                      <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-2">Receiver</h3>
+                      <p className="text-xl font-semibold">{(chitFund as any).nextPayoutReceiver}</p>
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-2">Estimated Amount</h3>
+                      <p className="text-xl font-semibold">{(chitFund as any).finalPayout ? formatCurrency((chitFund as any).finalPayout) : 'To be determined'}</p>
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Outstanding Balances Section - Show when contributions are loaded */}
+          {contributionsLoading ? (
+            <div className="bg-white rounded-lg shadow-md overflow-hidden mt-6">
+              <div className="p-6 border-b">
+                <div className="flex justify-between items-center">
+                  <h2 className="text-xl font-semibold">Outstanding Balances</h2>
+                  <div className="animate-pulse">
+                    <div className="h-6 bg-gray-200 rounded-full w-20"></div>
+                  </div>
+                </div>
+              </div>
+              <div className="p-6">
+                <div className="animate-pulse space-y-4">
+                  <div className="h-4 bg-gray-200 rounded w-3/4"></div>
+                  <div className="h-4 bg-gray-200 rounded w-1/2"></div>
+                  <div className="h-4 bg-gray-200 rounded w-2/3"></div>
+                </div>
+              </div>
+            </div>
+          ) : membersWithBalance.length > 0 && (
             <div className="bg-white rounded-lg shadow-md overflow-hidden mt-6">
               <div className="p-6 border-b">
                 <div className="flex justify-between items-center">
