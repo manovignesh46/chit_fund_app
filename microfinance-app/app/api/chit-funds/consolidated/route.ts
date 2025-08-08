@@ -685,14 +685,16 @@ async function getContributions(request: NextRequest, id: number, memberId: numb
   });
 
   // Get ALL contributions for status checking (not paginated)
+  // Note: We need ALL contributions for the chit fund, not filtered by memberId
   const allContributions = await prisma.contribution.findMany({
-    where,
+    where: { chitFundId: id }, // Only filter by chitFundId, not by memberId
     select: {
       id: true,
       memberId: true,
       month: true,
       amount: true,
       paidDate: true,
+      balance: true, // Include balance for outstanding calculations
     },
     orderBy: [
       { month: 'desc' },

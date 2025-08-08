@@ -118,7 +118,7 @@ export default function ChitFundContributionsPage() {
             `/api/chit-funds/consolidated?action=detail&id=${chitFundId}`,
             "Failed to fetch chit fund details"
           );
-          console.log("Chit Fund Data:", chitFundData);
+          // console.log("Chit Fund Data:", chitFundData);
           setChitFund(chitFundData);
         } catch (error: any) {
           // Handle 404 errors specifically
@@ -154,7 +154,7 @@ export default function ChitFundContributionsPage() {
           `/api/chit-funds/consolidated?action=contributions&id=${chitFundId}`,
           "Failed to fetch contributions and members"
         );
-        console.log("Contributions Data:", contributionsData);
+        // console.log("Contributions Data:", contributionsData);
 
         // Check if the response has a contributions property (new format) or is an array (old format)
         if (
@@ -410,6 +410,8 @@ export default function ChitFundContributionsPage() {
       }
     }
 
+
+
     return result;
   };
 
@@ -434,8 +436,10 @@ export default function ChitFundContributionsPage() {
       const contributionCount = contributionsForMonth.length;
 
       // Calculate totals for this month
+      // Use actual members count instead of stored membersCount to handle discrepancies
+      const actualMembersCount = members ? members.length : (chitFund?.membersCount || 0);
       const totalExpected = chitFund
-        ? chitFund.monthlyContribution * chitFund.membersCount
+        ? chitFund.monthlyContribution * actualMembersCount
         : 0;
       const totalCollected = contributionsForMonth.reduce(
         (sum, c) => sum + c.amount,
@@ -446,7 +450,7 @@ export default function ChitFundContributionsPage() {
       // 1. Balance from partial payments (where balance > 0)
       // 2. Expected contributions from pending members
       const balanceFromPartialPayments = contributionsForMonth.reduce(
-        (sum, c) => sum + c.balance,
+        (sum, c) => sum + (c.balance || 0),
         0
       );
       const pendingMembersExpectedAmount =
@@ -455,6 +459,8 @@ export default function ChitFundContributionsPage() {
           : 0;
       const totalBalance =
         balanceFromPartialPayments + pendingMembersExpectedAmount;
+
+
 
       monthlyContributions.push({
         month,
@@ -465,7 +471,7 @@ export default function ChitFundContributionsPage() {
         totalBalance,
         contributionCount,
         pendingCount,
-        memberCount: chitFund?.membersCount || 0,
+        memberCount: actualMembersCount,
       });
     }
 
