@@ -100,7 +100,7 @@ const ChitFundDetails = () => {
         const auctionsData = await auctionsResponse.json();
 
         // Fetch contributions using the consolidated API endpoint
-        const contributionsResponse = await fetch(`/api/chit-funds/consolidated?action=contributions&id=${id}`);
+        const contributionsResponse = await fetch(`/api/chit-funds/consolidated?action=contributions&id=${id}&page=1&pageSize=1000`);
         if (!contributionsResponse.ok) {
           throw new Error('Failed to fetch contributions');
         }
@@ -198,15 +198,22 @@ const ChitFundDetails = () => {
 
         setChitFund(chitFundData);
 
-        // Calculate profit and outside amount using centralized utility functions
-        // Use the new function that only considers transactions up to current month
-        const profitAmount = calculateChitFundProfitUpToCurrentMonth(chitFundData, contributionsArray, auctionsArray);
-        const outsideAmountValue = calculateChitFundOutsideAmount(chitFundData, contributionsArray, auctionsArray);
+        // Use derived fields from API response if available, otherwise calculate locally
+        if (chitFundData.derivedFields) {
+          setCashInflow(chitFundData.derivedFields.cashInflow);
+          setCashOutflow(chitFundData.derivedFields.cashOutflow);
+          setTotalProfit(chitFundData.derivedFields.totalProfit);
+          setOutsideAmount(chitFundData.derivedFields.outsideAmount);
+        } else {
+          // Fallback to local calculation for backward compatibility
+          const profitAmount = calculateChitFundProfitUpToCurrentMonth(chitFundData, contributionsArray, auctionsArray);
+          const outsideAmountValue = calculateChitFundOutsideAmount(chitFundData, contributionsArray, auctionsArray);
 
-        setCashInflow(totalInflow);
-        setCashOutflow(totalOutflow);
-        setTotalProfit(profitAmount);
-        setOutsideAmount(outsideAmountValue);
+          setCashInflow(totalInflow);
+          setCashOutflow(totalOutflow);
+          setTotalProfit(profitAmount);
+          setOutsideAmount(outsideAmountValue);
+        }
 
         // Calculate next payout details if there are auctions
         if (auctionsArray.length > 0 && chitFundData.currentMonth < chitFundData.duration) {

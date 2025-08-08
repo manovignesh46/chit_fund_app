@@ -104,7 +104,7 @@ export default function ChitFundMembersPage() {
   // For pagination
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
+  const [pageSize, setPageSize] = useState(20);
 
   // For exporting members
   const [isExporting, setIsExporting] = useState(false);
@@ -165,33 +165,43 @@ export default function ChitFundMembersPage() {
         if (membersData.members && membersData.totalCount !== undefined) {
           setMembers(membersData.members);
           setTotalPages(Math.ceil(membersData.totalCount / pageSize));
+
+          // Use contribution map from members response if available
+          if (membersData.contributionMap && Array.isArray(membersData.contributionMap)) {
+            setAllContributions(membersData.contributionMap);
+          }
         } else {
           // Fallback for backward compatibility
           setMembers(membersData);
           setTotalPages(Math.ceil(membersData.length / pageSize));
+
+          // Fallback: Fetch contributions separately if not included in members response
+          try {
+            const contributionsData = await apiGet(
+              `/api/chit-funds/consolidated?action=contributions&id=${chitFundId}&page=1&pageSize=1000`,
+              'Failed to fetch contributions'
+            );
+
+            // Extract contributions array from the response
+            const contributionsArray = contributionsData.contributions && Array.isArray(contributionsData.contributions)
+              ? contributionsData.contributions
+              : (Array.isArray(contributionsData) ? contributionsData : []);
+
+            // Create a simplified array of member IDs and months for easy checking
+            const contributionMap = contributionsArray.map((contribution: any) => ({
+              memberId: contribution.memberId,
+              month: contribution.month
+            }));
+            setAllContributions(contributionMap);
+          } catch (contributionsError) {
+            console.warn('Failed to fetch contributions as fallback:', contributionsError);
+            setAllContributions([]);
+          }
         }
 
         // Clear selected members when page changes
         setSelectedMembers([]);
         setSelectAll(false);
-
-        // Fetch all contributions for this chit fund using the apiGet utility function
-        const contributionsData = await apiGet(
-          `/api/chit-funds/consolidated?action=contributions&id=${chitFundId}`,
-          'Failed to fetch contributions'
-        );
-
-        // Extract contributions array from the response
-        const contributionsArray = contributionsData.contributions && Array.isArray(contributionsData.contributions)
-          ? contributionsData.contributions
-          : (Array.isArray(contributionsData) ? contributionsData : []);
-
-        // Create a simplified array of member IDs and months for easy checking
-        const contributionMap = contributionsArray.map((contribution: any) => ({
-          memberId: contribution.memberId,
-          month: contribution.month
-        }));
-        setAllContributions(contributionMap);
 
         setError(null);
       } catch (err) {

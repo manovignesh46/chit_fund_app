@@ -45,6 +45,13 @@ export interface ChitFund {
     contributions?: number;
     auctions?: number;
   };
+  // Derived fields calculated on the backend
+  derivedFields?: {
+    totalProfit: number;
+    cashInflow: number;
+    cashOutflow: number;
+    outsideAmount: number;
+  };
 }
 
 /**

@@ -3,6 +3,7 @@ import prisma from '../../../../lib/prisma';
 import { getCurrentUserId } from '../../../../lib/auth';
 import { TRANSACTION_TYPES_CONFIG } from '../../../../config/config';
 import { calculateTransactionBalance, getCurrentPartnerBalance, getCurrentTotalBalance, recalculateBalancesAfterDeletion } from '../../../../lib/balanceCalculator';
+import { calculateChitFundProfitUpToCurrentMonth, calculateChitFundOutsideAmount } from '../../../../lib/financialUtils';
 
 // Use ISR with a 5-minute revalidation period
 export const revalidate = 300; // 5 minutes
@@ -341,7 +342,7 @@ async function getChitFundsList(request: NextRequest, currentUserId: number) {
 
 // Handler for getting a single chit fund
 async function getChitFundDetail(request: NextRequest, id: number, currentUserId: number) {
-  // Check if the chit fund exists
+  // Check if the chit fund exists and get all related data for calculations
   const chitFund = await prisma.chitFund.findUnique({
     where: { id },
     include: {
@@ -357,6 +358,24 @@ async function getChitFundDetail(request: NextRequest, id: number, currentUserId
           month: 'asc',
         },
       },
+      // Include contributions and auctions for financial calculations
+      contributions: {
+        select: {
+          id: true,
+          amount: true,
+          month: true,
+          paidDate: true
+        }
+      },
+      auctions: {
+        select: {
+          id: true,
+          amount: true,
+          month: true,
+          date: true
+        }
+      },
+      members: true
     }
   });
 
@@ -383,7 +402,29 @@ async function getChitFundDetail(request: NextRequest, id: number, currentUserId
     chitFund.nextAuctionDate = nextAuctionDate;
   }
 
-  return NextResponse.json(chitFund);
+  // Calculate derived financial fields
+  // Calculate cash inflow and outflow
+  const cashInflow = chitFund.contributions.reduce((sum, contribution) => sum + contribution.amount, 0);
+  const cashOutflow = chitFund.auctions.reduce((sum, auction) => sum + auction.amount, 0);
+
+  // Calculate total profit using the same utility function as frontend
+  const totalProfit = calculateChitFundProfitUpToCurrentMonth(chitFund, chitFund.contributions, chitFund.auctions);
+
+  // Calculate outside amount using the same utility function as frontend
+  const outsideAmount = calculateChitFundOutsideAmount(chitFund, chitFund.contributions, chitFund.auctions);
+
+  // Add the derived fields to the response
+  const responseData = {
+    ...chitFund,
+    derivedFields: {
+      totalProfit,
+      cashInflow,
+      cashOutflow,
+      outsideAmount
+    }
+  };
+
+  return NextResponse.json(responseData);
 }
 
 // Handler for getting members of a chit fund
@@ -505,8 +546,15 @@ async function getChitFundMembers(request: NextRequest, id: number, currentUserI
     };
   }));
 
+  // Create contribution map for frontend use (same format as contributions endpoint)
+  const contributionMap = allContributions.map(contribution => ({
+    memberId: contribution.memberId,
+    month: contribution.month
+  }));
+
   return NextResponse.json({
     members: transformedMembers,
+    contributionMap: contributionMap,
     totalCount,
     page: validPage,
     pageSize: validPageSize,
@@ -627,8 +675,35 @@ async function getContributions(request: NextRequest, id: number, memberId: numb
     take: validPageSize,
   });
 
+  // Get all members for this chit fund (needed for dropdowns and status tracking)
+  const allMembers = await prisma.member.findMany({
+    where: { chitFundId: id },
+    include: {
+      globalMember: true,
+    },
+    orderBy: { joinDate: 'asc' },
+  });
+
+  // Get ALL contributions for status checking (not paginated)
+  const allContributions = await prisma.contribution.findMany({
+    where,
+    select: {
+      id: true,
+      memberId: true,
+      month: true,
+      amount: true,
+      paidDate: true,
+    },
+    orderBy: [
+      { month: 'desc' },
+      { paidDate: 'desc' },
+    ],
+  });
+
   return NextResponse.json({
-    contributions,
+    contributions, // Paginated contributions for display
+    allContributions, // All contributions for status checking
+    members: allMembers,
     totalCount,
     page: validPage,
     pageSize: validPageSize,

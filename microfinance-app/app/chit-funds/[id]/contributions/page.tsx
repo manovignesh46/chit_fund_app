@@ -53,6 +53,7 @@ export default function ChitFundContributionsPage() {
 
   const [chitFund, setChitFund] = useState<ChitFund | null>(null);
   const [contributions, setContributions] = useState<Contribution[]>([]);
+  const [allContributions, setAllContributions] = useState<any[]>([]); // All contributions for status checking
   const [members, setMembers] = useState<Member[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -147,25 +148,11 @@ export default function ChitFundContributionsPage() {
           throw error;
         }
 
-        // Fetch members using the consolidated API endpoint
-        const membersData = await apiGet(
-          `/api/chit-funds/consolidated?action=members&id=${chitFundId}`,
-          "Failed to fetch members"
-        );
-        console.log("Members Data:", membersData);
-
-        // Check if the response has pagination metadata
-        if (membersData.members && Array.isArray(membersData.members)) {
-          setMembers(membersData.members);
-        } else {
-          // Fallback for backward compatibility
-          setMembers(Array.isArray(membersData) ? membersData : []);
-        }
-
-        // Fetch contributions using the consolidated API endpoint
+        // Fetch contributions and members using the consolidated API endpoint
+        // The contributions endpoint now returns both contributions and members data
         const contributionsData = await apiGet(
           `/api/chit-funds/consolidated?action=contributions&id=${chitFundId}`,
-          "Failed to fetch contributions"
+          "Failed to fetch contributions and members"
         );
         console.log("Contributions Data:", contributionsData);
 
@@ -175,11 +162,40 @@ export default function ChitFundContributionsPage() {
           Array.isArray(contributionsData.contributions)
         ) {
           setContributions(contributionsData.contributions);
+
+          // Set all contributions for status checking
+          if (contributionsData.allContributions && Array.isArray(contributionsData.allContributions)) {
+            setAllContributions(contributionsData.allContributions);
+          } else {
+            // Fallback: use paginated contributions if allContributions not available
+            setAllContributions(contributionsData.contributions);
+          }
+
+          // Use members data from contributions response if available
+          if (contributionsData.members && Array.isArray(contributionsData.members)) {
+            setMembers(contributionsData.members);
+          }
         } else {
-          // Fallback for backward compatibility
-          setContributions(
-            Array.isArray(contributionsData) ? contributionsData : []
-          );
+          // Fallback for backward compatibility - fetch members separately
+          const contributionsArray = Array.isArray(contributionsData) ? contributionsData : [];
+          setContributions(contributionsArray);
+          setAllContributions(contributionsArray); // Use same data for status checking in fallback
+
+          try {
+            const membersData = await apiGet(
+              `/api/chit-funds/consolidated?action=members&id=${chitFundId}`,
+              "Failed to fetch members"
+            );
+
+            if (membersData.members && Array.isArray(membersData.members)) {
+              setMembers(membersData.members);
+            } else {
+              setMembers(Array.isArray(membersData) ? membersData : []);
+            }
+          } catch (membersError) {
+            console.warn('Failed to fetch members as fallback:', membersError);
+            setMembers([]);
+          }
         }
 
         setError(null);
@@ -371,8 +387,9 @@ export default function ChitFundContributionsPage() {
     const result = [];
 
     // For each member, check if they have a contribution for this month
+    // Use allContributions (not paginated) for accurate status checking
     for (const member of members) {
-      const contribution = contributions.find(
+      const contribution = allContributions.find(
         (c) => c.memberId === member.id && c.month === month
       );
 
@@ -404,7 +421,7 @@ export default function ChitFundContributionsPage() {
 
     // Create an array of all months up to the chit fund duration
     for (let month = 1; month <= (chitFund?.duration || 0); month++) {
-      const contributionsForMonth = contributions.filter(
+      const contributionsForMonth = allContributions.filter(
         (c) => c.month === month
       );
 
@@ -581,9 +598,12 @@ export default function ChitFundContributionsPage() {
         "Failed to delete contribution"
       );
 
-      // Remove the deleted contribution from the state
+      // Remove the deleted contribution from both arrays
       setContributions(
         contributions.filter((c) => c.id !== contributionToDelete)
+      );
+      setAllContributions(
+        allContributions.filter((c) => c.id !== contributionToDelete)
       );
 
       // Close the modal

@@ -26,7 +26,7 @@ async function fixBalances() {
       const transactions = await prisma.transaction.findMany({
         where: { createdById: user.id },
         orderBy: [
-          { date: 'asc' },
+          // { date: 'asc' },
           { createdAt: 'asc' }
         ],
         include: {
