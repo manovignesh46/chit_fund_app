@@ -189,7 +189,6 @@ export async function getCurrentPartnerBalance(
       ]
     },
     orderBy: [
-      { date: 'desc' },
       { createdAt: 'desc' }
     ],
     select: { 
@@ -268,7 +267,6 @@ export async function getCurrentTotalBalance(
   const lastTransaction = await prisma.transaction.findFirst({
     where: whereClause,
     orderBy: [
-      { date: 'desc' },
       { createdAt: 'desc' }
     ],
     select: { totalBalance: true }
@@ -301,7 +299,6 @@ export async function recalculateBalancesAfterDeletion(
       ]
     },
     orderBy: [
-      { date: 'desc' },
       { createdAt: 'desc' }
     ],
     select: { 
