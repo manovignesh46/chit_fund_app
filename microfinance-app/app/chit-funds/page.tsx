@@ -63,7 +63,7 @@ export default function ChitFundsPage() {
   const [isExporting, setIsExporting] = useState(false);
 
   // Status filter state
-  const [statusFilter, setStatusFilter] = useState<string>('');
+  const [statusFilter, setStatusFilter] = useState<string>('Active');
 
   // Fetch chit funds function
   const fetchChitFunds = async () => {

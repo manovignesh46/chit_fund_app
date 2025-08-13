@@ -431,7 +431,7 @@ async function getChitFundDetail(request: NextRequest, id: number, currentUserId
 async function getChitFundMembers(request: NextRequest, id: number, currentUserId: number) {
   const { searchParams } = new URL(request.url);
   const page = parseInt(searchParams.get('page') || '1');
-  const pageSize = parseInt(searchParams.get('pageSize') || '10');
+  const pageSize = parseInt(searchParams.get('pageSize') || '20');
 
   // Validate pagination parameters
   const validPage = page > 0 ? page : 1;
