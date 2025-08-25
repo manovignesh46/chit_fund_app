@@ -14,17 +14,17 @@ import { calculateTransactionBalance, getCurrentPartnerBalance, getCurrentTotalB
  * @param loanId The ID of the loan to check
  * @returns Promise<boolean> True if all periods are completed
  */
-async function areAllPeriodsCompleted(loanId: number): Promise<boolean> {
+async function areAllPeriodsCompleted(loanId: number, duration: number): Promise<boolean> {
   try {
     // Get the loan details
-    const loan = await prisma.loan.findUnique({
-      where: { id: loanId },
-      select: { duration: true }
-    });
+    // const loan = await prisma.loan.findUnique({
+    //   where: { id: loanId },
+    //   select: { duration: true }
+    // });
 
-    if (!loan) {
-      return false;
-    }
+    // if (!loan) {
+    //   return false;
+    // }
 
     // Get all repayments for this loan (excluding interest-only payments)
     const repayments = await prisma.repayment.findMany({
@@ -39,7 +39,7 @@ async function areAllPeriodsCompleted(loanId: number): Promise<boolean> {
     const paidPeriods = new Set(repayments.map(r => r.period));
 
     // Check if all periods from 1 to duration have been paid
-    for (let period = 1; period <= loan.duration; period++) {
+    for (let period = 1; period <= duration; period++) {
       if (!paidPeriods.has(period)) {
         return false; // Found an unpaid period
       }
@@ -1182,7 +1182,7 @@ async function addRepayment(request: NextRequest, id: number, currentUserId: num
     const { overdueAmount, missedPayments } = await updateOverdueAmountFromRepayments(loanId) || { overdueAmount: 0, missedPayments: 0 };
 
     // Check if all periods are completed to determine status
-    const allPeriodsCompleted = await areAllPeriodsCompleted(loanId);
+    const allPeriodsCompleted = await areAllPeriodsCompleted(loanId, updatedDuration);
     const newStatus = allPeriodsCompleted ? "Completed" : "Active";
 
     // 3. Update the loan with the new state
@@ -1513,7 +1513,7 @@ async function deleteRepayment(request: NextRequest, id: number, currentUserId: 
             : currentLoan.duration;
 
         // Check if all periods are completed to determine status
-        const allPeriodsCompleted = await areAllPeriodsCompleted(loanId);
+        const allPeriodsCompleted = await areAllPeriodsCompleted(loanId, newDuration);
         const newStatus = allPeriodsCompleted ? "Completed" : "Active";
 
         const nextPaymentDate = await calculateNextPaymentDate(loanId);
