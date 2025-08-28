@@ -117,12 +117,30 @@ export default function DateFilter({ onDateRangeChange, className = '' }: DateFi
   };
 
   const handleCustomDateApply = () => {
-    if (customStartDate && customEndDate) {
+    if (customStartDate || customEndDate) {
+      let start = customStartDate;
+      let end = customEndDate;
+
+      if (customStartDate && !customEndDate) {
+        const now = new Date();
+        const today = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
+        end = today.toISOString().split('T')[0];
+      }
+
       setSelectedPeriod('custom');
       setShowCustomCalendar(false);
       setIsOpen(false);
-      onDateRangeChange(customStartDate, customEndDate);
+      onDateRangeChange(start, end);
     }
+  };
+
+  const handleClearCustomDate = () => {
+    setCustomStartDate('');
+    setCustomEndDate('');
+    setSelectedPeriod('all');
+    onDateRangeChange(undefined, undefined);
+    setShowCustomCalendar(false);
+    setIsOpen(false);
   };
 
   const getDisplayText = () => {
@@ -134,7 +152,17 @@ export default function DateFilter({ onDateRangeChange, className = '' }: DateFi
       case 'thisMonth': return 'This Month';
       case 'lastMonth': return 'Last Month';
       case 'untilLastMonth': return 'Until Last Month';
-      case 'custom': return customStartDate && customEndDate ? `${customStartDate} to ${customEndDate}` : 'Custom';
+      case 'custom':
+        if (customStartDate && customEndDate) {
+          return `${customStartDate} to ${customEndDate}`;
+        }
+        if (customStartDate) {
+          return `From ${customStartDate}`;
+        }
+        if (customEndDate) {
+          return `Until ${customEndDate}`;
+        }
+        return 'Custom';
       default: return 'All Time';
     }
   };
@@ -256,10 +284,17 @@ export default function DateFilter({ onDateRangeChange, className = '' }: DateFi
                   <button
                     type="button"
                     onClick={handleCustomDateApply}
-                    disabled={!customStartDate || !customEndDate}
+                    disabled={!customStartDate && !customEndDate}
                     className="flex-1 px-3 py-2 bg-blue-600 text-white rounded text-sm hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed"
                   >
                     Apply
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleClearCustomDate}
+                    className="flex-1 px-3 py-2 bg-gray-200 text-gray-700 rounded text-sm hover:bg-gray-300"
+                  >
+                    Clear
                   </button>
                   <button
                     type="button"
