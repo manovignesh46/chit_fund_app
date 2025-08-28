@@ -89,6 +89,13 @@ export default function DateFilter({ onDateRangeChange, className = '' }: DateFi
           end: lastMonthEnd.toISOString().split('T')[0]
         };
       
+      case 'untilLastMonth':
+        const endOfLastMonth = new Date(Date.UTC(now.getFullYear(), now.getMonth(), 0));
+        return {
+            start: undefined,
+            end: endOfLastMonth.toISOString().split('T')[0]
+        };
+      
       default:
         return { start: undefined, end: undefined };
     }
@@ -126,6 +133,7 @@ export default function DateFilter({ onDateRangeChange, className = '' }: DateFi
       case 'last7Days': return 'Last 7 Days';
       case 'thisMonth': return 'This Month';
       case 'lastMonth': return 'Last Month';
+      case 'untilLastMonth': return 'Until Last Month';
       case 'custom': return customStartDate && customEndDate ? `${customStartDate} to ${customEndDate}` : 'Custom';
       default: return 'All Time';
     }
@@ -194,6 +202,13 @@ export default function DateFilter({ onDateRangeChange, className = '' }: DateFi
                 className={`w-full px-4 py-2 text-left text-sm hover:bg-gray-100 ${selectedPeriod === 'thisMonth' ? 'bg-blue-50 text-blue-600' : 'text-gray-700'}`}
               >
                 This Month
+              </button>
+              <button
+                type="button"
+                onClick={() => handlePeriodSelect('untilLastMonth')}
+                className={`w-full px-4 py-2 text-left text-sm hover:bg-gray-100 ${selectedPeriod === 'untilLastMonth' ? 'bg-blue-50 text-blue-600' : 'text-gray-700'}`}
+              >
+                Until Last Month
               </button>
               <button
                 type="button"
