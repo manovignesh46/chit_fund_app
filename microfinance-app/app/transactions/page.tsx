@@ -7,6 +7,7 @@ import DateFilter from "../components/DateFilter";
 import EmailExportModal from "../../components/EmailExportModal";
 import BalanceSummary from "../components/BalanceSummary";
 import TransactionSummary from "../components/TransactionSummary";
+import MonthlyAggregationsCard from "../components/MonthlyAggregationsCard";
 import { usePartner } from "../contexts/PartnerContext";
 import { TRANSACTION_TYPES_CONFIG } from "../../config/config";
 import {
@@ -110,8 +111,15 @@ export default function TransactionsPage() {
       <div className="mb-6">
         <h1 className="text-2xl font-bold mb-4">Transactions</h1>
 
-        {/* Balance Summary and Transaction Summary - Now above filters */}
+        {/* Balance Summary and Monthly Aggregations */}
         <BalanceSummary refreshTrigger={refreshList} />
+        
+        {/* Monthly Aggregations Card */}
+        <MonthlyAggregationsCard 
+          startDate={startDate}
+          endDate={endDate}
+          refreshTrigger={refreshList}
+        />
 
         <div className="mb-2 flex flex-col md:flex-row md:items-end md:space-x-4 md:space-y-0 space-y-2">
           <div className="w-full md:w-1/3">
