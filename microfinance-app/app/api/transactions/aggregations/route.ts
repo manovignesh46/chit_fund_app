@@ -13,7 +13,23 @@ export async function GET(request: NextRequest) {
     const startDate = new Date(searchParams.get("startDate") || "");
     const endDate = new Date(searchParams.get("endDate") || "");
 
-    // Get active loans for the period
+    // First, get loans that were completed during the period by checking their repayments
+    const completedLoansInPeriod = await prisma.loan.findMany({
+      where: {
+        createdById: currentUserId,
+        status: "Completed",
+        repayments: {
+          some: {
+            paidDate: {
+              gte: startDate,
+              lte: endDate,
+            },
+          },
+        },
+      },
+    });
+
+    // Get currently active loans
     const activeLoans = await prisma.loan.findMany({
       where: {
         createdById: currentUserId,
@@ -23,6 +39,9 @@ export async function GET(request: NextRequest) {
         },
       },
     });
+
+    // Combine both active and completed loans
+    const allRelevantLoans = [...activeLoans, ...completedLoansInPeriod];
 
     // Get actual loan repayments
     const actualLoanRepayments = await prisma.transaction.aggregate({
@@ -39,14 +58,24 @@ export async function GET(request: NextRequest) {
       },
     });
 
-    // Get active chit funds for the period
+    // Get chit funds that were active or completed during the period
     const activeChitFunds = await prisma.chitFund.findMany({
       where: {
         createdById: currentUserId,
-        status: "Active",
-        startDate: {
-          lte: endDate,
-        },
+        OR: [
+          {
+            status: "Active",
+            startDate: {
+              lte: endDate,
+            },
+          },
+          {
+            status: "Completed",
+            startDate: {
+              lte: endDate,
+            },
+          },
+        ],
       },
       include: {
         members: true,
@@ -81,7 +110,7 @@ export async function GET(request: NextRequest) {
     };
     
     // Calculate expected loan repayments
-    const expectedLoanRepayment = activeLoans.reduce((sum, loan) => {
+    const expectedLoanRepayment = allRelevantLoans.reduce((sum, loan) => {
       let expectedAmountInPeriod = 0;
       const periodStart = new Date(startDate);
       const periodEnd = new Date(endDate);
