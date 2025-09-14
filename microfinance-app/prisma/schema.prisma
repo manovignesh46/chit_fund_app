@@ -23,6 +23,7 @@ model User {
   repayments    Repayment[]
   transactions  Transaction[]
   contributions Contribution[] @relation("CreatedContributions")
+  templates     FixedAmountTemplate[]
 }
 
 model ChitFund {
@@ -168,6 +169,35 @@ model ChitFundFixedAmount {
 
   @@unique([chitFundId, month])
   @@index([chitFundId])
+}
+
+model FixedAmountTemplate {
+  id          Int                      @id @default(autoincrement())
+  name        String                   @unique
+  description String?
+  totalAmount Float
+  duration    Int
+  isActive    Boolean                  @default(true)
+  createdAt   DateTime                 @default(now())
+  updatedAt   DateTime                 @updatedAt
+  createdById Int
+  createdBy   User                     @relation(fields: [createdById], references: [id])
+  amounts     FixedAmountTemplateRow[]
+
+  @@index([createdById])
+}
+
+model FixedAmountTemplateRow {
+  id         Int                @id @default(autoincrement())
+  month      Int
+  amount     Float
+  createdAt  DateTime           @default(now())
+  updatedAt  DateTime           @updatedAt
+  templateId Int
+  template   FixedAmountTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+
+  @@unique([templateId, month])
+  @@index([templateId])
 }
 
 model Loan {
