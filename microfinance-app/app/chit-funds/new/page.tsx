@@ -1,12 +1,16 @@
 // @ts-nocheck
 'use client';
 
-import React, { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import React, { useState, useEffect } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 
 export default function NewChitFundPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const copyFromId = searchParams.get('copy');
+  const [isLoading, setIsLoading] = useState(false);
+  
   const [formData, setFormData] = useState({
     name: '',
     totalAmount: '',
@@ -21,6 +25,52 @@ export default function NewChitFundPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [fixedAmounts, setFixedAmounts] = useState<{[month: number]: string}>({});
+
+  // Fetch chit fund data when copying
+  useEffect(() => {
+    if (!copyFromId) return;
+    
+    const fetchChitFundData = async () => {
+      setIsLoading(true);
+      try {
+        // Fetch the chit fund details
+        const response = await fetch(`/api/chit-funds/consolidated?action=detail&id=${copyFromId}`);
+        if (!response.ok) throw new Error('Failed to fetch chit fund');
+        const data = await response.json();
+
+        // Fixed amounts are already included in the response under fixedAmounts
+        const fixedAmountsData = data.fixedAmounts?.reduce((acc: any, item: any) => {
+          acc[item.month] = item.amount.toString();
+          return acc;
+        }, {}) || {};
+
+        // Remove non-copyable fields and set default name
+        setFormData({
+          name: `${data.name} - Copy`,
+          totalAmount: data.totalAmount.toString(),
+          monthlyContribution: data.monthlyContribution.toString(),
+          firstMonthContribution: data.firstMonthContribution?.toString() || '',
+          duration: data.duration.toString(),
+          membersCount: data.membersCount.toString(),
+          startDate: '',  // Reset start date as it should be new
+          description: data.description || '',
+          chitFundType: data.chitFundType,
+        });
+
+        if (data.chitFundType === 'Fixed') {
+          setFixedAmounts(fixedAmountsData);
+        }
+
+      } catch (error) {
+        console.error('Error fetching chit fund data:', error);
+        alert('Failed to load chit fund data for copying');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchChitFundData();
+  }, [copyFromId]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -212,10 +262,25 @@ export default function NewChitFundPage() {
     }
   };
 
+  if (isLoading) {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <div className="flex justify-center items-center h-64">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-700 mx-auto mb-4"></div>
+            <p className="text-gray-600">Loading chit fund data...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold text-blue-700">Create New Chit Fund</h1>
+        <h1 className="text-3xl font-bold text-blue-700">
+          {copyFromId ? 'Copy Chit Fund' : 'Create New Chit Fund'}
+        </h1>
         <Link href="/chit-funds" className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition duration-300">
           Cancel
         </Link>

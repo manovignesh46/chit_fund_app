@@ -585,11 +585,22 @@ export default function ChitFundsPage() {
                             className: 'text-blue-600 hover:text-blue-700'
                           },
                           {
+                            label: 'Copy',
+                            href: `/chit-funds/new?copy=${fund.id}`,
+                            onClick: () => {},
+                            icon: (
+                              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2v-2" />
+                              </svg>
+                            ),
+                            className: 'text-indigo-600 hover:text-indigo-700'
+                          },
+                          {
                             label: 'Delete',
                             onClick: () => handleDeleteChitFund(fund.id),
                             icon: (
                               <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 7h12M9 7V4a1 1 0 011-1h4a1 1 0 011 1v3m2 0v13a2 2 0 01-2 2H8a2 2 0 01-2-2V7h12z" />
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                               </svg>
                             ),
                             className: 'text-red-600 hover:text-red-700'
