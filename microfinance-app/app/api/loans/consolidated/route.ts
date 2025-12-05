@@ -964,15 +964,18 @@ async function createLoan(request: NextRequest, currentUserId: number) {
 
     // Calculate balances before creating the transaction
     const loanAmount = parseFloat(body.amount);
+    const documentCharge = body.documentCharge ? parseFloat(body.documentCharge) : 0;
+    const actualDisbursementAmount = loanAmount - documentCharge; // Actual cash given to member
     const affectedPartnerId = partner.id; // LOAN_DISBURSEMENT affects the sending partner
     
     const currentPartnerBalance = await getCurrentPartnerBalance(affectedPartnerId, currentUserId);
     const currentTotalBalance = await getCurrentTotalBalance(currentUserId);
     
-    const balanceCalculation = calculateTransactionBalance(
+    // Calculate balance for actual disbursement (money going out)
+    const disbursementBalanceCalculation = calculateTransactionBalance(
       {
         type: TRANSACTION_TYPES_CONFIG.LOAN_DISBURSEMENT,
-        amount: loanAmount,
+        amount: actualDisbursementAmount, // Use actual amount given to member
         from_partner_id: partner.id,
         to_partner_id: null
       },
@@ -981,52 +984,92 @@ async function createLoan(request: NextRequest, currentUserId: number) {
       currentTotalBalance
     );
 
-    // --- ALTERNATIVE LOGIC ---
-    // Create the Transaction first, and nest the Loan creation inside it.
-    const createdTransaction = await prisma.transaction.create({
-      data: {
-        type: TRANSACTION_TYPES_CONFIG.LOAN_DISBURSEMENT,
-        amount: loanAmount,
-        date: disbursementDate,
-        note: `Loan disbursed to ${body.borrowerName}`,
-        createdById: currentUserId,
-        action_performer: partner.name,
-        entered_by: partner.name,
-        from_partner_id: partner.id,
-        // Add balance tracking
-        partnerBalance: balanceCalculation.partnerBalance,
-        totalBalance: balanceCalculation.totalBalance,
-        // Nest the Loan creation here
-        loan: {
-          create: {
-            borrowerId: globalMember.id,
-            loanType: body.loanType,
-            amount: loanAmount,
-            interestRate: parseFloat(body.interestRate),
-            documentCharge: body.documentCharge ? parseFloat(body.documentCharge) : 0,
-            installmentAmount: body.installmentAmount ? parseFloat(body.installmentAmount) : 0,
-            duration: parseInt(body.duration),
-            disbursementDate,
-            repaymentType: body.repaymentType,
-            remainingAmount: loanAmount,
-            status: "Active",
-            purpose: body.purpose || null,
+    // Calculate balance for document charge (income coming in)
+    let documentChargeBalanceCalculation = null;
+    if (documentCharge > 0) {
+      documentChargeBalanceCalculation = calculateTransactionBalance(
+        {
+          type: TRANSACTION_TYPES_CONFIG.DOCUMENT_CHARGE,
+          amount: documentCharge,
+          from_partner_id: null,
+          to_partner_id: partner.id // Income for the partner
+        },
+        affectedPartnerId,
+        disbursementBalanceCalculation.partnerBalance, // Use updated balance from disbursement
+        disbursementBalanceCalculation.totalBalance
+      );
+    }
+
+    // Use Prisma transaction to create both transactions and loan atomically
+    const result = await prisma.$transaction(async (tx) => {
+      // 1. Create the LOAN_DISBURSEMENT transaction (actual cash given to member)
+      const disbursementTransaction = await tx.transaction.create({
+        data: {
+          type: TRANSACTION_TYPES_CONFIG.LOAN_DISBURSEMENT,
+          amount: actualDisbursementAmount,
+          date: disbursementDate,
+          note: `Loan disbursed to ${body.borrowerName}`,
+          createdById: currentUserId,
+          action_performer: partner.name,
+          entered_by: partner.name,
+          from_partner_id: partner.id,
+          partnerBalance: disbursementBalanceCalculation.partnerBalance,
+          totalBalance: disbursementBalanceCalculation.totalBalance,
+          // Nest the Loan creation here
+          loan: {
+            create: {
+              borrowerId: globalMember.id,
+              loanType: body.loanType,
+              amount: loanAmount,
+              interestRate: parseFloat(body.interestRate),
+              documentCharge: documentCharge,
+              installmentAmount: body.installmentAmount ? parseFloat(body.installmentAmount) : 0,
+              duration: parseInt(body.duration),
+              disbursementDate,
+              repaymentType: body.repaymentType,
+              remainingAmount: loanAmount,
+              status: "Active",
+              purpose: body.purpose || null,
+              createdById: currentUserId,
+              nextPaymentDate: initialNextPaymentDate,
+              disbursed_by_id: partner.id,
+              entered_by_id: partner.id,
+            },
+          },
+        },
+        // Include the newly created Loan and its Borrower in the response
+        include: {
+          loan: {
+            include: {
+              borrower: true,
+            },
+          },
+        },
+      });
+
+      // 2. Create the DOCUMENT_CHARGE transaction if applicable (income)
+      let documentChargeTransaction = null;
+      if (documentCharge > 0 && documentChargeBalanceCalculation) {
+        documentChargeTransaction = await tx.transaction.create({
+          data: {
+            type: TRANSACTION_TYPES_CONFIG.DOCUMENT_CHARGE,
+            amount: documentCharge,
+            date: disbursementDate,
+            note: `Document charge for loan to ${body.borrowerName}`,
             createdById: currentUserId,
-            nextPaymentDate: initialNextPaymentDate,
-            disbursed_by_id: partner.id,
-            entered_by_id: partner.id,
+            action_performer: partner.name,
+            entered_by: partner.name,
+            to_partner_id: partner.id, // Income for the partner
+            partnerBalance: documentChargeBalanceCalculation.partnerBalance,
+            totalBalance: documentChargeBalanceCalculation.totalBalance,
           },
-        },
-      },
-      // Include the newly created Loan and its Borrower in the response
-      include: {
-        loan: {
-          include: {
-            borrower: true,
-          },
-        },
-      },
+        });
+      }
+
+      return { disbursementTransaction, documentChargeTransaction };
     });
+
+    const createdTransaction = result.disbursementTransaction;
 
     // The loan object is now nested inside the transaction response
     const loan = createdTransaction.loan;
@@ -1324,6 +1367,8 @@ async function updateLoan(
 
 /**
  * Deletes a loan and all associated records using their direct relationships.
+ * Only allows deletion if there are no LOAN_REPAYMENT transactions.
+ * Deletes both LOAN_DISBURSEMENT and DOCUMENT_CHARGE transactions.
  */
 async function deleteLoan(request: NextRequest, id: number, currentUserId: number) {
   try {
@@ -1334,11 +1379,13 @@ async function deleteLoan(request: NextRequest, id: number, currentUserId: numbe
       const existingLoan = await tx.loan.findUnique({
         where: { id },
         include: {
+          borrower: true,
           transaction: {
             select: {
               id: true,
               date: true,
-              createdAt: true
+              createdAt: true,
+              type: true
             }
           },
           repayments: {
@@ -1349,7 +1396,8 @@ async function deleteLoan(request: NextRequest, id: number, currentUserId: numbe
                 select: {
                   id: true,
                   date: true,
-                  createdAt: true
+                  createdAt: true,
+                  type: true
                 }
               }
             },
@@ -1365,52 +1413,88 @@ async function deleteLoan(request: NextRequest, id: number, currentUserId: numbe
         throw new Error("You do not have permission to delete this loan");
       }
 
-      // 2. Collect all transaction IDs to be deleted and find the earliest date
+      // 2. Check if there are any LOAN_REPAYMENT transactions
+      const hasRepayments = existingLoan.repayments.some(
+        repayment => repayment.transaction?.type === TRANSACTION_TYPES_CONFIG.LOAN_REPAYMENT
+      );
+
+      if (hasRepayments) {
+        throw new Error("Cannot delete loan: Loan has repayment transactions. Please delete all repayments first.");
+      }
+
+      // 3. Find the LOAN_DISBURSEMENT transaction (from loan creation)
+      const disbursementTransactionId = existingLoan.transaction?.id;
+
+      // 4. Find any DOCUMENT_CHARGE transaction for this loan
+      // Search for DOCUMENT_CHARGE transaction created on the same date for the same borrower
+      let documentChargeTransaction = null;
+      if (existingLoan.transaction && existingLoan.documentCharge > 0) {
+        documentChargeTransaction = await tx.transaction.findFirst({
+          where: {
+            type: TRANSACTION_TYPES_CONFIG.DOCUMENT_CHARGE,
+            createdById: currentUserId,
+            date: existingLoan.transaction.date,
+            amount: existingLoan.documentCharge,
+            note: {
+              contains: existingLoan.borrower?.name || ''
+            }
+          },
+          select: {
+            id: true,
+            date: true,
+            createdAt: true
+          }
+        });
+      }
+
+      // 5. Collect all transaction IDs to be deleted and find the earliest date
       const transactionIdsToDelete: number[] = [];
       let earliestTransactionDate = new Date();
       let earliestTransactionId = Number.MAX_SAFE_INTEGER;
 
-      if (existingLoan.transaction) {
-        transactionIdsToDelete.push(existingLoan.transaction.id);
-        if (existingLoan.transaction.date < earliestTransactionDate) {
-          earliestTransactionDate = existingLoan.transaction.date;
-          earliestTransactionId = existingLoan.transaction.id;
+      // Add LOAN_DISBURSEMENT transaction
+      if (disbursementTransactionId) {
+        transactionIdsToDelete.push(disbursementTransactionId);
+        if (existingLoan.transaction!.date < earliestTransactionDate) {
+          earliestTransactionDate = existingLoan.transaction!.date;
+          earliestTransactionId = disbursementTransactionId;
         }
       }
 
-      existingLoan.repayments.forEach(repayment => {
-        if (repayment.transaction) {
-          transactionIdsToDelete.push(repayment.transaction.id);
-          if (repayment.transaction.date < earliestTransactionDate) {
-            earliestTransactionDate = repayment.transaction.date;
-            earliestTransactionId = repayment.transaction.id;
-          }
+      // Add DOCUMENT_CHARGE transaction if found
+      if (documentChargeTransaction) {
+        transactionIdsToDelete.push(documentChargeTransaction.id);
+        if (documentChargeTransaction.date < earliestTransactionDate) {
+          earliestTransactionDate = documentChargeTransaction.date;
+          earliestTransactionId = documentChargeTransaction.id;
         }
-      });
+      }
 
-      // 3. Delete all associated transactions
+      // Note: We already checked that there are no repayments, so no repayment transactions to delete
+
+      // 6. Delete all associated transactions (LOAN_DISBURSEMENT and DOCUMENT_CHARGE)
       if (transactionIdsToDelete.length > 0) {
         await tx.transaction.deleteMany({
           where: { id: { in: transactionIdsToDelete } },
         });
       }
 
-      // 4. Delete related repayments (Prisma handles this cascade if configured, but explicit is safer)
+      // 7. Delete related repayments (should be none, but just in case)
       await tx.repayment.deleteMany({
         where: { loanId: id },
       });
 
-      // 5. Delete payment schedules
+      // 8. Delete payment schedules
       await tx.paymentSchedule.deleteMany({
         where: { loanId: id },
       });
 
-      // 6. Delete the loan itself
+      // 9. Delete the loan itself
       await tx.loan.delete({
         where: { id },
       });
 
-      // 7. Recalculate balances for all subsequent transactions
+      // 10. Recalculate balances for all subsequent transactions
       if (transactionIdsToDelete.length > 0) {
         await recalculateBalancesAfterDeletion(
           currentUserId,

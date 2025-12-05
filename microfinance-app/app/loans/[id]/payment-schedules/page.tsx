@@ -4,6 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { loanAPI } from '../../../../lib/api';
+import { formatDate as formatDateUtil, formatCurrency as formatCurrencyUtil } from '../../../../lib/formatUtils';
 
 // Define interfaces
 interface Loan {
@@ -134,21 +135,12 @@ const PaymentSchedulesPage = () => {
 
   // Format date
   const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('en-IN', {
-      day: '2-digit',
-      month: 'short',
-      year: 'numeric'
-    });
+    return formatDateUtil(dateString);
   };
 
   // Format currency
   const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-IN', {
-      style: 'currency',
-      currency: 'INR',
-      maximumFractionDigits: 0
-    }).format(amount);
+    return formatCurrencyUtil(amount);
   };
 
   // Handle page change

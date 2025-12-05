@@ -5,6 +5,7 @@ import React, { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { apiGet, apiPost, apiPut, apiDelete } from "../../../lib/apiUtils";
+import { formatDate as formatDateUtil, formatCurrency as formatCurrencyUtil } from "../../../../lib/formatUtils";
 
 interface GlobalMember {
   id: number;
@@ -347,21 +348,12 @@ export default function ChitFundContributionsPage() {
 
   // Format currency
   const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat("en-IN", {
-      style: "currency",
-      currency: "INR",
-      maximumFractionDigits: 0,
-    }).format(amount);
+    return formatCurrencyUtil(amount);
   };
 
   // Format date
   const formatDate = (dateString: string) => {
-    const options: Intl.DateTimeFormatOptions = {
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-    };
-    return new Date(dateString).toLocaleDateString("en-IN", options);
+    return formatDateUtil(dateString);
   };
 
   // Filter contributions based on selected month and member

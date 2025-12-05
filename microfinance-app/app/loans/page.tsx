@@ -7,6 +7,7 @@ import { LoansListSkeleton } from '../components/skeletons/ListSkeletons';
 import { loanAPI } from '../../lib/api';
 import { ArrowDownTrayIcon, TrashIcon, PlusCircleIcon } from '@heroicons/react/24/solid';
 import ActionDropdown, { ActionItem } from '../components/ui/ActionDropdown';
+import { formatDate as formatDateUtil } from '../../lib/formatUtils';
 
 // Define interfaces for Loan type
 interface GlobalMember {
@@ -284,13 +285,7 @@ export default function LoansPage() {
 
   // Format date
   const formatDate = (dateString: string | null) => {
-    if (!dateString) return 'N/A';
-    const date = new Date(dateString);
-    return new Intl.DateTimeFormat('en-IN', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-    }).format(date);
+    return formatDateUtil(dateString);
   };
 
   // Get status color

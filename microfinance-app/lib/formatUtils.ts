@@ -26,7 +26,7 @@ export function formatCurrency(value: number | string | null | undefined): strin
 /**
  * Format a date consistently
  * @param date The date to format
- * @returns Formatted date string
+ * @returns Formatted date string in format: 01-Jan-25
  */
 export function formatDate(date: Date | string | null | undefined): string {
   if (!date) return 'N/A';
@@ -36,15 +36,15 @@ export function formatDate(date: Date | string | null | undefined): string {
 
     if (isNaN(d.getTime())) return 'N/A';
 
-    // Use a more consistent approach that doesn't rely on locale-specific formatting
-    const day = d.getDate();
+    // Format as: 01-Jan-25
+    const day = String(d.getDate()).padStart(2, '0');
     const month = [
-      'January', 'February', 'March', 'April', 'May', 'June',
-      'July', 'August', 'September', 'October', 'November', 'December'
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
     ][d.getMonth()];
-    const year = d.getFullYear();
+    const year = String(d.getFullYear()).slice(-2); // Last 2 digits of year
 
-    return `${day} ${month} ${year}`;
+    return `${day}-${month}-${year}`;
   } catch (error) {
     console.error('Error formatting date:', error);
     return 'N/A';

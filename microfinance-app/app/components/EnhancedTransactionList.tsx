@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { formatCurrency } from '../../lib/formatUtils';
+import { formatCurrency, formatDate as formatDateUtil } from '../../lib/formatUtils';
 import { usePartner } from '../contexts/PartnerContext';
 
 interface Transaction {
@@ -35,6 +35,11 @@ const TRANSACTION_TYPE_OPTIONS = [
   { value: 'loan_given', label: 'Loans Given' },
   { value: 'loan_repaid', label: 'Loan Repayments' },
   { value: 'record_amount', label: 'Record Amount' },
+  { value: 'LOAN_DISBURSEMENT', label: 'Loan Disbursements' },
+  { value: 'LOAN_REPAYMENT', label: 'Loan Repayments' },
+  { value: 'DOCUMENT_CHARGE', label: 'Document Charges' },
+  { value: 'CHIT_CONTRIBUTION', label: 'Chit Contributions' },
+  { value: 'AUCTION_PAYOUT', label: 'Auction Payouts' },
 ];
 
 const TYPE_ICONS: Record<string, string> = {
@@ -43,6 +48,13 @@ const TYPE_ICONS: Record<string, string> = {
   loan_given: '📤',
   loan_repaid: '📥',
   record_amount: '💳',
+  LOAN_DISBURSEMENT: '📤',
+  LOAN_REPAYMENT: '📥',
+  DOCUMENT_CHARGE: '📋',
+  CHIT_CONTRIBUTION: '🏦',
+  AUCTION_PAYOUT: '🎯',
+  PARTNER_TO_PARTNER: '�',
+  RECORD_AMOUNT: '�💳',
 };
 
 const TYPE_COLORS: Record<string, string> = {
@@ -51,6 +63,13 @@ const TYPE_COLORS: Record<string, string> = {
   loan_given: 'bg-orange-100 text-orange-800',
   loan_repaid: 'bg-purple-100 text-purple-800',
   record_amount: 'bg-indigo-100 text-indigo-800',
+  LOAN_DISBURSEMENT: 'bg-orange-100 text-orange-800',
+  LOAN_REPAYMENT: 'bg-purple-100 text-purple-800',
+  DOCUMENT_CHARGE: 'bg-emerald-100 text-emerald-800',
+  CHIT_CONTRIBUTION: 'bg-teal-100 text-teal-800',
+  AUCTION_PAYOUT: 'bg-amber-100 text-amber-800',
+  PARTNER_TO_PARTNER: 'bg-blue-100 text-blue-800',
+  RECORD_AMOUNT: 'bg-indigo-100 text-indigo-800',
 };
 
 export default function EnhancedTransactionList({ refresh }: TransactionListProps) {
@@ -149,11 +168,7 @@ export default function EnhancedTransactionList({ refresh }: TransactionListProp
   }
 
   function formatDate(dateString: string) {
-    return new Date(dateString).toLocaleDateString('en-IN', {
-      day: '2-digit',
-      month: 'short',
-      year: 'numeric'
-    });
+    return formatDateUtil(dateString);
   }
 
   if (loading && page === 1) {

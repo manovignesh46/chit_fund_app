@@ -117,6 +117,15 @@ export function calculateTransactionBalance(
       }
       break;
 
+    case 'DOCUMENT_CHARGE':
+      // Document charge - income from loan processing fees
+      // Affects the collecting partner (to_partner_id)
+      if (affectedPartnerId === transaction.to_partner_id) {
+        partnerBalanceChange = transaction.amount;
+      }
+      totalBalanceChange = transaction.amount;
+      break;
+
     default:
       // For unknown transaction types, treat as neutral
       partnerBalanceChange = 0;

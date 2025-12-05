@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { ChitFundsListSkeleton } from '../components/skeletons';
 import { ArrowDownTrayIcon, TrashIcon, PlusCircleIcon } from '@heroicons/react/24/solid';
 import ActionDropdown, { ActionItem } from '../components/ui/ActionDropdown';
+import { formatDate as formatDateUtil } from '../../lib/formatUtils';
 
 // Define interfaces
 interface ChitFund {
@@ -341,13 +342,7 @@ export default function ChitFundsPage() {
 
   // Format date
   const formatDate = (dateString: string | null) => {
-    if (!dateString) return 'N/A';
-    const date = new Date(dateString);
-    return new Intl.DateTimeFormat('en-IN', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-    }).format(date);
+    return formatDateUtil(dateString);
   };
 
   // Get status color

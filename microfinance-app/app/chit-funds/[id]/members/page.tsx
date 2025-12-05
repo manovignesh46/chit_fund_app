@@ -7,6 +7,7 @@ import Link from 'next/link';
 // import { apiGet, apiPost, apiPut, apiDelete } from '../../../lib/apiUtils';
 import { apiGet, apiPost, apiPut, apiDelete } from '../../../lib/apiUtils';
 import { UserGroupIcon, PlusCircleIcon, ArrowUturnLeftIcon, DocumentArrowDownIcon, TrashIcon, UserPlusIcon, UsersIcon, BanknotesIcon } from '@heroicons/react/24/outline';
+import { formatDate as formatDateUtil, formatCurrency as formatCurrencyUtil } from '../../../../lib/formatUtils';
 
 interface GlobalMember {
   id: number;
@@ -285,21 +286,12 @@ export default function ChitFundMembersPage() {
 
   // Format currency
   const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-IN', {
-      style: 'currency',
-      currency: 'INR',
-      maximumFractionDigits: 0,
-    }).format(amount);
+    return formatCurrencyUtil(amount);
   };
 
   // Format date
   const formatDate = (dateString: string) => {
-    const options: Intl.DateTimeFormatOptions = {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-    };
-    return new Date(dateString).toLocaleDateString('en-IN', options);
+    return formatDateUtil(dateString);
   };
 
   // Handle delete member

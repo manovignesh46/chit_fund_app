@@ -6,6 +6,7 @@ import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { loanAPI } from '../../../../../lib/api';
 import { usePartner } from '../../../../contexts/PartnerContext';
+import { formatDate } from '../../../../../lib/formatUtils';
 
 interface Loan {
   id: number;
@@ -613,7 +614,7 @@ export default function NewRepaymentPage() {
                     .map((schedule) => (
                     <option key={schedule.id} value={schedule.id}>
                       {loan?.repaymentType === 'Weekly' ? `Week ${schedule.period}` : `Month ${schedule.period}`} -
-                      Due: {new Date(schedule.dueDate).toLocaleDateString()} -
+                      Due: {formatDate(schedule.dueDate)} -
                       Amount: {new Intl.NumberFormat('en-IN', {
                         style: 'currency',
                         currency: 'INR',
