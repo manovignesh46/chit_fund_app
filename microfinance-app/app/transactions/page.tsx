@@ -41,6 +41,9 @@ export default function TransactionsPage() {
 
   // Email modal state
   const [showEmailModal, setShowEmailModal] = useState(false);
+  
+  // Database export state
+  const [isExportingDB, setIsExportingDB] = useState(false);
 
   // Fetch all members on mount
   useEffect(() => {
@@ -104,6 +107,43 @@ export default function TransactionsPage() {
     const params = buildTransactionFilterParams(getCurrentFilters());
     const exportUrl = `/api/transactions/export?${params.toString()}`;
     window.open(exportUrl, "_blank");
+  };
+
+  const handleDatabaseExport = async () => {
+    setIsExportingDB(true);
+    try {
+      const response = await fetch('/api/db-backup');
+      
+      if (!response.ok) {
+        throw new Error('Database export failed');
+      }
+      
+      // Get the filename from the response headers
+      const contentDisposition = response.headers.get('content-disposition');
+      const filename = contentDisposition
+        ? contentDisposition.split('filename=')[1]?.replace(/"/g, '')
+        : 'database-backup.zip';
+      
+      // Create blob and download
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.style.display = 'none';
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+      
+      // Show success message (you can implement a toast notification system)
+      alert('Database backup downloaded successfully!');
+    } catch (error) {
+      console.error('Database export failed:', error);
+      alert('Database export failed. Please try again.');
+    } finally {
+      setIsExportingDB(false);
+    }
   };
 
   return (
@@ -338,6 +378,28 @@ export default function TransactionsPage() {
             />
           </svg>
           Export
+        </button>
+        <button
+          onClick={handleDatabaseExport}
+          disabled={isExportingDB}
+          className="flex items-center px-4 py-2 text-sm bg-purple-600 text-white rounded-md hover:bg-purple-700 disabled:bg-purple-400 disabled:cursor-not-allowed transition duration-300"
+          title="Export complete database backup as ZIP"
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            className="h-4 w-4 mr-2"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10"
+            />
+          </svg>
+          {isExportingDB ? 'Exporting...' : 'Export DB'}
         </button>
         <button
           onClick={() => setShowEmailModal(true)}
