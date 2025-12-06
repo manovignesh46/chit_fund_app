@@ -20,6 +20,11 @@ export default function CurrentMonthCollections({ refreshTrigger }: Props) {
   const [data, setData] = useState(null as AggregationData | null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null as string | null);
+  
+  // Get current month and year
+  const currentDate = new Date();
+  const [selectedMonth, setSelectedMonth] = useState(currentDate.getMonth()); // 0-11
+  const [selectedYear, setSelectedYear] = useState(currentDate.getFullYear());
 
   useEffect(() => {
     const fetchCurrentMonthAggregations = async () => {
@@ -27,10 +32,9 @@ export default function CurrentMonthCollections({ refreshTrigger }: Props) {
       setError(null);
       
       try {
-        // Get current month's start and end dates
-        const now = new Date();
-        const startDate = new Date(now.getFullYear(), now.getMonth(), 1);
-        const endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+        // Get selected month's start and end dates
+        const startDate = new Date(selectedYear, selectedMonth, 1);
+        const endDate = new Date(selectedYear, selectedMonth + 1, 0);
 
         // Format dates as YYYY-MM-DD
         const formatDate = (date: Date) => {
@@ -56,7 +60,7 @@ export default function CurrentMonthCollections({ refreshTrigger }: Props) {
     };
 
     fetchCurrentMonthAggregations();
-  }, [refreshTrigger]);
+  }, [refreshTrigger, selectedMonth, selectedYear]);
 
   if (loading) {
     return (
@@ -94,15 +98,51 @@ export default function CurrentMonthCollections({ refreshTrigger }: Props) {
     ? (data.totalActualAmount / data.totalExpectedAmount) * 100 
     : 0;
 
+  // Generate month options
+  const months = [
+    'January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December'
+  ];
+
+  // Generate year options (last 3 years)
+  const years = [];
+  for (let i = currentDate.getFullYear(); i >= currentDate.getFullYear() - 2; i--) {
+    years.push(i);
+  }
+
   return (
     <div className="mb-6 sm:mb-8">
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 gap-3">
         <h2 className="text-lg sm:text-xl font-bold text-blue-700">
-          This Month's Collections
+          Monthly Collections
         </h2>
-        <span className="text-xs sm:text-sm text-gray-500">
-          {new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
-        </span>
+        
+        {/* Month and Year Selectors */}
+        <div className="flex items-center gap-2">
+          <select
+            value={selectedMonth}
+            onChange={(e) => setSelectedMonth(Number(e.target.value))}
+            className="px-3 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+          >
+            {months.map((month, index) => (
+              <option key={index} value={index}>
+                {month}
+              </option>
+            ))}
+          </select>
+          
+          <select
+            value={selectedYear}
+            onChange={(e) => setSelectedYear(Number(e.target.value))}
+            className="px-3 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+          >
+            {years.map((year) => (
+              <option key={year} value={year}>
+                {year}
+              </option>
+            ))}
+          </select>
+        </div>
       </div>
 
       <div className="grid grid-cols-2 gap-4 sm:gap-6 md:grid-cols-3">
