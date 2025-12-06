@@ -8,7 +8,7 @@ const {
   getWeeklyPeriod,
   getExpectedMonthlyEmailDates,
   getExpectedWeeklyEmailDates
-} = require('./lib/emailRecovery');
+} = require('../lib/emailRecovery');
 
 async function testEmailRecovery() {
   console.log('🧪 Testing Email Recovery System...\n');

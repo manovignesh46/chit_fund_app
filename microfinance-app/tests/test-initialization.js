@@ -1,7 +1,7 @@
 // Test script to verify if the initialization is working
 // Run with: node test-initialization.js
 
-const { initializeApp } = require('./lib/init.ts');
+const { initializeApp } = require('../lib/init.js');
 
 console.log('🧪 Testing Application Initialization...\n');
 

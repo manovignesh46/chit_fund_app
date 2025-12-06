@@ -5,7 +5,7 @@
  */
 
 const { PrismaClient } = require('@prisma/client');
-const { calculateTransactionBalance, getCurrentPartnerBalance, getCurrentTotalBalance } = require('./lib/balanceCalculator');
+const { calculateTransactionBalance, getCurrentPartnerBalance, getCurrentTotalBalance } = require('../lib/balanceCalculator');
 
 const prisma = new PrismaClient();
 

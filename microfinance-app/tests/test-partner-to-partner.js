@@ -117,7 +117,7 @@ async function testPartnerToPartnerTransactions() {
     console.log('\n🔄 Testing balance refresh functionality...');
     
     try {
-      const { recalculateAllBalances } = require('./lib/balanceCalculator');
+      const { recalculateAllBalances } = require('../lib/balanceCalculator');
       await recalculateAllBalances(user.id);
       console.log('✅ Balance refresh completed successfully');
     } catch (error) {

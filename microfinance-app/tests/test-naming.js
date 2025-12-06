@@ -1,5 +1,5 @@
 // Test script to demonstrate the new dynamic naming for transaction exports
-const { generateTransactionExportName } = require('./lib/transactionExportNameGenerator');
+const { generateTransactionExportName } = require('../lib/transactionExportNameGenerator');
 
 console.log('Testing Transaction Export Dynamic Naming\n');
 
