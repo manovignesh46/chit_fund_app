@@ -60,6 +60,7 @@ export async function GET(request: NextRequest) {
     let totalRecordedAmountCredit = 0;
     let totalRecordedAmountDebit = 0;
     let totalPartnerTransfers = 0;
+    let totalDocumentCharges = 0;
     let totalAmount = 0;
 
     // Partner breakdown tracking
@@ -75,6 +76,7 @@ export async function GET(request: NextRequest) {
       recordedAmounts: number;
       partnerTransfersIn: number;
       partnerTransfersOut: number;
+      documentCharges: number;
     } } = {};
 
     // Process each transaction
@@ -89,6 +91,9 @@ export async function GET(request: NextRequest) {
           break;
         case TRANSACTION_TYPES_CONFIG.LOAN_DISBURSEMENT:
           totalLoanDisbursement += amount;
+          break;
+        case TRANSACTION_TYPES_CONFIG.DOCUMENT_CHARGE:
+          totalDocumentCharges += amount;
           break;
         case TRANSACTION_TYPES_CONFIG.CHIT_CONTRIBUTION:
           totalChitContributions += amount;
@@ -145,7 +150,8 @@ export async function GET(request: NextRequest) {
             auctionPayouts: 0,
             recordedAmounts: 0,
             partnerTransfersIn: 0,
-            partnerTransfersOut: 0
+            partnerTransfersOut: 0,
+            documentCharges: 0
           };
         }
 
@@ -158,6 +164,9 @@ export async function GET(request: NextRequest) {
             break;
           case TRANSACTION_TYPES_CONFIG.LOAN_DISBURSEMENT:
             partnerStats[partnerName].loanDisbursements += amount;
+            break;
+          case TRANSACTION_TYPES_CONFIG.DOCUMENT_CHARGE:
+            partnerStats[partnerName].documentCharges += amount;
             break;
           case TRANSACTION_TYPES_CONFIG.CHIT_CONTRIBUTION:
             partnerStats[partnerName].chitContributions += amount;
@@ -201,10 +210,10 @@ export async function GET(request: NextRequest) {
     }
 
     // Calculate total amount as (Credits - Debits)
-    // Credits: Loan Repayments + Chit Contributions + Recorded Amount Credits
+    // Credits: Loan Repayments + Document Charges + Chit Contributions + Recorded Amount Credits
     // Debits: Loan Disbursements + Auction Payouts + Recorded Amount Debits
     const netRecordedAmount = totalRecordedAmountCredit - totalRecordedAmountDebit;
-    totalAmount = (totalLoanRepayment + totalChitContributions + totalRecordedAmountCredit) - (totalLoanDisbursement + totalAuctionPayouts + totalRecordedAmountDebit);
+    totalAmount = (totalLoanRepayment + totalDocumentCharges + totalChitContributions + totalRecordedAmountCredit) - (totalLoanDisbursement + totalAuctionPayouts + totalRecordedAmountDebit);
 
     // Calculate balance difference as net transaction amount
     const balanceDifference = totalAmount;
@@ -223,7 +232,8 @@ export async function GET(request: NextRequest) {
         auctionPayouts: stats.auctionPayouts,
         recordedAmounts: stats.recordedAmounts,
         partnerTransfers: stats.partnerTransfersIn - stats.partnerTransfersOut,
-        partnerTotalAmount: (stats.loanRepayments + stats.chitContributions + stats.recordedAmounts) - (stats.loanDisbursements + stats.auctionPayouts) + (stats.partnerTransfersIn - stats.partnerTransfersOut)
+        documentCharges: stats.documentCharges,
+        partnerTotalAmount: (stats.loanRepayments + stats.documentCharges + stats.chitContributions + stats.recordedAmounts) - (stats.loanDisbursements + stats.auctionPayouts) + (stats.partnerTransfersIn - stats.partnerTransfersOut)
       };
     });
 
@@ -233,6 +243,7 @@ export async function GET(request: NextRequest) {
     const summaryData = {
       totalLoanRepayment,
       totalLoanDisbursement,
+      totalDocumentCharges,
       totalChitContributions,
       totalAuctionPayouts,
       totalRecordedAmount: netRecordedAmount,
@@ -274,7 +285,7 @@ function getCreditDebitStatus(transaction: any, partnerName: string): boolean {
   }
 
   // For other transaction types, use standardized logic
-  const creditTypes = ['LOAN_REPAYMENT', 'CHIT_CONTRIBUTION'];
+  const creditTypes = ['LOAN_REPAYMENT', 'CHIT_CONTRIBUTION', 'DOCUMENT_CHARGE'];
   const debitTypes = ['LOAN_DISBURSEMENT', 'AUCTION_PAYOUT'];
   
   if (creditTypes.includes(transaction.type)) return true;

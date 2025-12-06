@@ -180,7 +180,7 @@ export async function GET(request: NextRequest) {
         // Categorize based on standardized transaction types
         if (t.type && typeof t.type === 'string') {
           const debitTypes = ['LOAN_DISBURSEMENT', 'AUCTION_PAYOUT'];
-          const creditTypes = ['LOAN_REPAYMENT', 'CHIT_CONTRIBUTION'];
+          const creditTypes = ['LOAN_REPAYMENT', 'CHIT_CONTRIBUTION', 'DOCUMENT_CHARGE'];
           if (debitTypes.includes(t.type)) return 'Debit';
           if (creditTypes.includes(t.type)) return 'Credit';
         }
@@ -282,6 +282,7 @@ export async function GET(request: NextRequest) {
       let totalRecordedAmountCredit = 0;
       let totalRecordedAmountDebit = 0;
       let totalPartnerTransfers = 0;
+      let totalDocumentCharges = 0;
 
       // Partner breakdown tracking
       const partnerStats: { [key: string]: {
@@ -296,6 +297,7 @@ export async function GET(request: NextRequest) {
         recordedAmounts: number;
         partnerTransfersIn: number;
         partnerTransfersOut: number;
+        documentCharges: number;
       } } = {};
 
       // Helper function to determine credit/debit status for a partner (same as in summary route)
@@ -315,7 +317,7 @@ export async function GET(request: NextRequest) {
           if (transaction.from_partner === partnerName) return false;
         }
 
-        const creditTypes = ['LOAN_REPAYMENT', 'CHIT_CONTRIBUTION'];
+        const creditTypes = ['LOAN_REPAYMENT', 'CHIT_CONTRIBUTION', 'DOCUMENT_CHARGE'];
         const debitTypes = ['LOAN_DISBURSEMENT', 'AUCTION_PAYOUT'];
         
         if (creditTypes.includes(transaction.type)) return true;
@@ -336,6 +338,9 @@ export async function GET(request: NextRequest) {
             break;
           case 'LOAN_DISBURSEMENT':
             totalLoanDisbursement += amount;
+            break;
+          case 'DOCUMENT_CHARGE':
+            totalDocumentCharges += amount;
             break;
           case 'CHIT_CONTRIBUTION':
             totalChitContributions += amount;
@@ -388,7 +393,8 @@ export async function GET(request: NextRequest) {
               auctionPayouts: 0,
               recordedAmounts: 0,
               partnerTransfersIn: 0,
-              partnerTransfersOut: 0
+              partnerTransfersOut: 0,
+              documentCharges: 0
             };
           }
 
@@ -401,6 +407,9 @@ export async function GET(request: NextRequest) {
               break;
             case 'LOAN_DISBURSEMENT':
               partnerStats[partnerName].loanDisbursements += amount;
+              break;
+            case 'DOCUMENT_CHARGE':
+              partnerStats[partnerName].documentCharges += amount;
               break;
             case 'CHIT_CONTRIBUTION':
               partnerStats[partnerName].chitContributions += amount;
@@ -453,7 +462,7 @@ export async function GET(request: NextRequest) {
       };
 
       const summaryExportData = Object.entries(partnerStats).map(([name, stats]) => {
-        const partnerTotalAmount = (stats.loanRepayments + stats.chitContributions + stats.recordedAmounts) - (stats.loanDisbursements + stats.auctionPayouts);
+        const partnerTotalAmount = (stats.loanRepayments + stats.documentCharges + stats.chitContributions + stats.recordedAmounts) - (stats.loanDisbursements + stats.auctionPayouts);
         const netPartnerTransfers = stats.partnerTransfersIn - stats.partnerTransfersOut;
         const finalTotalAmount = partnerTotalAmount + netPartnerTransfers;
         return {
@@ -462,6 +471,7 @@ export async function GET(request: NextRequest) {
           'Chit Contributions': formatSummaryCurrency(stats.chitContributions || 0),
           'Recorded Amounts': formatSummaryCurrency(stats.recordedAmounts || 0),
           'Loan Disbursements': formatSummaryCurrency(stats.loanDisbursements || 0),
+          'Document Charges': formatSummaryCurrency(stats.documentCharges || 0),
           'Auction Payouts': formatSummaryCurrency(stats.auctionPayouts || 0),
           'Partner Transfers': formatSummaryCurrency(netPartnerTransfers),
           'Total Amount': formatSummaryCurrency(finalTotalAmount)
@@ -477,6 +487,7 @@ export async function GET(request: NextRequest) {
         'Chit Contributions': formatSummaryCurrency(totalChitContributions),
         'Recorded Amounts': formatSummaryCurrency(netRecordedAmount),
         'Loan Disbursements': formatSummaryCurrency(totalLoanDisbursement),
+        'Document Charges': formatSummaryCurrency(totalDocumentCharges),
         'Auction Payouts': formatSummaryCurrency(totalAuctionPayouts),
         'Partner Transfers': formatSummaryCurrency(totalNetPartnerTransfers),
         'Total Amount': formatSummaryCurrency(finalTotalAmount)
@@ -492,13 +503,14 @@ export async function GET(request: NextRequest) {
         { width: 18 }, // Chit Contributions
         { width: 18 }, // Recorded Amounts
         { width: 18 }, // Loan Disbursements
+        { width: 18 }, // Document Charges
         { width: 18 }, // Auction Payouts
         { width: 18 }, // Partner Transfers
         { width: 18 }  // Total Amount
       ];
 
       // Apply bold formatting to header row
-      const summaryRange = XLSX.utils.decode_range(summaryWs['!ref'] || 'A1:H1');
+      const summaryRange = XLSX.utils.decode_range(summaryWs['!ref'] || 'A1:I1');
       for (let col = summaryRange.s.c; col <= summaryRange.e.c; col++) {
         const cellRef = XLSX.utils.encode_cell({ r: 0, c: col });
         if (!summaryWs[cellRef]) continue;

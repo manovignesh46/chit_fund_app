@@ -631,6 +631,7 @@ async function handleEmailExport(request: NextRequest) {
     let totalRecordedAmountCredit = 0;
     let totalRecordedAmountDebit = 0;
     let totalPartnerTransfers = 0;
+    let totalDocumentCharges = 0;
 
     // Partner breakdown tracking
     const partnerStats: { [key: string]: {
@@ -645,6 +646,7 @@ async function handleEmailExport(request: NextRequest) {
       recordedAmounts: number;
       partnerTransfersIn: number;
       partnerTransfersOut: number;
+      documentCharges: number;
     } } = {};
 
     // Helper function to determine credit/debit status for a partner (same as in summary route)
@@ -664,7 +666,7 @@ async function handleEmailExport(request: NextRequest) {
         if (transaction.from_partner === partnerName) return false;
       }
 
-      const creditTypes = ['LOAN_REPAYMENT', 'CHIT_CONTRIBUTION'];
+      const creditTypes = ['LOAN_REPAYMENT', 'CHIT_CONTRIBUTION', 'DOCUMENT_CHARGE'];
       const debitTypes = ['LOAN_DISBURSEMENT', 'AUCTION_PAYOUT'];
       
       if (creditTypes.includes(transaction.type)) return true;
@@ -685,6 +687,9 @@ async function handleEmailExport(request: NextRequest) {
           break;
         case 'LOAN_DISBURSEMENT':
           totalLoanDisbursement += amount;
+          break;
+        case 'DOCUMENT_CHARGE':
+          totalDocumentCharges += amount;
           break;
         case 'CHIT_CONTRIBUTION':
           totalChitContributions += amount;
@@ -737,7 +742,8 @@ async function handleEmailExport(request: NextRequest) {
             auctionPayouts: 0,
             recordedAmounts: 0,
             partnerTransfersIn: 0,
-            partnerTransfersOut: 0
+            partnerTransfersOut: 0,
+            documentCharges: 0
           };
         }
 
@@ -750,6 +756,9 @@ async function handleEmailExport(request: NextRequest) {
             break;
           case 'LOAN_DISBURSEMENT':
             partnerStats[partnerName].loanDisbursements += amount;
+            break;
+          case 'DOCUMENT_CHARGE':
+            partnerStats[partnerName].documentCharges += amount;
             break;
           case 'CHIT_CONTRIBUTION':
             partnerStats[partnerName].chitContributions += amount;
@@ -790,7 +799,7 @@ async function handleEmailExport(request: NextRequest) {
 
     // Calculate totals for summary
     const netRecordedAmount = totalRecordedAmountCredit - totalRecordedAmountDebit;
-    const summaryTotalAmount = (totalLoanRepayment + totalChitContributions + totalRecordedAmountCredit) - (totalLoanDisbursement + totalAuctionPayouts + totalRecordedAmountDebit);
+    const summaryTotalAmount = (totalLoanRepayment + totalDocumentCharges + totalChitContributions + totalRecordedAmountCredit) - (totalLoanDisbursement + totalAuctionPayouts + totalRecordedAmountDebit);
 
       // Remove ₹ symbol for Amount, Partner Balance, Total Balance
       const stripRupee = (val: any) => {
@@ -819,7 +828,7 @@ async function handleEmailExport(request: NextRequest) {
 
     // Create summary data for Excel
     const summaryExportData = Object.entries(partnerStats).map(([name, stats]) => {
-      const partnerTotalAmount = (stats.loanRepayments + stats.chitContributions + stats.recordedAmounts) - (stats.loanDisbursements + stats.auctionPayouts);
+      const partnerTotalAmount = (stats.loanRepayments + stats.documentCharges + stats.chitContributions + stats.recordedAmounts) - (stats.loanDisbursements + stats.auctionPayouts);
       const netPartnerTransfers = stats.partnerTransfersIn - stats.partnerTransfersOut;
       const finalTotalAmount = partnerTotalAmount + netPartnerTransfers;
       return {
@@ -828,6 +837,7 @@ async function handleEmailExport(request: NextRequest) {
         'Chit Contributions': formatCurrency(stats.chitContributions || 0),
         'Recorded Amounts': formatCurrency(stats.recordedAmounts || 0),
         'Loan Disbursements': formatCurrency(stats.loanDisbursements || 0),
+        'Document Charges': formatCurrency(stats.documentCharges || 0),
         'Auction Payouts': formatCurrency(stats.auctionPayouts || 0),
         'Partner Transfers': formatCurrency(netPartnerTransfers),
         'Total Amount': formatCurrency(finalTotalAmount)
@@ -843,6 +853,7 @@ async function handleEmailExport(request: NextRequest) {
       'Chit Contributions': formatCurrency(totalChitContributions),
       'Recorded Amounts': formatCurrency(netRecordedAmount),
       'Loan Disbursements': formatCurrency(totalLoanDisbursement),
+      'Document Charges': formatCurrency(totalDocumentCharges),
       'Auction Payouts': formatCurrency(totalAuctionPayouts),
       'Partner Transfers': formatCurrency(totalNetPartnerTransfers),
       'Total Amount': formatCurrency(finalSummaryTotalAmount)
@@ -888,13 +899,14 @@ async function handleEmailExport(request: NextRequest) {
       { width: 18 }, // Chit Contributions
       { width: 18 }, // Recorded Amounts
       { width: 18 }, // Loan Disbursements
+      { width: 18 }, // Document Charges
       { width: 18 }, // Auction Payouts
       { width: 18 }, // Partner Transfers
       { width: 18 }  // Total Amount
     ];
 
     // Apply bold formatting to header row
-    const summaryRange = XLSX.utils.decode_range(summaryWs['!ref'] || 'A1:H1');
+    const summaryRange = XLSX.utils.decode_range(summaryWs['!ref'] || 'A1:I1');
     for (let col = summaryRange.s.c; col <= summaryRange.e.c; col++) {
       const cellRef = XLSX.utils.encode_cell({ r: 0, c: col });
       if (!summaryWs[cellRef]) continue;
@@ -960,7 +972,7 @@ async function handleEmailExport(request: NextRequest) {
 
     // Generate summary table for email
     const summaryTableRows = Object.entries(partnerStats).map(([name, stats]) => {
-      const partnerTotalAmount = (stats.loanRepayments + stats.chitContributions + stats.recordedAmounts) - (stats.loanDisbursements + stats.auctionPayouts);
+      const partnerTotalAmount = (stats.loanRepayments + stats.documentCharges + stats.chitContributions + stats.recordedAmounts) - (stats.loanDisbursements + stats.auctionPayouts);
       const netPartnerTransfers = stats.partnerTransfersIn - stats.partnerTransfersOut;
       const finalTotalAmount = partnerTotalAmount + netPartnerTransfers;
       return `
@@ -970,6 +982,7 @@ async function handleEmailExport(request: NextRequest) {
           <td style="padding: 8px; border: 1px solid #ddd; text-align: right;">${formatCurrency(stats.chitContributions || 0)}</td>
           <td style="padding: 8px; border: 1px solid #ddd; text-align: right;">${formatCurrency(stats.recordedAmounts || 0)}</td>
           <td style="padding: 8px; border: 1px solid #ddd; text-align: right;">${formatCurrency(stats.loanDisbursements || 0)}</td>
+          <td style="padding: 8px; border: 1px solid #ddd; text-align: right;">${formatCurrency(stats.documentCharges || 0)}</td>
           <td style="padding: 8px; border: 1px solid #ddd; text-align: right;">${formatCurrency(stats.auctionPayouts || 0)}</td>
           <td style="padding: 8px; border: 1px solid #ddd; text-align: right;">${formatCurrency(netPartnerTransfers)}</td>
           <td style="padding: 8px; border: 1px solid #ddd; text-align: right;">${formatCurrency(finalTotalAmount)}</td>
@@ -997,6 +1010,7 @@ async function handleEmailExport(request: NextRequest) {
       <ul>
         <li><strong>Loan Repayments:</strong> ${formatCurrency(totalLoanRepayment)}</li>
         <li><strong>Loan Disbursements:</strong> ${formatCurrency(totalLoanDisbursement)}</li>
+        <li><strong>Document Charges:</strong> ${formatCurrency(totalDocumentCharges)}</li>
         <li><strong>Chit Contributions:</strong> ${formatCurrency(totalChitContributions)}</li>
         <li><strong>Auction Payouts:</strong> ${formatCurrency(totalAuctionPayouts)}</li>
         <li><strong>Net Recorded Amount:</strong> ${formatCurrency(netRecordedAmount)}</li>
@@ -1014,6 +1028,7 @@ async function handleEmailExport(request: NextRequest) {
               <th style="padding: 8px; border: 1px solid #ddd; text-align: right;">Chit Contributions</th>
               <th style="padding: 8px; border: 1px solid #ddd; text-align: right;">Recorded Amounts</th>
               <th style="padding: 8px; border: 1px solid #ddd; text-align: right;">Loan Disbursements</th>
+              <th style="padding: 8px; border: 1px solid #ddd; text-align: right;">Document Charges</th>
               <th style="padding: 8px; border: 1px solid #ddd; text-align: right;">Auction Payouts</th>
               <th style="padding: 8px; border: 1px solid #ddd; text-align: right;">Partner Transfers</th>
               <th style="padding: 8px; border: 1px solid #ddd; text-align: right;">Total Amount</th>
@@ -1027,6 +1042,7 @@ async function handleEmailExport(request: NextRequest) {
               <td style="padding: 8px; border: 1px solid #ddd; text-align: right;">${formatCurrency(totalChitContributions)}</td>
               <td style="padding: 8px; border: 1px solid #ddd; text-align: right;">${formatCurrency(netRecordedAmount)}</td>
               <td style="padding: 8px; border: 1px solid #ddd; text-align: right;">${formatCurrency(totalLoanDisbursement)}</td>
+              <td style="padding: 8px; border: 1px solid #ddd; text-align: right;">${formatCurrency(totalDocumentCharges)}</td>
               <td style="padding: 8px; border: 1px solid #ddd; text-align: right;">${formatCurrency(totalAuctionPayouts)}</td>
               <td style="padding: 8px; border: 1px solid #ddd; text-align: right;">${formatCurrency(totalNetPartnerTransfers)}</td>
               <td style="padding: 8px; border: 1px solid #ddd; text-align: right;">${formatCurrency(finalSummaryTotalAmount)}</td>

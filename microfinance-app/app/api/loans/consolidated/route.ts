@@ -1374,7 +1374,8 @@ async function deleteLoan(request: NextRequest, id: number, currentUserId: numbe
   try {
     // --- REFACTORED DELETION LOGIC ---
     // Use Prisma's $transaction to ensure all related data is deleted atomically.
-    await prisma.$transaction(async (tx) => {
+    // Increased timeout to 15 seconds for complex deletion operations
+    const transactionData = await prisma.$transaction(async (tx) => {
       // 1. Fetch the loan and its related repayment and transaction IDs
       const existingLoan = await tx.loan.findUnique({
         where: { id },
@@ -1426,18 +1427,17 @@ async function deleteLoan(request: NextRequest, id: number, currentUserId: numbe
       const disbursementTransactionId = existingLoan.transaction?.id;
 
       // 4. Find any DOCUMENT_CHARGE transaction for this loan
-      // Search for DOCUMENT_CHARGE transaction created on the same date for the same borrower
+      // Search for DOCUMENT_CHARGE transaction created around the same time for the same borrower
       let documentChargeTransaction = null;
       if (existingLoan.transaction && existingLoan.documentCharge > 0) {
+        // Try to find by exact note format first
         documentChargeTransaction = await tx.transaction.findFirst({
           where: {
             type: TRANSACTION_TYPES_CONFIG.DOCUMENT_CHARGE,
             createdById: currentUserId,
             date: existingLoan.transaction.date,
             amount: existingLoan.documentCharge,
-            note: {
-              contains: existingLoan.borrower?.name || ''
-            }
+            note: `Document charge for loan to ${existingLoan.borrower?.name || ''}`
           },
           select: {
             id: true,
@@ -1445,6 +1445,26 @@ async function deleteLoan(request: NextRequest, id: number, currentUserId: numbe
             createdAt: true
           }
         });
+
+        // If not found by exact note, try broader search
+        if (!documentChargeTransaction && existingLoan.borrower?.name) {
+          documentChargeTransaction = await tx.transaction.findFirst({
+            where: {
+              type: TRANSACTION_TYPES_CONFIG.DOCUMENT_CHARGE,
+              createdById: currentUserId,
+              date: existingLoan.transaction.date,
+              amount: existingLoan.documentCharge,
+              note: {
+                contains: existingLoan.borrower.name
+              }
+            },
+            select: {
+              id: true,
+              date: true,
+              createdAt: true
+            }
+          });
+        }
       }
 
       // 5. Collect all transaction IDs to be deleted and find the earliest date
@@ -1463,12 +1483,17 @@ async function deleteLoan(request: NextRequest, id: number, currentUserId: numbe
 
       // Add DOCUMENT_CHARGE transaction if found
       if (documentChargeTransaction) {
+        console.log(`Found DOCUMENT_CHARGE transaction ID: ${documentChargeTransaction.id} for loan ${id}`);
         transactionIdsToDelete.push(documentChargeTransaction.id);
         if (documentChargeTransaction.date < earliestTransactionDate) {
           earliestTransactionDate = documentChargeTransaction.date;
           earliestTransactionId = documentChargeTransaction.id;
         }
+      } else if (existingLoan.documentCharge > 0) {
+        console.warn(`DOCUMENT_CHARGE transaction not found for loan ${id} with document charge ${existingLoan.documentCharge}`);
       }
+
+      console.log(`Deleting ${transactionIdsToDelete.length} transactions for loan ${id}:`, transactionIdsToDelete);
 
       // Note: We already checked that there are no repayments, so no repayment transactions to delete
 
@@ -1477,6 +1502,7 @@ async function deleteLoan(request: NextRequest, id: number, currentUserId: numbe
         await tx.transaction.deleteMany({
           where: { id: { in: transactionIdsToDelete } },
         });
+        console.log(`Successfully deleted ${transactionIdsToDelete.length} transactions for loan ${id}`);
       }
 
       // 7. Delete related repayments (should be none, but just in case)
@@ -1494,15 +1520,24 @@ async function deleteLoan(request: NextRequest, id: number, currentUserId: numbe
         where: { id },
       });
 
-      // 10. Recalculate balances for all subsequent transactions
-      if (transactionIdsToDelete.length > 0) {
-        await recalculateBalancesAfterDeletion(
-          currentUserId,
-          earliestTransactionDate,
-          earliestTransactionId
-        );
-      }
+      // Return the data needed for balance recalculation
+      return {
+        transactionIdsToDelete,
+        earliestTransactionDate,
+        earliestTransactionId
+      };
+    }, {
+      timeout: 10000, // 10 seconds timeout for deletion operations
     });
+
+    // 10. Recalculate balances for all subsequent transactions (outside transaction to avoid timeout)
+    if (transactionData.transactionIdsToDelete.length > 0) {
+      await recalculateBalancesAfterDeletion(
+        currentUserId,
+        transactionData.earliestTransactionDate,
+        transactionData.earliestTransactionId
+      );
+    }
 
     return NextResponse.json({ message: "Loan deleted successfully" });
   } catch (error) {

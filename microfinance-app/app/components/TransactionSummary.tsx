@@ -21,6 +21,7 @@ interface TransactionSummaryProps {
 interface SummaryData {
   totalLoanRepayment: number;
   totalLoanDisbursement: number;
+  totalDocumentCharges: number;
   totalChitContributions: number;
   totalAuctionPayouts: number;
   totalRecordedAmount: number;
@@ -35,6 +36,7 @@ interface SummaryData {
     transactionCount: number;
     loanRepayments: number;
     loanDisbursements: number;
+    documentCharges: number;
     chitContributions: number;
     auctionPayouts: number;
     recordedAmounts: number;
@@ -186,7 +188,7 @@ export default function TransactionSummary(props: TransactionSummaryProps) {
           <p className="text-xs text-gray-500 mt-1">
             <span className="text-blue-600">* Balances calculated from transaction records</span>
             <br />
-            <span className="text-purple-600">* Total Amount = (Repayments + Contributions + Net Recorded) - (Disbursements + Auctions)</span>
+            <span className="text-purple-600">* Total Amount = (Repayments + Document Charges + Contributions + Net Recorded) - (Disbursements + Auctions)</span>
             <br />
             <span className="text-gray-500">* Scroll horizontally to view all columns</span>
           </p>
@@ -213,6 +215,7 @@ export default function TransactionSummary(props: TransactionSummaryProps) {
                 <th className="px-3 py-3 text-right font-medium text-gray-700 border-r border-gray-300 min-w-[120px]">Chit Contributions</th>
                 <th className="px-3 py-3 text-right font-medium text-gray-700 border-r border-gray-300 min-w-[120px]">Recorded Amounts</th>
                 <th className="px-3 py-3 text-right font-medium text-gray-700 border-r border-gray-300 min-w-[120px]">Loan Disbursements</th>
+                <th className="px-3 py-3 text-right font-medium text-gray-700 border-r border-gray-300 min-w-[120px]">Document Charges</th>
                 <th className="px-3 py-3 text-right font-medium text-gray-700 border-r border-gray-300 min-w-[120px]">Auction Payouts</th>
                 <th className="px-3 py-3 text-right font-medium text-gray-700 border-r border-gray-300 min-w-[120px]">Partner Transfers</th>
                 <th className="px-3 py-3 text-right font-medium text-gray-700 min-w-[120px]">Total Amount</th>
@@ -235,6 +238,9 @@ export default function TransactionSummary(props: TransactionSummaryProps) {
                   </td>
                   <td className="px-3 py-3 text-right text-red-600 border-r border-gray-300">
                     {formatCurrency(partner.loanDisbursements || 0)}
+                  </td>
+                  <td className="px-3 py-3 text-right text-orange-600 border-r border-gray-300">
+                    {formatCurrency(partner.documentCharges || 0)}
                   </td>
                   <td className="px-3 py-3 text-right text-purple-600 border-r border-gray-300">
                     {formatCurrency(partner.auctionPayouts || 0)}
@@ -265,6 +271,9 @@ export default function TransactionSummary(props: TransactionSummaryProps) {
                 </td>
                 <td className="px-3 py-3 text-right text-red-600 border-r border-gray-300">
                   {formatCurrency(summaryData.totalLoanDisbursement)}
+                </td>
+                <td className="px-3 py-3 text-right text-orange-600 border-r border-gray-300">
+                  {formatCurrency(summaryData.totalDocumentCharges)}
                 </td>
                 <td className="px-3 py-3 text-right text-purple-600 border-r border-gray-300">
                   {formatCurrency(summaryData.totalAuctionPayouts)}
