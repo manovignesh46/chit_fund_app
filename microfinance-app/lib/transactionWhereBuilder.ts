@@ -47,8 +47,8 @@ export async function buildTransactionWhereClause(
       } else if (advSubType === 'repayment') {
         loanConditions.type = { in: ['LOAN_REPAYMENT'] };
       } else {
-        // No specific subtype - show both disbursement and repayment
-        loanConditions.type = { in: ['LOAN_DISBURSEMENT', 'LOAN_REPAYMENT'] };
+        // No specific subtype - show disbursement, repayment, and document charges
+        loanConditions.type = { in: ['LOAN_DISBURSEMENT', 'LOAN_REPAYMENT', 'DOCUMENT_CHARGE'] };
       }
       
       // Filter by specific loan entity if provided
@@ -188,6 +188,46 @@ export async function buildTransactionWhereClause(
           ];
         }
       }
+    }
+  } else if (advMember) {
+    // Advanced member filter without type selected
+    // Show all transactions related to this member across loans and chit funds
+    const memberId = parseInt(advMember);
+    const member = await prisma.globalMember.findUnique({
+      where: { id: memberId },
+    });
+    const memberName = member?.name;
+    
+    if (memberName) {
+      where.OR = [
+        // Loan transactions (disbursements and repayments) - check note contains member name
+        {
+          AND: [
+            { type: { in: ['LOAN_DISBURSEMENT', 'LOAN_REPAYMENT'] } },
+            { note: { contains: memberName, mode: 'insensitive' } }
+          ]
+        },
+        // Document charge transactions - check note contains member name
+        {
+          AND: [
+            { type: 'DOCUMENT_CHARGE' },
+            { note: { contains: memberName, mode: 'insensitive' } }
+          ]
+        },
+        // Chit contribution transactions
+        {
+          contribution: { member: { globalMemberId: memberId } },
+          type: { in: ['CHIT_CONTRIBUTION'] }
+        },
+        // Chit auction transactions
+        {
+          auction: { winner: { globalMemberId: memberId } },
+          type: { in: ['AUCTION_PAYOUT'] }
+        }
+      ];
+    } else {
+      // If member not found, return no results
+      where.id = -1;
     }
   } else {
     // Basic filters (when not using advanced filters)

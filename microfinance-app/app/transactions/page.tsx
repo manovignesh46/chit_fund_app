@@ -230,7 +230,6 @@ export default function TransactionsPage() {
                 setAdvSubType("");
               }}
               className="w-full px-3 py-2 border rounded-lg text-sm"
-              disabled={!advType}
             >
               <option value="">Select Member</option>
               {members.map((m: any) => (
