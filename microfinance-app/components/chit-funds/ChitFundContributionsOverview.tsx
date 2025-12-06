@@ -84,10 +84,10 @@ const ChitFundContributionsOverview: React.FC<ChitFundContributionsOverviewProps
         ) : (
           <div className="space-y-4">
             {sortedMonths.map((monthData) => (
-              <div 
-                key={monthData.month} 
-                className="border rounded-lg p-4 hover:bg-gray-50 transition-colors cursor-pointer"
-                onClick={() => window.location.href = `/chit-funds/${chitFundId}/contributions`}
+              <Link
+                key={monthData.month}
+                href={`/chit-funds/${chitFundId}/contributions?month=${monthData.month}`}
+                className="block border rounded-lg p-4 hover:bg-gray-50 transition-colors cursor-pointer"
               >
                 <div className="flex justify-between items-start mb-2">
                   <div className="flex items-center">
@@ -160,7 +160,7 @@ const ChitFundContributionsOverview: React.FC<ChitFundContributionsOverviewProps
                     </details>
                   </div>
                 )}
-              </div>
+              </Link>
             ))}
           </div>
         )}

@@ -2,7 +2,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { apiGet, apiPost, apiPut, apiDelete } from "../../../lib/apiUtils";
 import { formatDate as formatDateUtil, formatCurrency as formatCurrencyUtil } from "../../../../lib/formatUtils";
@@ -50,6 +50,7 @@ interface ChitFund {
 export default function ChitFundContributionsPage() {
   const params = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const chitFundId = params.id;
 
   const [chitFund, setChitFund] = useState<ChitFund | null>(null);
@@ -74,8 +75,9 @@ export default function ChitFundContributionsPage() {
   const [formErrors, setFormErrors] = useState<{ [key: string]: string }>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // For filtering
-  const [selectedMonth, setSelectedMonth] = useState<string>("all");
+  // For filtering - Initialize from URL params
+  const monthParam = searchParams.get('month');
+  const [selectedMonth, setSelectedMonth] = useState<string>(monthParam || "all");
   const [selectedMember, setSelectedMember] = useState<string>("all");
 
   // For view mode
@@ -216,6 +218,14 @@ export default function ChitFundContributionsPage() {
       fetchData();
     }
   }, [chitFundId]);
+
+  // Effect to handle URL month parameter
+  useEffect(() => {
+    if (monthParam && monthParam !== "all") {
+      setSelectedMonth(monthParam);
+      setMemberDetail(true); // Show member detail view for the specific month
+    }
+  }, [monthParam]);
 
   const handleInputChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
