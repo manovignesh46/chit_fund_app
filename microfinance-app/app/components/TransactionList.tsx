@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { formatCurrency, formatDate } from '../../lib/formatUtils';
 import { usePartner } from '../contexts/PartnerContext';
+import SortableTableHeader, { useSortableData } from './common/SortableTableHeader';
 
 interface Transaction {
   id: number;
@@ -73,6 +74,9 @@ export function TransactionList(props: TransactionListProps & {
     message: string;
     details?: string;
   });
+
+  // Add sorting functionality
+  const { items: sortedTransactions, sortConfig, requestSort } = useSortableData(transactions);
 
 
   useEffect(() => {
@@ -543,19 +547,61 @@ export function TransactionList(props: TransactionListProps & {
             <table className="w-full min-w-[1400px] divide-y divide-gray-200 text-xs sm:text-sm">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-4 py-2 text-left font-medium text-gray-500 uppercase tracking-wider">Date</th>
-                  <th className="px-4 py-2 text-left font-medium text-gray-500 uppercase tracking-wider">Payment Date</th>
-                  <th className="px-4 py-2 text-left font-medium text-gray-500 uppercase tracking-wider">Type</th>
+                  <SortableTableHeader
+                    label="Date"
+                    sortKey="createdAt"
+                    currentSortKey={sortConfig.key}
+                    currentSortDirection={sortConfig.direction}
+                    onSort={requestSort}
+                    className="px-4 py-2"
+                  />
+                  <SortableTableHeader
+                    label="Payment Date"
+                    sortKey="date"
+                    currentSortKey={sortConfig.key}
+                    currentSortDirection={sortConfig.direction}
+                    onSort={requestSort}
+                    className="px-4 py-2"
+                  />
+                  <SortableTableHeader
+                    label="Type"
+                    sortKey="type"
+                    currentSortKey={sortConfig.key}
+                    currentSortDirection={sortConfig.direction}
+                    onSort={requestSort}
+                    className="px-4 py-2"
+                  />
                   <th className="px-4 py-2 text-left font-medium text-gray-500 uppercase tracking-wider">Member</th>
                   <th className="px-4 py-2 text-left font-medium text-gray-500 uppercase tracking-wider">Partner</th>
                   <th className="px-4 py-2 text-center font-medium text-gray-500 uppercase tracking-wider">Cr/Dt</th>
-                  <th className="px-4 py-2 text-right font-medium text-gray-500 uppercase tracking-wider">Amount</th>
-                  <th className="px-4 py-2 text-right font-medium text-gray-500 uppercase tracking-wider">Partner Balance</th>
-                  <th className="px-4 py-2 text-right font-medium text-gray-500 uppercase tracking-wider">Total Balance</th>
+                  <SortableTableHeader
+                    label="Amount"
+                    sortKey="amount"
+                    currentSortKey={sortConfig.key}
+                    currentSortDirection={sortConfig.direction}
+                    onSort={requestSort}
+                    className="px-4 py-2 text-right"
+                  />
+                  <SortableTableHeader
+                    label="Partner Balance"
+                    sortKey="partnerBalance"
+                    currentSortKey={sortConfig.key}
+                    currentSortDirection={sortConfig.direction}
+                    onSort={requestSort}
+                    className="px-4 py-2 text-right"
+                  />
+                  <SortableTableHeader
+                    label="Total Balance"
+                    sortKey="totalBalance"
+                    currentSortKey={sortConfig.key}
+                    currentSortDirection={sortConfig.direction}
+                    onSort={requestSort}
+                    className="px-4 py-2 text-right"
+                  />
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {transactions.map((t: Transaction) => (
+                {sortedTransactions.map((t: Transaction) => (
                   <tr
                     key={t.id}
                     className="hover:bg-gray-50 cursor-pointer group"

@@ -20,21 +20,21 @@ export function ListHeaderSkeleton({
   actionButtons?: number;
 }) {
   return (
-    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
+    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 sm:mb-6 gap-3 sm:gap-4">
       <SkeletonLoader height="2rem" width="10rem" />
-      <div className="flex flex-wrap gap-3 w-full sm:w-auto">
+      <div className="flex flex-wrap gap-2 sm:gap-3 w-full sm:w-auto">
         {showSearch && (
-          <SkeletonLoader height="2.5rem" width="16rem" borderRadius="0.375rem" />
+          <SkeletonLoader height="2.5rem" width="14rem" borderRadius="0.375rem" />
         )}
         {showFilter && (
           <SkeletonLoader height="2.5rem" width="10rem" borderRadius="0.375rem" />
         )}
-        <div className="flex space-x-3">
+        <div className="flex space-x-2 sm:space-x-3">
           {Array.from({ length: actionButtons }).map((_, index) => (
             <SkeletonLoader
               key={index}
               height="2.5rem"
-              width="8rem"
+              width="7rem"
               borderRadius="0.375rem"
             />
           ))}
@@ -49,10 +49,10 @@ export function ListHeaderSkeleton({
  */
 export function PaginationSkeleton() {
   return (
-    <div className="flex justify-between items-center mt-6">
+    <div className="flex flex-col sm:flex-row justify-between items-center mt-4 sm:mt-6 gap-3 sm:gap-0">
       <div className="flex items-center space-x-2">
-        <SkeletonLoader height="2rem" width="6rem" borderRadius="0.375rem" />
-        <SkeletonLoader height="1.5rem" width="8rem" />
+        <SkeletonLoader height="2rem" width="5rem" borderRadius="0.375rem" />
+        <SkeletonLoader height="1.25rem" width="7rem" />
       </div>
       <div className="flex space-x-2">
         <SkeletonLoader height="2.5rem" width="2.5rem" borderRadius="0.375rem" />
@@ -84,7 +84,7 @@ export function ListViewSkeleton({
   actionButtons?: number;
 }) {
   return (
-    <div className="container mx-auto px-4 py-8">
+    <div className="container mx-auto px-2 sm:px-4 py-6 sm:py-8 max-w-screen-xl w-full">
       <ListHeaderSkeleton
         title={title}
         showSearch={showSearch}

@@ -80,7 +80,7 @@ export function CardSkeleton({
 }) {
   return (
     <div
-      className={`bg-white rounded-lg shadow-md p-6 ${className}`}
+      className={`bg-white rounded-lg shadow-md p-4 sm:p-6 ${className}`}
       style={{
         height: typeof height === 'number' ? `${height}px` : height,
       }}
@@ -88,10 +88,10 @@ export function CardSkeleton({
       <SkeletonLoader
         height={titleHeight}
         width="60%"
-        className="mb-4"
+        className="mb-3 sm:mb-4"
         borderRadius="0.375rem"
       />
-      <TextSkeleton lines={contentLines} spacing="1rem" lastLineWidth="80%" />
+      <TextSkeleton lines={contentLines} spacing="0.75rem" lastLineWidth="80%" />
     </div>
   );
 }
@@ -118,12 +118,12 @@ export function TableSkeleton({
     <div className={`bg-white rounded-lg shadow-md overflow-hidden ${className}`}>
       {showHeader && (
         <div
-          className="bg-gray-50 px-6"
+          className="bg-gray-50 px-3 sm:px-6"
           style={{
             height: typeof headerHeight === 'number' ? `${headerHeight}px` : headerHeight,
           }}
         >
-          <div className="grid grid-cols-12 gap-4 items-center h-full">
+          <div className="grid grid-cols-12 gap-2 sm:gap-4 items-center h-full">
             {Array.from({ length: columns }).map((_, index) => (
               <SkeletonLoader
                 key={`header-${index}`}
@@ -139,12 +139,12 @@ export function TableSkeleton({
         {Array.from({ length: rows }).map((_, rowIndex) => (
           <div
             key={`row-${rowIndex}`}
-            className={`px-6 ${rowIndex < rows - 1 ? 'border-b border-gray-200' : ''}`}
+            className={`px-3 sm:px-6 ${rowIndex < rows - 1 ? 'border-b border-gray-200' : ''}`}
             style={{
               height: typeof rowHeight === 'number' ? `${rowHeight}px` : rowHeight,
             }}
           >
-            <div className="grid grid-cols-12 gap-4 items-center h-full">
+            <div className="grid grid-cols-12 gap-2 sm:gap-4 items-center h-full">
               {Array.from({ length: columns }).map((_, colIndex) => (
                 <SkeletonLoader
                   key={`cell-${rowIndex}-${colIndex}`}
@@ -174,14 +174,14 @@ export function GraphSkeleton({
   showControls?: boolean;
 }) {
   return (
-    <div className={`bg-white rounded-lg shadow-md p-6 ${className}`}>
+    <div className={`bg-white rounded-lg shadow-md p-3 sm:p-6 ${className}`}>
       {showControls && (
-        <div className="flex justify-between items-center mb-6">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 sm:mb-6 gap-3 sm:gap-0">
           <SkeletonLoader height="1.5rem" width="30%" borderRadius="0.375rem" />
-          <div className="flex space-x-4">
-            <SkeletonLoader height="2rem" width="5rem" borderRadius="0.375rem" />
-            <SkeletonLoader height="2rem" width="5rem" borderRadius="0.375rem" />
-            <SkeletonLoader height="2rem" width="5rem" borderRadius="0.375rem" />
+          <div className="flex space-x-2 sm:space-x-4">
+            <SkeletonLoader height="2rem" width="4rem" borderRadius="0.375rem" />
+            <SkeletonLoader height="2rem" width="4rem" borderRadius="0.375rem" />
+            <SkeletonLoader height="2rem" width="4rem" borderRadius="0.375rem" />
           </div>
         </div>
       )}
@@ -195,7 +195,7 @@ export function GraphSkeleton({
         <div className="absolute inset-0 flex items-center justify-center">
           <div className="text-center">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-700 mx-auto mb-4"></div>
-            <p className="text-gray-600">Loading chart data...</p>
+            <p className="text-gray-600 text-sm sm:text-base">Loading chart data...</p>
           </div>
         </div>
       </div>

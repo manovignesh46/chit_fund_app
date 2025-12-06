@@ -3,10 +3,9 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
-import { dashboardAPI, FinancialDataPoint } from "../../lib/api";
-import FinancialGraph from "../components/FinancialGraph";
+import { dashboardAPI } from "../../lib/api";
 import { DashboardSkeleton } from "../components/skeletons/DashboardSkeletons";
-import EmailExportModal from "../../components/EmailExportModal";
+import CurrentMonthCollections from "../components/CurrentMonthCollections";
 import {
   UserGroupIcon,
   PlusCircleIcon,
@@ -45,6 +44,21 @@ export default function DashboardPage() {
     chitFundOutsideAmount: number;
   }
 
+  interface PartnerBalance {
+    id: number;
+    name: string;
+    balance: number;
+  }
+
+  interface BalanceSummaryData {
+    totalBalance: number;
+    partnerBalances: Array<{
+      partnerId: number;
+      partnerName: string;
+      balance: number;
+    }>;
+  }
+
   interface DashboardData {
     totalCashInflow: number;
     totalCashOutflow: number;
@@ -81,28 +95,20 @@ export default function DashboardPage() {
     recentActivities: [],
     upcomingEvents: [],
   });
+  const [balanceSummary, setBalanceSummary] = useState<BalanceSummaryData | null>(null);
+  const [partnerBalances, setPartnerBalances] = useState<PartnerBalance[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showProfit, setShowProfit] = useState(false);
-  const [showEmailModal, setShowEmailModal] = useState(false);
-
-  // Financial graph data and controls
-  const [financialData, setFinancialData] = useState<FinancialDataPoint[]>([]);
-  const [financialDataLoading, setFinancialDataLoading] = useState(true);
-  const [financialDataError, setFinancialDataError] = useState<string | null>(
-    null
-  );
-  const [selectedDuration, setSelectedDuration] = useState<
-    "weekly" | "monthly" | "yearly"
-  >("monthly");
 
   useEffect(() => {
-    // Fetch dashboard data from the API
+    // Fetch dashboard data and partner balances from the API
     const fetchDashboardData = async () => {
       try {
         setLoading(true);
         console.log("Fetching dashboard data...");
 
+        // Fetch dashboard summary
         const data = await dashboardAPI.getSummary();
 
         console.log("Fetched dashboard data:", data);
@@ -136,6 +142,21 @@ export default function DashboardPage() {
           totalProfit: data.profit?.total,
         });
 
+        // Fetch balance summary for accurate total balance
+        const balanceSummaryResponse = await fetch('/api/balance/summary');
+        if (balanceSummaryResponse.ok) {
+          const balanceSummaryData = await balanceSummaryResponse.json();
+          setBalanceSummary(balanceSummaryData);
+          console.log("Balance summary:", balanceSummaryData);
+        }
+
+        // Fetch partner balances for the Partner Balances card
+        const partnersResponse = await fetch('/api/partners?includeBalances=true');
+        if (partnersResponse.ok) {
+          const partnersData = await partnersResponse.json();
+          setPartnerBalances(partnersData.partners || []);
+        }
+
         setError(null);
       } catch (err: any) {
         console.error("Error fetching dashboard data:", err);
@@ -150,252 +171,6 @@ export default function DashboardPage() {
 
     fetchDashboardData();
   }, []);
-
-  // No need to import FinancialDataResponse here as it's already imported at the top
-
-  // Fetch financial data for the graph based on selected duration
-  useEffect(() => {
-    const fetchFinancialData = async () => {
-      try {
-        setFinancialDataLoading(true);
-        console.log(
-          `Fetching financial data with duration: ${selectedDuration}`
-        );
-
-        // Determine limit based on duration
-        const limit =
-          selectedDuration === "weekly"
-            ? 8
-            : selectedDuration === "monthly"
-            ? 12
-            : 5;
-
-        // Fetch data using the API client
-        const apiData = await dashboardAPI.getFinancialData(
-          selectedDuration,
-          limit
-        );
-        console.log("Fetched financial data from API:", apiData);
-
-        // Transform the API response into the format expected by FinancialGraph
-        if (
-          apiData &&
-          apiData.labels &&
-          Array.isArray(apiData.labels) &&
-          apiData.labels.length > 0
-        ) {
-          // Validate that all required arrays exist and have the same length
-          if (
-            !apiData.cashInflow ||
-            !Array.isArray(apiData.cashInflow) ||
-            !apiData.cashOutflow ||
-            !Array.isArray(apiData.cashOutflow) ||
-            !apiData.profit ||
-            !Array.isArray(apiData.profit) ||
-            !apiData.outsideAmount ||
-            !Array.isArray(apiData.outsideAmount)
-          ) {
-            console.error(
-              "Missing required data arrays in API response:",
-              apiData
-            );
-            setFinancialDataError("Missing required data in API response");
-            return;
-          }
-
-          // Ensure all arrays have the same length
-          const labelsLength = apiData.labels.length;
-          if (
-            apiData.cashInflow.length !== labelsLength ||
-            apiData.cashOutflow.length !== labelsLength ||
-            apiData.profit.length !== labelsLength ||
-            apiData.outsideAmount.length !== labelsLength
-          ) {
-            console.error("Data arrays have inconsistent lengths:", {
-              labels: apiData.labels.length,
-              cashInflow: apiData.cashInflow.length,
-              cashOutflow: apiData.cashOutflow.length,
-              profit: apiData.profit.length,
-              outsideAmount: apiData.outsideAmount.length,
-            });
-            setFinancialDataError("Inconsistent data format received from API");
-            return;
-          }
-
-          // Check if all values are zero
-          const allZeros =
-            apiData.cashInflow.every((val) => val === 0) &&
-            apiData.cashOutflow.every((val) => val === 0) &&
-            apiData.profit.every((val) => val === 0) &&
-            apiData.outsideAmount.every((val) => val === 0);
-
-          // If all values are zero, create sample data based on dashboard summary
-          if (allZeros) {
-            console.log(
-              `All zeros detected in ${selectedDuration} data, creating sample data from dashboard summary`
-            );
-
-            // Create sample data based on the selected duration
-            let periodLabel: string;
-            let startDate: Date;
-            let endDate: Date = new Date();
-
-            if (selectedDuration === "yearly") {
-              // For yearly, use the current year
-              periodLabel = new Date().getFullYear().toString();
-              startDate = new Date(new Date().getFullYear(), 0, 1); // Jan 1 of current year
-            } else if (selectedDuration === "monthly") {
-              // For monthly, use the current month
-              const now = new Date();
-              periodLabel = now.toLocaleString("default", {
-                month: "long",
-                year: "numeric",
-              });
-              startDate = new Date(now.getFullYear(), now.getMonth(), 1); // First day of current month
-            } else {
-              // For weekly, use the current week
-              const now = new Date();
-              const weekNumber = Math.ceil(now.getDate() / 7);
-              const monthName = now.toLocaleString("default", {
-                month: "short",
-              });
-              periodLabel = `Week ${weekNumber} of ${monthName} ${now.getFullYear()}`;
-
-              // Calculate start of week (go back to previous Sunday or current day if it's Sunday)
-              startDate = new Date(now);
-              const day = startDate.getDay(); // 0 = Sunday, 1 = Monday, etc.
-              if (day !== 0) {
-                startDate.setDate(startDate.getDate() - day);
-              }
-            }
-
-            const sampleData = [
-              {
-                period: periodLabel,
-                cashInflow: dashboardData.totalCashInflow,
-                cashOutflow: dashboardData.totalCashOutflow,
-                profit: dashboardData.totalProfit,
-                outsideAmount: dashboardData.totalOutsideAmount,
-                loanProfit: dashboardData.loanProfit,
-                chitFundProfit: dashboardData.chitFundProfit,
-                outsideAmountBreakdown: {
-                  loanRemainingAmount:
-                    dashboardData.outsideAmountBreakdown.loanRemainingAmount,
-                  chitFundOutsideAmount:
-                    dashboardData.outsideAmountBreakdown.chitFundOutsideAmount,
-                },
-                cashFlowDetails: {
-                  contributionInflow: 0, // We don't have this breakdown
-                  repaymentInflow: dashboardData.totalCashInflow,
-                  auctionOutflow: 0, // We don't have this breakdown
-                  loanOutflow: dashboardData.totalCashOutflow,
-                  netCashFlow:
-                    dashboardData.totalCashInflow -
-                    dashboardData.totalCashOutflow,
-                },
-                profitDetails: {
-                  interestPayments: dashboardData.loanProfit,
-                  documentCharges: 0, // We don't have this breakdown
-                  auctionCommissions: dashboardData.chitFundProfit,
-                },
-                transactionCounts: {
-                  loanDisbursements: 1, // Assuming at least one loan
-                  loanRepayments: 1, // Assuming at least one repayment
-                  chitFundContributions: 0,
-                  chitFundAuctions: 0,
-                  totalTransactions: 2, // Sum of the above
-                },
-                periodRange: {
-                  startDate: startDate.toISOString(),
-                  endDate: endDate.toISOString(),
-                },
-              },
-            ];
-
-            console.log(
-              `Created sample data for current ${selectedDuration} period:`,
-              sampleData
-            );
-            setFinancialData(sampleData);
-            return;
-          }
-
-          // Check if we have detailed period data
-          let transformedData;
-
-          if (apiData.periodsData && Array.isArray(apiData.periodsData)) {
-            console.log("Using detailed period data from API");
-            transformedData = apiData.periodsData;
-          } else {
-            console.log(
-              "Detailed period data not available, creating basic data"
-            );
-            // Create basic data points if detailed data is not available
-            transformedData = apiData.labels.map(
-              (label: string, index: number) => {
-                // Create a data point object for each period
-                return {
-                  period: label,
-                  cashInflow: apiData.cashInflow[index] || 0,
-                  cashOutflow: apiData.cashOutflow[index] || 0,
-                  profit: apiData.profit[index] || 0,
-                  outsideAmount: apiData.outsideAmount[index] || 0,
-                  // Add default values for other required properties
-                  loanProfit: 0,
-                  chitFundProfit: 0,
-                  outsideAmountBreakdown: {
-                    loanRemainingAmount: 0,
-                    chitFundOutsideAmount: 0,
-                  },
-                  cashFlowDetails: {
-                    contributionInflow: 0,
-                    repaymentInflow: 0,
-                    auctionOutflow: 0,
-                    loanOutflow: 0,
-                    netCashFlow:
-                      (apiData.cashInflow[index] || 0) -
-                      (apiData.cashOutflow[index] || 0),
-                  },
-                  profitDetails: {
-                    interestPayments: 0,
-                    documentCharges: 0,
-                    auctionCommissions: 0,
-                  },
-                  transactionCounts: {
-                    loanDisbursements: 0,
-                    loanRepayments: 0,
-                    chitFundContributions: 0,
-                    chitFundAuctions: 0,
-                    totalTransactions: 0,
-                  },
-                  periodRange: {
-                    startDate: new Date().toISOString(), // Default value
-                    endDate: new Date().toISOString(), // Default value
-                  },
-                };
-              }
-            );
-          }
-
-          console.log("Transformed financial data for graph:", transformedData);
-          setFinancialData(transformedData);
-        } else {
-          console.error("Invalid data format received from API:", apiData);
-          setFinancialDataError("Invalid data format received from API");
-        }
-      } catch (err: any) {
-        console.error("Error fetching financial data:", err);
-        setFinancialDataError(
-          err.message ||
-            "Failed to load financial data. Please try again later."
-        );
-      } finally {
-        setFinancialDataLoading(false);
-      }
-    };
-
-    fetchFinancialData();
-  }, [selectedDuration, dashboardData]);
 
   // Create stats array from dashboard data
   const stats = [
@@ -541,7 +316,7 @@ export default function DashboardPage() {
 
           {/* Profit Breakdown - Only show if showProfit is true */}
           {showProfit && (
-            <div className="grid grid-cols-2 gap-4 sm:gap-6 mb-6 sm:mb-8 md:grid-cols-2">
+            <div className="grid grid-cols-2 gap-4 sm:gap-6 mb-6 sm:mb-8">
               <div className="bg-white shadow-md rounded-lg p-4 sm:p-6 border-t-4 border-purple-500">
                 <h2 className="text-lg sm:text-xl font-semibold text-gray-600">
                   Loan Profit
@@ -567,104 +342,128 @@ export default function DashboardPage() {
             </div>
           )}
 
-          {/* Financial Graph */}
-          <div className="mb-6 sm:mb-8">
-            <div className="bg-white rounded-lg shadow-md p-2 sm:p-4 mb-4">
-              <div className="flex flex-col sm:flex-row flex-wrap sm:justify-between sm:items-center gap-2 sm:gap-0">
-                <h2 className="text-lg sm:text-xl font-bold text-blue-700">
-                  Financial Trends
-                </h2>
-                <div className="flex flex-col sm:flex-row flex-wrap items-center gap-2 sm:gap-4 mt-2 sm:mt-0">
-                  <div className="flex space-x-2">
-                    <button
-                      onClick={() => setSelectedDuration("weekly")}
-                      className={`px-3 py-1 text-sm rounded-md ${
-                        selectedDuration === "weekly"
-                          ? "bg-blue-600 text-white"
-                          : "bg-gray-200 text-gray-700 hover:bg-gray-300"
-                      }`}
-                    >
-                      Weekly
-                    </button>
-                    <button
-                      onClick={() => setSelectedDuration("monthly")}
-                      className={`px-3 py-1 text-sm rounded-md ${
-                        selectedDuration === "monthly"
-                          ? "bg-blue-600 text-white"
-                          : "bg-gray-200 text-gray-700 hover:bg-gray-300"
-                      }`}
-                    >
-                      Monthly
-                    </button>
-                    <button
-                      onClick={() => setSelectedDuration("yearly")}
-                      className={`px-3 py-1 text-sm rounded-md ${
-                        selectedDuration === "yearly"
-                          ? "bg-blue-600 text-white"
-                          : "bg-gray-200 text-gray-700 hover:bg-gray-300"
-                      }`}
-                    >
-                      Yearly
-                    </button>
-                  </div>
-                  <div className="flex space-x-2">
-                    <a
-                      href={`/api/dashboard/consolidated?action=export&duration=${selectedDuration}&limit=100`}
-                      download={`financial_data_${selectedDuration}_${
-                        new Date().toISOString().split("T")[0]
-                      }.xlsx`}
-                      className="flex items-center px-3 py-1 text-sm bg-green-600 text-white rounded-md hover:bg-green-700 transition duration-300"
-                      title={`Export ALL ${selectedDuration} financial data to Excel`}
-                    >
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        className="h-4 w-4 mr-1"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
-                        />
+          {/* Balance Summary and Partner Balances */}
+          <div className="grid grid-cols-1 gap-4 sm:gap-6 mb-6 sm:mb-8 md:grid-cols-2">
+            {/* Balance Summary Card */}
+            <div className="bg-white shadow-md rounded-lg p-4 sm:p-6">
+              <h2 className="text-lg sm:text-xl font-bold text-blue-700 mb-4">
+                Balance Summary
+              </h2>
+              <div className="space-y-4">
+                {/* Total Balance */}
+                <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                  <div className="flex items-center">
+                    <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center mr-3">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                       </svg>
-                      Export
-                    </a>
-                    <button
-                      onClick={() => setShowEmailModal(true)}
-                      className="flex items-center px-3 py-1 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700 transition duration-300"
-                      title={`Email ${selectedDuration} financial data`}
-                    >
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        className="h-4 w-4 mr-1"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
-                        />
-                      </svg>
-                      Email
-                    </button>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-600 font-medium">Total Balance</p>
+                      <p className="text-xs text-gray-400">Current cash position (all transactions)</p>
+                    </div>
                   </div>
+                  <p className={`text-lg font-bold ${balanceSummary && balanceSummary.totalBalance >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                    {balanceSummary ? formatCurrency(balanceSummary.totalBalance) : formatCurrency(0)}
+                  </p>
+                </div>
+
+                {/* Cash Inflow */}
+                <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
+                  <div className="flex items-center">
+                    <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center mr-3">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 11l5-5m0 0l5 5m-5-5v12" />
+                      </svg>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-600 font-medium">Cash Inflow</p>
+                      <p className="text-xs text-gray-400">Loan repayments + Chit contributions</p>
+                    </div>
+                  </div>
+                  <p className="text-lg font-bold text-green-600">
+                    {formatCurrency(dashboardData.totalCashInflow)}
+                  </p>
+                </div>
+
+                {/* Cash Outflow */}
+                <div className="flex items-center justify-between p-3 bg-red-50 rounded-lg">
+                  <div className="flex items-center">
+                    <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center mr-3">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 13l-5 5m0 0l-5-5m5 5V6" />
+                      </svg>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-600 font-medium">Cash Outflow</p>
+                      <p className="text-xs text-gray-400">Loan disbursements + Auction payouts</p>
+                    </div>
+                  </div>
+                  <p className="text-lg font-bold text-red-600">
+                    {formatCurrency(dashboardData.totalCashOutflow)}
+                  </p>
                 </div>
               </div>
             </div>
-            <div className="overflow-x-auto">
-              <FinancialGraph
-                data={financialData}
-                loading={financialDataLoading}
-                error={financialDataError}
-              />
+
+            {/* Partner Balances Card */}
+            <div className="bg-white shadow-md rounded-lg p-4 sm:p-6">
+              <h2 className="text-lg sm:text-xl font-bold text-blue-700 mb-4">
+                Partner Balances
+              </h2>
+              {partnerBalances.length === 0 ? (
+                <div className="text-center py-8 text-gray-500">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 mx-auto mb-2 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                  </svg>
+                  <p>No partners found</p>
+                </div>
+              ) : (
+                <div className="space-y-3 max-h-64 overflow-y-auto">
+                  {partnerBalances.map((partner) => (
+                    <div key={partner.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition">
+                      <div className="flex items-center">
+                        <div className={`w-10 h-10 rounded-full flex items-center justify-center mr-3 ${partner.balance >= 0 ? 'bg-green-100' : 'bg-red-100'}`}>
+                          <span className="text-sm font-bold text-gray-700">
+                            {partner.name.substring(0, 2).toUpperCase()}
+                          </span>
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-gray-700">{partner.name}</p>
+                          <p className="text-xs text-gray-400">
+                            {partner.balance >= 0 ? 'Credit balance' : 'Debit balance'}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <p className={`text-base font-bold ${partner.balance >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                          {formatCurrency(Math.abs(partner.balance))}
+                        </p>
+                        {partner.balance >= 0 ? (
+                          <span className="text-xs text-green-500 flex items-center justify-end">
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 11l5-5m0 0l5 5m-5-5v12" />
+                            </svg>
+                            CR
+                          </span>
+                        ) : (
+                          <span className="text-xs text-red-500 flex items-center justify-end">
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 13l-5 5m0 0l-5-5m5 5V6" />
+                            </svg>
+                            DR
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
+
+          {/* Current Month Collections */}
+          <CurrentMonthCollections />
 
           {/* Stats Overview */}
           <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 gap-4 sm:gap-6 mb-6 sm:mb-8">
@@ -942,21 +741,6 @@ export default function DashboardPage() {
           </div>
         </>
       )}
-
-      {/* Email Export Modal */}
-      <EmailExportModal
-        isOpen={showEmailModal}
-        onClose={() => setShowEmailModal(false)}
-        exportType="Financial Data"
-        duration={selectedDuration}
-        limit={
-          selectedDuration === "weekly"
-            ? 8
-            : selectedDuration === "monthly"
-            ? 12
-            : 5
-        }
-      />
     </div>
   );
 }

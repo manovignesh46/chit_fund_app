@@ -9,6 +9,7 @@ import dynamic from 'next/dynamic';
 import { MembersListSkeleton } from '../components/skeletons/ListSkeletons';
 import { ArrowDownTrayIcon, TrashIcon, PlusCircleIcon } from '@heroicons/react/24/solid';
 import ActionDropdown, { ActionItem } from '../components/ui/ActionDropdown';
+import SortableTableHeader, { useSortableData } from '../components/common/SortableTableHeader';
 
 interface GlobalMember {
   id: number;
@@ -72,6 +73,8 @@ export default function MembersPage() {
   const [exportingMemberId, setExportingMemberId] = useState<number | null>(null);
   const [exportError, setExportError] = useState<string | null>(null);
 
+  // Add sorting functionality
+  const { items: sortedMembers, sortConfig, requestSort } = useSortableData(members);
 
 
   useEffect(() => {
@@ -505,35 +508,55 @@ export default function MembersPage() {
                   <span className="ml-2">Select</span>
                 </div>
               </th>
-              <th scope="col" className="px-2 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Name
-              </th>
-              <th scope="col" className="px-2 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Contact
-              </th>
-              <th scope="col" className="px-2 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Email
-              </th>
-              <th scope="col" className="px-2 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Chit Funds
-              </th>
-              <th scope="col" className="px-2 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Loans
-              </th>
+              <SortableTableHeader
+                label="Name"
+                sortKey="name"
+                currentSortKey={sortConfig.key}
+                currentSortDirection={sortConfig.direction}
+                onSort={requestSort}
+              />
+              <SortableTableHeader
+                label="Contact"
+                sortKey="contact"
+                currentSortKey={sortConfig.key}
+                currentSortDirection={sortConfig.direction}
+                onSort={requestSort}
+              />
+              <SortableTableHeader
+                label="Email"
+                sortKey="email"
+                currentSortKey={sortConfig.key}
+                currentSortDirection={sortConfig.direction}
+                onSort={requestSort}
+              />
+              <SortableTableHeader
+                label="Chit Funds"
+                sortKey="_count.chitFundMembers"
+                currentSortKey={sortConfig.key}
+                currentSortDirection={sortConfig.direction}
+                onSort={requestSort}
+              />
+              <SortableTableHeader
+                label="Loans"
+                sortKey="_count.loans"
+                currentSortKey={sortConfig.key}
+                currentSortDirection={sortConfig.direction}
+                onSort={requestSort}
+              />
               <th scope="col" className="px-2 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Actions
               </th>
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
-            {members.length === 0 ? (
+            {sortedMembers.length === 0 ? (
               <tr>
                 <td colSpan={7} className="px-6 py-4 text-center text-gray-500">
                   No members found. Add members to get started.
                 </td>
               </tr>
             ) : (
-              members.map((member) => (
+              sortedMembers.map((member) => (
                 <tr
                   key={member.id}
                   className="hover:bg-gray-50 cursor-pointer"

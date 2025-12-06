@@ -7,6 +7,7 @@ import { ChitFundsListSkeleton } from '../components/skeletons';
 import { ArrowDownTrayIcon, TrashIcon, PlusCircleIcon } from '@heroicons/react/24/solid';
 import ActionDropdown, { ActionItem } from '../components/ui/ActionDropdown';
 import { formatDate as formatDateUtil } from '../../lib/formatUtils';
+import SortableTableHeader, { useSortableData } from '../components/common/SortableTableHeader';
 
 // Define interfaces
 interface ChitFund {
@@ -65,6 +66,9 @@ export default function ChitFundsPage() {
 
   // Status filter state
   const [statusFilter, setStatusFilter] = useState<string>('Active');
+
+  // Add sorting functionality
+  const { items: sortedChitFunds, sortConfig, requestSort } = useSortableData(chitFunds);
 
   // Fetch chit funds function
   const fetchChitFunds = async () => {
@@ -486,34 +490,63 @@ export default function ChitFundsPage() {
                       <span className="ml-2">Select</span>
                     </div>
                   </th>
-                  <th scope="col" className="px-2 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Name
-                  </th>
-                  <th scope="col" className="px-2 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Total Amount
-                  </th>
-                  <th scope="col" className="px-2 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Monthly Contribution
-                  </th>
-                  <th scope="col" className="px-2 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Duration (Months)
-                  </th>
-                  <th scope="col" className="px-2 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Members
-                  </th>
-                  <th scope="col" className="px-2 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Status
-                  </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Next Auction
-                  </th>
+                  <SortableTableHeader
+                    label="Name"
+                    sortKey="name"
+                    currentSortKey={sortConfig.key}
+                    currentSortDirection={sortConfig.direction}
+                    onSort={requestSort}
+                  />
+                  <SortableTableHeader
+                    label="Total Amount"
+                    sortKey="totalAmount"
+                    currentSortKey={sortConfig.key}
+                    currentSortDirection={sortConfig.direction}
+                    onSort={requestSort}
+                  />
+                  <SortableTableHeader
+                    label="Monthly Contribution"
+                    sortKey="monthlyContribution"
+                    currentSortKey={sortConfig.key}
+                    currentSortDirection={sortConfig.direction}
+                    onSort={requestSort}
+                  />
+                  <SortableTableHeader
+                    label="Duration (Months)"
+                    sortKey="duration"
+                    currentSortKey={sortConfig.key}
+                    currentSortDirection={sortConfig.direction}
+                    onSort={requestSort}
+                  />
+                  <SortableTableHeader
+                    label="Members"
+                    sortKey="membersCount"
+                    currentSortKey={sortConfig.key}
+                    currentSortDirection={sortConfig.direction}
+                    onSort={requestSort}
+                  />
+                  <SortableTableHeader
+                    label="Status"
+                    sortKey="status"
+                    currentSortKey={sortConfig.key}
+                    currentSortDirection={sortConfig.direction}
+                    onSort={requestSort}
+                  />
+                  <SortableTableHeader
+                    label="Next Auction"
+                    sortKey="nextAuctionDate"
+                    currentSortKey={sortConfig.key}
+                    currentSortDirection={sortConfig.direction}
+                    onSort={requestSort}
+                    className="px-6 py-3"
+                  />
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Actions
                   </th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {chitFunds.map((fund) => (
+                {sortedChitFunds.map((fund) => (
                   <tr
                     key={fund.id}
                     className="hover:bg-gray-50 cursor-pointer"

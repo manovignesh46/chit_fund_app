@@ -8,6 +8,7 @@ import { loanAPI } from '../../lib/api';
 import { ArrowDownTrayIcon, TrashIcon, PlusCircleIcon } from '@heroicons/react/24/solid';
 import ActionDropdown, { ActionItem } from '../components/ui/ActionDropdown';
 import { formatDate as formatDateUtil } from '../../lib/formatUtils';
+import SortableTableHeader, { useSortableData } from '../components/common/SortableTableHeader';
 
 // Define interfaces for Loan type
 interface GlobalMember {
@@ -74,6 +75,9 @@ export default function LoansPage() {
 
   // Status filter state
   const [statusFilter, setStatusFilter] = useState<string>('Active');
+
+  // Add sorting functionality
+  const { items: sortedLoans, sortConfig, requestSort } = useSortableData(loans);
 
   // Fetch loans function
   const fetchLoans = async () => {
@@ -432,40 +436,75 @@ export default function LoansPage() {
                       <span className="ml-2">Select</span>
                     </div>
                   </th>
-                  <th scope="col" className="px-2 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Borrower
-                  </th>
-                  <th scope="col" className="px-2 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Loan Type
-                  </th>
-                  <th scope="col" className="px-2 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Amount
-                  </th>
+                  <SortableTableHeader
+                    label="Borrower"
+                    sortKey="borrower.name"
+                    currentSortKey={sortConfig.key}
+                    currentSortDirection={sortConfig.direction}
+                    onSort={requestSort}
+                  />
+                  <SortableTableHeader
+                    label="Loan Type"
+                    sortKey="loanType"
+                    currentSortKey={sortConfig.key}
+                    currentSortDirection={sortConfig.direction}
+                    onSort={requestSort}
+                  />
+                  <SortableTableHeader
+                    label="Amount"
+                    sortKey="amount"
+                    currentSortKey={sortConfig.key}
+                    currentSortDirection={sortConfig.direction}
+                    onSort={requestSort}
+                  />
                   <th scope="col" className="px-2 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Installment Amount
                   </th>
-                  <th scope="col" className="px-2 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Duration
-                  </th>
-                  <th scope="col" className="px-2 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Remaining
-                  </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Missed Payments
-                  </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Next Payment
-                  </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Status
-                  </th>
+                  <SortableTableHeader
+                    label="Duration"
+                    sortKey="duration"
+                    currentSortKey={sortConfig.key}
+                    currentSortDirection={sortConfig.direction}
+                    onSort={requestSort}
+                  />
+                  <SortableTableHeader
+                    label="Remaining"
+                    sortKey="remainingAmount"
+                    currentSortKey={sortConfig.key}
+                    currentSortDirection={sortConfig.direction}
+                    onSort={requestSort}
+                  />
+                  <SortableTableHeader
+                    label="Missed Payments"
+                    sortKey="missedPayments"
+                    currentSortKey={sortConfig.key}
+                    currentSortDirection={sortConfig.direction}
+                    onSort={requestSort}
+                    className="px-6 py-3"
+                  />
+                  <SortableTableHeader
+                    label="Next Payment"
+                    sortKey="nextPaymentDate"
+                    currentSortKey={sortConfig.key}
+                    currentSortDirection={sortConfig.direction}
+                    onSort={requestSort}
+                    className="px-6 py-3"
+                  />
+                  <SortableTableHeader
+                    label="Status"
+                    sortKey="status"
+                    currentSortKey={sortConfig.key}
+                    currentSortDirection={sortConfig.direction}
+                    onSort={requestSort}
+                    className="px-6 py-3"
+                  />
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Actions
                   </th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {loans.map((loan) => (
+                {sortedLoans.map((loan) => (
                   <tr
                     key={loan.id}
                     className="hover:bg-gray-50 cursor-pointer"
