@@ -152,8 +152,10 @@ async function getSummary(request: NextRequest, currentUserId: number) {
       loansSum,
       // Get total document charges from loans
       documentChargesSum,
-      // Get total invested amount (RECORD_AMOUNT transactions)
-      investedAmountSum,
+      // Get invested amount credits (RECORD_AMOUNT with to_partner)
+      investedAmountCreditsSum,
+      // Get invested amount debits (RECORD_AMOUNT with from_partner)
+      investedAmountDebitsSum,
       // Get recent activities and upcoming events in parallel
       activitiesAndEventsPromise,
       // Optimize chit fund query to only fetch what's needed
@@ -205,12 +207,23 @@ async function getSummary(request: NextRequest, currentUserId: number) {
         }
       }),
 
-      // Get total invested amount (RECORD_AMOUNT transactions)
+      // Get invested amount credits (RECORD_AMOUNT with to_partner - money coming IN)
       prisma.transaction.aggregate({
         _sum: { amount: true },
         where: {
           createdById: currentUserId,
-          type: 'RECORD_AMOUNT'
+          type: 'RECORD_AMOUNT',
+          to_partner: { not: null }
+        }
+      }),
+
+      // Get invested amount debits (RECORD_AMOUNT with from_partner - money going OUT)
+      prisma.transaction.aggregate({
+        _sum: { amount: true },
+        where: {
+          createdById: currentUserId,
+          type: 'RECORD_AMOUNT',
+          from_partner: { not: null }
         }
       }),
 
@@ -396,11 +409,16 @@ async function getSummary(request: NextRequest, currentUserId: number) {
     });
     // --- END UNIQUE ACTIVE MEMBERS COUNT ---
 
+    // Calculate net invested amount (credits - debits)
+    const investedAmountCredits = investedAmountCreditsSum._sum.amount || 0;
+    const investedAmountDebits = investedAmountDebitsSum._sum.amount || 0;
+    const netInvestedAmount = investedAmountCredits - investedAmountDebits;
+
     // Return the dashboard summary
     return NextResponse.json({
       cashInflow,
       cashOutflow,
-      investedAmount: investedAmountSum._sum.amount || 0,
+      investedAmount: netInvestedAmount,
       outsideAmount,
       outsideAmountBreakdown,
       profit: {
