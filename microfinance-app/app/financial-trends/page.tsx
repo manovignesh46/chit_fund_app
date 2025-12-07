@@ -154,24 +154,58 @@ export default function FinancialTrendsPage() {
             const transformedData: FinancialDataPoint[] = [
               {
                 label: periodLabel,
+                period: periodLabel,
                 cashInflow: dashboardSummary.totalCashInflow,
                 cashOutflow: dashboardSummary.totalCashOutflow,
                 profit: dashboardSummary.totalProfit,
                 outsideAmount: dashboardSummary.totalOutsideAmount,
+                periodRange: {
+                  startDate: startDate.toISOString(),
+                  endDate: endDate.toISOString()
+                },
+                cashFlowDetails: {
+                  contributionInflow: 0,
+                  repaymentInflow: 0,
+                  auctionOutflow: 0,
+                  loanOutflow: 0,
+                  netCashFlow: dashboardSummary.totalCashInflow - dashboardSummary.totalCashOutflow
+                },
+                profitDetails: {
+                  interestPayments: 0,
+                  documentCharges: 0,
+                  auctionCommissions: 0
+                },
+                outsideAmountBreakdown: {
+                  loanRemainingAmount: 0,
+                  chitFundOutsideAmount: 0
+                },
+                transactionCounts: {
+                  contributions: 0,
+                  repayments: 0,
+                  auctions: 0,
+                  loans: 0
+                }
               },
             ];
 
             setFinancialData(transformedData);
           } else {
             // Transform API data to FinancialDataPoint format
+            // Include detailed period data from periodsData if available
             const transformedData: FinancialDataPoint[] = apiData.labels.map(
-              (label: string, index: number) => ({
-                label,
-                cashInflow: apiData.cashInflow[index],
-                cashOutflow: apiData.cashOutflow[index],
-                profit: apiData.profit[index],
-                outsideAmount: apiData.outsideAmount[index],
-              })
+              (label: string, index: number) => {
+                const periodDetail = apiData.periodsData?.[index] || {};
+                return {
+                  label,
+                  period: label, // Use label as period for graph display
+                  cashInflow: apiData.cashInflow[index],
+                  cashOutflow: apiData.cashOutflow[index],
+                  profit: apiData.profit[index],
+                  outsideAmount: apiData.outsideAmount[index],
+                  // Include detailed period information if available
+                  ...periodDetail
+                };
+              }
             );
 
             console.log("Transformed financial data:", transformedData);

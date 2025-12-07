@@ -70,6 +70,7 @@ export default function DashboardPage() {
     activeChitFunds: number;
     totalMembers: number;
     activeLoans: number;
+    investedAmount?: number; // Recorded amount transactions
     recentActivities: Activity[];
     upcomingEvents: Event[];
     totalUpcomingEvents?: number; // Total count of upcoming events
@@ -85,6 +86,7 @@ export default function DashboardPage() {
     loanProfit: 0,
     chitFundProfit: 0,
     totalOutsideAmount: 0,
+    investedAmount: 0,
     outsideAmountBreakdown: {
       loanRemainingAmount: 0,
       chitFundOutsideAmount: 0,
@@ -122,6 +124,7 @@ export default function DashboardPage() {
           loanProfit: data.profit?.loans || 0,
           chitFundProfit: data.profit?.chitFunds || 0,
           totalOutsideAmount: data.outsideAmount || 0,
+          investedAmount: data.investedAmount || 0,
           outsideAmountBreakdown: {
             loanRemainingAmount:
               data.outsideAmountBreakdown?.loanRemainingAmount || 0,
@@ -344,30 +347,30 @@ export default function DashboardPage() {
 
           {/* Balance Summary and Partner Balances */}
           <div className="grid grid-cols-1 gap-4 sm:gap-6 mb-6 sm:mb-8 md:grid-cols-2">
-            {/* Balance Summary Card */}
+            {/* Balance Summary Card - Cash Flow */}
             <div className="bg-white shadow-md rounded-lg p-4 sm:p-6">
               <h2 className="text-lg sm:text-xl font-bold text-blue-700 mb-4">
-                Balance Summary
+                Cash Flow Summary
               </h2>
               <div className="space-y-4">
-                {/* Total Balance */}
-                <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+
+                {/* Invested Amount (Recorded Amount) */}
+                <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
                   <div className="flex items-center">
                     <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center mr-3">
                       <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
                       </svg>
                     </div>
                     <div>
-                      <p className="text-sm text-gray-600 font-medium">Total Balance</p>
-                      <p className="text-xs text-gray-400">Current cash position (all transactions)</p>
+                      <p className="text-sm text-gray-600 font-medium">Invested Amount</p>
+                      <p className="text-xs text-gray-400">Total recorded transactions</p>
                     </div>
                   </div>
-                  <p className={`text-lg font-bold ${balanceSummary && balanceSummary.totalBalance >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                    {balanceSummary ? formatCurrency(balanceSummary.totalBalance) : formatCurrency(0)}
+                  <p className="text-lg font-bold text-blue-600">
+                    {formatCurrency(dashboardData.investedAmount || 0)}
                   </p>
                 </div>
-
                 {/* Cash Inflow */}
                 <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
                   <div className="flex items-center">
@@ -406,11 +409,30 @@ export default function DashboardPage() {
               </div>
             </div>
 
-            {/* Partner Balances Card */}
+            {/* Partner Balances Card with Total Balance */}
             <div className="bg-white shadow-md rounded-lg p-4 sm:p-6">
               <h2 className="text-lg sm:text-xl font-bold text-blue-700 mb-4">
-                Partner Balances
+                Partner-wise Balance
               </h2>
+              
+              {/* Total Balance at the top */}
+              <div className="flex items-center justify-between p-3 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg mb-4 border border-blue-200">
+                <div className="flex items-center">
+                  <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center mr-3">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-600 font-semibold">Total Balance</p>
+                    <p className="text-xs text-gray-400">Sum of all partners</p>
+                  </div>
+                </div>
+                <p className={`text-xl font-bold ${balanceSummary && balanceSummary.totalBalance >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                  {balanceSummary ? formatCurrency(balanceSummary.totalBalance) : formatCurrency(0)}
+                </p>
+              </div>
+
               {partnerBalances.length === 0 ? (
                 <div className="text-center py-8 text-gray-500">
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 mx-auto mb-2 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">

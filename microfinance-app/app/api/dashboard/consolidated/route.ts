@@ -152,6 +152,8 @@ async function getSummary(request: NextRequest, currentUserId: number) {
       loansSum,
       // Get total document charges from loans
       documentChargesSum,
+      // Get total invested amount (RECORD_AMOUNT transactions)
+      investedAmountSum,
       // Get recent activities and upcoming events in parallel
       activitiesAndEventsPromise,
       // Optimize chit fund query to only fetch what's needed
@@ -200,6 +202,15 @@ async function getSummary(request: NextRequest, currentUserId: number) {
         _sum: { documentCharge: true },
         where: {
           createdById: currentUserId
+        }
+      }),
+
+      // Get total invested amount (RECORD_AMOUNT transactions)
+      prisma.transaction.aggregate({
+        _sum: { amount: true },
+        where: {
+          createdById: currentUserId,
+          type: 'RECORD_AMOUNT'
         }
       }),
 
@@ -389,6 +400,7 @@ async function getSummary(request: NextRequest, currentUserId: number) {
     return NextResponse.json({
       cashInflow,
       cashOutflow,
+      investedAmount: investedAmountSum._sum.amount || 0,
       outsideAmount,
       outsideAmountBreakdown,
       profit: {

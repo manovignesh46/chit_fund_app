@@ -1,7 +1,7 @@
 // @ts-nocheck
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState } from 'react';
 import {
   LineChart,
   Line,
@@ -16,6 +16,7 @@ import {
 } from 'recharts';
 import { GraphSkeleton } from './skeletons/SkeletonLoader';
 import { FinancialDataPoint } from '../../lib/api';
+import FinancialDetailModal from './FinancialDetailModal';
 
 // Using FinancialDataPoint from the API
 
@@ -30,7 +31,22 @@ const FinancialGraph: React.FC<FinancialGraphProps> = ({ data, loading, error })
   const [showProfit, setShowProfit] = useState(false);
   const [selectedPeriod, setSelectedPeriod] = useState<FinancialDataPoint | null>(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
-  const modalRef = useRef<HTMLDivElement>(null);
+  
+  // State to track which data series are visible (for legend click)
+  const [hiddenSeries, setHiddenSeries] = useState<Record<string, boolean>>({
+    cashInflow: false,
+    cashOutflow: false,
+    profit: false,
+    outsideAmount: false,
+  });
+
+  // Handle legend click to toggle visibility of data series
+  const handleLegendClick = (dataKey: string) => {
+    setHiddenSeries((prev) => ({
+      ...prev,
+      [dataKey]: !prev[dataKey],
+    }));
+  };
 
   // Format currency for tooltip
   const formatCurrency = (value: number) => {
@@ -40,33 +56,6 @@ const FinancialGraph: React.FC<FinancialGraphProps> = ({ data, loading, error })
       maximumFractionDigits: 0,
     }).format(value);
   };
-
-  // Handle click outside and ESC key to close the detail modal
-  useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (modalRef.current && !modalRef.current.contains(event.target as Node)) {
-        setShowDetailModal(false);
-      }
-    }
-
-    function handleEscKey(event: KeyboardEvent) {
-      if (event.key === 'Escape') {
-        setShowDetailModal(false);
-      }
-    }
-
-    // Add event listeners when modal is shown
-    if (showDetailModal) {
-      document.addEventListener('mousedown', handleClickOutside);
-      document.addEventListener('keydown', handleEscKey);
-    }
-
-    // Clean up the event listeners
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-      document.removeEventListener('keydown', handleEscKey);
-    };
-  }, [showDetailModal]);
 
   // Custom tooltip component
   const CustomTooltip = ({ active, payload, label }: any) => {
@@ -95,16 +84,69 @@ const FinancialGraph: React.FC<FinancialGraphProps> = ({ data, loading, error })
     return null;
   };
 
-  // Handle click on outside amount to show breakdown
-  const handleOutsideAmountClick = (data: any) => {
-    if (data && data.outsideAmountBreakdown) {
-      const { loanRemainingAmount, chitFundOutsideAmount } = data.outsideAmountBreakdown;
-      alert(
-        `Outside Amount Breakdown:\n\n` +
-        `Loan Remaining Amount: ${formatCurrency(loanRemainingAmount)}\n` +
-        `Chit Fund Outside Amount: ${formatCurrency(chitFundOutsideAmount)}`
-      );
-    }
+  // Custom Legend component with click functionality
+  const CustomLegend = ({ payload }: any) => {
+    // Always show all legend items, including hidden ones
+    const allItems = [
+      { dataKey: 'cashInflow', name: 'Cash Inflow', color: '#3b82f6' },
+      { dataKey: 'cashOutflow', name: 'Cash Outflow', color: '#ef4444' },
+      ...(showProfit ? [{ dataKey: 'profit', name: 'Profit', color: '#10b981' }] : []),
+      { dataKey: 'outsideAmount', name: 'Outside Amount', color: '#f97316' },
+    ];
+
+    return (
+      <div className="flex flex-col items-center gap-2">
+        <div className="flex flex-wrap justify-center gap-4">
+          {allItems.map((item, index) => {
+            const isHidden = hiddenSeries[item.dataKey];
+            return (
+              <div
+                key={`legend-${index}`}
+                onClick={() => handleLegendClick(item.dataKey)}
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-md cursor-pointer transition-all select-none border-2 ${
+                  isHidden 
+                    ? 'bg-gray-50 border-gray-300 opacity-60 hover:opacity-80' 
+                    : 'bg-white border-transparent hover:bg-gray-50 shadow-sm'
+                }`}
+                title={isHidden ? `Click to show ${item.name}` : `Click to hide ${item.name}`}
+              >
+                <div
+                  className="w-4 h-4 rounded flex-shrink-0 relative"
+                  style={{ 
+                    backgroundColor: item.color,
+                    opacity: isHidden ? 0.4 : 1,
+                  }}
+                >
+                  {isHidden && (
+                    <div 
+                      className="absolute inset-0 flex items-center justify-center text-white font-bold"
+                      style={{ fontSize: '14px', lineHeight: '1' }}
+                    >
+                      ×
+                    </div>
+                  )}
+                </div>
+                <span
+                  className={`text-sm font-medium ${
+                    isHidden 
+                      ? 'line-through text-gray-400' 
+                      : 'text-gray-700'
+                  }`}
+                >
+                  {item.name}
+                </span>
+                {isHidden && (
+                  <span className="text-xs text-gray-400 ml-1"></span>
+                )}
+              </div>
+            );
+          })}
+        </div>
+        <p className="text-xs text-gray-500 italic mt-1">
+          💡 Click on any item above to show/hide it from the graph
+        </p>
+      </div>
+    );
   };
 
   // Handle click on any data point to show detailed modal
@@ -185,37 +227,47 @@ const FinancialGraph: React.FC<FinancialGraphProps> = ({ data, loading, error })
               <XAxis dataKey="period" />
               <YAxis />
               <Tooltip content={<CustomTooltip />} />
-              <Legend />
-              <Line
-                type="monotone"
-                dataKey="cashInflow"
-                name="Cash Inflow"
-                stroke="#3b82f6"
-                activeDot={{ r: 8 }}
-              />
-              <Line
-                type="monotone"
-                dataKey="cashOutflow"
-                name="Cash Outflow"
-                stroke="#ef4444"
-                activeDot={{ r: 8 }}
-              />
-              {showProfit && (
+              <Legend content={<CustomLegend />} />
+              {!hiddenSeries.cashInflow && (
+                <Line
+                  type="monotone"
+                  dataKey="cashInflow"
+                  name="Cash Inflow"
+                  stroke="#3b82f6"
+                  activeDot={{ r: 8 }}
+                  strokeWidth={2}
+                />
+              )}
+              {!hiddenSeries.cashOutflow && (
+                <Line
+                  type="monotone"
+                  dataKey="cashOutflow"
+                  name="Cash Outflow"
+                  stroke="#ef4444"
+                  activeDot={{ r: 8 }}
+                  strokeWidth={2}
+                />
+              )}
+              {showProfit && !hiddenSeries.profit && (
                 <Line
                   type="monotone"
                   dataKey="profit"
                   name="Profit"
                   stroke="#10b981"
                   activeDot={{ r: 8 }}
+                  strokeWidth={2}
                 />
               )}
-              <Line
-                type="monotone"
-                dataKey="outsideAmount"
-                name="Outside Amount"
-                stroke="#f97316"
-                activeDot={{ r: 8 }}
-              />
+              {!hiddenSeries.outsideAmount && (
+                <Line
+                  type="monotone"
+                  dataKey="outsideAmount"
+                  name="Outside Amount"
+                  stroke="#f97316"
+                  activeDot={{ r: 8 }}
+                  strokeWidth={2}
+                />
+              )}
             </LineChart>
           ) : (
             <BarChart
@@ -227,181 +279,34 @@ const FinancialGraph: React.FC<FinancialGraphProps> = ({ data, loading, error })
               <XAxis dataKey="period" />
               <YAxis />
               <Tooltip content={<CustomTooltip />} />
-              <Legend />
-              <Bar dataKey="cashInflow" name="Cash Inflow" fill="#3b82f6" />
-              <Bar dataKey="cashOutflow" name="Cash Outflow" fill="#ef4444" />
-              {showProfit && (
+              <Legend content={<CustomLegend />} />
+              {!hiddenSeries.cashInflow && (
+                <Bar dataKey="cashInflow" name="Cash Inflow" fill="#3b82f6" />
+              )}
+              {!hiddenSeries.cashOutflow && (
+                <Bar dataKey="cashOutflow" name="Cash Outflow" fill="#ef4444" />
+              )}
+              {showProfit && !hiddenSeries.profit && (
                 <Bar dataKey="profit" name="Profit" fill="#10b981" />
               )}
-              <Bar
-                dataKey="outsideAmount"
-                name="Outside Amount"
-                fill="#f97316"
-              />
+              {!hiddenSeries.outsideAmount && (
+                <Bar
+                  dataKey="outsideAmount"
+                  name="Outside Amount"
+                  fill="#f97316"
+                />
+              )}
             </BarChart>
           )}
         </ResponsiveContainer>
       </div>
 
-      {/* Detailed Period Modal */}
-      {showDetailModal && selectedPeriod && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-start sm:items-center justify-center z-50 p-2 sm:p-4 overflow-y-auto">
-          <div
-            ref={modalRef}
-            className="bg-white rounded-lg shadow-xl p-4 sm:p-6 w-full max-w-sm sm:max-w-lg lg:max-w-2xl my-4 sm:my-8 max-h-[calc(100vh-4rem)] sm:max-h-[85vh] overflow-y-auto"
-          >
-            <div className="flex justify-between items-start mb-4">
-              <div className="flex-1 pr-4">
-                <h2 className="text-lg sm:text-xl font-bold text-blue-700">Financial Details: {selectedPeriod.period}</h2>
-                <p className="text-sm text-gray-500 mt-1">
-                  {new Date(selectedPeriod.periodRange.startDate).toLocaleDateString()} - {new Date(selectedPeriod.periodRange.endDate).toLocaleDateString()}
-                </p>
-              </div>
-              <button
-                onClick={() => setShowDetailModal(false)}
-                className="flex-shrink-0 text-gray-500 hover:text-gray-700 p-2 hover:bg-gray-100 rounded-full transition-colors"
-                aria-label="Close modal"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4 mb-4 sm:mb-6">
-              <div className="bg-blue-50 p-3 sm:p-4 rounded-lg">
-                <h3 className="text-sm sm:text-lg font-semibold text-blue-700 mb-2">Cash Flow</h3>
-                <div className="space-y-1 sm:space-y-2">
-                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-1 sm:gap-0">
-                    <span className="text-xs sm:text-sm text-gray-600">Cash Inflow:</span>
-                    <span className="font-medium text-blue-600 text-xs sm:text-sm">{formatCurrency(selectedPeriod.cashInflow)}</span>
-                  </div>
-                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center text-xs sm:text-sm text-gray-500 pl-2 sm:pl-4">
-                    <span>- Chit Fund Contributions:</span>
-                    <span>{formatCurrency(selectedPeriod.cashFlowDetails.contributionInflow)}</span>
-                  </div>
-                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center text-xs sm:text-sm text-gray-500 pl-2 sm:pl-4">
-                    <span>- Loan Repayments:</span>
-                    <span>{formatCurrency(selectedPeriod.cashFlowDetails.repaymentInflow)}</span>
-                  </div>
-                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-1 sm:gap-0 mt-1 sm:mt-2">
-                    <span className="text-xs sm:text-sm text-gray-600">Cash Outflow:</span>
-                    <span className="font-medium text-red-600 text-xs sm:text-sm">{formatCurrency(selectedPeriod.cashOutflow)}</span>
-                  </div>
-                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center text-xs sm:text-sm text-gray-500 pl-2 sm:pl-4">
-                    <span>- Chit Fund Auctions:</span>
-                    <span>{formatCurrency(selectedPeriod.cashFlowDetails.auctionOutflow)}</span>
-                  </div>
-                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center text-xs sm:text-sm text-gray-500 pl-2 sm:pl-4">
-                    <span>- Loan Disbursements:</span>
-                    <span>{formatCurrency(selectedPeriod.cashFlowDetails.loanOutflow)}</span>
-                  </div>
-                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center border-t border-blue-200 pt-1 sm:pt-2 mt-1 sm:mt-2">
-                    <span className="font-semibold text-xs sm:text-sm text-gray-700">Net Cash Flow:</span>
-                    <span className={`font-semibold text-xs sm:text-sm ${selectedPeriod.cashFlowDetails.netCashFlow >= 0 ? 'text-green-600' : 'text-red-600'}`}>{formatCurrency(selectedPeriod.cashFlowDetails.netCashFlow)}</span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-green-50 p-3 sm:p-4 rounded-lg">
-                <h3 className="text-sm sm:text-lg font-semibold text-green-700 mb-2">Profit</h3>
-                <div className="space-y-1 sm:space-y-2">
-                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-1 sm:gap-0">
-                    <span className="text-xs sm:text-sm text-gray-600">Loan Profit:</span>
-                    <span className="font-medium text-purple-600 text-xs sm:text-sm">{formatCurrency(selectedPeriod.loanProfit)}</span>
-                  </div>
-                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center text-xs sm:text-sm text-gray-500 pl-2 sm:pl-4">
-                    <span>- Interest Payments:</span>
-                    <span>{formatCurrency(selectedPeriod.profitDetails.interestPayments)}</span>
-                  </div>
-                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center text-xs sm:text-sm text-gray-500 pl-2 sm:pl-4">
-                    <span>- Document Charges:</span>
-                    <span>{formatCurrency(selectedPeriod.profitDetails.documentCharges)}</span>
-                  </div>
-                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-1 sm:gap-0 mt-1 sm:mt-2">
-                    <span className="text-xs sm:text-sm text-gray-600">Chit Fund Profit:</span>
-                    <span className="font-medium text-blue-600 text-xs sm:text-sm">{formatCurrency(selectedPeriod.chitFundProfit)}</span>
-                  </div>
-                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center text-xs sm:text-sm text-gray-500 pl-2 sm:pl-4">
-                    <span>- Auction Commissions:</span>
-                    <span>{formatCurrency(selectedPeriod.profitDetails.auctionCommissions)}</span>
-                  </div>
-                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center border-t border-green-200 pt-1 sm:pt-2 mt-1 sm:mt-2">
-                    <span className="font-semibold text-xs sm:text-sm text-gray-700">Total Profit:</span>
-                    <span className="font-semibold text-xs sm:text-sm text-green-600">{formatCurrency(selectedPeriod.profit)}</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4 mb-4 sm:mb-6">
-              <div className="bg-orange-50 p-3 sm:p-4 rounded-lg">
-                <h3 className="text-sm sm:text-lg font-semibold text-orange-700 mb-2">Outside Amount</h3>
-                <div className="space-y-1 sm:space-y-2">
-                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-1 sm:gap-0">
-                    <span className="text-xs sm:text-sm text-gray-600">Loan Remaining Amount:</span>
-                    <span className="font-medium text-purple-600 text-xs sm:text-sm">{formatCurrency(selectedPeriod.outsideAmountBreakdown.loanRemainingAmount)}</span>
-                  </div>
-                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-1 sm:gap-0">
-                    <span className="text-xs sm:text-sm text-gray-600">Chit Fund Outside Amount:</span>
-                    <span className="font-medium text-blue-600 text-xs sm:text-sm">{formatCurrency(selectedPeriod.outsideAmountBreakdown.chitFundOutsideAmount)}</span>
-                  </div>
-                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center border-t border-orange-200 pt-1 sm:pt-2 mt-1 sm:mt-2">
-                    <span className="font-semibold text-xs sm:text-sm text-gray-700">Total Outside Amount:</span>
-                    <span className="font-semibold text-xs sm:text-sm text-orange-600">{formatCurrency(selectedPeriod.outsideAmount)}</span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-purple-50 p-3 sm:p-4 rounded-lg">
-                <h3 className="text-sm sm:text-lg font-semibold text-purple-700 mb-2">Transaction Summary</h3>
-                <div className="space-y-1 sm:space-y-2">
-                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-1 sm:gap-0">
-                    <span className="text-xs sm:text-sm text-gray-600">Loan Disbursements:</span>
-                    <span className="font-medium text-xs sm:text-sm">{selectedPeriod.transactionCounts.loanDisbursements}</span>
-                  </div>
-                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-1 sm:gap-0">
-                    <span className="text-xs sm:text-sm text-gray-600">Loan Repayments:</span>
-                    <span className="font-medium text-xs sm:text-sm">{selectedPeriod.transactionCounts.loanRepayments}</span>
-                  </div>
-                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-1 sm:gap-0">
-                    <span className="text-xs sm:text-sm text-gray-600">Chit Fund Contributions:</span>
-                    <span className="font-medium text-xs sm:text-sm">{selectedPeriod.transactionCounts.chitFundContributions}</span>
-                  </div>
-                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-1 sm:gap-0">
-                    <span className="text-xs sm:text-sm text-gray-600">Chit Fund Auctions:</span>
-                    <span className="font-medium text-xs sm:text-sm">{selectedPeriod.transactionCounts.chitFundAuctions}</span>
-                  </div>
-                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center border-t border-purple-200 pt-1 sm:pt-2 mt-1 sm:mt-2">
-                    <span className="font-semibold text-xs sm:text-sm text-gray-700">Total Transactions:</span>
-                    <span className="font-semibold text-xs sm:text-sm text-purple-600">{selectedPeriod.transactionCounts.totalTransactions}</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="flex flex-col sm:flex-row justify-end items-stretch sm:items-center gap-3 mt-4 pt-4 border-t border-gray-200">
-              <a
-                href={`/api/dashboard/consolidated?action=export&duration=single&period=${encodeURIComponent(selectedPeriod.period)}&startDate=${encodeURIComponent(selectedPeriod.periodRange.startDate)}&endDate=${encodeURIComponent(selectedPeriod.periodRange.endDate)}`}
-                download={`financial_details_${selectedPeriod.period.replace(/\s+/g, '_')}.xlsx`}
-                className="flex items-center justify-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition duration-300 w-full sm:w-auto text-sm font-medium"
-                title="Export this period's financial details to Excel"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                </svg>
-                Export Details
-              </a>
-              <button
-                onClick={() => setShowDetailModal(false)}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-300 w-full sm:w-auto text-sm font-medium"
-              >
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Use the new Financial Detail Modal Component */}
+      <FinancialDetailModal
+        isOpen={showDetailModal}
+        onClose={() => setShowDetailModal(false)}
+        periodData={selectedPeriod}
+      />
     </div>
   );
 };

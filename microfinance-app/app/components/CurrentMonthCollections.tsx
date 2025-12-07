@@ -104,9 +104,9 @@ export default function CurrentMonthCollections({ refreshTrigger }: Props) {
     'July', 'August', 'September', 'October', 'November', 'December'
   ];
 
-  // Generate year options (last 3 years)
+  // Generate year options (2021 to 2040)
   const years = [];
-  for (let i = currentDate.getFullYear(); i >= currentDate.getFullYear() - 2; i--) {
+  for (let i = 2021; i <= 2040; i++) {
     years.push(i);
   }
 
