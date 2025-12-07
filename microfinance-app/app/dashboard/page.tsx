@@ -6,6 +6,9 @@ import Link from "next/link";
 import { dashboardAPI } from "../../lib/api";
 import { DashboardSkeleton } from "../components/skeletons/DashboardSkeletons";
 import CurrentMonthCollections from "../components/CurrentMonthCollections";
+import BusinessROICard from "../components/BusinessROICard";
+import CollectionHealthCard from "../components/CollectionHealthCard";
+import CapitalUtilizationCard from "../components/CapitalUtilizationCard";
 import {
   UserGroupIcon,
   PlusCircleIcon,
@@ -258,94 +261,7 @@ export default function DashboardPage() {
         </div>
       ) : (
         <>
-          {/* Financial Overview */}
-          <div className="grid grid-cols-2 gap-4 sm:gap-6 mb-6 sm:mb-8 md:grid-cols-3">
-            <div className="bg-white shadow-md rounded-lg p-4 sm:p-6 border-t-4 border-purple-500">
-              <h2 className="text-lg sm:text-xl font-semibold text-gray-600">
-                Outstanding Loan Amount
-              </h2>
-              <p className="text-2xl font-bold text-purple-700">
-                {formatCurrency(
-                  dashboardData.outsideAmountBreakdown.loanRemainingAmount
-                )}
-              </p>
-              <p className="text-sm text-gray-500 mt-2">
-                Pending loan repayments
-              </p>
-            </div>
-            <div className="bg-white shadow-md rounded-lg p-4 sm:p-6 border-t-4 border-blue-500">
-              <h2 className="text-lg sm:text-xl font-semibold text-gray-600">
-                Outstanding Chit Fund Amount
-              </h2>
-              <p className="text-2xl font-bold text-blue-700">
-                {formatCurrency(
-                  dashboardData.outsideAmountBreakdown.chitFundOutsideAmount
-                )}
-              </p>
-              <p className="text-sm text-gray-500 mt-2">
-                Pending or over-disbursed
-              </p>
-            </div>
-            <div className="bg-white shadow-md rounded-lg p-4 sm:p-6 border-t-4 border-green-500">
-              <h2
-                className="text-lg sm:text-xl font-semibold text-gray-600 flex items-center cursor-pointer"
-                onClick={() => setShowProfit(!showProfit)}
-              >
-                Total Profit
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  className="h-4 w-4 ml-1"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                  />
-                </svg>
-              </h2>
-              {showProfit ? (
-                <p className="text-2xl font-bold text-green-700">
-                  {formatCurrency(dashboardData.totalProfit)}
-                </p>
-              ) : (
-                <p className="text-2xl font-bold text-gray-400">***</p>
-              )}
-            </div>
-          </div>
-
-          {/* Profit Breakdown - Only show if showProfit is true */}
-          {showProfit && (
-            <div className="grid grid-cols-2 gap-4 sm:gap-6 mb-6 sm:mb-8">
-              <div className="bg-white shadow-md rounded-lg p-4 sm:p-6 border-t-4 border-purple-500">
-                <h2 className="text-lg sm:text-xl font-semibold text-gray-600">
-                  Loan Profit
-                </h2>
-                <p className="text-2xl font-bold text-purple-700">
-                  {formatCurrency(dashboardData.loanProfit)}
-                </p>
-                <p className="text-sm text-gray-500 mt-2">
-                  From interest and document charges
-                </p>
-              </div>
-              <div className="bg-white shadow-md rounded-lg p-4 sm:p-6 border-t-4 border-blue-500">
-                <h2 className="text-lg sm:text-xl font-semibold text-gray-600">
-                  Chit Fund Profit
-                </h2>
-                <p className="text-2xl font-bold text-blue-700">
-                  {formatCurrency(dashboardData.chitFundProfit)}
-                </p>
-                <p className="text-sm text-gray-500 mt-2">
-                  From auction commissions
-                </p>
-              </div>
-            </div>
-          )}
-
-          {/* Balance Summary and Partner Balances */}
+          {/* Balance Summary and Partner Balances - Moved to Top */}
           <div className="grid grid-cols-1 gap-4 sm:gap-6 mb-6 sm:mb-8 md:grid-cols-2">
             {/* Balance Summary Card - Cash Flow */}
             <div className="bg-white shadow-md rounded-lg p-4 sm:p-6">
@@ -482,6 +398,106 @@ export default function DashboardPage() {
                 </div>
               )}
             </div>
+          </div>
+
+          {/* Financial Overview */}
+          <div className="grid grid-cols-2 gap-4 sm:gap-6 mb-6 sm:mb-8 md:grid-cols-3">
+            <div className="bg-white shadow-md rounded-lg p-4 sm:p-6 border-t-4 border-purple-500">
+              <h2 className="text-lg sm:text-xl font-semibold text-gray-600">
+                Outstanding Loan Amount
+              </h2>
+              <p className="text-2xl font-bold text-purple-700">
+                {formatCurrency(
+                  dashboardData.outsideAmountBreakdown.loanRemainingAmount
+                )}
+              </p>
+              <p className="text-sm text-gray-500 mt-2">
+                Pending loan repayments
+              </p>
+            </div>
+            <div className="bg-white shadow-md rounded-lg p-4 sm:p-6 border-t-4 border-blue-500">
+              <h2 className="text-lg sm:text-xl font-semibold text-gray-600">
+                Outstanding Chit Fund Amount
+              </h2>
+              <p className="text-2xl font-bold text-blue-700">
+                {formatCurrency(
+                  dashboardData.outsideAmountBreakdown.chitFundOutsideAmount
+                )}
+              </p>
+              <p className="text-sm text-gray-500 mt-2">
+                Pending or over-disbursed
+              </p>
+            </div>
+            <div className="bg-white shadow-md rounded-lg p-4 sm:p-6 border-t-4 border-green-500">
+              <h2
+                className="text-lg sm:text-xl font-semibold text-gray-600 flex items-center cursor-pointer"
+                onClick={() => setShowProfit(!showProfit)}
+              >
+                Total Profit
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="h-4 w-4 ml-1"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                  />
+                </svg>
+              </h2>
+              {showProfit ? (
+                <p className="text-2xl font-bold text-green-700">
+                  {formatCurrency(dashboardData.totalProfit)}
+                </p>
+              ) : (
+                <p className="text-2xl font-bold text-gray-400">***</p>
+              )}
+            </div>
+          </div>
+
+          {/* Profit Breakdown - Only show if showProfit is true */}
+          {showProfit && (
+            <div className="grid grid-cols-2 gap-4 sm:gap-6 mb-6 sm:mb-8">
+              <div className="bg-white shadow-md rounded-lg p-4 sm:p-6 border-t-4 border-purple-500">
+                <h2 className="text-lg sm:text-xl font-semibold text-gray-600">
+                  Loan Profit
+                </h2>
+                <p className="text-2xl font-bold text-purple-700">
+                  {formatCurrency(dashboardData.loanProfit)}
+                </p>
+                <p className="text-sm text-gray-500 mt-2">
+                  From interest and document charges
+                </p>
+              </div>
+              <div className="bg-white shadow-md rounded-lg p-4 sm:p-6 border-t-4 border-blue-500">
+                <h2 className="text-lg sm:text-xl font-semibold text-gray-600">
+                  Chit Fund Profit
+                </h2>
+                <p className="text-2xl font-bold text-blue-700">
+                  {formatCurrency(dashboardData.chitFundProfit)}
+                </p>
+                <p className="text-sm text-gray-500 mt-2">
+                  From auction commissions
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* Business ROI Card */}
+          <div className="grid grid-cols-1 gap-4 sm:gap-6 mb-6 sm:mb-8 md:grid-cols-2 lg:grid-cols-3">
+            <BusinessROICard
+              totalProfit={dashboardData.totalProfit}
+              investedAmount={dashboardData.investedAmount || 0}
+            />
+            <CollectionHealthCard />
+            <CapitalUtilizationCard
+              totalOutstanding={dashboardData.totalOutsideAmount}
+              investedAmount={dashboardData.investedAmount || 0}
+            />
           </div>
 
           {/* Current Month Collections */}

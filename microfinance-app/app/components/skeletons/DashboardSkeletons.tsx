@@ -217,6 +217,32 @@ export function UpcomingEventsSkeleton() {
 }
 
 /**
+ * Skeleton for the Business Metrics Cards (ROI, Collection Health, Capital Utilization)
+ */
+export function BusinessMetricCardsSkeleton() {
+  return (
+    <div className="grid grid-cols-1 gap-4 sm:gap-6 mb-6 sm:mb-8 md:grid-cols-2 lg:grid-cols-3">
+      {Array.from({ length: 3 }).map((_, index) => (
+        <div key={index} className="bg-white shadow-md rounded-lg p-4 sm:p-6 border-t-4 border-gray-300">
+          <SkeletonLoader height="1.25rem" width="60%" className="mb-4 mx-auto" />
+          {/* Large metric display */}
+          <div className="flex justify-center mb-4">
+            <SkeletonLoader height="3rem" width="8rem" />
+          </div>
+          <SkeletonLoader height="1rem" width="70%" className="mb-4 mx-auto" />
+          {/* Details section */}
+          <div className="space-y-2">
+            <SkeletonLoader height="0.875rem" width="100%" />
+            <SkeletonLoader height="0.875rem" width="100%" />
+            <SkeletonLoader height="0.875rem" width="100%" />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/**
  * Complete dashboard skeleton that combines all the section skeletons
  */
 export function DashboardSkeleton() {
@@ -232,6 +258,9 @@ export function DashboardSkeleton() {
         </div>
       </div>
 
+      {/* Balance Summary and Partner Balances - Moved to Top */}
+      <BalanceCardsSkeleton />
+
       {/* Financial Overview (Outstanding amounts + Total Profit) */}
       <div className="grid grid-cols-2 gap-4 sm:gap-6 mb-6 sm:mb-8 md:grid-cols-3">
         {Array.from({ length: 3 }).map((_, index) => (
@@ -242,8 +271,8 @@ export function DashboardSkeleton() {
         ))}
       </div>
 
-      {/* Balance Summary and Partner Balances */}
-      <BalanceCardsSkeleton />
+      {/* Business Metrics Cards (ROI, Collection Health, Capital Utilization) */}
+      <BusinessMetricCardsSkeleton />
 
       {/* Current Month Collections */}
       <CurrentMonthCollectionsSkeleton />
