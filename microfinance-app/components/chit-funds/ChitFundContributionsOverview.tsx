@@ -38,9 +38,9 @@ const ChitFundContributionsOverview: React.FC<ChitFundContributionsOverviewProps
   showAll = false,
   onViewMore
 }) => {
-  // Sort months in ascending order and limit display if needed
+  // Sort months in descending order (latest month first) and limit display if needed
   const sortedMonths = contributionsByMonth
-    .sort((a, b) => a.month - b.month)
+    .sort((a, b) => b.month - a.month)
     .slice(0, showAll ? contributionsByMonth.length : maxDisplay);
 
   const getStatusColor = (monthData: ContributionMonthData) => {

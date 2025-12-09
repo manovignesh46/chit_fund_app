@@ -196,9 +196,30 @@ const ChitFundDetails = () => {
 
     const calculateContributionsByMonth = () => {
       const monthlyContributions = [];
-
-      // Create an array of all months up to the chit fund duration
+      
+      // Parse start date and calculate which months should be visible
+      const startDate = new Date(chitFund.startDate);
+      const today = new Date();
+      
+      // Calculate the maximum month to display based on calendar dates
+      // A month becomes visible starting from its 1st day
+      let maxVisibleMonth = 0;
       for (let month = 1; month <= (chitFund?.duration || 0); month++) {
+        // Calculate the calendar date for this chit month
+        const monthStartDate = new Date(startDate);
+        monthStartDate.setMonth(monthStartDate.getMonth() + (month - 1));
+        monthStartDate.setDate(1); // Set to 1st of the month
+        
+        // If the 1st of this month has arrived, it's visible
+        if (monthStartDate <= today) {
+          maxVisibleMonth = month;
+        } else {
+          break; // Stop when we reach a future month
+        }
+      }
+
+      // Create an array of months up to the current visible month only
+      for (let month = 1; month <= maxVisibleMonth; month++) {
         const contributionsForMonth = allContributions.filter(
           (c) => c.month === month
         );

@@ -495,7 +495,10 @@ export default function DashboardPage() {
             />
             <CollectionHealthCard />
             <CapitalUtilizationCard
-              totalOutstanding={dashboardData.totalOutsideAmount}
+              totalOutstanding={
+                dashboardData.outsideAmountBreakdown.loanRemainingAmount + 
+                dashboardData.outsideAmountBreakdown.chitFundOutsideAmount
+              }
               investedAmount={dashboardData.investedAmount || 0}
             />
           </div>
