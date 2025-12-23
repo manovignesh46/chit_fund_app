@@ -1,28 +1,32 @@
-version: '3.8'
-
 services:
-  mysql:
-    image: mysql:8
-    container_name: mysql
-    environment:
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
-      MYSQL_DATABASE: ${MYSQL_DATABASE}
-    ports:
-      - "3307:3306"
-    volumes:
-      - mysql_data:/var/lib/mysql
-
   app:
-    build: .
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        DATABASE_URL: ${DATABASE_URL}
+    image: chit-fund-app:latest
     container_name: microfinance-app
-    depends_on:
-      - mysql
-    environment:
-      DATABASE_URL: ${DATABASE_URL}
     ports:
-      - "3000:3000"
+      - "3001:3001"  # Maps host port 3001 to container port 3001
     env_file:
       - .env
+    environment:
+      # Override specific variables if needed
+      NODE_ENV: production
+    restart: unless-stopped
 
-volumes:
-  mysql_data:
+  # Uncomment below if you want to run MySQL locally
+  # mysql:
+  #   image: mysql:8
+  #   container_name: mysql
+  #   environment:
+  #     MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+  #     MYSQL_DATABASE: ${MYSQL_DATABASE}
+  #   ports:
+  #     - "3307:3306"
+  #   volumes:
+  #     - mysql_data:/var/lib/mysql
+
+# volumes:
+#   mysql_data:
