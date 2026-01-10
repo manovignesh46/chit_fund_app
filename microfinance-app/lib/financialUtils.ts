@@ -317,7 +317,7 @@ export function calculateChitFundOutsideAmount(
 function calculateFixedChitFundProfit(
   chitFund: {
     monthlyContribution: number;
-    firstMonthContribution: number;
+    firstMonthContribution?: number;
     membersCount?: number;
     members?: any[];
     duration?: number;
@@ -339,7 +339,8 @@ function calculateFixedChitFundProfit(
     let totalContribution: number;
     if (auctionMonth === 1) {
       // First month: firstMonthContribution + (monthlyContribution * (membersCount - 1))
-      totalContribution = chitFund.firstMonthContribution + (chitFund.monthlyContribution * (membersCount - 1));
+      const firstContribution = chitFund.firstMonthContribution || chitFund.monthlyContribution;
+      totalContribution = firstContribution + (chitFund.monthlyContribution * (membersCount - 1));
     } else {
       // Other months: monthlyContribution * membersCount
       totalContribution = chitFund.monthlyContribution * membersCount;

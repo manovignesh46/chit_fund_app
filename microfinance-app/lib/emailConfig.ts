@@ -134,6 +134,7 @@ export const emailTemplates = {
           <li>Cash inflow and outflow analysis</li>
           <li>Profit breakdown by category</li>
           <li>Transaction details</li>
+          <li><strong>Pending Dues Report (Overdue Loans & Unpaid Chit Funds)</strong></li>
           <li>Financial metrics and trends</li>
         </ul>
 
@@ -161,7 +162,7 @@ Report Details:
 - Period: ${period}
 - Generated On: ${new Date().toLocaleString()}
 
-This report contains comprehensive financial data including cash inflow and outflow analysis, profit breakdown by category, transaction details, and financial metrics and trends.
+This report contains comprehensive financial data including cash inflow and outflow analysis, profit breakdown by category, transaction details, pending dues (overdue loans & unpaid chit funds), and financial metrics and trends.
 
 Best regards,
 Microfinance Management System

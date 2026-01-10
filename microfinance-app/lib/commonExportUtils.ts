@@ -31,7 +31,11 @@ export async function getFinancialDataForExport(userId: number, startDate: Date,
     // Get all loans with repayments for profit calculation
     loansWithRepayments,
     // Get all chit funds with contributions and auctions for profit calculation
-    chitFundsWithDetails
+    chitFundsWithDetails,
+    // Get overdue loan payments
+    overdueSchedules,
+    // Get active chit funds for dues check
+    activeChitFunds
   ] = await Promise.all([
     // Get contributions
     prisma.contribution.findMany({
@@ -193,6 +197,7 @@ export async function getFinancialDataForExport(userId: number, startDate: Date,
         documentCharge: true,
         repaymentType: true,
         disbursementDate: true,
+        remainingAmount: true,
         repayments: {
           select: {
             id: true,
@@ -251,8 +256,124 @@ export async function getFinancialDataForExport(userId: number, startDate: Date,
           }
         }
       }
+    }),
+    
+    // Get overdue loan payments (Pending Dues)
+    prisma.paymentSchedule.findMany({
+      where: {
+        loan: {
+          createdById: userId,
+          status: 'Active'
+        },
+        dueDate: {
+          lte: new Date() // Due date is in the past or today
+        },
+        status: {
+          not: 'Paid' // Not fully paid
+        }
+      },
+      select: {
+        id: true,
+        amount: true,
+        dueDate: true,
+        period: true,
+        loan: {
+          select: {
+            borrower: {
+              select: {
+                name: true,
+                contact: true
+              }
+            }
+          }
+        }
+      },
+      orderBy: {
+        dueDate: 'asc'
+      }
+    }),
+
+    // Get active chit funds to check for missing contributions (Pending Dues)
+    prisma.chitFund.findMany({
+      where: {
+        createdById: userId,
+        status: 'Active'
+      },
+      select: {
+        id: true,
+        name: true,
+        currentMonth: true,
+        monthlyContribution: true,
+        members: {
+          select: {
+            id: true,
+            globalMember: {
+              select: {
+                name: true,
+                contact: true
+              }
+            }
+          }
+        },
+        contributions: {
+          select: {
+            memberId: true,
+            month: true
+          }
+        }
+      }
     })
   ]);
+
+  // Fix typo if schema has currentMonth (it does, based on my memory of reading schema.prisma earlier)
+  // Let's assume schema.prisma has `currentMonth`. I will access it safely.
+
+  // --- Process Pending Dues ---
+  const pendingDues: any[] = [];
+
+  // 1. Process Loan Dues
+  if (overdueSchedules) {
+    overdueSchedules.forEach((schedule: any) => {
+      pendingDues.push({
+        type: 'Loan',
+        name: schedule.loan?.borrower?.name || 'Unknown',
+        contact: schedule.loan?.borrower?.contact || 'N/A',
+        amount: schedule.amount,
+        details: `Period ${schedule.period} (Due: ${formatDate(schedule.dueDate)})`,
+        dueDate: schedule.dueDate
+      });
+    });
+  }
+
+  // 2. Process Chit Fund Dues
+  if (activeChitFunds) {
+    activeChitFunds.forEach((fund: any) => {
+      const currentMonth = fund.currentMonth;
+      if (currentMonth > 0 && fund.members) {
+        fund.members.forEach((member: any) => {
+          // Check if member has contributed for the current month
+          const hasPaidContent = fund.contributions?.some(
+            (c: any) => c.memberId === member.id && c.month === currentMonth
+          );
+
+          if (!hasPaidContent) {
+            pendingDues.push({
+              type: 'Chit Fund',
+              name: member.globalMember?.name || 'Unknown',
+              contact: member.globalMember?.contact || 'N/A',
+              amount: fund.monthlyContribution,
+              details: `${fund.name} - Month ${currentMonth}`,
+              dueDate: new Date() // Urgent/Current
+            });
+          }
+        });
+      }
+    });
+  }
+  
+  // Sort pending dues by name
+  pendingDues.sort((a, b) => a.name.localeCompare(b.name));
+
 
   // Calculate totals
   const totalCashInflow = contributions.reduce((sum, c) => sum + c.amount, 0) +
@@ -463,7 +584,8 @@ export async function getFinancialDataForExport(userId: number, startDate: Date,
     chitFundProfit,
     outsideAmount,
     transactions,
-    periodsData
+    periodsData,
+    pendingDues
   };
 }
 
@@ -683,6 +805,42 @@ export async function generateCommonExcelReport(
   }
 
   XLSX.utils.book_append_sheet(wb, chitFundTransactionsSheet, 'Chit Fund Transactions');
+
+
+
+  // Create Pending Dues sheet
+  if (financialData.pendingDues && financialData.pendingDues.length > 0) {
+    const pendingDuesData = financialData.pendingDues.map((item: any) => ({
+      'Type': item.type,
+      'Name': item.name,
+      'Contact': item.contact,
+      'Amount': item.amount,
+      'Details': item.details,
+      'Since': formatDate(item.dueDate)
+    }));
+    
+    const pendingDuesSheet = XLSX.utils.json_to_sheet(pendingDuesData);
+    
+    // Define column widths
+    pendingDuesSheet['!cols'] = [
+      { width: 15 }, // Type
+      { width: 25 }, // Name
+      { width: 15 }, // Contact
+      { width: 15 }, // Amount
+      { width: 40 }, // Details
+      { width: 15 }  // Since
+    ];
+
+    // Apply bold formatting to header row
+    const pendingRange = XLSX.utils.decode_range(pendingDuesSheet['!ref'] || 'A1:F1');
+    for (let col = pendingRange.s.c; col <= pendingRange.e.c; col++) {
+      const cellRef = XLSX.utils.encode_cell({ r: 0, c: col });
+      if (!pendingDuesSheet[cellRef]) continue;
+      pendingDuesSheet[cellRef].s = { font: { bold: true, color: { rgb: "FF0000" } } }; // Red header for attention
+    }
+
+    XLSX.utils.book_append_sheet(wb, pendingDuesSheet, 'Pending Dues');
+  }
 
   // Generate Excel buffer
   const excelBuffer = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
