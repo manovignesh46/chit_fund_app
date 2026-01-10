@@ -9,16 +9,51 @@ interface Transaction {
   id: number;
   type: string;
   amount: number;
-  member?: string;
+  transactionClass?: string;
+  member?: string; // Legacy
+  
+  // Legacy fields
   from_partner?: string;
   to_partner?: string;
-  action_performer: string;
-  entered_by: string;
+  action_performer?: string;
+  entered_by?: string;
+
   date: string;
   createdAt: string;
   note?: string;
   partnerBalance?: number;
   totalBalance?: number;
+  partner?: {
+      name: string;
+  };
+  
+  // Linked Entities for Member Display
+  repayment?: {
+      loan: {
+          borrower: {
+              name: string;
+          }
+      }
+  };
+  contribution?: {
+      member: {
+          globalMember: {
+              name: string;
+          }
+      }
+  };
+  auction?: {
+      winner: {
+          globalMember: {
+              name: string;
+          }
+      }
+  };
+  loan?: {
+      borrower: {
+          name: string;
+      }
+  };
 }
 
 interface TransactionListProps {
@@ -176,55 +211,33 @@ export function TransactionList(props: TransactionListProps & {
   if (loading) return <div>Loading transactions...</div>;
   if (error) return <div className="text-red-600">{error}</div>;
 
-  // Helper to determine Credit/Debit for Cr/Dt column
   function getCrDr(t: Transaction): 'Credit' | 'Debit' | '-' {
+    // 1. New Architecture: Use explicit transactionClass if available
+    if (t.transactionClass) {
+        if (t.transactionClass === 'CREDIT') return 'Credit';
+        if (t.transactionClass === 'DEBIT') return 'Debit';
+    }
+
+    // 2. Fallback for old records or missing class
     // Special handling for PARTNER_TO_PARTNER transactions
     if (t.type === 'PARTNER_TO_PARTNER') {
-      // For new format with separate transactions
-      if (t.from_partner && !t.to_partner) {
-        // Debit transaction (money going out from from_partner)
-        return 'Debit';
-      } else if (t.to_partner && !t.from_partner) {
-        // Credit transaction (money coming in to to_partner)
-        return 'Credit';
-      } else if (t.from_partner && t.to_partner) {
-        // Old format - determine based on partner context
-        if (partnerToUse) {
-          if (t.to_partner === partnerToUse) return 'Credit';
-          if (t.from_partner === partnerToUse) return 'Debit';
-        }
-        return '-'; // Fallback for old format when no partner context
-      }
+      if (t.from_partner && !t.to_partner) return 'Debit';
+      if (t.to_partner && !t.from_partner) return 'Credit';
     }
 
-    // Special handling for RECORD AMOUNT transactions
-    if (t.type === 'RECORD_AMOUNT') {
-      if (t.to_partner) {
-        // Money coming in to to_partner (credit)
-        return 'Credit';
-      } else if (t.from_partner) {
-        // Money going out from from_partner (debit)
-        return 'Debit';
-      }
-    }
-
-    // If partnerToUse is set, use partner context
+    // If partnerToUse is set, use partner context (legacy fallback)
     if (partnerToUse) {
       if (t.to_partner && t.to_partner === partnerToUse) return 'Credit';
       if (t.from_partner && t.from_partner === partnerToUse) return 'Debit';
-      if (t.type === 'LOAN_REPAYMENT' || t.type === 'DOCUMENT_CHARGE') return 'Credit';
-      if (t.type === 'LOAN_DISBURSEMENT' || t.type === 'AUCTION_PAYOUT') return 'Debit';
     }
     
-    // Fallback for all partners - categorize based on standardized transaction types
-    if (t.type && typeof t.type === 'string') {
-      const debitTypes = ['LOAN_DISBURSEMENT', 'AUCTION_PAYOUT'];
-      const creditTypes = ['LOAN_REPAYMENT', 'CHIT_CONTRIBUTION', 'DOCUMENT_CHARGE'];
-      if (debitTypes.includes(t.type)) return 'Debit';
-      if (creditTypes.includes(t.type)) return 'Credit';
-    }
+    // Fallback based on type
+    const debitTypes = ['LOAN_DISBURSEMENT', 'AUCTION_PAYOUT'];
+    const creditTypes = ['LOAN_REPAYMENT', 'CHIT_CONTRIBUTION', 'DOCUMENT_CHARGE'];
+    if (debitTypes.includes(t.type)) return 'Debit';
+    if (creditTypes.includes(t.type)) return 'Credit';
     
-    // fallback: use amount sign if type is unknown
+    // fallback: use amount sign
     if (typeof t.amount === 'number') {
       if (t.amount > 0) return 'Credit';
       if (t.amount < 0) return 'Debit';
@@ -232,9 +245,18 @@ export function TransactionList(props: TransactionListProps & {
     return 'Credit';
   }
 
+  function getMemberName(t: Transaction): string {
+      // 1. Try to get from linked entities (Best Practice)
+      if (t.repayment?.loan?.borrower?.name) return t.repayment.loan.borrower.name;
+      if (t.contribution?.member?.globalMember?.name) return t.contribution.member.globalMember.name;
+      if (t.auction?.winner?.globalMember?.name) return t.auction.winner.globalMember.name;
+      if (t.loan?.borrower?.name) return t.loan.borrower.name;
+      
+      // 2. Fallback to extracting from Note (Legacy/Robustness)
+      return extractMemberName(t.note);
+  }
 
-
-  // Helper to extract member name from note string
+  // Helper to extract member name from note string (Legacy Fallback)
   function extractMemberName(note?: string): string {
     if (!note) return '-';
     // Pattern 1: Repayment from Arunkumar - Period 1
@@ -259,21 +281,11 @@ export function TransactionList(props: TransactionListProps & {
 
   // Helper to get the partner name for the transaction
   function getPartnerName(t: Transaction): string {
-    // For PARTNER_TO_PARTNER transactions, show the partner who is involved
-    if (t.type === 'PARTNER_TO_PARTNER') {
-      if (t.from_partner && !t.to_partner) {
-        // Debit transaction - show from_partner
-        return t.from_partner;
-      } else if (t.to_partner && !t.from_partner) {
-        // Credit transaction - show to_partner
-        return t.to_partner;
-      } else if (t.from_partner && t.to_partner) {
-        // Old format with both partners - show based on context
-        return t.from_partner === partnerToUse ? t.from_partner : t.to_partner;
-      }
+    // 1. New Architecture: Use linked Partner name
+    if (t.partner && t.partner.name) {
+        return t.partner.name;
     }
     
-    // For other transaction types, show the action_performer
     return t.action_performer || '-';
   }
 
@@ -622,7 +634,7 @@ export function TransactionList(props: TransactionListProps & {
                       {formatDate(t.date)}
                     </td>
                     <td className="px-4 py-2 whitespace-nowrap">{t.type.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}</td>
-                    <td className="px-4 py-2 whitespace-nowrap">{extractMemberName(t.note)}</td>
+                    <td className="px-4 py-2 whitespace-nowrap">{getMemberName(t)}</td>
                     <td className="px-4 py-2 whitespace-nowrap">{getPartnerName(t)}</td>
                     {/* Removed Entered By column */}
                     <td className={

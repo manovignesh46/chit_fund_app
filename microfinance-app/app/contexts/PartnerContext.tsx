@@ -63,12 +63,14 @@ export function PartnerProvider({ children }: PartnerProviderProps) {
         throw new Error('Server did not return JSON. Possible session timeout or server error.');
       }
       const data = await response.json();
-      setPartners(data.partners || []);
+      setPartners(Array.isArray(data) ? data : data.partners || []);
 
+      const partnersArray = Array.isArray(data) ? data : data.partners || [];
+      
       // Try to restore selected partner from localStorage
       const savedPartnerId = localStorage.getItem('selectedPartnerId');
       if (savedPartnerId) {
-        const savedPartner = data.partners.find(
+        const savedPartner = partnersArray.find(
           (p: Partner) => p.id === parseInt(savedPartnerId)
         );
         if (savedPartner) {

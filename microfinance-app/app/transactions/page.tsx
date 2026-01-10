@@ -146,6 +146,17 @@ export default function TransactionsPage() {
     }
   };
 
+  // Debounce logic for member filter
+  const [searchTerm, setSearchTerm] = useState("");
+  
+  useEffect(() => {
+    const delayDebounceFn = setTimeout(() => {
+      setFilterMember(searchTerm);
+    }, 500);
+
+    return () => clearTimeout(delayDebounceFn);
+  }, [searchTerm]);
+
   return (
     <div className="container mx-auto p-4">
       <div className="mb-6">
@@ -341,19 +352,21 @@ export default function TransactionsPage() {
             ))}
           </select>
         </div>
+
         <div className="w-full md:w-1/3">
           <label className="block text-sm font-medium text-gray-700 mb-1">
             Filter by Member
           </label>
           <input
             type="text"
-            value={filterMember}
-            onChange={(e) => setFilterMember(e.target.value)}
-            placeholder="Enter member name"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            placeholder="Enter member name (auto-search)"
             className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
           />
         </div>
       </div>
+      {/* ... */}
 
       {/* Export and Email Actions */}
       <div className="mb-4 flex justify-end space-x-2">

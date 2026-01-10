@@ -83,7 +83,7 @@ export default function LoansPage() {
   const fetchLoans = async () => {
     try {
       setLoading(true);
-      let url = `/api/loans/consolidated?action=list&page=${currentPage}&pageSize=${pageSize}`;
+      let url = `/api/loans?page=${currentPage}&pageSize=${pageSize}`;
 
       // Add status filter if selected
       if (statusFilter) {
@@ -174,12 +174,11 @@ export default function LoansPage() {
     setDeleteError(null);
 
     try {
-      const response = await fetch(`/api/loans/consolidated?action=delete&id=${loanToDelete}`, {
+      const response = await fetch(`/api/loans/${loanToDelete}`, {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ id: loanToDelete }),
       });
 
       if (!response.ok) {
@@ -243,12 +242,11 @@ export default function LoansPage() {
     try {
       // Delete loans one by one
       const deletePromises = selectedLoans.map(loanId =>
-        fetch('/api/loans/consolidated?action=delete', {
+        fetch(`/api/loans/${loanId}`, {
           method: 'DELETE',
           headers: {
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({ id: loanId }),
         })
       );
 

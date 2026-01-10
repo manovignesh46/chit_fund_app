@@ -48,6 +48,9 @@ export async function GET(request: NextRequest) {
       include: {
         createdBy: {
           select: { id: true, name: true }
+        },
+        partner: {
+            select: { name: true }
         }
       }
     });
@@ -83,6 +86,8 @@ export async function GET(request: NextRequest) {
     for (const transaction of transactions) {
       const amount = Math.abs(transaction.amount || 0);
       const signedAmount = transaction.amount || 0;
+      // Use transactionClass to identify credit/debit
+      const isCredit = transaction.transactionClass === 'CREDIT';
 
       // Categorize by transaction type
       switch (transaction.type) {
@@ -102,20 +107,10 @@ export async function GET(request: NextRequest) {
           totalAuctionPayouts += amount;
           break;
         case TRANSACTION_TYPES_CONFIG.RECORD_AMOUNT:
-          // For recorded amounts, determine if it's a credit or debit based on from_partner/to_partner
-          if (transaction.to_partner) {
-            // Money going TO a partner (credit to the system)
-            totalRecordedAmountCredit += amount;
-          } else if (transaction.from_partner) {
-            // Money coming FROM a partner (debit from the system)
-            totalRecordedAmountDebit += amount;
-          } else {
-            // If neither from_partner nor to_partner is specified, use amount sign as fallback
-            if (signedAmount >= 0) {
+          if (isCredit) {
               totalRecordedAmountCredit += amount;
-            } else {
+          } else {
               totalRecordedAmountDebit += amount;
-            }
           }
           break;
         case TRANSACTION_TYPES_CONFIG.PARTNER_TO_PARTNER:
@@ -123,20 +118,9 @@ export async function GET(request: NextRequest) {
           break;
       }
 
-      // Track partner statistics
-      const getPartnerForTransaction = (t: any) => {
-        if (t.type === 'PARTNER_TO_PARTNER') {
-          if (t.from_partner && !t.to_partner) return t.from_partner;
-          if (t.to_partner && !t.from_partner) return t.to_partner;
-          if (partner && partner !== 'ALL') {
-            return partner; // Use filtered partner
-          }
-          return t.from_partner || t.to_partner;
-        }
-        return t.action_performer;
-      };
-
-      const partnerName = getPartnerForTransaction(transaction);
+    //   // Track partner statistics
+      const partnerName = transaction.partner?.name || 'Unknown';
+      
       if (partnerName) {
         if (!partnerStats[partnerName]) {
           partnerStats[partnerName] = {
@@ -175,36 +159,32 @@ export async function GET(request: NextRequest) {
             partnerStats[partnerName].auctionPayouts += amount;
             break;
           case TRANSACTION_TYPES_CONFIG.RECORD_AMOUNT:
-            // Calculate net recorded amount for this partner based on from_partner/to_partner logic
-            if (transaction.to_partner === partnerName) {
-              // Money going TO this partner (positive for partner)
-              partnerStats[partnerName].recordedAmounts += amount;
-            } else if (transaction.from_partner === partnerName) {
-              // Money coming FROM this partner (negative for partner)
-              partnerStats[partnerName].recordedAmounts -= amount;
-            } else if (partnerName === transaction.action_performer) {
-              // If this partner is the action performer but not from/to, use signed amount
-              partnerStats[partnerName].recordedAmounts += signedAmount;
-            }
+             // Record Amount Logic based on Class
+             if (isCredit) {
+                 partnerStats[partnerName].recordedAmounts += amount;
+             } else {
+                 partnerStats[partnerName].recordedAmounts -= amount;
+             }
             break;
           case TRANSACTION_TYPES_CONFIG.PARTNER_TO_PARTNER:
-            // Track incoming vs outgoing transfers for net calculation
-            if (transaction.to_partner === partnerName) {
-              partnerStats[partnerName].partnerTransfersIn += amount;
-            } else if (transaction.from_partner === partnerName) {
-              partnerStats[partnerName].partnerTransfersOut += amount;
+            if (isCredit) {
+                partnerStats[partnerName].partnerTransfersIn += amount;
+            } else {
+                partnerStats[partnerName].partnerTransfersOut += amount;
             }
             break;
         }
 
         // Determine if this is a credit or debit for the partner
-        const isCredit = getCreditDebitStatus(transaction, partnerName);
         if (isCredit) {
           partnerStats[partnerName].totalCredits += amount;
-          partnerStats[partnerName].balance += signedAmount; // Use signed amount for accurate balance
+          partnerStats[partnerName].balance += amount; // Assuming amount is absolute usually, but balance needs signed?
+          // If transaction.amount is signed, we can use it directly?
+          // But above we used Math.abs for stats.
+          // transactionClass is definitive.
         } else {
           partnerStats[partnerName].totalDebits += amount;
-          partnerStats[partnerName].balance += signedAmount; // Use signed amount for accurate balance
+          partnerStats[partnerName].balance -= amount;
         }
       }
     }

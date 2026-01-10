@@ -237,45 +237,31 @@ export async function buildTransactionWhereClause(
       where.type = type;
     }
 
-    // Filter by member name (search in note field)
+    // Filter by member name (Improved: search in relations + note fallback)
     if (member) {
-      where.note = {
-        contains: member,
-        mode: 'insensitive',
-      };
+      where.OR = [
+          // 1. Check Note (Legacy/Fallback)
+          { note: { contains: member, mode: 'insensitive' } },
+          // 2. Check Linked Loan Borrower (Disbursements)
+          { loan: { borrower: { name: { contains: member, mode: 'insensitive' } } } },
+          // 3. Check Linked Repayment Borrower (Repayments)
+          { repayment: { loan: { borrower: { name: { contains: member, mode: 'insensitive' } } } } },
+          // 4. Check Linked Chit Member (Contributions)
+          { contribution: { member: { globalMember: { name: { contains: member, mode: 'insensitive' } } } } },
+          // 5. Check Linked Auction Winner (Payouts)
+          { auction: { winner: { globalMember: { name: { contains: member, mode: 'insensitive' } } } } }
+      ];
     }
   }
 
   // Filter by partner
   if (partner && partner !== 'ALL') {
-    // For PARTNER_TO_PARTNER transactions, only show transactions that directly affect the selected partner
-    // Since we now create separate transactions, each partner should only see their own transaction record
-    where.OR = [
-      // For PARTNER_TO_PARTNER: Show transactions where this partner is the primary affected party
-      { 
-        AND: [
-          { type: 'PARTNER_TO_PARTNER' },
-          { 
-            OR: [
-              { from_partner: partner, to_partner: null }, // Partner's debit transaction
-              { to_partner: partner, from_partner: null }   // Partner's credit transaction
-            ]
-          }
-        ]
-      },
-      // For all other transaction types: Show where partner is action_performer or entered_by
-      { 
-        AND: [
-          { type: { not: 'PARTNER_TO_PARTNER' } },
-          { 
-            OR: [
-              { action_performer: partner },
-              { entered_by: partner }
-            ]
-          }
-        ]
-      }
-    ];
+    // New Schema: Filter by relation to Partner model via partnerId
+    // We check if the transaction is linked to a partner with the given name.
+    where.partner = { name: partner };
+    
+    // Note: We used to use OR for from/to partner, but now we have a direct relation.
+    // Using direct property avoids overwriting any 'OR' clause set by advanced filters.
   }
 
   // Filter by date range

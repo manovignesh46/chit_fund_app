@@ -47,16 +47,16 @@ const RepaymentsPage = () => {
     try {
       setLoading(true);
 
-      // Fetch loan details using the consolidated API
-      const loanResponse = await fetch(`/api/loans/consolidated?action=detail&id=${id}`);
+      // Fetch loan details using the REST API
+      const loanResponse = await fetch(`/api/loans/${id}`);
       if (!loanResponse.ok) {
         throw new Error('Failed to fetch loan details');
       }
       const loanData = await loanResponse.json();
       setLoan(loanData);
 
-      // Fetch paginated repayments using the consolidated API
-      const repaymentsResponse = await fetch(`/api/loans/consolidated?action=repayments&id=${id}&page=${currentPage}&pageSize=${pageSize}`);
+      // Fetch paginated repayments using the REST API
+      const repaymentsResponse = await fetch(`/api/loans/${id}/repayments?page=${currentPage}&pageSize=${pageSize}`);
       if (!repaymentsResponse.ok) {
         throw new Error('Failed to fetch repayments');
       }
@@ -134,12 +134,11 @@ const RepaymentsPage = () => {
     setDeleteError(null);
 
     try {
-      const response = await fetch(`/api/loans/consolidated?action=delete-repayment&id=${id}`, {
+      const response = await fetch(`/api/loans/${id}/repayments/${repaymentToDelete}`, {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ repaymentId: repaymentToDelete }),
       });
 
       if (!response.ok) {
@@ -181,23 +180,25 @@ const RepaymentsPage = () => {
     setBulkDeleteError(null);
 
     try {
-      const response = await fetch(`/api/loans/consolidated?action=delete-repayment&id=${id}`, {
-        method: 'DELETE',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ repaymentIds: selectedRepayments }),
-      });
+      // Use a loop to delete repayments one by one since we adhere to REST strict resource deletion
+      const deletePromises = selectedRepayments.map(repaymentId => 
+          fetch(`/api/loans/${id}/repayments/${repaymentId}`, {
+              method: 'DELETE',
+              headers: {
+                  'Content-Type': 'application/json'
+              }
+          })
+      );
+      
+      const responses = await Promise.all(deletePromises);
+      const failed = responses.filter(r => !r.ok);
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to delete repayments');
+      if (failed.length > 0) {
+        throw new Error(`Failed to delete ${failed.length} repayments`);
       }
 
-      const data = await response.json();
-
       // Show success message
-      setBulkDeleteSuccess(data.message || `${selectedRepayments.length} repayments deleted successfully`);
+      setBulkDeleteSuccess(`${selectedRepayments.length} repayments deleted successfully`);
 
       // Refresh data after a short delay
       setTimeout(() => {

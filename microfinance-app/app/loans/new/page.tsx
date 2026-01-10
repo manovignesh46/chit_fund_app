@@ -90,13 +90,15 @@ export default function NewLoanPage() {
         setIsLoadingMembers(true);
         setMemberError(null);
 
-        const response = await fetch('/api/members/consolidated?action=list&pageSize=1000');
+        // Updated API endpoint
+        const response = await fetch('/api/members?page=1&pageSize=1000');
 
         if (!response.ok) {
           throw new Error('Failed to fetch global members');
         }
 
         const data = await response.json();
+        // Updated to use the correct response structure from our new REST API
         setGlobalMembers(data.members || []);
       } catch (error) {
         console.error('Error fetching global members:', error);
@@ -243,6 +245,11 @@ export default function NewLoanPage() {
       return;
     }
 
+    if (!selectedPartner) {
+        alert("Please select a partner from the header first.");
+        return;
+    }
+
     setIsSubmitting(true);
 
     try {
@@ -251,22 +258,17 @@ export default function NewLoanPage() {
       const disbursementDate = new Date(formData.disbursementDate);
       const disbursementDateISOString = disbursementDate.toISOString();
 
-      // We no longer need to calculate the next payment date here
-      // It will be calculated on the server based on the loan details
-
-      // We no longer need to calculate the current month
-      // as we've removed it from the schema temporarily
       const today = new Date();
 
       console.log('Preparing loan data with dates:', {
         disbursementDate
       });
 
-      // Create loan data with all fields
+      // Create loan data mapping to new API structure
+      // New API expects: borrowerId, partnerId, etc.
       const loanData = {
-        globalMemberId: parseInt(formData.globalMemberId),
-        borrowerName: formData.borrowerName,
-        contact: formData.contact,
+        borrowerId: parseInt(formData.globalMemberId), // Map globalMemberId to borrowerId
+        partnerId: selectedPartner.id, // Explicit partnerId from context
         loanType: formData.loanType,
         amount: formData.amount,
         interestRate: formData.interestRate,
@@ -275,21 +277,21 @@ export default function NewLoanPage() {
         installmentAmount: formData.installmentAmount,
         purpose: formData.purpose,
         disbursementDate: disbursementDateISOString,
-        repaymentType: formData.loanType, // Set repaymentType to match loanType
+        repaymentType: formData.loanType,
         status: 'Active',
       };
 
-      const partnerHeaderValue = selectedPartner ? selectedPartner.name.toString() : '';
+      //const partnerHeaderValue = selectedPartner ? selectedPartner.name.toString() : '';
 
       // Log the data being sent to the API
       console.log('Sending loan data to API:', JSON.stringify(loanData, null, 2));
 
-      // Make the actual API call to create a loan
-      const response = await fetch('/api/loans/consolidated?action=create', {
+      // Make the actual API call to create a loan (RESTful endpoint)
+      const response = await fetch('/api/loans', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'x-active-partner': partnerHeaderValue
+          //'x-active-partner': partnerHeaderValue // Optional if context not working, but we pass partnerId in body now
         },
         body: JSON.stringify(loanData),
       });

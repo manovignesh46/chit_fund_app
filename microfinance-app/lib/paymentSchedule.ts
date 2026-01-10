@@ -282,10 +282,11 @@ export async function getDynamicPaymentSchedule(
  * @param loanId The ID of the loan
  * @returns Updated loan with new overdue amount and missed payments
  */
-export async function updateOverdueAmountFromRepayments(loanId: number) {
+export async function updateOverdueAmountFromRepayments(loanId: number, tx?: any) {
   try {
+    const client = tx || prismaAny;
     // Get the loan details
-    const loan = await prismaAny.loan.findUnique({
+    const loan = await client.loan.findUnique({
       where: { id: loanId }
     });
 
@@ -295,7 +296,7 @@ export async function updateOverdueAmountFromRepayments(loanId: number) {
 
     // If loan is not active, no overdue
     if (loan.status !== 'Active') {
-      const updatedLoan = await prismaAny.loan.update({
+      const updatedLoan = await client.loan.update({
         where: { id: loanId },
         data: {
           overdueAmount: 0,
@@ -310,7 +311,7 @@ export async function updateOverdueAmountFromRepayments(loanId: number) {
     }
 
     // Get all repayments for this loan
-    const repayments = await prismaAny.repayment.findMany({
+    const repayments = await client.repayment.findMany({
       where: { loanId },
       orderBy: { paidDate: 'asc' }
     });
@@ -403,7 +404,7 @@ export async function updateOverdueAmountFromRepayments(loanId: number) {
     }
 
     // Update the loan with the new overdue amount and missed payments
-    const updatedLoan = await prismaAny.loan.update({
+    const updatedLoan = await client.loan.update({
       where: { id: loanId },
       data: {
         overdueAmount,
@@ -429,10 +430,11 @@ export async function updateOverdueAmountFromRepayments(loanId: number) {
  * @param loanId The ID of the loan
  * @returns The calculated next payment date
  */
-export async function calculateNextPaymentDate(loanId: number) {
+export async function calculateNextPaymentDate(loanId: number, tx?: any) {
   try {
+    const client = tx || prismaAny;
     // Get the loan details with repayments
-    const loan = await prismaAny.loan.findUnique({
+    const loan = await client.loan.findUnique({
       where: { id: loanId },
       include: {
         repayments: {
@@ -651,11 +653,12 @@ export async function recordPaymentForPeriod(
  * @param loan The loan object (optional, will be fetched if not provided)
  * @returns Array of created payment schedule entries
  */
-export async function generatePaymentSchedule(loanId: number, loan?: any) {
+export async function generatePaymentSchedule(loanId: number, loan?: any, tx?: any) {
   try {
+    const client = tx || prismaAny;
     // If loan is not provided, fetch it
     if (!loan) {
-      loan = await prismaAny.loan.findUnique({
+      loan = await client.loan.findUnique({
         where: { id: loanId }
       });
 
@@ -665,7 +668,7 @@ export async function generatePaymentSchedule(loanId: number, loan?: any) {
     }
 
     // Get existing repayments for this loan instead of payment schedules
-    const existingRepayments = await prismaAny.repayment.findMany({
+    const existingRepayments = await client.repayment.findMany({
       where: { loanId }
     });
 
