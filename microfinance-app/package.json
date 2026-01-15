@@ -18,7 +18,14 @@
     "vercel-build": "next build",
     "cleanup-prisma": "node scripts/cleanup-prisma.js",
     "optimize-vercel": "node scripts/optimize-vercel-output.js",
-    "setup-default-partners": "ts-node --compiler-options '{\"module\":\"CommonJS\"}' scripts/setup-default-partners.ts"
+    "setup-default-partners": "ts-node --compiler-options '{\"module\":\"CommonJS\"}' scripts/setup-default-partners.ts",
+    "prisma:generate": "prisma generate",
+    "prisma:migrate": "prisma migrate dev",
+    "prisma:migrate:deploy": "prisma migrate deploy",
+    "prisma:migrate:reset": "prisma migrate reset",
+    "prisma:studio": "prisma studio",
+    "prisma:push": "prisma db push",
+    "prisma:seed": "prisma db seed"
   },
   "dependencies": {
     "@heroicons/react": "2.2.0",

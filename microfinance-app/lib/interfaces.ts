@@ -14,6 +14,40 @@ export interface GlobalMember {
   notes?: string | null;
   createdAt?: Date | string;
   updatedAt?: Date | string;
+  createdById?: number;
+  _count?: {
+    chitFundMembers?: number;
+    loans?: number;
+  };
+  chitFundMembers?: ChitFundMember[];
+  loans?: Loan[];
+}
+
+/**
+ * Member Create Input interface
+ */
+export interface MemberCreateInput {
+  name: string;
+  contact: string;
+  email?: string;
+  address?: string;
+  notes?: string;
+}
+
+/**
+ * Member Update Input interface
+ */
+export interface MemberUpdateInput extends Partial<MemberCreateInput> {}
+
+/**
+ * Member List Response interface
+ */
+export interface MemberListResponse {
+  members: GlobalMember[];
+  totalCount: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
 }
 
 /**

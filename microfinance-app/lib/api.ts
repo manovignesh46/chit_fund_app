@@ -389,25 +389,50 @@ export const emailAPI = {
 };
 
 // Global Members API functions (consolidated)
+// Member API functions (RESTful)
 export const memberAPI = {
-  getAll: (page = 1, pageSize = 10) => fetchAPI<any>(`/members/consolidated?action=list&page=${page}&pageSize=${pageSize}`),
+  // List members with pagination and filters
+  getAll: (page = 1, pageSize = 10, filters?: { search?: string, sortBy?: string, sortOrder?: string }) => {
+    const params = new URLSearchParams({
+      page: page.toString(),
+      pageSize: pageSize.toString(),
+    });
+    
+    if (filters?.search) params.append('search', filters.search);
+    if (filters?.sortBy) params.append('sortBy', filters.sortBy);
+    if (filters?.sortOrder) params.append('sortOrder', filters.sortOrder);
+    
+    return fetchAPI<any>(`/members?${params.toString()}`);
+  },
 
-  getById: (id: number) => fetchAPI<any>(`/members/consolidated?action=detail&id=${id}`),
+  // Get single member with details
+  getById: (id: number) => fetchAPI<any>(`/members/${id}`),
 
-  create: (data: any) => fetchAPI<any>('/members/consolidated?action=create', {
+  // Create new member
+  create: (data: any) => fetchAPI<any>('/members', {
     method: 'POST',
     body: JSON.stringify(data),
   }),
 
-  update: (id: number, data: any) => fetchAPI<any>(`/members/consolidated?action=update&id=${id}`, {
+  // Update member
+  update: (id: number, data: any) => fetchAPI<any>(`/members/${id}`, {
     method: 'PUT',
     body: JSON.stringify(data),
   }),
 
-  delete: (id: number) => fetchAPI<any>(`/members/consolidated?action=delete&id=${id}`, {
+  // Delete member
+  delete: (id: number) => fetchAPI<any>(`/members/${id}`, {
     method: 'DELETE',
-    body: JSON.stringify({}),
   }),
+
+  // Export members (keep existing implementation)
+  export: (memberIds: number[]) => {
+    return fetch('/api/members/export', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ memberIds })
+    });
+  }
 };
 
 // Balance API functions

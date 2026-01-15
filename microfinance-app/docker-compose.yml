@@ -14,19 +14,37 @@ services:
     environment:
       # Override specific variables if needed
       NODE_ENV: production
+      DATABASE_URL: postgresql://postgres:password@db:5432/postgres?schema=public
+    networks:
+      - app-network
+    depends_on:
+      db:
+        condition: service_healthy
     restart: unless-stopped
 
-  # Uncomment below if you want to run MySQL locally
-  # mysql:
-  #   image: mysql:8
-  #   container_name: mysql
-  #   environment:
-  #     MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
-  #     MYSQL_DATABASE: ${MYSQL_DATABASE}
-  #   ports:
-  #     - "3307:3306"
-  #   volumes:
-  #     - mysql_data:/var/lib/mysql
+  db:
+    image: postgres:latest
+    container_name: am-fincorp
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: postgres
+    ports:
+      - "15432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
 
-# volumes:
-#   mysql_data:
+networks:
+  app-network:
+    driver: bridge
+
+volumes:
+  pgdata:

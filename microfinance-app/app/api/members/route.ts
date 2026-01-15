@@ -12,30 +12,47 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = new URL(request.url);
     const page = parseInt(searchParams.get('page') || '1');
-    const pageSize = parseInt(searchParams.get('pageSize') || '20');
+    const pageSize = parseInt(searchParams.get('pageSize') || '10');
     const search = searchParams.get('search');
+    const sortBy = searchParams.get('sortBy') || 'name';
+    const sortOrder = searchParams.get('sortOrder') || 'asc';
 
     const skip = (page - 1) * pageSize;
     const where: any = {
-      // createdById: currentUserId, // Global members usually shared? Or filtered by creator?
-      // Assuming for now they filter by creator or are visible to all admins.
-      // Schema likely has createdById.
       createdById: currentUserId 
     };
 
     if (search) {
         where.OR = [
             { name: { contains: search, mode: 'insensitive' } },
-            { contact: { contains: search, mode: 'insensitive' } }
+            { contact: { contains: search, mode: 'insensitive' } },
+            { email: { contains: search, mode: 'insensitive' } }
         ];
+    }
+
+    // Build orderBy based on sortBy parameter
+    let orderBy: any = {};
+    if (sortBy === '_count.chitFundMembers' || sortBy === '_count.loans') {
+      // For count fields, we'll need to handle differently
+      orderBy = { name: sortOrder };
+    } else {
+      orderBy = { [sortBy]: sortOrder };
     }
 
     const [members, totalCount] = await Promise.all([
       prisma.globalMember.findMany({
         where,
-        orderBy: { name: 'asc' },
+        orderBy,
         skip,
         take: pageSize,
+        include: {
+          _count: {
+            select: {
+              chitFundMembers: true,
+              loans: true
+            }
+          }
+        }
       }),
       prisma.globalMember.count({ where }),
     ]);
@@ -60,23 +77,52 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
     try {
         const currentUserId = await getCurrentUserId(request);
-        if (!currentUserId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        if (!currentUserId) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
 
         const body = await request.json();
         const { name, contact, email, address, notes } = body;
 
-        if (!name || !contact) {
-            return NextResponse.json({ error: 'Name and Contact are required' }, { status: 400 });
+        // Validation
+        if (!name || !name.trim()) {
+            return NextResponse.json({ error: 'Name is required' }, { status: 400 });
+        }
+
+        if (!contact || !contact.trim()) {
+            return NextResponse.json({ error: 'Contact is required' }, { status: 400 });
+        }
+
+        // Validate phone number format (10-15 digits, can include +, spaces, -)
+        const phoneRegex = /^[0-9+\s-]{10,15}$/;
+        if (!phoneRegex.test(contact.trim())) {
+            return NextResponse.json({ error: 'Please enter a valid phone number' }, { status: 400 });
+        }
+
+        // Validate email format if provided
+        if (email && email.trim()) {
+            const emailRegex = /\S+@\S+\.\S+/;
+            if (!emailRegex.test(email.trim())) {
+                return NextResponse.json({ error: 'Please enter a valid email address' }, { status: 400 });
+            }
         }
 
         const newMember = await prisma.globalMember.create({
             data: {
-                name,
-                contact,
-                email,
-                address,
-                notes,
+                name: name.trim(),
+                contact: contact.trim(),
+                email: email?.trim() || null,
+                address: address?.trim() || null,
+                notes: notes?.trim() || null,
                 createdById: currentUserId
+            },
+            include: {
+                _count: {
+                    select: {
+                        chitFundMembers: true,
+                        loans: true
+                    }
+                }
             }
         });
 
