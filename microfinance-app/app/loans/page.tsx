@@ -2,6 +2,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { LoansListSkeleton } from '../components/skeletons/ListSkeletons';
 import { loanAPI } from '../../lib/api';
@@ -43,6 +44,7 @@ interface PaginatedResponse {
 }
 
 export default function LoansPage() {
+  const router = useRouter();
   const [loans, setLoans] = useState<Loan[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
@@ -518,7 +520,7 @@ export default function LoansPage() {
                       ) {
                         return;
                       }
-                      window.location.href = `/loans/${loan.id}`;
+                      router.push(`/loans/${loan.id}`);
                     }}
                   >
                     <td className="px-2 sm:px-6 py-2 sm:py-4 whitespace-nowrap">

@@ -2,6 +2,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { ChitFundsListSkeleton } from '../components/skeletons';
 import { ArrowDownTrayIcon, TrashIcon, PlusCircleIcon } from '@heroicons/react/24/solid';
@@ -34,6 +35,7 @@ interface PaginatedResponse {
 }
 
 export default function ChitFundsPage() {
+  const router = useRouter();
   const [chitFunds, setChitFunds] = useState<ChitFund[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -560,7 +562,7 @@ export default function ChitFundsPage() {
                       ) {
                         return;
                       }
-                      window.location.href = `/chit-funds/${fund.id}`;
+                      router.push(`/chit-funds/${fund.id}`);
                     }}
                   >
                     <td className="px-6 py-4 whitespace-nowrap">

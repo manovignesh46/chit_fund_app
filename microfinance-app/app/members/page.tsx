@@ -570,7 +570,7 @@ export default function MembersPage() {
                     ) {
                       return;
                     }
-                    window.location.href = `/members/${member.id}`;
+                    router.push(`/members/${member.id}`);
                   }}
                 >
                   <td className="px-2 sm:px-6 py-4 whitespace-nowrap">
