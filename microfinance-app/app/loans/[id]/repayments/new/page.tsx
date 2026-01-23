@@ -353,16 +353,13 @@ export default function NewRepaymentPage() {
         throw new Error('Invalid collector information. Please try again.');
       }
 
-      // Prepare data in the format expected by the API
+      // Prepare data in the format expected by the RESTful API
       const requestData = {
         amount: numericAmount,
         paidDate: formData.paidDate, // Keep as ISO string
-        paymentType: formData.paymentType,
-        scheduleId: periodNumber, // This maps to the period field in the API
-        collected_by: formData.collected_by_id, // Use the selected partner ID
-        collected_by_id: collectorId, // Ensure both fields are populated
-        entered_by: formData.entered_by_id,
-        entered_by_id: enteredById,
+        paymentType: formData.paymentType === 'INTEREST_ONLY' ? 'interestOnly' : formData.paymentType,
+        period: periodNumber,
+        partnerId: collectorId,
         notes: formData.notes?.trim() || undefined // Include notes if provided
       };
 

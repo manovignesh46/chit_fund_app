@@ -194,56 +194,62 @@ export const chitFundAPI = {
 // Loan API functions (consolidated)
 export const loanAPI = {
   getAll: (page = 1, pageSize = 10, status?: string) => {
-    let url = `/loans/consolidated?action=list&page=${page}&pageSize=${pageSize}`;
+    let url = `/loans?page=${page}&pageSize=${pageSize}`;
     if (status) url += `&status=${status}`;
     return fetchAPI<any>(url);
   },
 
-  getById: (id: number) => fetchAPI<any>(`/loans/consolidated?action=detail&id=${id}`),
+  getById: (id: number) => fetchAPI<any>(`/loans/${id}`),
 
-  create: (data: any) => fetchAPI<any>('/loans/consolidated?action=create', {
+  create: (data: any) => fetchAPI<any>('/loans', {
     method: 'POST',
     body: JSON.stringify(data),
   }),
 
-  update: (id: number, data: any) => fetchAPI<any>(`/loans/consolidated?action=update&id=${id}`, {
+  update: (id: number, data: any) => fetchAPI<any>(`/loans/${id}`, {
     method: 'PUT',
     body: JSON.stringify(data),
   }),
 
-  delete: (id: number) => fetchAPI<any>(`/loans/consolidated?action=delete&id=${id}`, {
+  delete: (id: number) => fetchAPI<any>(`/loans/${id}`, {
     method: 'DELETE',
-    body: JSON.stringify({}),
   }),
 
   getRepayments: (id: number, page = 1, pageSize = 10) =>
-    fetchAPI<any>(`/loans/consolidated?action=repayments&id=${id}&page=${page}&pageSize=${pageSize}`),
+    fetchAPI<any>(`/loans/${id}/repayments?page=${page}&pageSize=${pageSize}`),
 
-  addRepayment: (id: number, data: any) => fetchAPI<any>(`/loans/consolidated?action=add-repayment&id=${id}`, {
+  addRepayment: (id: number, data: any) => fetchAPI<any>(`/loans/${id}/repayments`, {
     method: 'POST',
     body: JSON.stringify(data),
   }),
 
-  deleteRepayment: (id: number, repaymentId: number) => fetchAPI<any>(`/loans/consolidated?action=delete-repayment&id=${id}`, {
+  deleteRepayment: (id: number, repaymentId: number) => fetchAPI<any>(`/loans/${id}/repayments/${repaymentId}`, {
     method: 'DELETE',
-    body: JSON.stringify({ repaymentId }),
   }),
 
-  deleteRepayments: (id: number, repaymentIds: number[]) => fetchAPI<any>(`/loans/consolidated?action=delete-repayment&id=${id}`, {
-    method: 'DELETE',
-    body: JSON.stringify({ repaymentIds }),
-  }),
+  deleteRepayments: (id: number, repaymentIds: number[]) => {
+    // RESTful delete usually handles one by one, but for bulk we would need a specific endpoint or multiple calls.
+    // Given the previous pattern in page.tsx, we'll keep it as one call if the backend supports it, 
+    // but the RESTful route for repayments is /api/loans/[id]/repayments/[repaymentId].
+    // If there's no bulk delete endpoint, this needs to be handled in the component.
+    // For now, I'll leave it or point to a generic if it exists. 
+    // Actually, I'll check if /api/loans/[id]/repayments supports bulk DELETE.
+    return fetchAPI<any>(`/loans/${id}/repayments`, {
+      method: 'DELETE',
+      body: JSON.stringify({ repaymentIds }),
+    });
+  },
 
-  getPaymentSchedules: (id: number, includeAll = false) => fetchAPI<any>(`/loans/consolidated?action=payment-schedules&id=${id}&includeAll=${includeAll}`),
+  getPaymentSchedules: (id: number, includeAll = false) => fetchAPI<any>(`/loans/${id}/payment-schedules?includeAll=${includeAll}`),
 
   recordPayment: (id: number, data: any) => loanAPI.addRepayment(id, data),
 
-  updateOverdueAmount: (id: number) => fetchAPI<any>(`/loans/consolidated?action=update-overdue&id=${id}`, {
+  updateOverdueAmount: (id: number) => fetchAPI<any>(`/loans/${id}/update-overdue`, {
     method: 'POST',
     body: JSON.stringify({}),
   }),
 
-  updateAllOverdueAmounts: () => fetchAPI<any>('/loans/consolidated?action=update-overdue', {
+  updateAllOverdueAmounts: () => fetchAPI<any>('/loans/update-overdue', {
     method: 'POST',
     body: JSON.stringify({}),
   }),

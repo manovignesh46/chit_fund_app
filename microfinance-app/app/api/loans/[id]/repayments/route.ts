@@ -215,3 +215,122 @@ export async function POST(
     );
   }
 }
+// DELETE /api/loans/[id]/repayments - Bulk delete repayments
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  try {
+    const currentUserId = await getCurrentUserId(request);
+    if (!currentUserId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const { id } = await params;
+    const loanId = parseInt(id);
+    const body = await request.json();
+    const { repaymentIds } = body;
+
+    if (!repaymentIds || !Array.isArray(repaymentIds) || repaymentIds.length === 0) {
+      return NextResponse.json({ error: 'Repayment IDs are required' }, { status: 400 });
+    }
+
+    // Verify loan belongs to user
+    const loan = await prisma.loan.findUnique({
+      where: { id: loanId },
+      select: { createdById: true },
+    });
+
+    if (!loan || loan.createdById !== currentUserId) {
+      return NextResponse.json({ error: 'Loan not found or forbidden' }, { status: 404 });
+    }
+
+    // We'll use a loop to handle each deletion properly since each involves balance updates
+    // For large batches, this should ideally be optimized, but for small batches it's safer.
+    // The previous implementation in consolidated API also handled it similarly.
+    
+    const results = [];
+    for (const repaymentId of repaymentIds) {
+        // We can reuse the logic or call the internal deletion function
+        // For simplicity and to ensure all side effects (schedules, balances) are handled,
+        // we'll perform the deletion logic here in a transaction for each.
+        
+        const repayment = await prisma.repayment.findUnique({
+            where: { id: repaymentId },
+            include: { transaction: true },
+        });
+
+        if (repayment && repayment.loanId === loanId) {
+            await prisma.$transaction(async (tx) => {
+                // Revert Partner Balance
+                if (repayment.transaction && repayment.transaction.partnerId) {
+                    await tx.partnerBalance.updateMany({
+                        where: {
+                            partnerId: repayment.transaction.partnerId,
+                            createdById: currentUserId
+                        },
+                        data: {
+                            balance: { decrement: repayment.amount },
+                            lastUpdated: new Date()
+                        }
+                    });
+                }
+
+                // Delete Transaction
+                if (repayment.transactionId) {
+                    await tx.transaction.delete({ where: { id: repayment.transactionId } });
+                }
+
+                // Delete Repayment
+                await tx.repayment.delete({ where: { id: repaymentId } });
+
+                // Revert Payment Schedule
+                await tx.paymentSchedule.updateMany({
+                    where: { loanId, period: repayment.period },
+                    data: { status: 'Pending', actualPaymentDate: null }
+                });
+            });
+            results.push({ id: repaymentId, status: 'deleted' });
+        } else {
+            results.push({ id: repaymentId, status: 'not_found_or_mismatch' });
+        }
+    }
+
+    // Recalculate loan state after all deletions
+    await prisma.$transaction(async (tx) => {
+        const nextPaymentDate = await calculateNextPaymentDate(loanId, tx);
+        const fullLoan = await tx.loan.findUnique({ where: { id: loanId } });
+        
+        if (fullLoan) {
+            // Recalculate remaining amount based on all current repayments
+            const currentRepayments = await tx.repayment.findMany({
+                where: { loanId, paymentType: { not: 'interestOnly' } }
+            });
+            
+            const totalPrincipalPaid = currentRepayments.reduce((sum, r) => {
+                const principal = r.paymentType === 'REGULAR' ? r.amount - fullLoan.interestRate : r.amount;
+                return sum + Math.max(0, principal);
+            }, 0);
+            
+            await tx.loan.update({
+                where: { id: loanId },
+                data: {
+                    remainingAmount: fullLoan.amount - totalPrincipalPaid,
+                    nextPaymentDate,
+                    status: 'Active'
+                }
+            });
+            
+            await updateOverdueAmountFromRepayments(loanId, tx);
+        }
+    });
+
+    return NextResponse.json({ success: true, results });
+  } catch (error) {
+    console.error('Error in bulk delete repayments:', error);
+    return NextResponse.json(
+      { error: 'Failed to delete repayments' },
+      { status: 500 }
+    );
+  }
+}
