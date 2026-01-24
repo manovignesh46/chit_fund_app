@@ -473,10 +473,9 @@ export async function calculateNextPaymentDate(loanId: number, tx?: any) {
     // Sort due dates chronologically
     dueDates.sort((a, b) => a.dueDate.getTime() - b.dueDate.getTime());
 
-    // Create a map of periods that have been paid with full payments
+    // Create a map of periods that have been paid (any type of payment clears the period for the schedule)
     const paidPeriods = new Set();
     loan.repayments
-      .filter((r: any) => r.paymentType !== 'interestOnly')
       .forEach((repayment: any) => {
         let periodToUse;
         const repaymentDate = new Date(repayment.paidDate);

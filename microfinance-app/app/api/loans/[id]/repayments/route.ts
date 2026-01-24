@@ -161,14 +161,20 @@ export async function POST(
       // Update loan based on repayment
       let remainingAmount = loan.remainingAmount;
       let currentMonth = loan.currentMonth;
+      let duration = loan.duration;
+      const isInterestOnly = paymentType?.toLowerCase() === 'interestonly';
 
       // Only reduce remaining amount for non-interest-only payments
-      if (paymentType !== 'interestOnly') {
+      if (!isInterestOnly) {
         const principalPaid = paymentType === 'REGULAR' 
           ? finalAmount - loan.interestRate 
           : finalAmount;
         remainingAmount = Math.max(0, loan.remainingAmount - principalPaid);
         currentMonth = parseInt(period);
+      } else {
+        // For interest-only payments, increment duration by 1
+        duration = loan.duration + 1;
+        console.log(`Incrementing loan ${loanId} duration to ${duration} due to interest-only payment`);
       }
 
       // Calculate next payment date
@@ -183,6 +189,7 @@ export async function POST(
         data: {
           remainingAmount,
           currentMonth,
+          duration,
           nextPaymentDate,
           status,
         },

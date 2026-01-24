@@ -108,7 +108,7 @@ const LoanDetailPage = () => {
       }
 
       const amount =
-        paymentType === "InterestOnly"
+        paymentType === "interestOnly"
           ? scheduleItem.interestAmount
           : scheduleItem.amount;
 
@@ -121,7 +121,7 @@ const LoanDetailPage = () => {
         body: JSON.stringify({
             amount,
             paidDate: new Date().toISOString(),
-            paymentType: paymentType === "InterestOnly" ? "interestOnly" : "REGULAR", // Match API expected values
+            paymentType: paymentType === "interestOnly" ? "interestOnly" : "REGULAR", // Match API expected values
             period,
             partnerId: selectedPartner.id
         })
@@ -951,96 +951,7 @@ const LoanDetailPage = () => {
                         );
                       })()}
                     </div>
-                    {(() => {
-                      // Calculate the current period to check if update is needed
-                      const startDate = new Date(loan.disbursementDate);
-                      const currentDate = new Date();
 
-                      // Check if disbursement date is in the future
-                      if (startDate > currentDate) {
-                        // Should be "Not Started" (period 0)
-                        return (
-                          loan.currentMonth !== 0 && (
-                            <button
-                              onClick={updateCurrentMonth}
-                              disabled={updating}
-                              className="text-xs px-2 py-1 bg-green-100 text-green-800 rounded hover:bg-green-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                            >
-                              {updating ? "Updating..." : "Update"}
-                            </button>
-                          )
-                        );
-                      }
-
-                      let calculatedPeriod;
-
-                      if (loan.loanType === "Weekly") {
-                        // Calculate weeks difference for weekly loans
-                        const startDateClean = new Date(
-                          startDate.getFullYear(),
-                          startDate.getMonth(),
-                          startDate.getDate()
-                        );
-                        const currentDateClean = new Date(
-                          currentDate.getFullYear(),
-                          currentDate.getMonth(),
-                          currentDate.getDate()
-                        );
-
-                        // Calculate days difference
-                        const daysDiff = Math.floor(
-                          (currentDateClean.getTime() -
-                            startDateClean.getTime()) /
-                            (24 * 60 * 60 * 1000)
-                        );
-
-                        // Calculate the week number
-                        const isExactMultipleOfSeven = daysDiff % 7 === 0;
-                        const currentWeek =
-                          Math.floor(daysDiff / 7) +
-                          (isExactMultipleOfSeven ? 0 : 1);
-
-                        // Ensure we don't exceed the duration
-                        calculatedPeriod = Math.min(
-                          Math.max(1, currentWeek),
-                          loan.duration
-                        );
-                      } else {
-                        // Calculate months difference for monthly loans
-                        let monthsDiff =
-                          (currentDate.getFullYear() -
-                            startDate.getFullYear()) *
-                            12 +
-                          (currentDate.getMonth() - startDate.getMonth());
-
-                        // Add 1 because first month is month 1
-                        monthsDiff = monthsDiff + 1;
-
-                        // Adjust if we haven't reached the same day of the month yet
-                        if (currentDate.getDate() < startDate.getDate()) {
-                          monthsDiff--;
-                        }
-
-                        // Ensure we don't exceed the duration
-                        calculatedPeriod = Math.min(
-                          Math.max(1, monthsDiff),
-                          loan.duration
-                        );
-                      }
-
-                      // Only show update button if the calculated period differs from the current period
-                      return (
-                        loan.currentMonth !== calculatedPeriod && (
-                          <button
-                            onClick={updateCurrentMonth}
-                            disabled={updating}
-                            className="text-xs px-2 py-1 bg-green-100 text-green-800 rounded hover:bg-green-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                          >
-                            {updating ? "Updating..." : "Update"}
-                          </button>
-                        )
-                      );
-                    })()}
                   </div>
                 </div>
                 <span className="px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm font-semibold">
@@ -1445,159 +1356,215 @@ const LoanDetailPage = () => {
                     </td>
                   </tr>
                 ) : (
-                  paymentSchedules.map((schedule) => {
-                    // Check if payment is due tomorrow
+                  (() => {
+                    const completedSchedules = paymentSchedules.filter(
+                      (s) =>
+                        s.status === "Paid" ||
+                        s.status === "Interest Only" ||
+                        s.status === "interestOnly"
+                    );
+                    const pendingSchedules = paymentSchedules
+                      .filter(
+                        (s) =>
+                          s.status !== "Paid" &&
+                          s.status !== "Interest Only" &&
+                          s.status !== "interestOnly"
+                      )
+                      .sort((a, b) => a.period - b.period);
+
                     const today = new Date();
                     today.setHours(0, 0, 0, 0);
+                    const visibleThreshold = new Date(today);
+                    visibleThreshold.setDate(visibleThreshold.getDate() + 3);
 
-                    const tomorrow = new Date(today);
-                    tomorrow.setDate(tomorrow.getDate() + 1);
+                    const nextUpcoming =
+                      pendingSchedules.length > 0 &&
+                      new Date(pendingSchedules[0].dueDate) <= visibleThreshold
+                        ? [pendingSchedules[0]]
+                        : [];
 
-                    const dueDate = new Date(schedule.dueDate);
-                    dueDate.setHours(0, 0, 0, 0);
+                    return [...completedSchedules, ...nextUpcoming]
+                      .sort((a, b) => b.period - a.period)
+                      .map((schedule) => {
+                        // Check if payment is due tomorrow
+                        const itemToday = new Date();
+                        itemToday.setHours(0, 0, 0, 0);
 
-                    const isDueTomorrow =
-                      dueDate.getTime() === tomorrow.getTime();
+                        const tomorrow = new Date(today);
+                        tomorrow.setDate(tomorrow.getDate() + 1);
 
-                    // Calculate the grace period date (3 days after due date)
-                    const gracePeriodDate = new Date(dueDate);
-                    gracePeriodDate.setDate(gracePeriodDate.getDate() + 3);
+                        const dueDate = new Date(schedule.dueDate);
+                        dueDate.setHours(0, 0, 0, 0);
 
-                    // Only mark as overdue if it's past the grace period (3 days after due date)
-                    const isOverdue =
-                      dueDate < today &&
-                      today >= gracePeriodDate &&
-                      (schedule.status === "Pending" ||
-                        schedule.status === "Overdue");
+                        const isDueTomorrow =
+                          dueDate.getTime() === tomorrow.getTime();
 
-                    return (
-                      <tr
-                        key={schedule.id}
-                        className={`hover:bg-gray-50 ${
-                          isOverdue
-                            ? "bg-red-50"
-                            : isDueTomorrow
-                            ? "bg-yellow-50"
-                            : ""
-                        }`}
-                      >
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-gray-900">
-                            {schedule.period}
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-gray-900">
-                            {formatDate(schedule.dueDate)}
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-gray-900">
-                            {/* Show payment date from schedule.repayment if present, else fallback to loan.repayments by period */}
-                            {(() => {
-                              if (
-                                schedule.repayment &&
-                                schedule.repayment.paidDate
-                              ) {
-                                return formatDate(schedule.repayment.paidDate);
-                              }
-                              if (
-                                loan.repayments &&
-                                Array.isArray(loan.repayments)
-                              ) {
-                                const repayment = loan.repayments.find(
-                                  (r: any) => r.period === schedule.period
-                                );
-                                return repayment && repayment.paidDate
+                        // Calculate the grace period date (3 days after due date)
+                        const gracePeriodDate = new Date(dueDate);
+                        gracePeriodDate.setDate(gracePeriodDate.getDate() + 3);
+
+                        // Only mark as overdue if it's past the grace period (3 days after due date)
+                        const isOverdue =
+                          dueDate < today &&
+                          today >= gracePeriodDate &&
+                          (schedule.status === "Pending" ||
+                            schedule.status === "Overdue");
+
+                        // Find the repayment for this schedule period
+                        const repayment = schedule.repayment || (loan.repayments && Array.isArray(loan.repayments) 
+                          ? loan.repayments.find((r: any) => r.period === schedule.period) 
+                          : null);
+                        
+                        // Determine if this is an interest-only payment
+                        const isInterestOnly = repayment && (
+                          repayment.paymentType === 'interestOnly' || 
+                          repayment.paymentType?.toUpperCase() === 'INTEREST_ONLY'
+                        );
+
+                        // Override status if it's paid but it's interest only
+                        let displayStatus = schedule.status;
+                        if ((schedule.status === "Paid" || schedule.status === "interestOnly" || schedule.status === "Interest Only") && isInterestOnly) {
+                          displayStatus = "Interest Only";
+                        }
+
+                        return (
+                          <tr
+                            key={schedule.id}
+                            className={`hover:bg-gray-50 ${
+                              isOverdue
+                                ? "bg-red-50"
+                                : isDueTomorrow
+                                ? "bg-yellow-50"
+                                : ""
+                            }`}
+                          >
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <div className="text-sm text-gray-900">
+                                {schedule.period}
+                              </div>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <div className="text-sm text-gray-900">
+                                {formatDate(schedule.dueDate)}
+                              </div>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <div className="text-sm text-gray-900">
+                                {repayment && repayment.paidDate
                                   ? formatDate(repayment.paidDate)
-                                  : "-";
-                              }
-                              return "-";
-                            })()}
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-gray-900">
-                            {formatCurrency(schedule.amount)}
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="flex flex-col space-y-1">
-                            <span
-                              className={`px-2 py-1 text-xs font-semibold rounded-full ${
-                                schedule.status === "Paid"
-                                  ? "bg-green-100 text-green-800"
-                                  : schedule.status === "Pending"
-                                  ? isOverdue
-                                    ? "bg-red-100 text-red-800"
-                                    : "bg-yellow-100 text-yellow-800"
-                                  : schedule.status === "Overdue"
-                                  ? "bg-red-100 text-red-800"
-                                  : schedule.status === "Missed"
-                                  ? "bg-red-100 text-red-800"
-                                  : schedule.status === "Interest Only"
-                                  ? "bg-blue-100 text-blue-800"
-                                  : schedule.status === "InterestOnly"
-                                  ? "bg-blue-100 text-blue-800" // Keep backward compatibility
-                                  : "bg-gray-100 text-gray-800"
-                              }`}
-                            >
-                              {isOverdue ? "Overdue" : schedule.status}
-                            </span>
-
-                            {isDueTomorrow && (
-                              <span
-                                className="px-2 py-1 text-xs font-semibold rounded-full bg-amber-100 text-amber-800 border border-amber-200"
-                                title="This loan payment is due tomorrow"
-                              >
-                                Due Tomorrow
-                              </span>
-                            )}
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="flex space-x-2">
-                            {(schedule.status === "Pending" ||
-                              schedule.status === "Missed") && (
-                              <>
-                                <button
-                                  onClick={() =>
-                                    handleRecordPayment(schedule.period, "Paid")
-                                  }
-                                  disabled={
-                                    updatingSchedule === schedule.period
-                                  }
-                                  className="inline-flex items-center px-2 py-1 border border-transparent text-xs font-medium rounded text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                                  : "-"}
+                              </div>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <div className="text-sm text-gray-900">
+                                {formatCurrency(schedule.amount)}
+                              </div>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <div className="flex flex-col space-y-1">
+                                <span
+                                  className={`px-2 py-1 text-xs font-semibold rounded-full ${
+                                    displayStatus === "Paid"
+                                      ? "bg-green-100 text-green-800"
+                                      : displayStatus === "Pending"
+                                      ? isOverdue
+                                        ? "bg-red-100 text-red-800"
+                                        : "bg-yellow-100 text-yellow-800"
+                                      : displayStatus === "Overdue"
+                                      ? "bg-red-100 text-red-800"
+                                      : displayStatus === "Missed"
+                                      ? "bg-red-100 text-red-800"
+                                      : displayStatus === "Interest Only"
+                                      ? "bg-blue-100 text-blue-800"
+                                      : displayStatus === "interestOnly"
+                                      ? "bg-blue-100 text-blue-800" // Keep backward compatibility
+                                      : "bg-gray-100 text-gray-800"
+                                  }`}
                                 >
-                                  <svg
-                                    className="h-3 w-3 mr-1"
-                                    fill="none"
-                                    viewBox="0 0 24 24"
-                                    stroke="currentColor"
+                                  {isOverdue ? "Overdue" : displayStatus}
+                                </span>
+
+                                {isDueTomorrow && (
+                                  <span
+                                    className="px-2 py-1 text-xs font-semibold rounded-full bg-amber-100 text-amber-800 border border-amber-200"
+                                    title="This loan payment is due tomorrow"
                                   >
-                                    <path
-                                      strokeLinecap="round"
-                                      strokeLinejoin="round"
-                                      strokeWidth="2"
-                                      d="M5 13l4 4L19 7"
-                                    />
-                                  </svg>
-                                  {updatingSchedule === schedule.period
-                                    ? "Processing..."
-                                    : "Mark Paid"}
-                                </button>
-                                {loan.repaymentType === "Monthly" && (
-                                  <button
-                                    onClick={() =>
-                                      handleRecordPayment(
-                                        schedule.period,
-                                        "InterestOnly"
-                                      )
-                                    }
-                                    disabled={
-                                      updatingSchedule === schedule.period
-                                    }
-                                    className="inline-flex items-center px-2 py-1 border border-transparent text-xs font-medium rounded text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                                    Due Tomorrow
+                                  </span>
+                                )}
+                              </div>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <div className="flex space-x-2">
+                                {(schedule.status === "Pending" ||
+                                  schedule.status === "Missed") && (
+                                  <>
+                                    <button
+                                      onClick={() =>
+                                        handleRecordPayment(
+                                          schedule.period,
+                                          "Paid"
+                                        )
+                                      }
+                                      disabled={
+                                        updatingSchedule === schedule.period
+                                      }
+                                      className="inline-flex items-center px-2 py-1 border border-transparent text-xs font-medium rounded text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                                    >
+                                      <svg
+                                        className="h-3 w-3 mr-1"
+                                        fill="none"
+                                        viewBox="0 0 24 24"
+                                        stroke="currentColor"
+                                      >
+                                        <path
+                                          strokeLinecap="round"
+                                          strokeLinejoin="round"
+                                          strokeWidth="2"
+                                          d="M5 13l4 4L19 7"
+                                        />
+                                      </svg>
+                                      {updatingSchedule === schedule.period
+                                        ? "Processing..."
+                                        : "Mark Paid"}
+                                    </button>
+                                    {loan.repaymentType === "Monthly" && (
+                                      <button
+                                        onClick={() =>
+                                          handleRecordPayment(
+                                            schedule.period,
+                                            "interestOnly"
+                                          )
+                                        }
+                                        disabled={
+                                          updatingSchedule === schedule.period
+                                        }
+                                        className="inline-flex items-center px-2 py-1 border border-transparent text-xs font-medium rounded text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                                      >
+                                        <svg
+                                          className="h-3 w-3 mr-1"
+                                          fill="none"
+                                          viewBox="0 0 24 24"
+                                          stroke="currentColor"
+                                        >
+                                          <path
+                                            strokeLinecap="round"
+                                            strokeLinejoin="round"
+                                            strokeWidth="2"
+                                            d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1"
+                                          />
+                                        </svg>
+                                        {updatingSchedule === schedule.period
+                                          ? "Processing..."
+                                          : "Interest Only"}
+                                      </button>
+                                    )}
+                                  </>
+                                )}
+                                {schedule.repayment && (
+                                  <Link
+                                    href={`/loans/${id}/repayments`}
+                                    className="inline-flex items-center px-2 py-1 border border-gray-300 text-xs font-medium rounded text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
                                   >
                                     <svg
                                       className="h-3 w-3 mr-1"
@@ -1609,48 +1576,24 @@ const LoanDetailPage = () => {
                                         strokeLinecap="round"
                                         strokeLinejoin="round"
                                         strokeWidth="2"
-                                        d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1"
+                                        d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                                      />
+                                      <path
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                        strokeWidth="2"
+                                        d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
                                       />
                                     </svg>
-                                    {updatingSchedule === schedule.period
-                                      ? "Processing..."
-                                      : "Interest Only"}
-                                  </button>
+                                    View Payment
+                                  </Link>
                                 )}
-                              </>
-                            )}
-                            {schedule.repayment && (
-                              <Link
-                                href={`/loans/${id}/repayments`}
-                                className="inline-flex items-center px-2 py-1 border border-gray-300 text-xs font-medium rounded text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-                              >
-                                <svg
-                                  className="h-3 w-3 mr-1"
-                                  fill="none"
-                                  viewBox="0 0 24 24"
-                                  stroke="currentColor"
-                                >
-                                  <path
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    strokeWidth="2"
-                                    d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-                                  />
-                                  <path
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    strokeWidth="2"
-                                    d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
-                                  />
-                                </svg>
-                                View Payment
-                              </Link>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })
+                  })()
                 )}
               </tbody>
             </table>

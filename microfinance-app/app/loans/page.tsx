@@ -26,6 +26,9 @@ interface Loan {
   loanType: string;
   amount: number;
   interestRate: number;
+  documentCharge: number;
+  currentMonth: number;
+  installmentAmount: number;
   duration: number;
   remainingAmount: number;
   nextPaymentDate: string | null;
@@ -466,6 +469,13 @@ export default function LoansPage() {
                     onSort={requestSort}
                   />
                   <SortableTableHeader
+                    label="Current Month"
+                    sortKey="currentMonth"
+                    currentSortKey={sortConfig.key}
+                    currentSortDirection={sortConfig.direction}
+                    onSort={requestSort}
+                  />
+                  <SortableTableHeader
                     label="Remaining"
                     sortKey="remainingAmount"
                     currentSortKey={sortConfig.key}
@@ -546,6 +556,11 @@ export default function LoansPage() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm text-gray-900">{loan.duration} {loan.loanType === 'Weekly' ? 'weeks' : 'months'}</div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm text-gray-900">
+                        {loan.currentMonth} / {loan.duration}
+                      </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm text-gray-900">{formatCurrency(loan.remainingAmount)}</div>
