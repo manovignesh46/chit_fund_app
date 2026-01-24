@@ -254,22 +254,21 @@ export const loanAPI = {
     body: JSON.stringify({}),
   }),
 
+  // Export functions (using consolidated endpoint for utility operations)
   exportLoan: (id: number) => {
     // This is a special case that needs to trigger a file download
     window.location.href = `/api/loans/consolidated?action=export&id=${id}`;
-    return Promise.resolve(); // Return a resolved promise for consistency
+    return Promise.resolve();
   },
 
   exportAllLoans: () => {
-    // This is a special case that needs to trigger a file download
     window.location.href = `/api/loans/consolidated?action=export-all`;
-    return Promise.resolve(); // Return a resolved promise for consistency
+    return Promise.resolve();
   },
 
   exportSelectedLoans: (loanIds: number[]) => {
-    // This is a special case that needs to trigger a file download
     window.location.href = `/api/loans/consolidated?action=export-selected&ids=${loanIds.join(',')}`;
-    return Promise.resolve(); // Return a resolved promise for consistency
+    return Promise.resolve();
   },
 };
 
@@ -368,8 +367,8 @@ export const dashboardAPI = {
     body: JSON.stringify(data),
   }),
 
-  // Transaction email export
-  emailTransactions: (data: any) => fetchAPI<any>('/transactions?action=email-export', {
+  // Transaction email export - uses specialized transaction export route
+  emailTransactions: (data: any) => fetchAPI<any>('/transactions/export', {
     method: 'POST',
     body: JSON.stringify(data),
   }),

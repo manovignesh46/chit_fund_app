@@ -111,6 +111,148 @@ export async function testEmailConfiguration(): Promise<boolean> {
 
 // Generate email templates
 export const emailTemplates = {
+  // Transaction export email template
+  transactionExport: (recipientName: string, data: any) => {
+    const { details, summaryByType, partnerSummary, filename } = data;
+    
+    const formatINR = (amount: number) => {
+      return new Intl.NumberFormat('en-IN', {
+        style: 'currency',
+        currency: 'INR',
+        minimumFractionDigits: 0,
+      }).format(amount);
+    };
+
+    // Construct dynamic subject based on dates
+    let subjectRange = '';
+    if (details.startDate && details.startDate !== 'N/A' && details.endDate && details.endDate !== 'N/A') {
+      subjectRange = `(${details.startDate} to ${details.endDate})`;
+    } else if (details.endDate && details.endDate !== 'N/A') {
+      subjectRange = `(Until ${details.endDate})`;
+    } else {
+      subjectRange = filename.replace('.xlsx', '').replace('Transactions_', '');
+      if (subjectRange === '') subjectRange = '(Full History)';
+    }
+
+    return {
+      subject: `Transaction Export - ${subjectRange}`,
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; color: #374151;">
+          <h2 style="color: #2563eb; border-bottom: 2px solid #e5e7eb; padding-bottom: 10px;">Transaction Export Report</h2>
+          <p>Please find attached the transaction export file with detailed transaction data and summary.</p>
+
+          <div style="background-color: #f9fafb; padding: 20px; border-radius: 8px; margin: 20px 0; border: 1px solid #e5e7eb;">
+            <h3 style="margin-top: 0; color: #1e40af;">Export Details:</h3>
+            <ul style="list-style: none; padding: 0;">
+              <li><strong>Export Type:</strong> ${details.exportType}</li>
+              <li><strong>Total Transactions:</strong> ${details.totalTransactions}</li>
+              <li><strong>Transaction Amount Total:</strong> ${formatINR(details.totalAmount)}</li>
+              <li><strong>Start Date:</strong> ${details.startDate}</li>
+              <li><strong>End Date:</strong> ${details.endDate}</li>
+            </ul>
+          </div>
+
+          <h3 style="color: #1e40af; border-left: 4px solid #2563eb; padding-left: 10px;">Transaction Summary by Type:</h3>
+          <ul style="list-style: none; padding: 0; margin-bottom: 20px;">
+            <li><strong>Loan Repayments:</strong> ${formatINR(summaryByType.loanRepayments)}</li>
+            <li><strong>Loan Disbursements:</strong> ${formatINR(summaryByType.loanDisbursements)}</li>
+            <li><strong>Document Charges:</strong> ${formatINR(summaryByType.documentCharges)}</li>
+            <li><strong>Chit Contributions:</strong> ${formatINR(summaryByType.chitContributions)}</li>
+            <li><strong>Auction Payouts:</strong> ${formatINR(summaryByType.auctionPayouts)}</li>
+            <li><strong>Net Recorded Amount:</strong> ${formatINR(summaryByType.netRecordedAmount)}</li>
+            <li><strong>Partner Transfers:</strong> ${formatINR(summaryByType.partnerTransfers)}</li>
+            <li><strong>Net Total Amount:</strong> <span style="color: ${summaryByType.netTotalAmount >= 0 ? '#059669' : '#dc2626'}">${formatINR(summaryByType.netTotalAmount)}</span></li>
+          </ul>
+
+          <h3 style="color: #1e40af; border-left: 4px solid #2563eb; padding-left: 10px;">Partner-wise Summary:</h3>
+          <div style="overflow-x: auto; margin-bottom: 20px;">
+            <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+              <thead>
+                <tr style="background-color: #f3f4f6;">
+                  <th style="border: 1px solid #e5e7eb; padding: 8px; text-align: left;">Partner</th>
+                  <th style="border: 1px solid #e5e7eb; padding: 8px; text-align: right;">Loan Repayments</th>
+                  <th style="border: 1px solid #e5e7eb; padding: 8px; text-align: right;">Chit Contributions</th>
+                  <th style="border: 1px solid #e5e7eb; padding: 8px; text-align: right;">Recorded Amounts</th>
+                  <th style="border: 1px solid #e5e7eb; padding: 8px; text-align: right;">Loan Disbursements</th>
+                  <th style="border: 1px solid #e5e7eb; padding: 8px; text-align: right;">Document Charges</th>
+                  <th style="border: 1px solid #e5e7eb; padding: 8px; text-align: right;">Auction Payouts</th>
+                  <th style="border: 1px solid #e5e7eb; padding: 8px; text-align: right;">Partner Transfers</th>
+                  <th style="border: 1px solid #e5e7eb; padding: 8px; text-align: right;">Total Amount</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${partnerSummary.map((p: any) => `
+                  <tr>
+                    <td style="border: 1px solid #e5e7eb; padding: 8px; font-weight: ${p.Partner === 'TOTAL' ? 'bold' : 'normal'}">${p.Partner}</td>
+                    <td style="border: 1px solid #e5e7eb; padding: 8px; text-align: right;">${p['Loan Repayments']}</td>
+                    <td style="border: 1px solid #e5e7eb; padding: 8px; text-align: right;">${p['Chit Contributions']}</td>
+                    <td style="border: 1px solid #e5e7eb; padding: 8px; text-align: right;">${p['Recorded Amounts']}</td>
+                    <td style="border: 1px solid #e5e7eb; padding: 8px; text-align: right;">${p['Loan Disbursements']}</td>
+                    <td style="border: 1px solid #e5e7eb; padding: 8px; text-align: right;">${p['Document Charges']}</td>
+                    <td style="border: 1px solid #e5e7eb; padding: 8px; text-align: right;">${p['Auction Payouts']}</td>
+                    <td style="border: 1px solid #e5e7eb; padding: 8px; text-align: right;">${p['Partner Transfers']}</td>
+                    <td style="border: 1px solid #e5e7eb; padding: 8px; text-align: right; font-weight: ${p.Partner === 'TOTAL' ? 'bold' : 'normal'}; color: ${p.TotalValue >= 0 ? '#059669' : '#dc2626'}">${p['Total Amount']}</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
+
+          <p style="font-size: 14px; margin-top: 20px;">
+            <strong>Generated on:</strong> ${new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
+          </p>
+
+          <div style="background-color: #f3f4f6; padding: 15px; border-radius: 8px; margin: 20px 0;">
+            <p style="margin: 0; font-size: 14px;">The attached Excel file contains two worksheets:</p>
+            <ul style="margin: 10px 0 0 0; font-size: 14px;">
+              <li><strong>Transactions:</strong> Detailed transaction list</li>
+              <li><strong>Transaction Summary:</strong> Partner-wise summary data</li>
+            </ul>
+          </div>
+
+          <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 30px 0;">
+          <p style="font-size: 12px; color: #9ca3af;">
+            Best regards,<br>
+            <strong>Microfinance Management System</strong>
+          </p>
+        </div>
+      `,
+      text: `
+Transaction Export Report
+Please find attached the transaction export file with detailed transaction data and summary.
+
+Export Details:
+Export Type: ${details.exportType}
+Total Transactions: ${details.totalTransactions}
+Transaction Amount Total: ${formatINR(details.totalAmount)}
+Start Date: ${details.startDate}
+End Date: ${details.endDate}
+
+Transaction Summary by Type:
+Loan Repayments: ${formatINR(summaryByType.loanRepayments)}
+Loan Disbursements: ${formatINR(summaryByType.loanDisbursements)}
+Document Charges: ${formatINR(summaryByType.documentCharges)}
+Chit Contributions: ${formatINR(summaryByType.chitContributions)}
+Auction Payouts: ${formatINR(summaryByType.auctionPayouts)}
+Net Recorded Amount: ${formatINR(summaryByType.netRecordedAmount)}
+Partner Transfers: ${formatINR(summaryByType.partnerTransfers)}
+Net Total Amount: ${formatINR(summaryByType.netTotalAmount)}
+
+Partner-wise Summary Table included in HTML version.
+TOTAL: ${partnerSummary.find((p: any) => p.Partner === 'TOTAL')?.['Total Amount'] || 'N/A'}
+
+Generated on: ${new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
+
+The attached Excel file contains two worksheets:
+1. Transactions: Detailed transaction list
+2. Transaction Summary: Partner-wise summary data
+
+Best regards,
+Microfinance Management System
+      `
+    };
+  },
+
   // Dashboard export email template
   dashboardExport: (recipientName: string, exportType: string, period: string) => ({
     subject: `Dashboard Export - ${exportType} Report (${period})`,

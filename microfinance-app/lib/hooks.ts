@@ -53,7 +53,7 @@ export function useFinancialData(duration = 'monthly', limit = 12) {
 export function useLoans(page = 1, pageSize = 10, status?: string) {
   const statusParam = status ? `&status=${status}` : '';
   const { data, error, isLoading, mutate } = useSWR(
-    `/api/loans/consolidated?action=list&page=${page}&pageSize=${pageSize}${statusParam}`,
+    `/api/loans?page=${page}&pageSize=${pageSize}${statusParam}`,
     fetcher,
     {
       revalidateOnFocus: false,
@@ -74,7 +74,7 @@ export function useLoans(page = 1, pageSize = 10, status?: string) {
 // Single loan hook
 export function useLoan(id: number | string) {
   const { data, error, isLoading, mutate } = useSWR(
-    id ? `/api/loans/consolidated?action=detail&id=${id}` : null,
+    id ? `/api/loans/${id}` : null,
     fetcher,
     {
       revalidateOnFocus: false,
@@ -115,7 +115,7 @@ export function useChitFunds(page = 1, pageSize = 10, status?: string) {
 // Members list hook with pagination
 export function useMembers(page = 1, pageSize = 10) {
   const { data, error, isLoading, mutate } = useSWR(
-    `/api/members/consolidated?action=list&page=${page}&pageSize=${pageSize}`,
+    `/api/members?page=${page}&pageSize=${pageSize}`,
     fetcher,
     {
       revalidateOnFocus: false,

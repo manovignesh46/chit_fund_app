@@ -118,7 +118,7 @@ export default function ChitFundMembersPage() {
 
       // Use the apiGet utility function
       const data = await apiGet(
-        '/api/members/consolidated?action=list&page=1&pageSize=1000',
+        '/api/members?page=1&pageSize=1000',
         'Failed to fetch global members'
       );
 

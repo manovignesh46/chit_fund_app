@@ -264,6 +264,19 @@ class ApiClient {
     return this.request(`${API_BASE}/transactions/summary?${query}`);
   }
 
+  async exportTransactions(params?: any) {
+    const query = new URLSearchParams(params);
+    const response = await fetch(`${API_BASE}/transactions/export?${query}`);
+    return response.blob();
+  }
+
+  async emailTransactions(data: any) {
+    return this.request(`${API_BASE}/transactions/export`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
   // ==================== PARTNERS ====================
   
   async listPartners() {
