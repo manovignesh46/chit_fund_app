@@ -20,9 +20,11 @@ interface ChitFund {
   membersCount: number;
   status: string;
   startDate: string;
+  currentMonth: number;
   nextAuctionDate: string | null;
   _count?: {
     members: number;
+    auctions: number;
   };
 }
 
@@ -514,14 +516,14 @@ export default function ChitFundsPage() {
                     onSort={requestSort}
                   />
                   <SortableTableHeader
-                    label="Duration (Months)"
+                    label="Duration (Completed/Total)"
                     sortKey="duration"
                     currentSortKey={sortConfig.key}
                     currentSortDirection={sortConfig.direction}
                     onSort={requestSort}
                   />
                   <SortableTableHeader
-                    label="Members"
+                    label="Members (Auctioned/Total)"
                     sortKey="membersCount"
                     currentSortKey={sortConfig.key}
                     currentSortDirection={sortConfig.direction}
@@ -587,10 +589,10 @@ export default function ChitFundsPage() {
                       <div className="text-sm text-gray-900">{formatCurrency(fund.monthlyContribution)}</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">{fund.duration}</div>
+                      <div className="text-sm text-gray-900">{fund.currentMonth || 0}/{fund.duration}</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">{fund._count?.members || 0}</div>
+                      <div className="text-sm text-gray-900">{fund._count?.auctions || 0}/{fund._count?.members || 0}</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusColor(fund.status)}`}>

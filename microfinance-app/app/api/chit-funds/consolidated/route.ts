@@ -323,7 +323,10 @@ async function getChitFundsList(request: NextRequest, currentUserId: number) {
     where,
     include: {
       _count: {
-        select: { members: true }
+        select: { 
+          members: true,
+          auctions: true 
+        }
       }
     },
     orderBy: { createdAt: 'desc' },

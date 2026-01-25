@@ -28,11 +28,15 @@ interface Loan {
   amount: number;
   interestRate: number;
   duration: number;
+  currentMonth: number;
   remainingAmount: number;
   nextPaymentDate: string | null;
   status: string;
   overdueAmount: number;
   missedPayments: number;
+  _count?: {
+    repayments: number;
+  };
 }
 
 interface PaginatedResponse {
@@ -463,7 +467,7 @@ export default function LoansPage() {
                     Installment Amount
                   </th>
                   <SortableTableHeader
-                    label="Duration"
+                    label="Duration (Completed/Total)"
                     sortKey="duration"
                     currentSortKey={sortConfig.key}
                     currentSortDirection={sortConfig.direction}
@@ -549,7 +553,7 @@ export default function LoansPage() {
                       <div className="text-sm text-gray-900">{formatCurrency(loan.installmentAmount)}</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">{loan.duration} {loan.loanType === 'Weekly' ? 'weeks' : 'months'}</div>
+                      <div className="text-sm text-gray-900">{loan._count?.repayments || 0}/{loan.duration}</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm text-gray-900">{formatCurrency(loan.remainingAmount)}</div>
