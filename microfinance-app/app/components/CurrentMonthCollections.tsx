@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import { formatCurrency } from '../../lib/formatUtils';
+import PendingLoansModal from './PendingLoansModal';
+import PendingChitsModal from './PendingChitsModal';
 
 interface AggregationData {
   expectedLoanRepayment: number;
@@ -10,6 +12,33 @@ interface AggregationData {
   actualChitContribution: number;
   totalExpectedAmount: number;
   totalActualAmount: number;
+}
+
+interface PendingLoan {
+  id: number;
+  borrowerName: string;
+  loanType: string;
+  totalAmount: number;
+  installmentAmount: number;
+  pendingAmount: number;
+  pendingPeriods: number;
+  repaymentType: string;
+}
+
+interface PendingMember {
+  memberName: string;
+  pendingAmount: number;
+  pendingPeriods: number;
+}
+
+interface PendingChitFund {
+  id: number;
+  name: string;
+  totalAmount: number;
+  installmentAmount: number;
+  frequency: string;
+  pendingMembers: PendingMember[];
+  totalPendingAmount: number;
 }
 
 interface Props {
@@ -21,10 +50,23 @@ export default function CurrentMonthCollections({ refreshTrigger }: Props) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null as string | null);
   
+  // Modal states
+  const [showLoansModal, setShowLoansModal] = useState(false);
+  const [showChitsModal, setShowChitsModal] = useState(false);
+  const [pendingLoans, setPendingLoans] = useState<PendingLoan[]>([]);
+  const [pendingChitFunds, setPendingChitFunds] = useState<PendingChitFund[]>([]);
+  const [loadingPending, setLoadingPending] = useState(false);
+  
   // Get current month and year
   const currentDate = new Date();
   const [selectedMonth, setSelectedMonth] = useState(currentDate.getMonth()); // 0-11
   const [selectedYear, setSelectedYear] = useState(currentDate.getFullYear());
+
+  // Get month name
+  const months = [
+    'January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December'
+  ];
 
   useEffect(() => {
     const fetchCurrentMonthAggregations = async () => {
@@ -62,6 +104,66 @@ export default function CurrentMonthCollections({ refreshTrigger }: Props) {
     fetchCurrentMonthAggregations();
   }, [refreshTrigger, selectedMonth, selectedYear]);
 
+  // Fetch pending loans
+  const fetchPendingLoans = async () => {
+    setLoadingPending(true);
+    try {
+      const startDate = new Date(selectedYear, selectedMonth, 1);
+      const endDate = new Date(selectedYear, selectedMonth + 1, 0);
+
+      const formatDate = (date: Date) => {
+        return date.toISOString().split('T')[0];
+      };
+
+      const response = await fetch(
+        `/api/transactions/pending-loans?startDate=${formatDate(startDate)}&endDate=${formatDate(endDate)}`
+      );
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch pending loans');
+      }
+      
+      const data = await response.json();
+      setPendingLoans(data.pendingLoans || []);
+      setShowLoansModal(true);
+    } catch (err: any) {
+      console.error('Error fetching pending loans:', err);
+      alert('Failed to load pending loans. Please try again.');
+    } finally {
+      setLoadingPending(false);
+    }
+  };
+
+  // Fetch pending chit funds
+  const fetchPendingChits = async () => {
+    setLoadingPending(true);
+    try {
+      const startDate = new Date(selectedYear, selectedMonth, 1);
+      const endDate = new Date(selectedYear, selectedMonth + 1, 0);
+
+      const formatDate = (date: Date) => {
+        return date.toISOString().split('T')[0];
+      };
+
+      const response = await fetch(
+        `/api/transactions/pending-chits?startDate=${formatDate(startDate)}&endDate=${formatDate(endDate)}`
+      );
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch pending chit funds');
+      }
+      
+      const data = await response.json();
+      setPendingChitFunds(data.pendingChitFunds || []);
+      setShowChitsModal(true);
+    } catch (err: any) {
+      console.error('Error fetching pending chit funds:', err);
+      alert('Failed to load pending chit funds. Please try again.');
+    } finally {
+      setLoadingPending(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="grid grid-cols-1 gap-4 sm:gap-6 mb-6 sm:mb-8 md:grid-cols-3">
@@ -97,12 +199,6 @@ export default function CurrentMonthCollections({ refreshTrigger }: Props) {
   const totalProgress = data.totalExpectedAmount > 0 
     ? (data.totalActualAmount / data.totalExpectedAmount) * 100 
     : 0;
-
-  // Generate month options
-  const months = [
-    'January', 'February', 'March', 'April', 'May', 'June',
-    'July', 'August', 'September', 'October', 'November', 'December'
-  ];
 
   // Generate year options (2021 to 2040)
   const years = [];
@@ -179,9 +275,15 @@ export default function CurrentMonthCollections({ refreshTrigger }: Props) {
             <div>
               <div className="flex justify-between items-center mb-1">
                 <span className="text-xs text-gray-500">Pending</span>
-                <span className="text-base font-bold text-orange-600">
+                <button
+                  onClick={fetchPendingLoans}
+                  disabled={loadingPending || (data.expectedLoanRepayment - data.actualLoanRepayment) === 0}
+                  className={`text-base font-bold text-orange-600 hover:text-orange-700 transition underline decoration-dotted ${
+                    loadingPending ? 'opacity-50 cursor-wait' : 'cursor-pointer'
+                  } ${(data.expectedLoanRepayment - data.actualLoanRepayment) === 0 ? 'cursor-default no-underline' : ''}`}
+                >
                   {formatCurrency(data.expectedLoanRepayment - data.actualLoanRepayment)}
-                </span>
+                </button>
               </div>
             </div>
 
@@ -236,9 +338,15 @@ export default function CurrentMonthCollections({ refreshTrigger }: Props) {
             <div>
               <div className="flex justify-between items-center mb-1">
                 <span className="text-xs text-gray-500">Pending</span>
-                <span className="text-base font-bold text-orange-600">
+                <button
+                  onClick={fetchPendingChits}
+                  disabled={loadingPending || (data.expectedChitContribution - data.actualChitContribution) === 0}
+                  className={`text-base font-bold text-orange-600 hover:text-orange-700 transition underline decoration-dotted ${
+                    loadingPending ? 'opacity-50 cursor-wait' : 'cursor-pointer'
+                  } ${(data.expectedChitContribution - data.actualChitContribution) === 0 ? 'cursor-default no-underline' : ''}`}
+                >
                   {formatCurrency(data.expectedChitContribution - data.actualChitContribution)}
-                </span>
+                </button>
               </div>
             </div>
 
@@ -317,6 +425,23 @@ export default function CurrentMonthCollections({ refreshTrigger }: Props) {
           </div>
         </div>
       </div>
+
+      {/* Modals */}
+      <PendingLoansModal
+        isOpen={showLoansModal}
+        onClose={() => setShowLoansModal(false)}
+        loans={pendingLoans}
+        month={months[selectedMonth]}
+        year={selectedYear}
+      />
+
+      <PendingChitsModal
+        isOpen={showChitsModal}
+        onClose={() => setShowChitsModal(false)}
+        chitFunds={pendingChitFunds}
+        month={months[selectedMonth]}
+        year={selectedYear}
+      />
     </div>
   );
 }
