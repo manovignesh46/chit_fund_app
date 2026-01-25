@@ -488,7 +488,7 @@ export default function DashboardPage() {
           )}
 
           {/* Business ROI Card */}
-          <div className="grid grid-cols-1 gap-4 sm:gap-6 mb-6 sm:mb-8 md:grid-cols-2 lg:grid-cols-3">
+          {/* <div className="grid grid-cols-1 gap-4 sm:gap-6 mb-6 sm:mb-8 md:grid-cols-2 lg:grid-cols-3">
             <BusinessROICard
               totalProfit={dashboardData.totalProfit}
               investedAmount={dashboardData.investedAmount || 0}
@@ -501,7 +501,7 @@ export default function DashboardPage() {
               }
               investedAmount={dashboardData.investedAmount || 0}
             />
-          </div>
+          </div> */}
 
           {/* Current Month Collections */}
           <CurrentMonthCollections />

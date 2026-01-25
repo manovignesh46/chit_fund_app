@@ -176,6 +176,15 @@ export default function CurrentMonthCollections({ refreshTrigger }: Props) {
               </div>
             </div>
 
+            <div>
+              <div className="flex justify-between items-center mb-1">
+                <span className="text-xs text-gray-500">Pending</span>
+                <span className="text-base font-bold text-orange-600">
+                  {formatCurrency(data.expectedLoanRepayment - data.actualLoanRepayment)}
+                </span>
+              </div>
+            </div>
+
             {/* Progress Bar */}
             <div className="pt-2">
               <div className="flex justify-between items-center mb-1">
@@ -224,6 +233,15 @@ export default function CurrentMonthCollections({ refreshTrigger }: Props) {
               </div>
             </div>
 
+            <div>
+              <div className="flex justify-between items-center mb-1">
+                <span className="text-xs text-gray-500">Pending</span>
+                <span className="text-base font-bold text-orange-600">
+                  {formatCurrency(data.expectedChitContribution - data.actualChitContribution)}
+                </span>
+              </div>
+            </div>
+
             {/* Progress Bar */}
             <div className="pt-2">
               <div className="flex justify-between items-center mb-1">
@@ -268,6 +286,15 @@ export default function CurrentMonthCollections({ refreshTrigger }: Props) {
                 <span className="text-xs text-gray-500">Collected</span>
                 <span className="text-base font-bold text-green-600">
                   {formatCurrency(data.totalActualAmount)}
+                </span>
+              </div>
+            </div>
+
+            <div>
+              <div className="flex justify-between items-center mb-1">
+                <span className="text-xs text-gray-500">Pending</span>
+                <span className="text-base font-bold text-orange-600">
+                  {formatCurrency(data.totalExpectedAmount - data.totalActualAmount)}
                 </span>
               </div>
             </div>
