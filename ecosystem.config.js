@@ -4,7 +4,7 @@ module.exports = {
       name: "chit-fund",
       cwd: "/home/mano/chit_fund_app/microfinance-app",
       script: "docker",
-      args: "compose up -v",
+      args: "compose up -d --force-recreate --remove-orphans",
       interpreter: "none",
       env: {
         NODE_ENV: "production"
