@@ -11,7 +11,7 @@ import { Loan, Repayment, ChitFund, Contribution, Auction } from '@prisma/client
  * @returns The calculated profit
  */
 export function calculateLoanProfit(
-  loan: Pick<Loan, 'amount' | 'interestRate' | 'documentCharge' | 'repaymentType'>,
+  loan: Pick<Loan, 'amount' | 'interestRate' | 'interestPercentage' | 'documentCharge' | 'repaymentType' | 'loanType'>,
   repayments: Pick<Repayment, 'amount' | 'paymentType' | 'paidDate' | 'period'>[]
 ): number {
   // Document charge is always part of the profit
@@ -32,16 +32,6 @@ export function calculateLoanProfit(
     // Total profit is interest from all payments plus document charge
     const totalProfit = interestOnlyProfit + regularPaymentsProfit + documentCharge;
 
-    // console.log('Monthly loan profit calculation:', {
-    //   documentCharge,
-    //   interestRate: loan.interestRate,
-    //   interestOnlyPayments,
-    //   interestOnlyProfit,
-    //   regularPayments,
-    //   regularPaymentsProfit,
-    //   totalProfit
-    // });
-
     return totalProfit;
   } else if (loan.repaymentType === 'Weekly') {
     // For weekly loans, profit is only from document charge and any excess payments
@@ -52,15 +42,29 @@ export function calculateLoanProfit(
     const profitFromPayments = totalPaid > loanAmount ? totalPaid - loanAmount : 0;
     const totalProfit = profitFromPayments;
 
-    // console.log('Weekly loan profit calculation:', {
-    //   documentCharge,
-    //   totalPaid,
-    //   loanAmount,
-    //   profitFromPayments,
-    //   totalProfit
-    // });
-
     return totalProfit;
+  } else if (loan.loanType === 'Reducing Balance' || loan.repaymentType === 'Reducing Balance') {
+    // For reducing balance loans, profit is the sum of calculated interest from each repayment
+    let totalInterestProfit = 0;
+    let currentPrincipal = loan.amount || 0;
+    const interestPercentage = (loan as any).interestPercentage || 0;
+    const monthlyInterestRate = interestPercentage / 100 / 12;
+
+    // Sort repayments by date or period to simulate correctly
+    const sortedRepayments = [...repayments].sort((a, b) => {
+      if (a.period && b.period) return a.period - b.period;
+      return new Date(a.paidDate).getTime() - new Date(b.paidDate).getTime();
+    });
+
+    sortedRepayments.forEach(repayment => {
+      const interestForThisMonth = currentPrincipal * monthlyInterestRate;
+      const principalPaid = (repayment.amount || 0) - interestForThisMonth;
+      
+      totalInterestProfit += interestForThisMonth;
+      currentPrincipal = Math.max(0, currentPrincipal - principalPaid);
+    });
+
+    return totalInterestProfit + documentCharge;
   }
 
   // Default case
@@ -180,7 +184,7 @@ export function calculateChitFundProfitUpToCurrentMonth(
 
   // For Fixed type chit funds, use the new profit calculation formula
   if (chitFund.chitFundType === 'Fixed' && chitFund.firstMonthContribution) {
-    return calculateFixedChitFundProfit(chitFund, currentMonth, currentAuctions);
+    return calculateFixedChitFundProfit(chitFund as any, currentMonth, currentAuctions);
   }
 
   // For Auction type chit funds, use the original calculation
@@ -219,7 +223,7 @@ export function calculateChitFundProfitUpToCurrentMonth(
  * @returns The total profit from all loans
  */
 export function calculateTotalLoanProfit(
-  loans: Array<Pick<Loan, 'amount' | 'interestRate' | 'documentCharge' | 'repaymentType'> & {
+  loans: Array<Pick<Loan, 'amount' | 'interestRate' | 'interestPercentage' | 'documentCharge' | 'repaymentType' | 'loanType'> & {
     repayments: Pick<Repayment, 'amount' | 'paymentType' | 'paidDate' | 'period'>[]
   }>
 ): number {

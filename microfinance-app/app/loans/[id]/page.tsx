@@ -16,11 +16,9 @@ import ActionDropdown, { ActionItem } from "../../components/ui/ActionDropdown";
 import { LoanDetailSkeleton } from "../../components/skeletons/DetailSkeletons";
 import { usePartner } from "../../../app/contexts/PartnerContext";
 import {
-  EditButton,
-  BackButton,
-  DeleteButton,
   ActionButtonGroup,
 } from "../../components/buttons/ActionButtons";
+import RepaymentForm from "../../components/loans/RepaymentForm";
 
 const LoanDetailPage = () => {
   const params = useParams();
@@ -1225,15 +1223,26 @@ const LoanDetailPage = () => {
                     : "None"}
                 </p>
               </div>
-              {loan.repaymentType === "Monthly" && (
+              {loan.loanType === "Reducing Balance" ? (
                 <div>
                   <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-2">
-                    Interest Amount
+                    Interest Rate (%)
                   </h3>
                   <p className="text-xl font-semibold">
-                    {formatCurrency(loan.interestRate)}
+                    {loan.interestPercentage}%
                   </p>
                 </div>
+              ) : (
+                loan.repaymentType === "Monthly" && (
+                  <div>
+                    <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-2">
+                      Interest Amount
+                    </h3>
+                    <p className="text-xl font-semibold">
+                      {formatCurrency(loan.interestRate)}
+                    </p>
+                  </div>
+                )
               )}
               {loan.repaymentType === "Monthly" && (
                 <div>
@@ -1283,282 +1292,14 @@ const LoanDetailPage = () => {
                     id="loan-profit"
                     className="text-xl font-semibold text-green-600 hidden"
                   >
-                    {loan.repaymentType === "Monthly"
-                      ? (() => {
-                          // SPECIAL CASE: For loans with only interest-only payments
-                          const onlyHasInterestOnlyPayments =
-                            loan.repayments &&
-                            loan.repayments.length > 0 &&
-                            loan.repayments.every(
-                              (r: any) => r.paymentType === "interestOnly"
-                            );
-
-                          if (onlyHasInterestOnlyPayments) {
-                            // For loans with only interest-only payments, the profit is the interest rate
-                            // multiplied by the number of interest-only payments made
-                            const interestOnlyPaymentsCount = loan.repayments
-                              ? loan.repayments.length
-                              : 0;
-                            const profit =
-                              (loan.interestRate || 0) *
-                              interestOnlyPaymentsCount;
-                            console.log(
-                              "Detected interest-only payments only case - profit:",
-                              profit,
-                              "from",
-                              interestOnlyPaymentsCount,
-                              "payments"
-                            );
-                            return formatCurrency(profit);
-                          }
-
-                          // Document charge (one-time)
-                          const documentCharge = loan.documentCharge || 0;
-
-                          // Sum of all interest-only payments
-                          // For interest-only payments, the entire payment amount is interest (profit)
-                          // This calculation is no longer used but kept for reference
-                          // const interestOnlyPayments = loan.repayments
-                          //   ? loan.repayments
-                          //       .filter((repayment: any) => repayment.paymentType === 'interestOnly')
-                          //       .reduce((sum: number, repayment: any) => sum + repayment.amount, 0)
-                          //   : 0;
-
-                          // Log the interest-only payments for debugging
-                          console.log(
-                            "Interest-only payments:",
-                            loan.repayments
-                              ? loan.repayments
-                                  .filter(
-                                    (r: any) => r.paymentType === "interestOnly"
-                                  )
-                                  .map((r: any) => ({
-                                    id: r.id,
-                                    amount: r.amount,
-                                    paymentType: r.paymentType,
-                                    paidDate: r.paidDate,
-                                  }))
-                              : []
-                          );
-
-                          // Interest from regular payments (if any)
-                          // Regular payments are those that are NOT interest-only payments
-                          // These include full payments (principal + interest)
-                          const regularPayments = loan.repayments
-                            ? loan.repayments.filter(
-                                (r: any) => r.paymentType !== "interestOnly"
-                              )
-                            : [];
-                          const regularPaymentsCount = regularPayments.length;
-
-                          // Log the regular payments for debugging
-                          console.log(
-                            "Regular payments:",
-                            regularPayments.map((r) => ({
-                              id: r.id,
-                              amount: r.amount,
-                              paymentType: r.paymentType,
-                              paidDate: r.paidDate,
-                            }))
-                          );
-
-                          // Count the number of regular payments that have been made
-                          // For each regular payment, we count ONLY the interest portion (interestRate)
-                          // NOT the full installment amount
-
-                          // For monthly loans, each regular payment includes the interest amount
-                          // So we need to extract just the interest portion from each payment
-
-                          // Calculate interest from regular payments
-                          // For monthly loans, each regular payment includes both principal and interest
-                          // We need to extract ONLY the interest portion from each payment
-                          const interestRate = loan.interestRate || 0;
-
-                          // The interest portion of each payment is exactly equal to the interest rate
-                          // For example, if interest rate is ₹800, then each regular payment includes ₹800 of interest
-                          // This is the correct calculation for monthly loans
-                          const interestFromRegularPayments =
-                            regularPaymentsCount > 0
-                              ? interestRate * regularPaymentsCount
-                              : 0;
-
-                          console.log("Interest calculation details:", {
-                            interestRate,
-                            regularPaymentsCount,
-                            calculatedInterest:
-                              interestRate * regularPaymentsCount,
-                            interestFromRegularPayments,
-                          });
-
-                          // Total profit
-                          // This should be the sum of:
-                          // 1. Document charge
-                          // 2. Interest-only payments
-                          // 3. Interest portion of regular payments
-
-                          // IMPORTANT: For monthly loans, the profit is:
-                          // - Document charge (one-time fee)
-                          // - Interest from interest-only payments (the full payment amount)
-                          // - Interest portion of regular payments (interest rate * number of regular payments)
-
-                          // SIMPLE DIRECT FIX: Just multiply interest rate by number of dues paid
-                          // Total Profit = (Interest Amount × Number of Dues Paid) + Document Charge
-
-                          // Count total number of payments (both interest-only and regular)
-                          const totalPaymentsMade = loan.repayments
-                            ? loan.repayments.length
-                            : 0;
-
-                          // Calculate profit using the simple formula
-                          const totalProfit =
-                            loan.interestRate * totalPaymentsMade +
-                            documentCharge;
-
-                          console.log("Simple direct profit calculation:", {
-                            interestRate: loan.interestRate,
-                            totalPaymentsMade,
-                            documentCharge,
-                            totalProfit,
-                            formula: `(${loan.interestRate} × ${totalPaymentsMade}) + ${documentCharge} = ${totalProfit}`,
-                          });
-
-                          // Double-check the calculation
-                          console.log("Final profit calculation check:", {
-                            documentCharge,
-                            interestRate: loan.interestRate,
-                            totalPaymentsMade,
-                            totalProfit,
-                            // For the example in the bug report:
-                            // - Loan Amount: ₹40,000
-                            // - Interest Amount: ₹800/month
-                            // - Document Charge: ₹0
-                            // - Repayment History:
-                            //   - April 2025 – InterestOnly → Profit = ₹800
-                            //   - May 2025 – Full Payment → Profit = ₹800
-                            // Expected Profit: ₹1,600
-                            expectedProfit:
-                              loan.interestRate * totalPaymentsMade +
-                              documentCharge,
-                          });
-
-                          // Log for debugging
-                          console.log("Profit calculation details:", {
-                            documentCharge,
-                            interestRate: loan.interestRate,
-                            totalPaymentsMade,
-                            totalProfit,
-                            loanAmount: loan.amount,
-                            interestOnlyCount: loan.repayments
-                              ? loan.repayments.filter(
-                                  (r: any) => r.paymentType === "interestOnly"
-                                ).length
-                              : 0,
-                            regularCount: regularPaymentsCount,
-                          });
-
-                          // Log for debugging
-                          console.log("Profit calculation:", {
-                            documentCharge,
-                            interestRate: loan.interestRate,
-                            totalPaymentsMade,
-                            totalProfit,
-                            formula: `(${loan.interestRate} × ${totalPaymentsMade}) + ${documentCharge} = ${totalProfit}`,
-                            repayments: loan.repayments
-                              ? loan.repayments.map((r: any) => ({
-                                  amount: r.amount,
-                                  paymentType: r.paymentType,
-                                  paidDate: r.paidDate,
-                                }))
-                              : [],
-                          });
-
-                          return formatCurrency(totalProfit);
-                        })()
-                      : // For weekly loans, profit is Total amount paid - Principle amount
-                        formatCurrency(
-                          loan.installmentAmount * loan.duration - loan.amount
-                        )}
+                    {formatCurrency(calculateLoanProfit(loan, loan.repayments || []))}
                   </p>
                   <p
                     id="loan-profit-explanation"
                     className="text-xs text-gray-500 mt-1 hidden"
                   >
-                    {loan.repaymentType === "Monthly" ? (
-                      (() => {
-                        // SPECIAL CASE: For loans with only interest-only payments
-                        const onlyHasInterestOnlyPayments =
-                          loan.repayments &&
-                          loan.repayments.length > 0 &&
-                          loan.repayments.every(
-                            (r: any) => r.paymentType === "interestOnly"
-                          );
+                    Profit calculated based on interest earned from all repayments and document charges.
 
-                        if (onlyHasInterestOnlyPayments) {
-                          const interestOnlyPaymentsCount = loan.repayments
-                            ? loan.repayments.length
-                            : 0;
-                          return `Interest from ${interestOnlyPaymentsCount} payment${
-                            interestOnlyPaymentsCount !== 1 ? "s" : ""
-                          }`;
-                        }
-
-                        // Check if there are any repayments
-                        if (!loan.repayments || loan.repayments.length === 0) {
-                          return "No profit yet - no payments have been made";
-                        }
-
-                        // Check for document charge
-                        const hasDocumentCharge =
-                          loan.documentCharge && loan.documentCharge > 0;
-
-                        // Check for interest-only payments
-                        const hasInterestOnlyPayments = loan.repayments
-                          ? loan.repayments.filter(
-                              (r: any) => r.paymentType === "interestOnly"
-                            ).length > 0
-                          : false;
-
-                        // Check for regular payments
-                        const hasRegularPayments = loan.repayments
-                          ? loan.repayments.filter(
-                              (r: any) => r.paymentType !== "interestOnly"
-                            ).length > 0
-                          : false;
-
-                        // Build explanation text
-                        let explanation = "";
-
-                        if (hasDocumentCharge) {
-                          explanation += "Document charge";
-                        }
-
-                        if (hasInterestOnlyPayments) {
-                          if (explanation) explanation += " + ";
-                          explanation += "Interest-only payments";
-                        }
-
-                        if (hasRegularPayments) {
-                          if (explanation) explanation += " + ";
-                          const months = Math.min(
-                            loan.repayments
-                              ? loan.repayments.filter(
-                                  (r: any) => r.paymentType !== "interestOnly"
-                                ).length
-                              : 0,
-                            loan.currentMonth
-                          );
-                          explanation += `Interest from ${months} regular payment${
-                            months !== 1 ? "s" : ""
-                          }`;
-                        }
-
-                        return explanation;
-                      })()
-                    ) : (
-                      <>
-                        Fixed profit for {loan.duration} weeks payment schedule
-                      </>
-                    )}
                   </p>
                 </div>
               </div>
@@ -1567,7 +1308,9 @@ const LoanDetailPage = () => {
                   Installment Amount
                 </h3>
                 <p className="text-xl font-semibold">
-                  {formatCurrency(loan.installmentAmount || 0)}
+                  {loan.loanType === "Reducing Balance"
+                    ? "Dynamic"
+                    : formatCurrency(loan.installmentAmount || 0)}
                 </p>
               </div>
               <div>
@@ -1678,18 +1421,20 @@ const LoanDetailPage = () => {
                   >
                     Status
                   </th>
-                  <th
-                    scope="col"
-                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                  >
-                    Actions
-                  </th>
+                  {loan.loanType !== "Reducing Balance" && (
+                    <th
+                      scope="col"
+                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                    >
+                      Actions
+                    </th>
+                  )}
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {loadingSchedules ? (
                   <tr>
-                    <td colSpan={5} className="px-6 py-4 text-center">
+                    <td colSpan={loan.loanType === "Reducing Balance" ? 5 : 6} className="px-6 py-4 text-center">
                       <div className="flex justify-center items-center">
                         <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-green-700 mr-2"></div>
                         <p>Loading payment schedules...</p>
@@ -1699,7 +1444,7 @@ const LoanDetailPage = () => {
                 ) : paymentSchedules.length === 0 ? (
                   <tr>
                     <td
-                      colSpan={5}
+                      colSpan={loan.loanType === "Reducing Balance" ? 5 : 6}
                       className="px-6 py-4 text-center text-gray-500"
                     >
                       <p className="mb-4">No payment schedules to display.</p>
@@ -1784,7 +1529,13 @@ const LoanDetailPage = () => {
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="text-sm text-gray-900">
-                            {formatCurrency(schedule.amount)}
+                            {formatCurrency(
+                              schedule.paidAmount !== null && schedule.paidAmount !== undefined
+                                ? schedule.paidAmount
+                                : (schedule.amount > 0
+                                  ? schedule.amount
+                                  : (schedule.interestAmount || 0))
+                            )}
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
@@ -1821,49 +1572,20 @@ const LoanDetailPage = () => {
                             )}
                           </div>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="flex space-x-2">
-                            {(schedule.status === "Pending" ||
-                              schedule.status === "Missed") && (
-                              <>
-                                <button
-                                  onClick={() =>
-                                    handleRecordPayment(schedule.period, "Paid")
-                                  }
-                                  disabled={
-                                    updatingSchedule === schedule.period
-                                  }
-                                  className="inline-flex items-center px-2 py-1 border border-transparent text-xs font-medium rounded text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50 disabled:cursor-not-allowed"
-                                >
-                                  <svg
-                                    className="h-3 w-3 mr-1"
-                                    fill="none"
-                                    viewBox="0 0 24 24"
-                                    stroke="currentColor"
-                                  >
-                                    <path
-                                      strokeLinecap="round"
-                                      strokeLinejoin="round"
-                                      strokeWidth="2"
-                                      d="M5 13l4 4L19 7"
-                                    />
-                                  </svg>
-                                  {updatingSchedule === schedule.period
-                                    ? "Processing..."
-                                    : "Mark Paid"}
-                                </button>
-                                {loan.repaymentType === "Monthly" && (
+                        {loan.loanType !== "Reducing Balance" && (
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="flex space-x-2">
+                              {(schedule.status === "Pending" ||
+                                schedule.status === "Missed") && (
+                                <>
                                   <button
                                     onClick={() =>
-                                      handleRecordPayment(
-                                        schedule.period,
-                                        "InterestOnly"
-                                      )
+                                      handleRecordPayment(schedule.period, "Paid")
                                     }
                                     disabled={
                                       updatingSchedule === schedule.period
                                     }
-                                    className="inline-flex items-center px-2 py-1 border border-transparent text-xs font-medium rounded text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                                    className="inline-flex items-center px-2 py-1 border border-transparent text-xs font-medium rounded text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50 disabled:cursor-not-allowed"
                                   >
                                     <svg
                                       className="h-3 w-3 mr-1"
@@ -1875,45 +1597,76 @@ const LoanDetailPage = () => {
                                         strokeLinecap="round"
                                         strokeLinejoin="round"
                                         strokeWidth="2"
-                                        d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1"
+                                        d="M5 13l4 4L19 7"
                                       />
                                     </svg>
                                     {updatingSchedule === schedule.period
                                       ? "Processing..."
-                                      : "Interest Only"}
+                                      : "Mark Paid"}
                                   </button>
-                                )}
-                              </>
-                            )}
-                            {schedule.repayment && (
-                              <Link
-                                href={`/loans/${id}/repayments`}
-                                className="inline-flex items-center px-2 py-1 border border-gray-300 text-xs font-medium rounded text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-                              >
-                                <svg
-                                  className="h-3 w-3 mr-1"
-                                  fill="none"
-                                  viewBox="0 0 24 24"
-                                  stroke="currentColor"
+                                  {loan.repaymentType === "Monthly" && (
+                                    <button
+                                      onClick={() =>
+                                        handleRecordPayment(
+                                          schedule.period,
+                                          "InterestOnly"
+                                        )
+                                      }
+                                      disabled={
+                                        updatingSchedule === schedule.period
+                                      }
+                                      className="inline-flex items-center px-2 py-1 border border-transparent text-xs font-medium rounded text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                                    >
+                                      <svg
+                                        className="h-3 w-3 mr-1"
+                                        fill="none"
+                                        viewBox="0 0 24 24"
+                                        stroke="currentColor"
+                                      >
+                                        <path
+                                          strokeLinecap="round"
+                                          strokeLinejoin="round"
+                                          strokeWidth="2"
+                                          d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1"
+                                        />
+                                      </svg>
+                                      {updatingSchedule === schedule.period
+                                        ? "Processing..."
+                                        : "Interest Only"}
+                                    </button>
+                                  )}
+                                </>
+                              )}
+                              {schedule.repayment && (
+                                <Link
+                                  href={`/loans/${id}/repayments`}
+                                  className="inline-flex items-center px-2 py-1 border border-gray-300 text-xs font-medium rounded text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
                                 >
-                                  <path
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    strokeWidth="2"
-                                    d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-                                  />
-                                  <path
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    strokeWidth="2"
-                                    d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
-                                  />
-                                </svg>
-                                View Payment
-                              </Link>
-                            )}
-                          </div>
-                        </td>
+                                  <svg
+                                    className="h-3 w-3 mr-1"
+                                    fill="none"
+                                    viewBox="0 0 24 24"
+                                    stroke="currentColor"
+                                  >
+                                    <path
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                      strokeWidth="2"
+                                      d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                                    />
+                                    <path
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                      strokeWidth="2"
+                                      d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
+                                    />
+                                  </svg>
+                                  View Payment
+                                </Link>
+                              )}
+                            </div>
+                          </td>
+                        )}
                       </tr>
                     );
                   })
@@ -2044,6 +1797,18 @@ const LoanDetailPage = () => {
             </div>
           )}
         </div>
+      </div>
+
+      {/* Embedded Record Payment Form */}
+      <div className="mt-8 max-w-4xl mx-auto">
+        <RepaymentForm 
+          loanId={parseInt(id as string)} 
+          onSuccess={() => {
+            fetchLoanDetails();
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+          }}
+          initialLoan={loan}
+        />
       </div>
 
       {/* Delete Confirmation Modal */}

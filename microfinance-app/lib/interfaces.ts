@@ -176,6 +176,8 @@ export interface PaymentSchedule {
   period: number;
   dueDate: Date | string;
   amount: number;
+  interestAmount?: number;
+  paidAmount?: number | null;
   status: string;
   actualPaymentDate?: Date | string | null;
   notes?: string | null;

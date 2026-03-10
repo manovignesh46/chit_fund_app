@@ -530,7 +530,7 @@ async function getPaymentSchedules(
     for (let period = 1; period <= duration; period++) {
       // Calculate the due date for this period
       const dueDate = new Date(disbursementDate);
-      if (repaymentType === "Monthly") {
+      if (repaymentType === "Monthly" || repaymentType === "Reducing Balance") {
         dueDate.setMonth(disbursementDate.getMonth() + period);
       } else if (repaymentType === "Weekly") {
         dueDate.setDate(disbursementDate.getDate() + period * 7);
@@ -601,7 +601,12 @@ async function getPaymentSchedules(
           period,
           dueDate,
           amount: installmentAmount,
-          interestAmount: interestRate,
+          interestAmount:
+            loan.loanType === "Reducing Balance"
+              ? (loan.remainingAmount * (loan.interestPercentage || 0)) /
+                100 /
+                12
+              : interestRate,
           status: isPaid
             ? isInterestOnly
               ? "Interest Only"
@@ -1022,6 +1027,7 @@ async function createLoan(request: NextRequest, currentUserId: number) {
               loanType: body.loanType,
               amount: loanAmount,
               interestRate: parseFloat(body.interestRate),
+              interestPercentage: body.interestPercentage ? parseFloat(body.interestPercentage) : null,
               documentCharge: documentCharge,
               installmentAmount: body.installmentAmount ? parseFloat(body.installmentAmount) : 0,
               duration: parseInt(body.duration),
@@ -1208,7 +1214,17 @@ async function addRepayment(request: NextRequest, id: number, currentUserId: num
     ).size;
 
     let newRemainingAmount: number;
-    if (loan.loanType === "Weekly") {
+    if (loan.loanType === "Reducing Balance") {
+      // Monthly interest = current principal * (annual rate / 100 / 12)
+      const monthlyInterestRate = (loan.interestPercentage || 0) / 100 / 12;
+      const calculatedInterest = loan.remainingAmount * monthlyInterestRate;
+      
+      // Principal reduction = payment amount - calculated interest
+      const principalReduction = paymentAmount - calculatedInterest;
+      newRemainingAmount = Math.max(0, loan.remainingAmount - principalReduction);
+      
+      console.log(`Reducing Balance Calculation: Principal=${loan.remainingAmount}, Interest=${calculatedInterest}, Reduction=${principalReduction}, NewPrincipal=${newRemainingAmount}`);
+    } else if (loan.loanType === "Weekly") {
       // For weekly loans: remaining = original amount - (completed periods / (total periods - 1)) * original amount
       const progressRatio = completedPeriods / (loan.duration - 1);
       const paidAmount = progressRatio * loan.amount;
@@ -1224,9 +1240,9 @@ async function addRepayment(request: NextRequest, id: number, currentUserId: num
     const nextPaymentDate = await calculateNextPaymentDate(loanId);
     const { overdueAmount, missedPayments } = await updateOverdueAmountFromRepayments(loanId) || { overdueAmount: 0, missedPayments: 0 };
 
-    // Check if all periods are completed to determine status
+    // Check if all periods are completed OR remaining balance is zero to determine status
     const allPeriodsCompleted = await areAllPeriodsCompleted(loanId, updatedDuration);
-    const newStatus = allPeriodsCompleted ? "Completed" : "Active";
+    const newStatus = (allPeriodsCompleted || newRemainingAmount <= 0) ? "Completed" : "Active";
 
     // 3. Update the loan with the new state
     await prisma.loan.update({
@@ -1235,7 +1251,7 @@ async function addRepayment(request: NextRequest, id: number, currentUserId: num
         remainingAmount: newRemainingAmount,
         duration: updatedDuration,
         status: newStatus,
-        nextPaymentDate: allPeriodsCompleted ? null : nextPaymentDate,
+        nextPaymentDate: newStatus === "Completed" ? null : nextPaymentDate,
         overdueAmount,
         missedPayments,
       },
@@ -1306,6 +1322,9 @@ async function updateLoan(
         amount: body.amount ? parseFloat(body.amount) : undefined,
         interestRate: body.interestRate
           ? parseFloat(body.interestRate)
+          : undefined,
+        interestPercentage: body.interestPercentage
+          ? parseFloat(body.interestPercentage)
           : undefined,
         documentCharge:
           body.documentCharge !== undefined
@@ -1631,9 +1650,9 @@ async function deleteRepayment(request: NextRequest, id: number, currentUserId: 
             ? Math.max(1, currentLoan.duration - 1)
             : currentLoan.duration;
 
-        // Check if all periods are completed to determine status
+        // Check if all periods are completed OR remaining balance is zero to determine status
         const allPeriodsCompleted = await areAllPeriodsCompleted(loanId, newDuration);
-        const newStatus = allPeriodsCompleted ? "Completed" : "Active";
+        const newStatus = (allPeriodsCompleted || newRemainingAmount <= 0) ? "Completed" : "Active";
 
         const nextPaymentDate = await calculateNextPaymentDate(loanId);
         const { overdueAmount, missedPayments } = await updateOverdueAmountFromRepayments(loanId) || { overdueAmount: 0, missedPayments: 0 };

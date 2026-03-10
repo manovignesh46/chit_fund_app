@@ -243,6 +243,9 @@ export async function getDynamicPaymentSchedule(
           period: i,
           dueDate: dueDate.toISOString(),
           amount: installmentAmount,
+          interestAmount: loan.loanType === 'Reducing Balance' 
+            ? (loan.remainingAmount * (loan.interestPercentage || 0) / 100 / 12)
+            : loan.interestRate,
           status,
           actualPaymentDate: actualPaymentDate ? new Date(actualPaymentDate).toISOString() : null,
           repayment: repayment ? {
@@ -375,9 +378,16 @@ export async function updateOverdueAmountFromRepayments(loanId: number) {
     const periodsExpected = Array.from({ length: expectedPayments }, (_, i) => i + 1);
 
     // Calculate the principal portion of each payment
-    const principalPerPayment = loan.repaymentType === 'Monthly'
-      ? (loan.amount / loan.duration)
-      : (loan.amount / (loan.duration - 1));
+    let principalPerPayment: number;
+    if (loan.loanType === 'Reducing Balance') {
+      // For reducing balance, we can't easily calculate a fixed principal per payment 
+      // without knowing the EMI structure. As a fallback, use (original amount / duration)
+      principalPerPayment = loan.amount / loan.duration;
+    } else {
+      principalPerPayment = loan.repaymentType === 'Monthly'
+        ? (loan.amount / loan.duration)
+        : (loan.amount / (loan.duration - 1));
+    }
 
     // Calculate the interest portion of each payment
     const interestPerPayment = loan.installmentAmount - principalPerPayment;
@@ -712,6 +722,9 @@ export async function generatePaymentSchedule(loanId: number, loan?: any) {
         period: i,
         dueDate,
         amount: installmentAmount,
+        interestAmount: loan.loanType === 'Reducing Balance'
+          ? (loan.remainingAmount * (loan.interestPercentage || 0) / 100 / 12)
+          : interestRate,
         status,
         // If there's an existing repayment, include its details
         repaymentId: existingRepayment?.id,

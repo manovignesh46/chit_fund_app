@@ -268,8 +268,10 @@ async function getSummary(request: NextRequest, currentUserId: number) {
         id: true,
         amount: true,
         interestRate: true,
+        interestPercentage: true,
         documentCharge: true,
         repaymentType: true,
+        loanType: true,
         disbursementDate: true,
         remainingAmount: true,
         repayments: {
@@ -657,8 +659,10 @@ async function getFinancialData(request: NextRequest, currentUserId: number) {
           id: true,
           amount: true,
           interestRate: true,
+          interestPercentage: true,
           documentCharge: true,
           repaymentType: true,
+          loanType: true,
           repayments: {
             where: {
               paidDate: {
@@ -856,8 +860,10 @@ async function getFinancialData(request: NextRequest, currentUserId: number) {
           id: true,
           amount: true,
           interestRate: true,
+          interestPercentage: true,
           documentCharge: true,
           repaymentType: true,
+          loanType: true,
           disbursementDate: true,
           remainingAmount: true,
           repayments: {
@@ -1512,6 +1518,9 @@ async function getUpcomingEventsForDashboard(userId: number, limit: number = 3) 
           disbursementDate: true,
           duration: true,
           repaymentType: true,
+          loanType: true,
+          interestPercentage: true,
+          remainingAmount: true,
           installmentAmount: true,
           borrower: {
             select: {
@@ -1523,6 +1532,7 @@ async function getUpcomingEventsForDashboard(userId: number, limit: number = 3) 
             select: {
               id: true,
               period: true,
+              amount: true,
               paidDate: true,
               paymentType: true
             }
@@ -1586,7 +1596,7 @@ async function getUpcomingEventsForDashboard(userId: number, limit: number = 3) 
       for (let period = 1; period <= duration; period++) {
         const dueDate = new Date(disbursementDate);
 
-        if (repaymentType === 'Monthly') {
+        if (repaymentType === 'Monthly' || loanAny.loanType === 'Reducing Balance' || repaymentType === 'Reducing Balance') {
           dueDate.setMonth(disbursementDate.getMonth() + period);
         } else if (repaymentType === 'Weekly') {
           dueDate.setDate(disbursementDate.getDate() + (period * 7));
@@ -1603,7 +1613,14 @@ async function getUpcomingEventsForDashboard(userId: number, limit: number = 3) 
           const isDueTomorrow = dueDateNormalized.getTime() === tomorrow.getTime();
 
           // Get the installment amount
-          const installmentAmount = loanAny.installmentAmount || 0;
+          let installmentAmount = loanAny.installmentAmount || 0;
+
+          // For Reducing Balance loans, calculate interest-only installment if amount is 0
+          if ((loanAny.loanType === 'Reducing Balance' || loanAny.repaymentType === 'Reducing Balance') && installmentAmount === 0) {
+            const interestPercentage = loanAny.interestPercentage || 0;
+            const remainingAmount = loanAny.remainingAmount || 0;
+            installmentAmount = Math.round((remainingAmount * (interestPercentage / 100)) / 12);
+          }
 
           // Create event object
           const eventObj: any = {
@@ -1753,6 +1770,9 @@ async function getEventsForMonth(userId: number, year: number, month: number) {
           disbursementDate: true,
           duration: true,
           repaymentType: true,
+          loanType: true,
+          interestPercentage: true,
+          remainingAmount: true,
           installmentAmount: true,
           borrower: {
             select: {
@@ -1763,6 +1783,7 @@ async function getEventsForMonth(userId: number, year: number, month: number) {
           repayments: {
             select: {
               period: true,
+              amount: true,
               paidDate: true,
               paymentType: true
             }
@@ -1821,7 +1842,7 @@ async function getEventsForMonth(userId: number, year: number, month: number) {
       for (let period = 1; period <= duration; period++) {
         // Calculate the due date for this period
         const dueDate = new Date(disbursementDate);
-        if (repaymentType === 'Monthly') {
+        if (repaymentType === 'Monthly' || loan.loanType === 'Reducing Balance' || repaymentType === 'Reducing Balance') {
           dueDate.setMonth(disbursementDate.getMonth() + period);
         } else if (repaymentType === 'Weekly') {
           dueDate.setDate(disbursementDate.getDate() + (period * 7));
@@ -1851,7 +1872,17 @@ async function getEventsForMonth(userId: number, year: number, month: number) {
           }
 
           // Get the installment amount for this loan
-          const installmentAmount = loan.installmentAmount || 0;
+          let installmentAmount = loan.installmentAmount || 0;
+
+          // If paid, use the actual amount from repayment
+          if (isPaid && repayment && repayment.amount !== undefined) {
+            installmentAmount = repayment.amount;
+          } else if ((loan.loanType === 'Reducing Balance' || loan.repaymentType === 'Reducing Balance') && installmentAmount === 0) {
+            // For Reducing Balance loans, calculate interest-only installment if amount is 0
+            const interestPercentage = (loan as any).interestPercentage || 0;
+            const remainingAmount = (loan as any).remainingAmount || 0;
+            installmentAmount = Math.round((remainingAmount * (interestPercentage / 100)) / 12);
+          }
 
           // Create event object with type assertion to allow additional properties
           const eventObj: any = {
@@ -1997,7 +2028,7 @@ async function exportFinancialData(request: NextRequest, currentUserId: number) 
 
     console.timeEnd(timerLabel);
 
-    return new NextResponse(excelBuffer, {
+    return new NextResponse(new Uint8Array(excelBuffer), {
       status: 200,
       headers: headers
     });
@@ -2184,8 +2215,10 @@ async function getFinancialDataForExport(userId: number, startDate: Date, endDat
         id: true,
         amount: true,
         interestRate: true,
+        interestPercentage: true,
         documentCharge: true,
         repaymentType: true,
+        loanType: true,
         disbursementDate: true,
         remainingAmount: true,
         repayments: {

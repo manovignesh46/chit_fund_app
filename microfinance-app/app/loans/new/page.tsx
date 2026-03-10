@@ -29,6 +29,7 @@ interface LoanFormData {
   purpose: string;
   disbursementDate: string;
   installmentAmount: string;
+  interestPercentage: string;
 }
 
 interface LoanFormErrors {
@@ -43,6 +44,7 @@ interface LoanFormErrors {
   purpose?: string;
   disbursementDate?: string;
   installmentAmount?: string;
+  interestPercentage?: string;
 }
 
 interface LoanType {
@@ -71,6 +73,7 @@ export default function NewLoanPage() {
     purpose: '',
     disbursementDate: today,
     installmentAmount: '0',
+    interestPercentage: '24',
   });
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [errors, setErrors] = useState<LoanFormErrors>({});
@@ -81,6 +84,7 @@ export default function NewLoanPage() {
   const loanTypes: LoanType[] = [
     { value: 'Monthly', label: 'Monthly' },
     { value: 'Weekly', label: 'Weekly' },
+    { value: 'Reducing Balance', label: 'Reducing Balance' },
   ];
 
   // Fetch global members when the component mounts
@@ -128,18 +132,19 @@ export default function NewLoanPage() {
     // Recalculate installment amount when loan type changes
     if (name === 'loanType') {
       // Reset duration to a reasonable default when switching between weekly and monthly
-      if (value === 'Weekly') {
-        // If switching to weekly, multiply current duration by ~4.3 (weeks in a month)
-        const currentDuration = parseInt(updatedFormData.duration) || 0;
-        if (currentDuration > 0 && currentDuration <= 60) { // Only convert if it's a reasonable monthly value
-          updatedFormData.duration = Math.round(currentDuration * 4.3).toString();
-        } else {
-          updatedFormData.duration = '4'; // Default to 4 weeks if no valid duration
+      if (value === 'Weekly' || value === 'Reducing Balance') {
+        if (value === 'Weekly') {
+          // If switching to weekly, multiply current duration by ~4.3 (weeks in a month)
+          const currentDuration = parseInt(updatedFormData.duration) || 0;
+          if (currentDuration > 0 && currentDuration <= 60) {
+            updatedFormData.duration = Math.round(currentDuration * 4.3).toString();
+          } else {
+            updatedFormData.duration = '4';
+          }
+          updatedFormData.documentCharge = '0';
         }
-
-        // For Weekly loans, set interest rate and document charge to 0
+        // For Weekly and Reducing Balance loans, set fixed interest rate to 0
         updatedFormData.interestRate = '0';
-        updatedFormData.documentCharge = '0';
       } else {
         // If switching to monthly, divide current duration by ~4.3
         const currentDuration = parseInt(updatedFormData.duration) || 0;
@@ -149,24 +154,33 @@ export default function NewLoanPage() {
           updatedFormData.duration = '1'; // Default to 1 month if no valid duration
         }
       }
+
+      // Default duration to 60 for Reducing Balance if not set
+      if (value === 'Reducing Balance' && !updatedFormData.duration) {
+        updatedFormData.duration = '60';
+      }
     }
 
     // Calculate installment amount when amount, interest, duration, or loan type changes
-    if (name === 'amount' || name === 'interestRate' || name === 'duration' || name === 'loanType') {
+    if (name === 'amount' || name === 'interestRate' || name === 'interestPercentage' || name === 'duration' || name === 'loanType') {
       const amount = parseFloat(updatedFormData.amount) || 0;
       const interestAmount = parseFloat(updatedFormData.interestRate) || 0;
+      const interestPercentage = parseFloat(updatedFormData.interestPercentage) || 0;
       const duration = parseInt(updatedFormData.duration) || 1;
       let installmentAmount = 0;
 
       if (updatedFormData.loanType === 'Monthly') {
         // For monthly loans: Principal/Duration + Interest
-        // Example: 10000/10 = 1000 + 200 = 1200
         const principalPerMonth = amount / duration;
         installmentAmount = principalPerMonth + interestAmount;
+      } else if (updatedFormData.loanType === 'Reducing Balance') {
+        // For reducing balance: Principal/Duration + (Principal * Percentage / 100 / 12)
+        // This is just a starting installment; actual installments will vary
+        const principalPerMonth = amount / duration;
+        const firstMonthInterest = amount * (interestPercentage / 100 / 12);
+        installmentAmount = principalPerMonth + firstMonthInterest;
       } else {
         // For weekly loans: Principal/(Duration-1)
-        // Example: 5000/(11-1) = 500
-        // Ensure we don't divide by zero
         const effectiveDuration = Math.max(1, duration - 1);
         installmentAmount = amount / effectiveDuration;
       }
@@ -210,13 +224,22 @@ export default function NewLoanPage() {
       }
     }
 
+    // Validate interest percentage for Reducing Balance loans
+    if (formData.loanType === 'Reducing Balance') {
+      if (!formData.interestPercentage) {
+        newErrors.interestPercentage = 'Interest percentage is required';
+      } else if (isNaN(Number(formData.interestPercentage)) || Number(formData.interestPercentage) < 0) {
+        newErrors.interestPercentage = 'Please enter a valid interest percentage';
+      }
+    }
+
     if (formData.documentCharge && (isNaN(Number(formData.documentCharge)) || Number(formData.documentCharge) < 0)) {
       newErrors.documentCharge = 'Please enter a valid document charge amount';
     }
 
-    if (!formData.duration) {
+    if (!formData.duration && formData.loanType !== 'Reducing Balance') {
       newErrors.duration = 'Loan duration is required';
-    } else if (isNaN(Number(formData.duration)) || Number(formData.duration) <= 0) {
+    } else if (formData.duration && (isNaN(Number(formData.duration)) || Number(formData.duration) <= 0)) {
       newErrors.duration = 'Please enter a valid duration greater than 0';
     } else if (formData.loanType === 'Monthly' && Number(formData.duration) > 60) {
       newErrors.duration = 'Monthly duration cannot exceed 60 months (5 years)';
@@ -270,9 +293,10 @@ export default function NewLoanPage() {
         loanType: formData.loanType,
         amount: formData.amount,
         interestRate: formData.interestRate,
+        interestPercentage: formData.interestPercentage,
         documentCharge: formData.documentCharge,
-        duration: formData.duration,
-        installmentAmount: formData.installmentAmount,
+        duration: formData.loanType === 'Reducing Balance' ? '60' : formData.duration,
+        installmentAmount: formData.loanType === 'Reducing Balance' ? '0' : formData.installmentAmount,
         purpose: formData.purpose,
         disbursementDate: disbursementDateISOString,
         repaymentType: formData.loanType, // Set repaymentType to match loanType
@@ -486,6 +510,29 @@ export default function NewLoanPage() {
               </div>
             )}
 
+            {formData.loanType === 'Reducing Balance' && (
+              <div>
+                <label htmlFor="interestPercentage" className="block text-sm font-medium text-gray-700 mb-1">
+                  Interest Percentage (%) <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="number"
+                  id="interestPercentage"
+                  name="interestPercentage"
+                  value={formData.interestPercentage}
+                  onChange={handleChange}
+                  min="0"
+                  step="0.1"
+                  className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent ${
+                    errors.interestPercentage ? 'border-red-500' : 'border-gray-300'
+                  }`}
+                />
+                {errors.interestPercentage && (
+                  <p className="mt-1 text-sm text-red-500">{errors.interestPercentage}</p>
+                )}
+              </div>
+            )}
+
             {formData.loanType === 'Monthly' && (
               <div>
                 <label htmlFor="documentCharge" className="block text-sm font-medium text-gray-700 mb-1">
@@ -509,41 +556,57 @@ export default function NewLoanPage() {
               </div>
             )}
 
-            <div>
-              <label htmlFor="duration" className="block text-sm font-medium text-gray-700 mb-1">
-                Duration ({formData.loanType === 'Weekly' ? 'weeks' : 'months'}) <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="number"
-                id="duration"
-                name="duration"
-                value={formData.duration}
-                onChange={handleChange}
-                min="1"
-                max={formData.loanType === 'Weekly' ? '260' : '60'} // 5 years in weeks or months
-                className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent ${
-                  errors.duration ? 'border-red-500' : 'border-gray-300'
-                }`}
-              />
-              {errors.duration && (
-                <p className="mt-1 text-sm text-red-500">{errors.duration}</p>
-              )}
-            </div>
+            {formData.loanType !== 'Reducing Balance' && (
+              <div>
+                <label htmlFor="duration" className="block text-sm font-medium text-gray-700 mb-1">
+                  Duration ({formData.loanType === 'Weekly' ? 'weeks' : 'months'}) <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="number"
+                  id="duration"
+                  name="duration"
+                  value={formData.duration}
+                  onChange={handleChange}
+                  min="1"
+                  max={formData.loanType === 'Weekly' ? '260' : '60'} // 5 years in weeks or months
+                  className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent ${
+                    errors.duration ? 'border-red-500' : 'border-gray-300'
+                  }`}
+                />
+                {errors.duration && (
+                  <p className="mt-1 text-sm text-red-500">{errors.duration}</p>
+                )}
+              </div>
+            )}
 
-            <div>
-              <label htmlFor="installmentAmount" className="block text-sm font-medium text-gray-700 mb-1">
-                Installment Amount (₹)
-              </label>
-              <input
-                type="number"
-                id="installmentAmount"
-                name="installmentAmount"
-                value={formData.installmentAmount}
-                onChange={handleChange}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-              />
-              <p className="mt-1 text-xs text-gray-500">Auto-calculated but can be manually adjusted if needed</p>
-            </div>
+            {formData.loanType === 'Reducing Balance' && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  1st Month Interest Amount (₹)
+                </label>
+                <div className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-50 font-semibold text-green-700">
+                  ₹{(parseFloat(formData.amount || '0') * (parseFloat(formData.interestPercentage || '0') / 100 / 12)).toFixed(2)}
+                </div>
+                <p className="mt-1 text-xs text-gray-500 italic">Auto-calculated based on amount and percentage</p>
+              </div>
+            )}
+
+            {formData.loanType !== 'Reducing Balance' && (
+              <div>
+                <label htmlFor="installmentAmount" className="block text-sm font-medium text-gray-700 mb-1">
+                  Installment Amount (₹)
+                </label>
+                <input
+                  type="number"
+                  id="installmentAmount"
+                  name="installmentAmount"
+                  value={formData.installmentAmount}
+                  onChange={handleChange}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                />
+                <p className="mt-1 text-xs text-gray-500">Auto-calculated but can be manually adjusted if needed</p>
+              </div>
+            )}
 
             <div>
               <label htmlFor="disbursementDate" className="block text-sm font-medium text-gray-700 mb-1">

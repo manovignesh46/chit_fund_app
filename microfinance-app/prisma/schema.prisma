@@ -176,6 +176,7 @@ model Loan {
   loanType            String
   amount              Float
   interestRate        Float
+  interestPercentage  Float?    // Percentage-based interest for reducing balance loans
   documentCharge      Float     @default(0)
   currentMonth        Int       @default(0)
   installmentAmount   Float     @default(0)
