@@ -410,8 +410,8 @@ export default function EditLoanPage() {
                 name="amount"
                 value={formData.amount}
                 onChange={handleChange}
-                min="1000"
-                step="1000"
+                min="1"
+                step="1"
                 className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent ${
                   errors.amount ? 'border-red-500' : 'border-gray-300'
                 }`}
@@ -433,7 +433,7 @@ export default function EditLoanPage() {
                   value={formData.interestRate}
                   onChange={handleChange}
                   min="0"
-                  step="100"
+                  step="1"
                   className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent ${
                     errors.interestRate ? 'border-red-500' : 'border-gray-300'
                   }`}
@@ -456,7 +456,7 @@ export default function EditLoanPage() {
                   value={formData.documentCharge}
                   onChange={handleChange}
                   min="0"
-                  step="100"
+                  step="1"
                   className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent ${
                     errors.documentCharge ? 'border-red-500' : 'border-gray-300'
                   }`}
