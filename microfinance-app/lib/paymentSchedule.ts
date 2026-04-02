@@ -248,6 +248,7 @@ export async function getDynamicPaymentSchedule(
             : loan.interestRate,
           status,
           actualPaymentDate: actualPaymentDate ? new Date(actualPaymentDate).toISOString() : null,
+          paidAmount: repayment ? repayment.amount : null,
           repayment: repayment ? {
             id: repayment.id,
             amount: repayment.amount,

@@ -339,7 +339,7 @@ const PaymentSchedulesPage = () => {
                         <div className="text-sm text-gray-900">{formatDate(schedule.dueDate)}</div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900">{formatCurrency(schedule.amount)}</div>
+                        <div className="text-sm text-gray-900">{formatCurrency((schedule as any).paidAmount ?? schedule.amount)}</div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span className={`px-2 py-1 text-xs font-semibold rounded-full ${getStatusBadgeColor(schedule.status)}`}>

@@ -590,9 +590,10 @@ async function getPaymentSchedules(
         // For Record Payment page - show all unpaid schedules
         shouldInclude = !isPaid;
       } else {
-        // For Loan Details page - show all past schedules (including overdue) and upcoming 1 schedule if within 3 days
+        // For Loan Details page - show all past schedules (including overdue), all paid schedules
+        // (even if due date is in the future, e.g. early loan closure), and upcoming 1 schedule if within 3 days
         const isPast = dueDateNormalized <= today;
-        shouldInclude = isPast || (isNextPayment && isWithinThreeDays);
+        shouldInclude = isPast || isPaid || (isNextPayment && isWithinThreeDays);
       }
 
       if (shouldInclude) {
@@ -1203,7 +1204,7 @@ async function addRepayment(request: NextRequest, id: number, currentUserId: num
     // Get all repayments for this loan (including the one we just added)
     const allRepayments = await prisma.repayment.findMany({
       where: { loanId },
-      select: { period: true, paymentType: true }
+      select: { period: true, paymentType: true, amount: true }
     });
 
     // Count completed periods (excluding interest-only payments)
@@ -1230,10 +1231,12 @@ async function addRepayment(request: NextRequest, id: number, currentUserId: num
       const paidAmount = progressRatio * loan.amount;
       newRemainingAmount = Math.max(0, loan.amount - paidAmount);
     } else {
-      // For monthly loans: remaining = original amount - (completed periods / total periods) * original amount
-      const progressRatio = completedPeriods / loan.duration;
-      const paidAmount = progressRatio * loan.amount;
-      newRemainingAmount = Math.max(0, loan.amount - paidAmount);
+      // For monthly loans: any amount paid above the fixed interest reduces the principal directly.
+      // This correctly handles overpayments (e.g., paying 18800 when EMI is 2800 with 800 interest
+      // should reduce principal by 18000, not just 2000).
+      const principalReduction = Math.max(0, paymentAmount - (loan.interestRate || 0));
+      newRemainingAmount = Math.max(0, loan.remainingAmount - principalReduction);
+      console.log(`Monthly Loan Calculation: PreviousPrincipal=${loan.remainingAmount}, Payment=${paymentAmount}, Interest=${loan.interestRate}, PrincipalReduction=${principalReduction}, NewPrincipal=${newRemainingAmount}`);
     }
     
     const updatedDuration = paymentType === "INTEREST_ONLY" ? loan.duration + 1 : loan.duration;
@@ -1623,7 +1626,7 @@ async function deleteRepayment(request: NextRequest, id: number, currentUserId: 
         // Get remaining repayments after deletion
         const remainingRepayments = await prisma.repayment.findMany({
             where: { loanId },
-            select: { period: true, paymentType: true }
+            select: { period: true, paymentType: true, amount: true }
         });
 
         // Count completed periods (excluding interest-only payments)
@@ -1639,11 +1642,22 @@ async function deleteRepayment(request: NextRequest, id: number, currentUserId: 
             const progressRatio = completedPeriods / (currentLoan.duration - 1);
             const paidAmount = progressRatio * currentLoan.amount;
             newRemainingAmount = Math.max(0, currentLoan.amount - paidAmount);
-        } else {
-            // For monthly loans: remaining = original amount - (completed periods / total periods) * original amount
+        } else if (currentLoan.loanType === "Reducing Balance") {
+            // Reducing Balance: recalculate from original amount minus all principal reductions
+            const monthlyInterestRate = (currentLoan.interestPercentage || 0) / 100 / 12;
+            // Cannot accurately recalculate Reducing Balance from repayments alone (each period's interest
+            // depends on prior balance), so fall back to period-count ratio for deletion
             const progressRatio = completedPeriods / currentLoan.duration;
-            const paidAmount = progressRatio * currentLoan.amount;
-            newRemainingAmount = Math.max(0, currentLoan.amount - paidAmount);
+            newRemainingAmount = Math.max(0, currentLoan.amount - progressRatio * currentLoan.amount);
+        } else {
+            // For monthly loans: recalculate from actual amounts paid.
+            // Each regular repayment reduces principal by (amount - fixed interest rate).
+            const regularRepayments = remainingRepayments.filter(r => r.paymentType !== 'interestOnly');
+            const totalPrincipalPaid = regularRepayments.reduce(
+                (sum, r) => sum + Math.max(0, r.amount - (currentLoan.interestRate || 0)),
+                0
+            );
+            newRemainingAmount = Math.max(0, currentLoan.amount - totalPrincipalPaid);
         }
 
         const newDuration = repaymentToDelete.paymentType === "INTEREST_ONLY"
