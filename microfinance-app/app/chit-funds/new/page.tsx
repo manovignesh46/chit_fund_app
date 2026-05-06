@@ -80,15 +80,6 @@ export default function NewChitFundPage() {
       [name]: value,
     };
 
-    // Auto-calculate first month contribution for Fixed type chit funds
-    if (formData.chitFundType === 'Fixed') {
-      if (name === 'totalAmount') {
-        const totalAmount = parseFloat(value);
-        if (!isNaN(totalAmount) && totalAmount > 0) {
-          updatedFormData.firstMonthContribution = totalAmount.toString();
-        }
-      }
-    }
 
     // If chit fund type changes to Fixed, auto-calculate first month contribution
     if (name === 'chitFundType' && value === 'Fixed' && formData.totalAmount && formData.duration) {
@@ -437,12 +428,16 @@ export default function NewChitFundPage() {
                   onChange={handleChange}
                   min="1"
                   step="1"
-                  readOnly
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-100 cursor-not-allowed focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                    errors.firstMonthContribution ? 'border-red-500' : 'border-gray-300'
+                  }`}
                   placeholder="Auto-calculated from total amount"
                 />
+                {errors.firstMonthContribution && (
+                  <p className="mt-1 text-sm text-red-500">{errors.firstMonthContribution}</p>
+                )}
                 <p className="mt-1 text-xs text-blue-600">
-                  Auto-calculated as Total Amount ÷ Duration = ₹{formData.totalAmount || '0'} ÷ {formData.duration || '0'} = ₹{formData.firstMonthContribution || '0'}
+                  Default: Total Amount ÷ Duration = ₹{formData.totalAmount || '0'} ÷ {formData.duration || '0'} = ₹{formData.firstMonthContribution || '0'}
                 </p>
               </div>
             )}
