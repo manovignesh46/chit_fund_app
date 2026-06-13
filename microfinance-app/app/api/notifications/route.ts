@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '../../../lib/prisma';
-import { getCurrentUserId } from '../../../lib/auth';
+import { getCurrentUserId, getActorUserId } from '../../../lib/auth';
 
 export async function GET(request: NextRequest) {
   try {
-    const currentUserId = await getCurrentUserId(request);
+    const currentUserId = await getActorUserId(request);
     if (!currentUserId) {
       return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
     }
@@ -43,7 +43,7 @@ export async function GET(request: NextRequest) {
 
 export async function PATCH(request: NextRequest) {
   try {
-    const currentUserId = await getCurrentUserId(request);
+    const currentUserId = await getActorUserId(request);
     if (!currentUserId) {
       return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
     }

@@ -1,7 +1,7 @@
 // @ts-nocheck
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { PartnerSelector } from '../contexts/PartnerContext';
 import { usePathname, useRouter } from 'next/navigation';
 import { authAPI } from '../../lib/api';
@@ -12,6 +12,7 @@ interface User {
   name: string;
   email: string;
   role: string;
+  partner?: { id: number; name: string } | null;
 }
 
 interface HeaderProps {
@@ -22,10 +23,10 @@ export default function Header({ onMenuToggle }: HeaderProps) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [showDropdown, setShowDropdown] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
   const pathname = usePathname();
   const router = useRouter();
 
-  // Skip auth check on login page
   const isLoginPage = pathname === '/login';
 
   useEffect(() => {
@@ -48,13 +49,23 @@ export default function Header({ onMenuToggle }: HeaderProps) {
     checkAuth();
   }, [isLoginPage]);
 
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setShowDropdown(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
   const handleLogout = async () => {
     try {
       await authAPI.logout();
       setUser(null);
-      // Clear selected partner from localStorage to force partner selection on next login
       if (typeof window !== 'undefined') {
         localStorage.removeItem('selectedPartnerId');
+        localStorage.removeItem('selectedPartnerName');
       }
       router.push('/login');
     } catch (error) {
@@ -88,15 +99,58 @@ export default function Header({ onMenuToggle }: HeaderProps) {
               </svg>
             </button>
             <h1 className="text-lg font-semibold text-gray-800 ml-2">
-              <span className="hidden sm:inline">AM Fincorp</span>
-              <span className="sm:hidden">AM Fincorp</span>
+              AM Fincorp
             </h1>
           </div>
 
-          {/* Right: Notifications and Partner Selector */}
-          <div className="flex items-center gap-2 min-w-[180px] sm:pr-8 lg:pr-16 xl:pr-32 2xl:pr-64">
+          {/* Right: Notifications, Partner, Profile */}
+          <div className="flex items-center gap-3 sm:gap-4">
             <NotificationBell />
             <PartnerSelector variant="default" label="" className="flex flex-row items-center gap-2 !mb-0" />
+
+            {/* Profile dropdown */}
+            {user && (
+              <div className="relative" ref={dropdownRef}>
+                <button
+                  onClick={() => setShowDropdown(!showDropdown)}
+                  className="flex items-center gap-2 p-1.5 rounded-lg hover:bg-gray-100 transition-colors"
+                  aria-label="User menu"
+                >
+                  <div className="bg-blue-600 text-white rounded-full w-8 h-8 flex items-center justify-center flex-shrink-0">
+                    <span className="text-sm font-semibold">{user.name.charAt(0).toUpperCase()}</span>
+                  </div>
+                  <span className="hidden sm:block text-sm font-medium text-gray-700 max-w-[120px] truncate">
+                    {user.name}
+                  </span>
+                  <svg className="w-4 h-4 text-gray-500 hidden sm:block" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+
+                {showDropdown && (
+                  <div className="absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-lg border border-gray-200 z-50">
+                    <div className="px-4 py-3 border-b border-gray-100">
+                      <p className="text-sm font-medium text-gray-900 truncate">{user.name}</p>
+                      <p className="text-xs text-gray-500 truncate">{user.email}</p>
+                      {user.partner && (
+                        <p className="text-xs text-blue-600 mt-1">{user.partner.name}</p>
+                      )}
+                    </div>
+                    <div className="py-1">
+                      <button
+                        onClick={handleLogout}
+                        className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-50 flex items-center gap-2"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                        </svg>
+                        Logout
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
       </div>

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '../../../../lib/prisma';
-import { getCurrentUserId } from '../../../../lib/auth';
+import { getCurrentUserId, getActorUserId } from '../../../../lib/auth';
 import { notifyOtherAdmins, getActorName } from '../../../../lib/notifications';
 
 // Define extended types for the membership object
@@ -380,9 +380,10 @@ async function createMember(request: NextRequest, currentUserId: number) {
       },
     });
 
-    const actorName = await getActorName(currentUserId);
+    const actorUserId = (await getActorUserId(request)) ?? currentUserId;
+    const actorName = await getActorName(actorUserId);
     await notifyOtherAdmins({
-      actorId: currentUserId,
+      actorId: actorUserId,
       type: 'member_created',
       title: 'New Member',
       message: `${actorName} added member "${member.name}"`,

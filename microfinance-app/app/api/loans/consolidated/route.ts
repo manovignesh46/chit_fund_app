@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "../../../../lib/prisma";
-import { getCurrentUserId } from "../../../../lib/auth";
+import { getCurrentUserId, getActorUserId } from "../../../../lib/auth";
 import {
   generatePaymentSchedule,
   calculateNextPaymentDate,
@@ -1089,10 +1089,11 @@ async function createLoan(request: NextRequest, currentUserId: number) {
       console.error("Error generating payment schedule:", scheduleError);
     }
 
-    const actorName = await getActorName(currentUserId);
+    const actorUserId = (await getActorUserId(request)) ?? currentUserId;
+    const actorName = await getActorName(actorUserId);
     const borrowerName = loan.borrower?.name ?? globalMember?.name ?? 'a borrower';
     await notifyOtherAdmins({
-      actorId: currentUserId,
+      actorId: actorUserId,
       type: 'loan_created',
       title: 'New Loan',
       message: `${actorName} disbursed a loan of ₹${loanAmount} to ${borrowerName}`,
@@ -1271,9 +1272,10 @@ async function addRepayment(request: NextRequest, id: number, currentUserId: num
       },
     });
     
-    const actorName = await getActorName(currentUserId);
+    const actorUserId = (await getActorUserId(request)) ?? currentUserId;
+    const actorName = await getActorName(actorUserId);
     await notifyOtherAdmins({
-      actorId: currentUserId,
+      actorId: actorUserId,
       type: 'loan_repayment',
       title: 'Loan Repayment',
       message: `${actorName} recorded a repayment of ₹${paymentAmount} from ${loan.borrower?.name ?? 'a borrower'}`,

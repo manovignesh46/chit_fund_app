@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '../../../../lib/prisma';
-import { getCurrentUserId } from '../../../../lib/auth';
+import { getCurrentUserId, getActorUserId } from '../../../../lib/auth';
 import { TRANSACTION_TYPES_CONFIG } from '../../../../config/config';
 import { calculateTransactionBalance, getCurrentPartnerBalance, getCurrentTotalBalance, recalculateBalancesAfterDeletion } from '../../../../lib/balanceCalculator';
 import { calculateChitFundProfitUpToCurrentMonth, calculateChitFundOutsideAmount } from '../../../../lib/financialUtils';
@@ -842,9 +842,10 @@ async function createChitFund(request: NextRequest, currentUserId: number) {
     });
   }
 
-  const actorName = await getActorName(currentUserId);
+  const actorUserId = (await getActorUserId(request)) ?? currentUserId;
+  const actorName = await getActorName(actorUserId);
   await notifyOtherAdmins({
-    actorId: currentUserId,
+    actorId: actorUserId,
     type: 'chit_fund_created',
     title: 'New Chit Fund',
     message: `${actorName} created chit fund "${chitFund.name}"`,
@@ -1077,10 +1078,11 @@ async function addContribution(request: NextRequest, id: number, currentUserId: 
       },
     });
 
-    const actorName = await getActorName(currentUserId);
+    const actorUserId = (await getActorUserId(request)) ?? currentUserId;
+    const actorName = await getActorName(actorUserId);
     const memberName = createdTransaction.contribution?.member?.globalMember?.name ?? 'a member';
     await notifyOtherAdmins({
-      actorId: currentUserId,
+      actorId: actorUserId,
       type: 'contribution',
       title: 'Chit Fund Contribution',
       message: `${actorName} recorded a contribution of ₹${paidAmount} from ${memberName}`,
@@ -1211,10 +1213,11 @@ async function addAuction(request: NextRequest, id: number, currentUserId: numbe
       return [createdTransaction.auction];
     });
 
-    const actorName = await getActorName(currentUserId);
+    const actorUserId = (await getActorUserId(request)) ?? currentUserId;
+    const actorName = await getActorName(actorUserId);
     const winnerName = auction?.winner?.globalMember?.name ?? 'a member';
     await notifyOtherAdmins({
-      actorId: currentUserId,
+      actorId: actorUserId,
       type: 'auction',
       title: 'Chit Fund Auction',
       message: `${actorName} recorded an auction payout of ₹${body.amount} to ${winnerName}`,

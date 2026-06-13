@@ -1,7 +1,6 @@
 'use client';
 
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
 import PartnerSelectionModal from '../components/partners/PartnerSelectionModal';
 
 interface Partner {
@@ -18,9 +17,10 @@ interface PartnerContextType {
   loading: boolean;
   error: string | null;
   refreshPartners: () => Promise<void>;
-  // For transaction components compatibility
   activePartner: string;
   otherPartner: string;
+  partnerLocked: boolean;
+  isPrimaryAdmin: boolean;
 }
 
 const PartnerContext = createContext(undefined);
@@ -30,12 +30,14 @@ interface PartnerProviderProps {
 }
 
 export function PartnerProvider({ children }: PartnerProviderProps) {
-  const router = useRouter();
   const [selectedPartner, setSelectedPartner] = useState(null);
   const [partners, setPartners] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [partnerLocked, setPartnerLocked] = useState(false);
+  const [isPrimaryAdmin, setIsPrimaryAdmin] = useState(false);
   const [showPartnerModal, setShowPartnerModal] = useState(false);
+  const [userProfileLoaded, setUserProfileLoaded] = useState(false);
 
   const refreshPartners = async (retryCount = 0) => {
     try {
@@ -44,49 +46,70 @@ export function PartnerProvider({ children }: PartnerProviderProps) {
       const response = await fetch('/api/partners');
       const contentType = response.headers.get('content-type');
       if (!response.ok) {
-        // Try to parse error as JSON, fallback to text
         let errorMsg = 'Failed to fetch partners';
         if (contentType && contentType.includes('application/json')) {
           const errorData = await response.json();
           errorMsg = errorData.error || errorMsg;
-        } else {
-          const text = await response.text();
-          if (text.startsWith('<!DOCTYPE')) {
-            errorMsg = 'Server returned HTML (possible server error or not authenticated)';
-          } else {
-            errorMsg = text;
-          }
         }
         throw new Error(errorMsg);
-      }
-      if (!contentType || !contentType.includes('application/json')) {
-        throw new Error('Server did not return JSON. Possible session timeout or server error.');
       }
       const data = await response.json();
       setPartners(data.partners || []);
 
-      // Try to restore selected partner from localStorage
-      const savedPartnerId = localStorage.getItem('selectedPartnerId');
-      if (savedPartnerId) {
-        const savedPartner = data.partners.find(
-          (p: Partner) => p.id === parseInt(savedPartnerId)
-        );
-        if (savedPartner) {
-          setSelectedPartner(savedPartner);
-        } else {
-          // Clear invalid localStorage if partner not found
-          localStorage.removeItem('selectedPartnerId');
-          localStorage.removeItem('selectedPartnerName');
-          setSelectedPartner(null);
+      const profileResponse = await fetch('/api/user?action=me');
+      let profileIsPrimaryAdmin = false;
+      let profilePartnerLocked = false;
+
+      if (profileResponse.ok) {
+        const profile = await profileResponse.json();
+        profilePartnerLocked = !!profile.partnerLocked;
+        profileIsPrimaryAdmin = !!profile.isPrimaryAdmin;
+        setPartnerLocked(profilePartnerLocked);
+        setIsPrimaryAdmin(profileIsPrimaryAdmin);
+
+        if (profile.partner?.id) {
+          const linkedPartner = data.partners.find(
+            (p: Partner) => p.id === profile.partner.id
+          );
+          if (linkedPartner) {
+            setSelectedPartner(linkedPartner);
+            setUserProfileLoaded(true);
+            return;
+          }
+        }
+      }
+
+      setUserProfileLoaded(true);
+
+      // Primary admin: restore saved partner or prompt selection
+      if (profileIsPrimaryAdmin && !profilePartnerLocked) {
+        const savedPartnerId = localStorage.getItem('selectedPartnerId');
+        if (savedPartnerId) {
+          const savedPartner = data.partners.find(
+            (p: Partner) => p.id === parseInt(savedPartnerId)
+          );
+          if (savedPartner) {
+            setSelectedPartner(savedPartner);
+          } else {
+            localStorage.removeItem('selectedPartnerId');
+            localStorage.removeItem('selectedPartnerName');
+          }
+        }
+      } else if (!profilePartnerLocked) {
+        const savedPartnerId = localStorage.getItem('selectedPartnerId');
+        if (savedPartnerId) {
+          const savedPartner = data.partners.find(
+            (p: Partner) => p.id === parseInt(savedPartnerId)
+          );
+          if (savedPartner) {
+            setSelectedPartner(savedPartner);
+          }
         }
       }
     } catch (err) {
       const errMsg = err instanceof Error ? err.message : 'Failed to fetch partners';
-      // Auto-retry if the error is about not getting JSON and we haven't retried too many times
       if (errMsg.includes('Server did not return JSON') && retryCount < 3) {
-        setTimeout(() => {
-          refreshPartners(retryCount + 1);
-        }, 700); // 700ms delay between retries
+        setTimeout(() => refreshPartners(retryCount + 1), 700);
         return;
       }
       console.error('Error fetching partners:', err);
@@ -100,7 +123,6 @@ export function PartnerProvider({ children }: PartnerProviderProps) {
     refreshPartners();
   }, []);
 
-  // Save selected partner to localStorage when it changes
   useEffect(() => {
     if (selectedPartner) {
       localStorage.setItem('selectedPartnerId', selectedPartner.id.toString());
@@ -108,30 +130,24 @@ export function PartnerProvider({ children }: PartnerProviderProps) {
     }
   }, [selectedPartner]);
 
-  // Show partner selection modal when partners are loaded but no partner is selected
+  // Show partner selection modal for primary admin when no partner is selected
   useEffect(() => {
-    if (!loading && partners.length > 0 && !selectedPartner) {
-      // Only show modal if we're not on the login page
+    if (
+      !loading &&
+      userProfileLoaded &&
+      isPrimaryAdmin &&
+      !partnerLocked &&
+      partners.length > 0 &&
+      !selectedPartner
+    ) {
       if (typeof window !== 'undefined' && !window.location.pathname.includes('/login')) {
-        // Add a small delay to ensure the page has fully loaded after login
-        const timer = setTimeout(() => {
-          setShowPartnerModal(true);
-        }, 100);
-        return () => clearTimeout(timer);
+        setShowPartnerModal(true);
       }
     }
-  }, [loading, partners, selectedPartner]);
+  }, [loading, userProfileLoaded, isPrimaryAdmin, partnerLocked, partners, selectedPartner]);
 
-  // Fallback: If partners are loaded and still no partner is selected, always show modal
-  useEffect(() => {
-    if (!loading && partners.length > 0 && !selectedPartner && !showPartnerModal) {
-      setShowPartnerModal(true);
-    }
-  }, [loading, partners, selectedPartner, showPartnerModal]);
-
-  // Calculate activePartner and otherPartner for transaction components
   const activePartner = selectedPartner?.name || 'Me';
-  const otherPartner = partners.find(p => p.name !== activePartner)?.name || 'My Friend';
+  const otherPartner = partners.find(p => p.name !== activePartner)?.name || '';
 
   const value: PartnerContextType = {
     selectedPartner,
@@ -142,16 +158,20 @@ export function PartnerProvider({ children }: PartnerProviderProps) {
     refreshPartners,
     activePartner,
     otherPartner,
+    partnerLocked,
+    isPrimaryAdmin,
   };
 
   return (
     <PartnerContext.Provider value={value}>
       {children}
-      <PartnerSelectionModal
-        isOpen={showPartnerModal}
-        onClose={() => setShowPartnerModal(false)}
-        onPartnerSelected={() => setShowPartnerModal(false)}
-      />
+      {isPrimaryAdmin && !partnerLocked && (
+        <PartnerSelectionModal
+          isOpen={showPartnerModal}
+          onClose={() => setShowPartnerModal(false)}
+          onPartnerSelected={() => setShowPartnerModal(false)}
+        />
+      )}
     </PartnerContext.Provider>
   );
 }
@@ -164,7 +184,6 @@ export function usePartner() {
   return context;
 }
 
-// Partner selector component
 interface PartnerSelectorProps {
   className?: string;
   label?: string;
@@ -176,10 +195,22 @@ export function PartnerSelector({
   label = 'Active Partner',
   variant = 'default'
 }: PartnerSelectorProps) {
-  const { selectedPartner, setSelectedPartner, partners, loading } = usePartner();
+  const { selectedPartner, setSelectedPartner, partners, loading, partnerLocked } = usePartner();
 
   if (loading) {
     return null;
+  }
+
+  // Partner accounts: read-only badge
+  if (partnerLocked && selectedPartner) {
+    return (
+      <div className={`flex flex-row items-center gap-2 ${className}`.trim()}>
+        <span className="text-sm text-gray-600 hidden sm:inline">Logged in as</span>
+        <span className="px-3 py-1.5 bg-blue-50 text-blue-800 text-sm font-medium rounded-lg border border-blue-200">
+          {selectedPartner.name}
+        </span>
+      </div>
+    );
   }
 
   const selectPartnerHandler = (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -187,8 +218,6 @@ export function PartnerSelector({
     const partner = partners.find(p => p.id === selectedId);
     setSelectedPartner(partner || null);
   };
-
-  // Remove header variant, use default for all
 
   if (variant === 'sidebar') {
     return (
@@ -223,6 +252,7 @@ export function PartnerSelector({
           className="block px-3 py-2 pr-8 border border-blue-500 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-blue-600 bg-white text-gray-900 font-medium transition-all duration-150 appearance-none hover:border-blue-600"
           style={{ minWidth: 160 }}
         >
+          <option value="">Select Partner</option>
           {partners.map(partner => (
             <option key={partner.id} value={partner.id}>
               {partner.name}

@@ -10,21 +10,34 @@ export interface NotifyParams {
 
 export async function notifyOtherAdmins(params: NotifyParams): Promise<void> {
   try {
-    const otherAdmins = await prisma.user.findMany({
+    const actor = await prisma.user.findUnique({
+      where: { id: params.actorId },
+      select: { id: true, dataOwnerId: true },
+    });
+
+    if (!actor) return;
+
+    const orgOwnerId = actor.dataOwnerId ?? actor.id;
+
+    const recipients = await prisma.user.findMany({
       where: {
-        role: 'admin',
         id: { not: params.actorId },
+        role: { in: ['admin', 'partner'] },
+        OR: [
+          { id: orgOwnerId },
+          { dataOwnerId: orgOwnerId },
+        ],
       },
       select: { id: true },
     });
 
-    if (otherAdmins.length === 0) {
+    if (recipients.length === 0) {
       return;
     }
 
     await prisma.notification.createMany({
-      data: otherAdmins.map((admin) => ({
-        userId: admin.id,
+      data: recipients.map((user) => ({
+        userId: user.id,
         actorId: params.actorId,
         type: params.type,
         title: params.title,

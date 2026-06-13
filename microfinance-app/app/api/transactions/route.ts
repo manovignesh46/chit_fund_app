@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '../../../lib/prisma';
-import { getCurrentUserId } from '../../../lib/auth';
+import { getCurrentUserId, getActorUserId } from '../../../lib/auth';
 import { TRANSACTION_TYPES_CONFIG } from '../../../config/config';
 import { sendEmail, emailTemplates } from '../../../lib/emailConfig';
 import * as XLSX from 'xlsx';
@@ -109,6 +109,7 @@ export async function GET(request: NextRequest) {
  */
 async function handlePartnerToPartnerTransfer(
   currentUserId: number,
+  actorUserId: number,
   fromPartnerId: number,
   toPartnerId: number,
   amount: number,
@@ -207,9 +208,9 @@ async function handlePartnerToPartnerTransfer(
     console.log(`Debit transaction created: ${fromPartner.name} balance = ₹${debitBalanceCalculation.partnerBalance}`);
     console.log(`Credit transaction created: ${toPartner.name} balance = ₹${creditBalanceCalculation.partnerBalance}`);
 
-    const actorName = await getActorName(currentUserId);
+    const actorName = await getActorName(actorUserId);
     await notifyOtherAdmins({
-      actorId: currentUserId,
+      actorId: actorUserId,
       type: 'transaction',
       title: 'Partner Transfer',
       message: `${actorName} recorded a transfer of ₹${amount} from ${fromPartner.name} to ${toPartner.name}`,
@@ -252,6 +253,7 @@ export async function POST(request: NextRequest) {
     if (!currentUserId) {
       return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
     }
+    const actorUserId = (await getActorUserId(request)) ?? currentUserId;
 
     // The 'active partner' is the person performing the data entry.
     const activePartnerName = request.headers.get('x-active-partner');
@@ -298,6 +300,7 @@ export async function POST(request: NextRequest) {
         // Handle this case separately and return early
         return await handlePartnerToPartnerTransfer(
           currentUserId,
+          actorUserId,
           fromPartnerId,
           toPartnerId,
           parseFloat(amount),
@@ -434,9 +437,9 @@ export async function POST(request: NextRequest) {
       }
     });
 
-    const actorName = await getActorName(currentUserId);
+    const actorName = await getActorName(actorUserId);
     await notifyOtherAdmins({
-      actorId: currentUserId,
+      actorId: actorUserId,
       type: 'transaction',
       title: 'New Transaction',
       message: `${actorName} added a ${type} transaction of ₹${amount}`,

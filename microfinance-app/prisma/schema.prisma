@@ -14,6 +14,8 @@ model User {
   email                 String         @unique
   password              String
   role                  String         @default("user")
+  partnerId             Int?
+  dataOwnerId           Int?
   createdAt             DateTime       @default(now())
   updatedAt             DateTime       @updatedAt
   chitFunds             ChitFund[]
@@ -25,6 +27,9 @@ model User {
   contributions         Contribution[] @relation("CreatedContributions")
   notificationsReceived Notification[] @relation("UserNotifications")
   notificationsSent     Notification[] @relation("ActorNotifications")
+  partner               Partner?       @relation("PartnerLogin", fields: [partnerId], references: [id])
+  dataOwner             User?          @relation("OrgMembers", fields: [dataOwnerId], references: [id])
+  orgMembers            User[]         @relation("OrgMembers")
 }
 
 model ChitFund {
@@ -305,6 +310,7 @@ model Partner {
 
   fromTransactions         Transaction[]  @relation("FromPartnerTransactions")
   toTransactions           Transaction[]  @relation("ToPartnerTransactions")
+  linkedUsers              User[]         @relation("PartnerLogin")
 
   @@unique([createdById, code], name: "Partner_createdById_code_key")
   @@index([createdById])

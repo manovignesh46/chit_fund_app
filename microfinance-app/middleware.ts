@@ -91,8 +91,8 @@ export async function middleware(request: NextRequest) {
       return NextResponse.redirect(new URL('/login?error=session_expired', request.url));
     }
 
-    // Check if the user is an admin
-    if (payload.role !== 'admin') {
+    // Allow primary admin and partner accounts
+    if (payload.role !== 'admin' && payload.role !== 'partner') {
       return NextResponse.redirect(new URL('/login?error=access_denied', request.url));
     }
 
