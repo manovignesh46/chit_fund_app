@@ -309,7 +309,23 @@ async function getChitFundsList(request: NextRequest, currentUserId: number) {
     createdById: currentUserId
   };
 
-  if (status) {
+  if (status === 'Active') {
+    // Exclude completed chit funds (status may still be Active if not auto-updated)
+    where.status = 'Active';
+    where.currentMonth = {
+      lt: prisma.chitFund.fields.duration,
+    };
+  } else if (status === 'Completed') {
+    where.OR = [
+      { status: 'Completed' },
+      {
+        status: 'Active',
+        currentMonth: {
+          gte: prisma.chitFund.fields.duration,
+        },
+      },
+    ];
+  } else if (status) {
     where.status = status;
   }
 
@@ -1162,11 +1178,13 @@ async function addAuction(request: NextRequest, id: number, currentUserId: numbe
         },
       });
 
-      // 2. Update the chit fund's current month
+      // 2. Update the chit fund's current month and mark completed when all months are done
+      const auctionMonth = parseInt(body.month);
       await tx.chitFund.update({
         where: { id },
         data: {
-          currentMonth: parseInt(body.month),
+          currentMonth: auctionMonth,
+          ...(auctionMonth >= chitFund.duration && { status: 'Completed' }),
         },
       });
 
