@@ -10,31 +10,51 @@ export async function GET(request: NextRequest) {
     }
 
     const { searchParams } = new URL(request.url);
-    const limit = Math.min(parseInt(searchParams.get('limit') || '20'), 50);
+    const page = parseInt(searchParams.get('page') || '1');
+    const pageSize = Math.min(
+      parseInt(searchParams.get('pageSize') || searchParams.get('limit') || '20'),
+      50
+    );
     const unreadOnly = searchParams.get('unreadOnly') === 'true';
+    const usePagination = searchParams.has('page');
 
     const where = {
       userId: currentUserId,
       ...(unreadOnly ? { read: false } : {}),
     };
 
-    const [notifications, unreadCount] = await Promise.all([
+    const skip = usePagination ? (page - 1) * pageSize : 0;
+
+    const [notifications, totalCount, unreadCount] = await Promise.all([
       prisma.notification.findMany({
         where,
         orderBy: { createdAt: 'desc' },
-        take: limit,
+        skip,
+        take: pageSize,
         include: {
           actor: {
             select: { id: true, name: true },
           },
         },
       }),
+      usePagination
+        ? prisma.notification.count({ where })
+        : Promise.resolve(0),
       prisma.notification.count({
         where: { userId: currentUserId, read: false },
       }),
     ]);
 
-    return NextResponse.json({ notifications, unreadCount });
+    return NextResponse.json({
+      notifications,
+      unreadCount,
+      ...(usePagination && {
+        totalCount,
+        totalPages: Math.ceil(totalCount / pageSize),
+        page,
+        pageSize,
+      }),
+    });
   } catch (error) {
     console.error('Error fetching notifications:', error);
     return NextResponse.json({ error: 'Failed to fetch notifications' }, { status: 500 });

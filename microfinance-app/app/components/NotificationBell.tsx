@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { BellIcon } from '@heroicons/react/24/outline';
 import { formatDistanceToNow } from 'date-fns';
 
@@ -22,7 +23,9 @@ export default function NotificationBell() {
   const [unreadCount, setUnreadCount] = useState(0);
   const [isOpen, setIsOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [connected, setConnected] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const eventSourceRef = useRef<EventSource | null>(null);
 
   const fetchNotifications = useCallback(async () => {
     try {
@@ -38,8 +41,61 @@ export default function NotificationBell() {
 
   useEffect(() => {
     fetchNotifications();
-    const interval = setInterval(fetchNotifications, 30000);
-    return () => clearInterval(interval);
+  }, [fetchNotifications]);
+
+  useEffect(() => {
+    const connect = () => {
+      if (eventSourceRef.current) {
+        eventSourceRef.current.close();
+      }
+
+      const es = new EventSource('/api/notifications/stream');
+      eventSourceRef.current = es;
+
+      es.addEventListener('connected', (event) => {
+        setConnected(true);
+        try {
+          const data = JSON.parse(event.data);
+          if (typeof data.unreadCount === 'number') {
+            setUnreadCount(data.unreadCount);
+          }
+        } catch {
+          // ignore parse errors
+        }
+      });
+
+      es.addEventListener('notification', (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          if (data.notification) {
+            setNotifications((prev) => {
+              const exists = prev.some((n) => n.id === data.notification.id);
+              if (exists) return prev;
+              return [data.notification, ...prev].slice(0, 15);
+            });
+          }
+          if (typeof data.unreadCount === 'number') {
+            setUnreadCount(data.unreadCount);
+          }
+        } catch {
+          // fallback refetch
+          fetchNotifications();
+        }
+      });
+
+      es.onerror = () => {
+        setConnected(false);
+      };
+    };
+
+    connect();
+
+    return () => {
+      if (eventSourceRef.current) {
+        eventSourceRef.current.close();
+        eventSourceRef.current = null;
+      }
+    };
   }, [fetchNotifications]);
 
   useEffect(() => {
@@ -115,6 +171,9 @@ export default function NotificationBell() {
             {unreadCount > 99 ? '99+' : unreadCount}
           </span>
         )}
+        {connected && (
+          <span className="absolute bottom-0.5 right-0.5 w-2 h-2 bg-green-500 rounded-full border border-white" title="Live" />
+        )}
       </button>
 
       {isOpen && (
@@ -160,6 +219,16 @@ export default function NotificationBell() {
                 </button>
               ))
             )}
+          </div>
+
+          <div className="px-4 py-2 border-t border-gray-100 bg-gray-50 rounded-b-lg">
+            <Link
+              href="/notifications"
+              onClick={() => setIsOpen(false)}
+              className="block text-center text-sm text-blue-600 hover:text-blue-800 font-medium py-1"
+            >
+              View all notifications
+            </Link>
           </div>
         </div>
       )}

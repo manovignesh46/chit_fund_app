@@ -1,4 +1,5 @@
 import prisma from './prisma';
+import { pushNotificationEvent } from './notificationStream';
 
 export interface NotifyParams {
   actorId: number;
@@ -12,7 +13,7 @@ export async function notifyOtherAdmins(params: NotifyParams): Promise<void> {
   try {
     const actor = await prisma.user.findUnique({
       where: { id: params.actorId },
-      select: { id: true, dataOwnerId: true },
+      select: { id: true, dataOwnerId: true, name: true },
     });
 
     if (!actor) return;
@@ -35,16 +36,36 @@ export async function notifyOtherAdmins(params: NotifyParams): Promise<void> {
       return;
     }
 
-    await prisma.notification.createMany({
-      data: recipients.map((user) => ({
-        userId: user.id,
-        actorId: params.actorId,
-        type: params.type,
-        title: params.title,
-        message: params.message,
-        link: params.link ?? null,
-      })),
-    });
+    const createdNotifications = await Promise.all(
+      recipients.map((recipient) =>
+        prisma.notification.create({
+          data: {
+            userId: recipient.id,
+            actorId: params.actorId,
+            type: params.type,
+            title: params.title,
+            message: params.message,
+            link: params.link ?? null,
+          },
+          include: {
+            actor: {
+              select: { id: true, name: true },
+            },
+          },
+        })
+      )
+    );
+
+    for (const notification of createdNotifications) {
+      const unreadCount = await prisma.notification.count({
+        where: { userId: notification.userId, read: false },
+      });
+
+      pushNotificationEvent(notification.userId, 'notification', {
+        notification,
+        unreadCount,
+      });
+    }
   } catch (error) {
     console.error('Failed to create notifications:', error);
   }
