@@ -62,20 +62,20 @@ export default function PendingLoansModal({ isOpen, onClose, loans, month, year 
     <div className="fixed inset-0 z-50 overflow-y-auto" aria-labelledby="modal-title" role="dialog" aria-modal="true">
       {/* Background overlay */}
       <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
-        <div className="fixed inset-0 bg-gray-50 dark:bg-surface-elevated0 bg-opacity-75 transition-opacity" onClick={onClose}></div>
+        <div className="fixed inset-0 bg-black bg-opacity-60 backdrop-blur-sm transition-opacity" onClick={onClose}></div>
 
         {/* Modal panel */}
         <span className="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
         
         <div className="inline-block align-bottom themed-card rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-3xl sm:w-full">
           {/* Header */}
-          <div className="bg-purple-600 px-4 py-3 sm:px-6 flex items-center justify-between">
-            <h3 className="text-lg leading-6 font-medium text-white" id="modal-title">
+          <div className="bg-gray-50 dark:bg-surface-elevated px-4 py-3 sm:px-6 flex items-center justify-between border-b border-gray-200 dark:border-surface-border">
+            <h3 className="text-lg leading-6 font-medium text-gray-900 dark:text-theme-heading" id="modal-title">
               Pending Loan Repayments - {month} {year}
             </h3>
             <button
               onClick={onClose}
-              className="text-white hover:text-gray-200 transition"
+              className="text-gray-500 hover:text-gray-700 dark:text-theme-muted dark:hover:text-theme-secondary transition"
             >
               <XMarkIcon className="h-6 w-6" />
             </button>
@@ -94,7 +94,7 @@ export default function PendingLoansModal({ isOpen, onClose, loans, month, year 
             ) : (
               <>
                 {/* Summary */}
-                <div className="mb-4 bg-purple-50 border border-purple-200 rounded-lg p-4">
+                <div className="mb-4 bg-blue-50 dark:bg-surface-elevated border border-blue-200 dark:border-surface-border rounded-lg p-4">
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-sm text-gray-700 dark:text-theme-secondary">Total Pending Loans</p>
@@ -152,7 +152,7 @@ export default function PendingLoansModal({ isOpen, onClose, loans, month, year 
             <button
               type="button"
               onClick={onClose}
-              className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-purple-600 text-base font-medium text-white hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 sm:ml-3 sm:w-auto sm:text-sm"
+              className="btn-primary sm:ml-3 sm:w-auto"
             >
               Close
             </button>

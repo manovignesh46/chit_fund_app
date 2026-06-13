@@ -412,7 +412,7 @@ export default function MessagesPage() {
                 <li key={p.id} className="flex items-center gap-2 text-sm text-gray-700 dark:text-theme-secondary">
                   <span
                     className={`h-2 w-2 flex-shrink-0 rounded-full ${
-                      p.role === 'admin' ? 'bg-purple-500' : 'bg-green-500'
+                      p.role === 'admin' ? 'bg-blue-500' : 'bg-green-500'
                     }`}
                   />
                   <span className="truncate">

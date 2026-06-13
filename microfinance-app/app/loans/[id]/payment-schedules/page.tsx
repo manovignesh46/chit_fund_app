@@ -210,7 +210,7 @@ const PaymentSchedulesPage = () => {
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold text-green-700">Payment Schedule</h1>
+        <h1 className="page-title">Payment Schedule</h1>
         <div className="flex space-x-4">
           <Link href={`/loans/${id}`} className="btn-neutral px-4 py-2 rounded-lg transition duration-300">
             Back to Loan Details
@@ -358,7 +358,7 @@ const PaymentSchedulesPage = () => {
                               <button
                                 onClick={() => handleRecordPayment(schedule.period, 'Paid')}
                                 disabled={updating === schedule.period}
-                                className="text-xs px-2 py-1 bg-green-600 text-white rounded hover:bg-green-700"
+                                className="text-xs px-2 py-1 bg-blue-600 text-white rounded hover:bg-blue-700"
                               >
                                 {updating === schedule.period ? 'Processing...' : 'Mark Paid'}
                               </button>

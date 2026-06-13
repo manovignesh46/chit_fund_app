@@ -184,7 +184,7 @@ export default function AssignChitFundPage() {
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold text-blue-700">Assign {member.name} to Chit Fund</h1>
+        <h1 className="page-title">Assign {member.name} to Chit Fund</h1>
         <Link href={`/members/${memberId}`} className="btn-neutral px-4 py-2 rounded-lg transition duration-300">
           Back to Member
         </Link>

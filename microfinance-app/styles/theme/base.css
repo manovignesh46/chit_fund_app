@@ -11,26 +11,7 @@
     @apply bg-surface text-theme-primary;
   }
 
-  html.dark main select:not([size]),
-  html.dark main input[type="text"],
-  html.dark main input[type="number"],
-  html.dark main input[type="date"],
-  html.dark main input[type="email"],
-  html.dark main input[type="password"],
-  html.dark main input[type="search"],
-  html.dark main textarea,
-  .dark main select:not([size]),
-  .dark main input[type="text"],
-  .dark main input[type="number"],
-  .dark main input[type="date"],
-  .dark main input[type="email"],
-  .dark main input[type="password"],
-  .dark main input[type="search"],
-  .dark main textarea {
-    @apply themed-input;
-  }
-
-  /* Override light-only bg/border on form controls in dark mode */
+  /* Dark mode form controls — inline properties to avoid @layer circular dependency */
   html.dark main select:not([size]),
   html.dark main input[type="text"],
   html.dark main input[type="number"],
@@ -50,6 +31,11 @@
     background-color: var(--color-surface-elevated);
     border-color: var(--color-surface-border);
     color: var(--color-text-primary);
+    border-width: 1px;
+    border-style: solid;
+    border-radius: 0.5rem;
+    padding: 0.5rem 0.75rem;
+    font-size: 0.875rem;
   }
 
   html.dark main select:not([size]),

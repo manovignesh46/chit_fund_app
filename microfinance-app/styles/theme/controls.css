@@ -1,12 +1,18 @@
 /* Buttons, alerts, modals, pagination, forms */
 
 @layer components {
+  /* ── Primary button (blue only) ── */
   .btn-primary {
-    @apply inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors;
+    @apply inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg
+           hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1
+           transition-colors disabled:opacity-50 disabled:cursor-not-allowed;
   }
 
+  /* ── Secondary / outline button ── */
   .btn-secondary {
-    @apply inline-flex items-center gap-2 px-3 py-2 bg-white border border-gray-300 text-gray-700 text-sm rounded-lg hover:bg-gray-50 transition-colors;
+    @apply inline-flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 text-gray-700 text-sm font-medium rounded-lg
+           hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1
+           transition-colors disabled:opacity-50 disabled:cursor-not-allowed;
   }
 
   html.dark .btn-secondary,
@@ -14,9 +20,11 @@
     @apply bg-surface-elevated border-surface-border text-theme-secondary hover:bg-surface-hover;
   }
 
-  /* Back / cancel / neutral actions */
+  /* ── Neutral / ghost button ── */
   .btn-neutral {
-    @apply inline-flex items-center justify-center bg-gray-200 text-gray-700 hover:bg-gray-300 transition-colors duration-300;
+    @apply inline-flex items-center justify-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 text-sm font-medium rounded-lg
+           hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-offset-1
+           transition-colors disabled:opacity-50 disabled:cursor-not-allowed;
   }
 
   html.dark .btn-neutral,
@@ -24,27 +32,38 @@
     @apply bg-surface-elevated text-theme-secondary border border-surface-border hover:bg-surface-hover;
   }
 
-  /* Filter toggle chips (inactive state) */
+  /* ── Danger button ── */
+  .btn-danger {
+    @apply inline-flex items-center gap-2 px-4 py-2 bg-red-600 text-white text-sm font-medium rounded-lg
+           hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-1
+           transition-colors disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  /* ── Filter toggle chips ── */
   .filter-chip {
-    @apply inline-flex items-center justify-center p-2 rounded-lg text-sm bg-gray-200 text-gray-700 hover:bg-gray-300 transition duration-300;
+    @apply inline-flex items-center justify-center px-3 py-1.5 rounded-lg text-sm font-medium
+           bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors border border-transparent;
   }
 
   html.dark .filter-chip,
   .dark .filter-chip {
-    @apply bg-surface-elevated text-theme-secondary border border-surface-border hover:bg-surface-hover;
+    @apply bg-surface-elevated text-theme-muted border-surface-border hover:bg-surface-hover;
   }
 
   .filter-chip-active-blue {
-    @apply inline-flex items-center justify-center p-2 rounded-lg text-sm bg-blue-600 text-white;
+    @apply inline-flex items-center justify-center px-3 py-1.5 rounded-lg text-sm font-medium
+           bg-blue-600 text-white border border-transparent;
   }
 
+  /* Removed filter-chip-active-green — use filter-chip-active-blue instead */
   .filter-chip-active-green {
-    @apply inline-flex items-center justify-center p-2 rounded-lg text-sm bg-green-600 text-white;
+    @apply filter-chip-active-blue;
   }
 
-  /* Pagination */
+  /* ── Pagination ── */
   .pagination-nav-btn {
-    @apply relative inline-flex items-center px-2 py-2 text-gray-500 hover:bg-gray-50 transition-colors;
+    @apply relative inline-flex items-center px-2 py-2 text-gray-500 hover:bg-gray-50
+           rounded-md transition-colors;
   }
 
   html.dark .pagination-nav-btn,
@@ -53,70 +72,42 @@
   }
 
   .pagination-nav-btn:disabled {
-    @apply text-gray-300 cursor-not-allowed hover:bg-transparent;
-  }
-
-  html.dark .pagination-nav-btn:disabled,
-  .dark .pagination-nav-btn:disabled {
-    @apply text-theme-muted opacity-50;
+    @apply text-gray-300 cursor-not-allowed hover:bg-transparent opacity-50;
   }
 
   .pagination-page {
-    @apply relative inline-flex items-center px-4 py-2 text-sm font-semibold text-gray-900 ring-1 ring-inset ring-gray-300 hover:bg-gray-50;
+    @apply relative inline-flex items-center px-4 py-2 text-sm font-medium text-gray-700
+           border border-gray-300 bg-white hover:bg-gray-50 transition-colors;
   }
 
   html.dark .pagination-page,
   .dark .pagination-page {
-    @apply text-theme-primary bg-surface-elevated ring-surface-border hover:bg-surface-hover;
+    @apply text-theme-secondary bg-surface-elevated border-surface-border hover:bg-surface-hover;
   }
 
+  /* Single active color: blue (was green in some pages) */
   .pagination-page-active {
-    @apply relative inline-flex items-center px-4 py-2 text-sm font-semibold z-10 bg-green-600 text-white ring-0;
+    @apply relative inline-flex items-center px-4 py-2 text-sm font-medium z-10
+           bg-blue-600 text-white border border-blue-600;
   }
 
   .pagination-info {
-    @apply relative inline-flex items-center px-4 py-2 text-sm font-semibold text-gray-700 bg-gray-50 border border-gray-200 rounded-lg;
+    @apply relative inline-flex items-center px-4 py-2 text-sm font-medium text-gray-600
+           bg-gray-50 border border-gray-200 rounded-lg;
   }
 
   html.dark .pagination-info,
   .dark .pagination-info {
-    @apply text-theme-secondary bg-surface-elevated border-surface-border;
-  }
-
-  .modal-overlay {
-    @apply fixed inset-0 flex items-center justify-center z-50 px-2 bg-black bg-opacity-50;
-  }
-
-  .dark .modal-overlay {
-    background-color: var(--color-overlay);
-  }
-
-  .alert-error {
-    @apply px-4 py-3 rounded bg-red-100 border border-red-400 text-red-700;
-  }
-
-  .dark .alert-error {
-    @apply rounded-lg border-red-500 text-red-400;
-    background-color: rgba(239, 68, 68, 0.1);
-    border-color: rgba(239, 68, 68, 0.3);
-  }
-
-  .alert-success {
-    @apply px-4 py-3 rounded bg-green-100 border border-green-400 text-green-700;
-  }
-
-  .dark .alert-success {
-    @apply rounded-lg border-green-500 text-green-400;
-    background-color: rgba(16, 185, 129, 0.1);
-    border-color: rgba(16, 185, 129, 0.3);
+    @apply text-theme-muted bg-surface-elevated border-surface-border;
   }
 
   .pagination-btn {
-    @apply inline-flex items-center px-3 py-2 text-sm border border-gray-300 bg-white text-gray-700 rounded-md hover:bg-gray-50 transition-colors;
+    @apply inline-flex items-center px-3 py-2 text-sm border border-gray-300 bg-white text-gray-700
+           rounded-lg hover:bg-gray-50 transition-colors;
   }
 
   .dark .pagination-btn {
-    @apply border-surface-border bg-surface-elevated text-theme-secondary rounded-lg hover:bg-surface-hover;
+    @apply border-surface-border bg-surface-elevated text-theme-secondary hover:bg-surface-hover;
   }
 
   .pagination-btn:disabled {
@@ -127,47 +118,9 @@
     @apply z-10 bg-blue-600 text-white border-blue-600;
   }
 
-  .form-panel {
-    @apply flex items-center justify-between p-4 bg-blue-50 rounded-lg border border-blue-200;
-  }
-
-  html.dark .form-panel,
-  .dark .form-panel {
-    background-color: rgba(59, 130, 246, 0.1);
-    @apply border-surface-border;
-  }
-
-  /* Dropdown menus */
-  .dropdown-trigger {
-    @apply w-full flex items-center justify-between px-3 py-2 text-sm border border-gray-300 rounded-lg bg-white text-gray-700 hover:bg-gray-50;
-  }
-
-  html.dark .dropdown-trigger,
-  .dark .dropdown-trigger {
-    @apply bg-surface-elevated border-surface-border text-theme-secondary hover:bg-surface-hover;
-  }
-
-  .dropdown-item {
-    @apply w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50;
-  }
-
-  html.dark .dropdown-item,
-  .dark .dropdown-item {
-    @apply text-theme-secondary hover:bg-surface-hover;
-  }
-
-  .dropdown-item-active {
-    @apply bg-blue-50 text-blue-600;
-  }
-
-  html.dark .dropdown-item-active,
-  .dark .dropdown-item-active {
-    background-color: rgba(59, 130, 246, 0.15);
-    @apply text-blue-400;
-  }
-
   .pagination-bordered {
-    @apply relative inline-flex items-center px-2 py-2 border border-gray-200 bg-white text-gray-500 hover:bg-gray-50;
+    @apply relative inline-flex items-center px-2 py-2 border border-gray-200 bg-white
+           text-gray-500 hover:bg-gray-50 transition-colors;
   }
 
   html.dark .pagination-bordered,
@@ -177,5 +130,75 @@
 
   .pagination-bordered:disabled {
     @apply opacity-50 cursor-not-allowed hover:bg-transparent;
+  }
+
+  /* ── Modal ── */
+  .modal-overlay {
+    @apply fixed inset-0 flex items-center justify-center z-50 px-2 bg-black bg-opacity-50 backdrop-blur-sm;
+  }
+
+  .dark .modal-overlay {
+    background-color: var(--color-overlay);
+  }
+
+  /* ── Alerts ── */
+  .alert-error {
+    @apply px-4 py-3 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm;
+  }
+
+  .dark .alert-error {
+    @apply rounded-lg text-red-400;
+    background-color: var(--color-danger-light);
+    border-color: var(--color-danger-border);
+  }
+
+  .alert-success {
+    @apply px-4 py-3 rounded-lg bg-green-50 border border-green-200 text-green-700 text-sm;
+  }
+
+  .dark .alert-success {
+    @apply rounded-lg text-green-400;
+    background-color: var(--color-success-light);
+    border-color: var(--color-success-border);
+  }
+
+  /* ── Form info panel ── */
+  .form-panel {
+    @apply flex items-center justify-between p-4 bg-gray-50 rounded-lg border border-gray-200;
+  }
+
+  html.dark .form-panel,
+  .dark .form-panel {
+    @apply bg-surface-elevated border-surface-border;
+  }
+
+  /* ── Dropdowns ── */
+  .dropdown-trigger {
+    @apply w-full flex items-center justify-between px-3 py-2 text-sm border border-gray-300
+           rounded-lg bg-white text-gray-700 hover:bg-gray-50 transition-colors;
+  }
+
+  html.dark .dropdown-trigger,
+  .dark .dropdown-trigger {
+    @apply bg-surface-elevated border-surface-border text-theme-secondary hover:bg-surface-hover;
+  }
+
+  .dropdown-item {
+    @apply w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 transition-colors;
+  }
+
+  html.dark .dropdown-item,
+  .dark .dropdown-item {
+    @apply text-theme-secondary hover:bg-surface-hover;
+  }
+
+  .dropdown-item-active {
+    @apply bg-blue-50 text-blue-700 font-medium;
+  }
+
+  html.dark .dropdown-item-active,
+  .dark .dropdown-item-active {
+    background-color: var(--color-primary-light);
+    @apply text-blue-400;
   }
 }

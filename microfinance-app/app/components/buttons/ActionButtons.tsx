@@ -4,125 +4,95 @@
 import React from 'react';
 import Link from 'next/link';
 
-// Common button props interface
 interface ButtonProps {
   children: React.ReactNode;
   className?: string;
   disabled?: boolean;
 }
 
-// Link button props interface
 interface LinkButtonProps extends ButtonProps {
   href: string;
 }
 
-// Action button props interface
 interface ActionButtonProps extends ButtonProps {
   onClick: () => void;
 }
 
-/**
- * Base button component with common styling
- */
-export const Button = ({ 
-  children, 
-  className = '', 
+/** Base button — apply a variant class via className */
+export const Button = ({
+  children,
+  className = '',
   disabled = false,
-  ...props 
-}: ButtonProps & React.ButtonHTMLAttributes<HTMLButtonElement>) => {
-  return (
-    <button
-      className={`px-4 py-2 rounded-lg transition duration-300 ${className} ${
-        disabled ? 'opacity-50 cursor-not-allowed' : ''
-      }`}
-      disabled={disabled}
-      {...props}
-    >
-      {children}
-    </button>
-  );
-};
+  ...props
+}: ButtonProps & React.ButtonHTMLAttributes<HTMLButtonElement>) => (
+  <button
+    className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${className} ${
+      disabled ? 'opacity-50 cursor-not-allowed' : ''
+    }`}
+    disabled={disabled}
+    {...props}
+  >
+    {children}
+  </button>
+);
 
-/**
- * Base link component styled as a button
- */
-export const LinkButton = ({ 
-  children, 
-  className = '', 
+/** Base link styled as a button */
+export const LinkButton = ({
+  children,
+  className = '',
   href,
   disabled = false,
-  ...props 
+  ...props
 }: LinkButtonProps & Omit<React.AnchorHTMLAttributes<HTMLAnchorElement>, 'href'>) => {
   if (disabled) {
     return (
-      <span
-        className={`px-4 py-2 rounded-lg transition duration-300 ${className} opacity-50 cursor-not-allowed`}
-        {...props}
-      >
+      <span className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium opacity-50 cursor-not-allowed ${className}`} {...props}>
         {children}
       </span>
     );
   }
-  
   return (
-    <Link
-      href={href}
-      className={`px-4 py-2 rounded-lg transition duration-300 ${className}`}
-      {...props}
-    >
+    <Link href={href} className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${className}`} {...props}>
       {children}
     </Link>
   );
 };
 
-/**
- * Edit button component
- */
-export const EditButton = ({ href, className = '', ...props }: LinkButtonProps) => {
-  return (
-    <LinkButton
-      href={href}
-      className={`bg-yellow-600 text-white hover:bg-yellow-700 ${className}`}
-      {...props}
-    >
-      {props.children || 'Edit'}
-    </LinkButton>
-  );
-};
+/** Edit action — neutral secondary style (icon conveys meaning, not color) */
+export const EditButton = ({ href, className = '', ...props }: LinkButtonProps) => (
+  <LinkButton href={href} className={`btn-secondary ${className}`} {...props}>
+    {props.children || 'Edit'}
+  </LinkButton>
+);
 
-/**
- * Export button component
- */
-export const ExportButton = ({ 
-  onClick, 
-  className = '', 
+/** Export to Excel — primary (blue) */
+export const ExportButton = ({
+  onClick,
+  className = '',
   disabled = false,
   isExporting = false,
-  ...props 
+  ...props
 }: ActionButtonProps & { isExporting?: boolean }) => {
-  // Destructure isExporting out so it doesn't leak to DOM
-  const { isExporting: _isExporting, ...restProps } = props;
+  const { isExporting: _ie, ...restProps } = props;
   return (
     <Button
       onClick={onClick}
       disabled={disabled || isExporting}
-      className={`${
-        isExporting ? 'bg-gray-400' : 'bg-blue-500 hover:bg-blue-600'
-      } text-white flex items-center ${className}`}
+      className={`btn-primary ${className}`}
       {...restProps}
     >
       {isExporting ? (
         <>
-          <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+          <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
           </svg>
           {props.children || 'Exporting...'}
         </>
       ) : (
         <>
-          <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
           </svg>
           {props.children || 'Export as Excel'}
         </>
@@ -131,55 +101,34 @@ export const ExportButton = ({
   );
 };
 
-/**
- * Back button component
- */
-export const BackButton = ({ href, className = '', ...props }: LinkButtonProps) => {
-  return (
-    <LinkButton
-      href={href}
-      className={`btn-neutral ${className}`}
-      {...props}
-    >
-      {props.children || 'Back'}
-    </LinkButton>
-  );
-};
+/** Back / cancel — neutral */
+export const BackButton = ({ href, className = '', ...props }: LinkButtonProps) => (
+  <LinkButton href={href} className={`btn-neutral ${className}`} {...props}>
+    {props.children || 'Back'}
+  </LinkButton>
+);
 
-/**
- * Create button component
- */
-export const CreateButton = ({ href, className = '', ...props }: LinkButtonProps) => {
-  return (
-    <LinkButton
-      href={href}
-      className={`bg-green-600 text-white hover:bg-green-700 ${className}`}
-      {...props}
-    >
-      {props.children || 'Create New'}
-    </LinkButton>
-  );
-};
+/** Create / add — primary (blue) */
+export const CreateButton = ({ href, className = '', ...props }: LinkButtonProps) => (
+  <LinkButton href={href} className={`btn-primary ${className}`} {...props}>
+    {props.children || 'Create New'}
+  </LinkButton>
+);
 
-/**
- * Delete button component
- */
-export const DeleteButton = ({ 
-  onClick, 
-  className = '', 
+/** Delete — danger (red) */
+export const DeleteButton = ({
+  onClick,
+  className = '',
   disabled = false,
   isDeleting = false,
-  ...props 
+  ...props
 }: ActionButtonProps & { isDeleting?: boolean }) => {
-  // Destructure isDeleting out so it doesn't leak to DOM
-  const { isDeleting: _isDeleting, ...restProps } = props;
+  const { isDeleting: _id, ...restProps } = props;
   return (
     <Button
       onClick={onClick}
       disabled={disabled || isDeleting}
-      className={`$${
-        disabled ? 'bg-gray-300 text-gray-500' : 'bg-red-600 hover:bg-red-700 text-white'
-      } ${className}`}
+      className={`btn-danger ${className}`}
       {...restProps}
     >
       {isDeleting ? 'Deleting...' : (props.children || 'Delete')}
@@ -187,23 +136,18 @@ export const DeleteButton = ({
   );
 };
 
-/**
- * Action button group component
- */
-export const ActionButtonGroup = ({ 
+export const ActionButtonGroup = ({
   children,
   className = '',
   ...props
-}: { 
+}: {
   children: React.ReactNode;
   className?: string;
-  // Accept any props, but filter out known non-DOM props
   [key: string]: any;
 }) => {
-  // Filter out non-DOM props that may be passed from parent components
   const { isExporting, setIsExporting, setShowDeleteModal, chitFund, member, loan, ...restProps } = props;
   return (
-    <div className={`flex space-x-3 ${className}`} {...restProps}>
+    <div className={`flex items-center gap-2 ${className}`} {...restProps}>
       {children}
     </div>
   );

@@ -81,7 +81,7 @@ export default function ActivitiesPage() {
     return (
       <div className="container mx-auto px-4 py-8">
         <div className="flex justify-between items-center mb-6">
-          <h1 className="text-3xl font-bold text-blue-700">Recent Activities</h1>
+          <h1 className="page-title">Recent Activities</h1>
           <Link href="/dashboard" className="btn-neutral px-4 py-2 rounded-lg transition duration-300">
             Back to Dashboard
           </Link>
@@ -105,7 +105,7 @@ export default function ActivitiesPage() {
     return (
       <div className="container mx-auto px-4 py-8">
         <div className="flex justify-between items-center mb-6">
-          <h1 className="text-3xl font-bold text-blue-700">Recent Activities</h1>
+          <h1 className="page-title">Recent Activities</h1>
           <Link href="/dashboard" className="btn-neutral px-4 py-2 rounded-lg transition duration-300">
             Back to Dashboard
           </Link>
@@ -163,7 +163,7 @@ export default function ActivitiesPage() {
             <button
               onClick={() => setFilter('Loan')}
               className={`p-2 rounded-lg text-sm sm:text-base transition duration-300 flex items-center justify-center ${
-                filter === 'Loan' ? 'bg-green-600 text-white' : 'btn-neutral'
+                filter === 'Loan' ? 'filter-chip-active-blue' : 'filter-chip'
               }`}
               aria-label="Show Loan Activities"
             >

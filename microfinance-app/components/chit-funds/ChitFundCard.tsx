@@ -105,7 +105,7 @@ export default function ChitFundCard({ chitFund, showActions = true }: ChitFundC
             </Link>
             <Link
               href={`/chit-funds/${chitFund.id}/auctions`}
-              className="px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition-colors"
+              className="btn-primary"
             >
               Auctions
             </Link>

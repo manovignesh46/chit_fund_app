@@ -317,7 +317,7 @@ export default function LoansPage() {
   return (
     <div className="page-container">
       <div className="flex flex-row flex-wrap items-center justify-between gap-2 mb-6 sm:mb-8">
-        <h1 className="text-2xl sm:text-3xl font-bold text-green-700">Loans</h1>
+        <h1 className="page-title">Loans</h1>
         <div className="flex flex-row flex-wrap gap-1 sm:gap-2 w-auto">
           {/* Export Selected */}
           <button
@@ -357,7 +357,7 @@ export default function LoansPage() {
           <Link
             href="/loans/new"
             aria-label="Create New Loan"
-            className="p-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition duration-300 text-center text-sm sm:text-base flex items-center justify-center sm:px-4 sm:py-2"
+            className="btn-primary p-2 sm:px-4 sm:py-2"
           >
             <PlusCircleIcon className="h-5 w-5 block sm:hidden" />
             <span className="hidden sm:inline-flex items-center">
@@ -411,7 +411,7 @@ export default function LoansPage() {
             {statusFilter ? `No loans found with status "${statusFilter}".` : "No loans found."}
           </p>
           {!statusFilter && (
-            <Link href="/loans/new" className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition duration-300 text-sm sm:text-base">
+            <Link href="/loans/new" className="btn-primary">
               Create Your First Loan
             </Link>
           )}
@@ -701,7 +701,7 @@ export default function LoansPage() {
                           onClick={() => setCurrentPage(pageNum)}
                           className={`relative inline-flex items-center px-4 py-2 text-sm font-semibold ${
                             currentPage === pageNum
-                              ? 'z-10 bg-green-600 text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-600'
+                              ? 'pagination-page-active'
                               : 'text-gray-900 dark:text-theme-primary pagination-page focus:outline-offset-0'
                           }`}
                         >

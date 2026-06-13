@@ -1,13 +1,14 @@
 /**
  * Reusable Tailwind class strings for dual-theme (light = original, dark = themed).
- * Prefer these over ad-hoc gray/dark pairs in components.
+ * Prefer these over ad-hoc color classes in components.
  */
 export const themeText = {
   primary: 'text-gray-900 dark:text-theme-primary',
   secondary: 'text-gray-700 dark:text-theme-secondary',
   muted: 'text-gray-500 dark:text-theme-muted',
-  heading: 'text-blue-700 dark:text-theme-heading',
-  pageTitle: 'text-2xl sm:text-3xl font-bold text-blue-700 dark:text-theme-heading',
+  // Neutral heading — blue reserved for interactive elements only
+  heading: 'text-gray-900 dark:text-theme-heading',
+  pageTitle: 'text-2xl sm:text-3xl font-bold text-gray-900 dark:text-theme-heading',
 } as const;
 
 export const themeSurface = {
@@ -23,12 +24,15 @@ export const themeBtn = {
   neutral: 'btn-neutral',
   secondary: 'btn-secondary',
   primary: 'btn-primary',
+  danger: 'btn-danger',
 } as const;
 
 export const themeFilter = {
   chip: 'filter-chip',
+  active: 'filter-chip-active-blue',
+  // Kept for backward compat — both resolve to blue
   activeBlue: 'filter-chip-active-blue',
-  activeGreen: 'filter-chip-active-green',
+  activeGreen: 'filter-chip-active-blue',
 } as const;
 
 export const themePagination = {

@@ -38,11 +38,11 @@ export default function CapitalUtilizationCard({
   const getStatusColor = (): string => {
     if (utilizationRatio < 0.5) return 'text-yellow-600 bg-yellow-50 border-yellow-200';
     if (utilizationRatio >= 0.5 && utilizationRatio <= 1.0) return 'text-green-600 bg-green-50 border-green-200';
-    return 'text-purple-600 bg-purple-50 border-purple-200';
+    return 'text-blue-600 bg-blue-50 border-blue-200';
   };
 
   return (
-    <div className="themed-card p-4 sm:p-6 border-t-4 border-purple-500">
+    <div className="themed-card p-4 sm:p-6">
       <h2 className="text-lg sm:text-xl font-semibold text-gray-700 dark:text-theme-secondary mb-4">
         Capital Utilization
       </h2>
@@ -76,7 +76,7 @@ export default function CapitalUtilizationCard({
           {/* Status Badge */}
           {isRotating && (
             <div className="mt-3">
-              <span className="inline-flex items-center px-4 py-2 rounded-full text-sm font-semibold bg-purple-100 text-purple-700 border border-purple-300">
+              <span className="inline-flex items-center px-4 py-2 rounded-full text-sm font-semibold bg-blue-50 text-blue-700 border border-blue-200">
                 <svg 
                   xmlns="http://www.w3.org/2000/svg" 
                   className="h-4 w-4 mr-1.5" 
@@ -104,7 +104,7 @@ export default function CapitalUtilizationCard({
       </p>
 
       {/* Breakdown Details */}
-      <div className="bg-purple-50 rounded-lg p-4 space-y-3 border border-purple-100">
+      <div className="bg-gray-50 dark:bg-surface-elevated rounded-lg p-4 space-y-3 border border-gray-200 dark:border-surface-border">
         <div className="flex justify-between items-center">
           <span className="text-sm text-gray-700 dark:text-theme-secondary">Total Outstanding:</span>
           <span className="text-base font-bold text-purple-700">
@@ -138,7 +138,7 @@ export default function CapitalUtilizationCard({
         </div>
         <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
           <div 
-            className="bg-gradient-to-r from-purple-500 to-purple-600 h-3 rounded-full transition-all duration-500"
+            className="bg-blue-600 h-3 rounded-full transition-all duration-500"
             style={{ width: `${Math.min(utilizationRatio * 100, 100)}%` }}
           ></div>
         </div>

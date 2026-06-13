@@ -1,13 +1,15 @@
 /* Dashboard metrics, lists, progress */
 
 @layer components {
+  /* Base metric row — neutral gray tint */
   .metric-row {
     @apply flex items-center justify-between p-3 rounded-lg bg-gray-50;
   }
 
+  /* Semantic tints (muted, no gradients) */
   .metric-row-blue {
     @apply metric-row;
-    background-color: #eff6ff;
+    background-color: #f0f7ff;
   }
 
   .metric-row-green {
@@ -20,49 +22,52 @@
     background-color: #fef2f2;
   }
 
+  /* Highlight: flat blue tint, no gradient */
   .metric-row-highlight {
-    @apply metric-row mb-4 border border-blue-200;
-    background: linear-gradient(to right, #eff6ff, #eef2ff);
+    @apply metric-row mb-4 border border-blue-100;
+    background-color: #eff6ff;
   }
 
+  /* Dark overrides */
   html.dark .metric-row,
   .dark .metric-row {
-    background-color: rgba(28, 34, 48, 0.8);
+    background-color: rgba(28, 34, 48, 0.6);
     background-image: none;
   }
 
   html.dark .metric-row-blue,
   .dark .metric-row-blue {
-    background-color: rgba(59, 130, 246, 0.1);
+    background-color: rgba(59, 130, 246, 0.08);
     background-image: none;
   }
 
   html.dark .metric-row-green,
   .dark .metric-row-green {
-    background-color: rgba(16, 185, 129, 0.1);
+    background-color: rgba(16, 185, 129, 0.08);
     background-image: none;
   }
 
   html.dark .metric-row-red,
   .dark .metric-row-red {
-    background-color: rgba(239, 68, 68, 0.1);
+    background-color: rgba(239, 68, 68, 0.08);
     background-image: none;
   }
 
   html.dark .metric-row-highlight,
   .dark .metric-row-highlight {
-    background-color: rgba(59, 130, 246, 0.12);
+    background-color: rgba(59, 130, 246, 0.10);
     background-image: none;
-    border-color: rgba(59, 130, 246, 0.3);
+    border-color: rgba(59, 130, 246, 0.2);
   }
 
+  /* List item rows */
   .list-item-row {
     @apply flex items-center justify-between gap-4 p-3 rounded-lg bg-gray-50 hover:bg-gray-100 transition;
   }
 
   html.dark .list-item-row,
   .dark .list-item-row {
-    background-color: rgba(28, 34, 48, 0.6);
+    background-color: rgba(28, 34, 48, 0.5);
   }
 
   html.dark .list-item-row:hover,
@@ -70,8 +75,9 @@
     background-color: rgba(34, 40, 54, 1);
   }
 
+  /* Progress track */
   .progress-track {
-    @apply w-full rounded-full h-2 bg-gray-200;
+    @apply w-full rounded-full h-1.5 bg-gray-200;
   }
 
   html.dark .progress-track,

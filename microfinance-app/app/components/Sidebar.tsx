@@ -363,7 +363,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, onOpen }) => {
       {/* Sidebar */}
       <div
         className={`
-          fixed top-0 left-0 h-full bg-white dark:bg-surface-sidebar shadow-lg dark:shadow-none dark:border-r dark:border-surface-border z-50
+          fixed top-0 left-0 h-full bg-white dark:bg-surface-sidebar border-r border-gray-200 dark:border-surface-border shadow-sm dark:shadow-none z-50
           w-64 lg:${isExpanded ? 'w-64' : 'w-16'}
           flex flex-col
         `}
@@ -381,22 +381,22 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, onOpen }) => {
         }}
       >
         {/* Sidebar Header */}
-        <div className="flex items-center justify-between h-16 min-h-16 px-4 border-b border-gray-200 dark:border-surface-border bg-blue-600 dark:bg-surface-sidebar text-white dark:text-theme-heading">
-          <div className="flex items-center overflow-hidden">
-            {isExpanded ? (
-              <h2 className="text-lg font-bold whitespace-nowrap">AM Fincorp</h2>
-            ) : (
-              <div className="w-8 h-8 bg-blue-700 dark:bg-blue-600 rounded-full dark:rounded-lg flex items-center justify-center">
-                <span className="text-sm font-bold">AF</span>
-              </div>
+        <div className="flex items-center justify-between h-16 min-h-16 px-4 border-b border-gray-200 dark:border-surface-border bg-white dark:bg-surface-sidebar">
+          <div className="flex items-center gap-2.5 overflow-hidden">
+            <div className="flex-shrink-0 w-7 h-7 bg-blue-600 rounded-md flex items-center justify-center">
+              <span className="text-xs font-bold text-white">AF</span>
+            </div>
+            {/* Show label when expanded on desktop, or always on mobile */}
+            {(isExpanded || !isDesktop) && (
+              <h2 className="text-sm font-semibold text-gray-900 dark:text-theme-heading whitespace-nowrap">AM Fincorp</h2>
             )}
           </div>
           <button
             onClick={onClose}
-            className="lg:hidden p-1 rounded-md hover:bg-blue-700 dark:hover:bg-surface-hover transition-colors flex-shrink-0"
+            className="lg:hidden flex items-center justify-center w-8 h-8 rounded-md text-gray-500 hover:bg-gray-100 dark:text-theme-muted dark:hover:bg-surface-hover transition-colors flex-shrink-0"
             aria-label="Close sidebar"
           >
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
@@ -413,13 +413,13 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, onOpen }) => {
                   className={`
                     flex items-center ${isExpanded ? 'px-3' : 'px-2'} py-2.5 text-sm font-medium rounded-lg transition-colors duration-200 relative group
                     ${isActive(item.href)
-                      ? 'bg-blue-100 text-blue-700 border-r-2 border-blue-700 dark:border-r-0 dark:nav-active'
-                      : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-surface-hover dark:hover:text-gray-200'
+                      ? 'nav-active'
+                      : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-surface-hover dark:hover:text-gray-200'
                     }
                   `}
                   title={!isExpanded ? item.name : ''}
                 >
-                  <span className={`${isExpanded ? 'mr-3' : 'lg:mx-auto mr-3'} ${isActive(item.href) ? 'text-blue-700 dark:text-blue-400' : 'text-gray-500'}`}>
+                  <span className={`${isExpanded ? 'mr-3' : 'lg:mx-auto mr-3'} ${isActive(item.href) ? 'text-blue-600 dark:text-blue-400' : 'text-gray-400 dark:text-gray-500'}`}>
                     {item.icon}
                   </span>
                   <span className={`whitespace-nowrap ${isExpanded ? 'block' : 'lg:hidden block'}`}>

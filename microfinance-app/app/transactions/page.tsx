@@ -149,7 +149,7 @@ export default function TransactionsPage() {
   return (
     <div className="page-container">
       <div className="mb-6">
-        <h1 className="text-2xl font-bold mb-4 dark:text-white">Transactions</h1>
+        <h1 className="page-title mb-4">Transactions</h1>
 
         {/* Balance Summary and Monthly Aggregations */}
         <BalanceSummary refreshTrigger={refreshList} />
@@ -359,7 +359,7 @@ export default function TransactionsPage() {
       <div className="mb-4 flex justify-end space-x-2">
         <button
           onClick={handleExport}
-          className="flex items-center px-4 py-2 text-sm bg-green-600 text-white rounded-md hover:bg-green-700 transition duration-300"
+          className="btn-primary"
           title="Export transactions to Excel"
         >
           <svg
@@ -381,7 +381,7 @@ export default function TransactionsPage() {
         <button
           onClick={handleDatabaseExport}
           disabled={isExportingDB}
-          className="flex items-center px-4 py-2 text-sm bg-purple-600 text-white rounded-md hover:bg-purple-700 disabled:bg-purple-400 disabled:cursor-not-allowed transition duration-300"
+          className="btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
           title="Export complete database backup as ZIP"
         >
           <svg

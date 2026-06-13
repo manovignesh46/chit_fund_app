@@ -1,27 +1,30 @@
-/* Headings and titles */
+/* Headings and titles — neutral (not blue) so blue is reserved for interactive elements */
 
 @layer components {
   .card-title {
-    @apply text-lg sm:text-xl font-bold text-blue-700 mb-4;
+    @apply text-base sm:text-lg font-semibold text-gray-900 mb-4;
   }
 
-  .dark .card-title {
+  .dark .card-title,
+  html.dark .card-title {
     @apply text-theme-heading;
   }
 
   .section-heading {
-    @apply text-lg sm:text-xl font-bold text-blue-700;
+    @apply text-base sm:text-lg font-semibold text-gray-900;
   }
 
-  .dark .section-heading {
+  .dark .section-heading,
+  html.dark .section-heading {
     @apply text-theme-heading;
   }
 
   .page-title {
-    @apply text-2xl sm:text-3xl font-bold text-blue-700;
+    @apply text-2xl sm:text-3xl font-bold text-gray-900;
   }
 
-  .dark .page-title {
+  .dark .page-title,
+  html.dark .page-title {
     @apply text-theme-heading;
   }
 }

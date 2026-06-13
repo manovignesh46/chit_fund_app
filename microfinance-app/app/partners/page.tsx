@@ -118,14 +118,14 @@ export default function PartnerManagementPage() {
 
       {/* Partner Selector */}
       <div className="mb-6 max-w-xs">
-        <h2 className="text-lg font-semibold text-blue-700 mb-2">Select Partner</h2>
+        <h2 className="section-heading mb-2">Select Partner</h2>
         <PartnerSelector />
       </div>
 
       {/* Partners Balance Cards */}
       <div className="space-y-6 mb-10">
         <div className="flex items-center justify-between">
-          <h2 className="text-lg sm:text-xl font-semibold text-blue-700">Partner Balances</h2>
+          <h2 className="section-heading">Partner Balances</h2>
           {loadingBalances && (
             <div className="flex items-center space-x-2">
               <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-700"></div>

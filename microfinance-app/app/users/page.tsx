@@ -154,14 +154,14 @@ export default function UsersPage() {
     <div className="p-4 sm:p-6 max-w-4xl mx-auto">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6 gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-theme-primary">User Accounts</h1>
+          <h1 className="page-title">User Accounts</h1>
           <p className="text-sm text-gray-700 dark:text-theme-secondary mt-1">
             Create individual login accounts for each business partner. They will log in directly — no partner selection popup.
           </p>
         </div>
         <button
           onClick={() => setShowForm(!showForm)}
-          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition text-sm font-medium"
+          className={showForm ? 'btn-neutral' : 'btn-primary'}
         >
           {showForm ? 'Cancel' : 'Add User'}
         </button>
@@ -231,7 +231,7 @@ export default function UsersPage() {
             <button
               type="submit"
               disabled={submitting}
-              className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 text-sm font-medium"
+              className="btn-primary disabled:opacity-50"
             >
               {submitting ? 'Creating...' : 'Create Login Account'}
             </button>
@@ -257,7 +257,7 @@ export default function UsersPage() {
                 <td className="px-6 py-4 text-sm text-gray-700 dark:text-theme-secondary">{user.email}</td>
                 <td className="px-6 py-4 text-sm">
                   <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
-                    !user.dataOwnerId ? 'bg-purple-100 text-purple-800' : 'bg-blue-100 text-blue-800'
+                    !user.dataOwnerId ? 'bg-blue-50 text-blue-700 border border-blue-200' : 'bg-gray-100 text-gray-700 border border-gray-200'
                   }`}>
                     {!user.dataOwnerId ? 'Primary Admin' : 'Partner'}
                   </span>

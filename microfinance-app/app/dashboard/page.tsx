@@ -183,7 +183,7 @@ export default function DashboardPage() {
     {
       label: "Active Loans",
       value: dashboardData.activeLoans,
-      color: "bg-purple-500",
+      color: "bg-blue-500",
     },
     {
       label: "Active Chit Funds",
@@ -209,45 +209,31 @@ export default function DashboardPage() {
   return (
     <div className="page-container">
       <div className="flex flex-row flex-wrap items-center justify-between gap-3 mb-6 sm:mb-8">
-        <h1 className="text-2xl sm:text-3xl font-bold text-blue-700 dark:text-theme-heading">
-          Dashboard
-        </h1>
+        <h1 className="page-title">Dashboard</h1>
         <div className="flex flex-row flex-wrap items-center gap-2 w-auto">
-          {/* Manage Members */}
           <Link
             href="/members"
             aria-label="Manage Members"
-            className="p-2 rounded-lg bg-purple-600 text-white hover:bg-purple-700 transition flex items-center justify-center sm:px-4 sm:py-2"
+            className="btn-secondary p-2 sm:px-4 sm:py-2"
           >
-            <UserGroupIcon className="h-5 w-5 block sm:hidden" />
-            <span className="hidden sm:inline-flex items-center">
-              <UserGroupIcon className="h-5 w-5 mr-2" />
-              Manage Members
-            </span>
+            <UserGroupIcon className="h-4 w-4" />
+            <span className="hidden sm:inline">Members</span>
           </Link>
-          {/* New Chit Fund */}
           <Link
             href="/chit-funds/new"
             aria-label="New Chit Fund"
-            className="p-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition flex items-center justify-center sm:px-4 sm:py-2"
+            className="btn-secondary p-2 sm:px-4 sm:py-2"
           >
-            <PlusCircleIcon className="h-5 w-5 block sm:hidden" />
-            <span className="hidden sm:inline-flex items-center">
-              <PlusCircleIcon className="h-5 w-5 mr-2" />
-              New Chit Fund
-            </span>
+            <PlusCircleIcon className="h-4 w-4" />
+            <span className="hidden sm:inline">New Chit Fund</span>
           </Link>
-          {/* New Loan */}
           <Link
             href="/loans/new"
             aria-label="New Loan"
-            className="p-2 rounded-lg bg-green-600 text-white hover:bg-green-700 transition flex items-center justify-center sm:px-4 sm:py-2"
+            className="btn-primary p-2 sm:px-4 sm:py-2"
           >
-            <CurrencyRupeeIcon className="h-5 w-5 block sm:hidden" />
-            <span className="hidden sm:inline-flex items-center">
-              <CurrencyRupeeIcon className="h-5 w-5 mr-2" />
-              New Loan
-            </span>
+            <CurrencyRupeeIcon className="h-4 w-4" />
+            <span className="hidden sm:inline">New Loan</span>
           </Link>
         </div>
       </div>
@@ -272,8 +258,8 @@ export default function DashboardPage() {
 
                 <div className="metric-row-blue">
                   <div className="flex items-center">
-                    <div className="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900 flex items-center justify-center mr-3">
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-blue-600 dark:text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <div className="w-9 h-9 rounded-lg bg-gray-100 dark:bg-surface-elevated flex items-center justify-center mr-3">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
                       </svg>
                     </div>
@@ -288,7 +274,7 @@ export default function DashboardPage() {
                 </div>
                 <div className="metric-row-green">
                   <div className="flex items-center">
-                    <div className="w-10 h-10 rounded-full bg-green-100 dark:bg-green-900 flex items-center justify-center mr-3">
+                    <div className="w-9 h-9 rounded-lg bg-green-50 dark:bg-surface-elevated flex items-center justify-center mr-3">
                       <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-green-600 dark:text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 11l5-5m0 0l5 5m-5-5v12" />
                       </svg>
@@ -305,7 +291,7 @@ export default function DashboardPage() {
 
                 <div className="metric-row-red">
                   <div className="flex items-center">
-                    <div className="w-10 h-10 rounded-full bg-red-100 dark:bg-red-900 flex items-center justify-center mr-3">
+                    <div className="w-9 h-9 rounded-lg bg-red-50 dark:bg-surface-elevated flex items-center justify-center mr-3">
                       <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-red-600 dark:text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 13l-5 5m0 0l-5-5m5 5V6" />
                       </svg>
@@ -329,8 +315,8 @@ export default function DashboardPage() {
               
               <div className="metric-row-highlight">
                 <div className="flex items-center">
-                  <div className="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900 flex items-center justify-center mr-3">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-blue-600 dark:text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <div className="w-9 h-9 rounded-lg bg-gray-100 dark:bg-surface-elevated flex items-center justify-center mr-3">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
                   </div>
@@ -356,7 +342,7 @@ export default function DashboardPage() {
                   {partnerBalances.map((partner) => (
                     <div key={partner.id} className="list-item-row gap-4">
                       <div className="flex items-center min-w-0 flex-1">
-                        <div className={`w-10 h-10 rounded-full flex items-center justify-center mr-3 ${partner.balance >= 0 ? 'bg-green-100 dark:bg-green-900' : 'bg-red-100 dark:bg-red-900'}`}>
+                        <div className="w-9 h-9 rounded-lg bg-gray-100 dark:bg-surface-elevated flex items-center justify-center mr-3">
                           <span className="text-sm font-bold text-gray-700 dark:text-gray-200">
                             {partner.name.substring(0, 2).toUpperCase()}
                           </span>
@@ -397,87 +383,50 @@ export default function DashboardPage() {
 
           {/* Financial Overview */}
           <div className="grid grid-cols-2 gap-4 sm:gap-6 mb-6 sm:mb-8 md:grid-cols-3">
-            <div className="dark-card p-4 sm:p-6 border-t-4 border-purple-500">
-              <h2 className="text-lg sm:text-xl font-semibold text-gray-600 dark:text-gray-400">
-                Outstanding Loan Amount
-              </h2>
-              <p className="text-2xl font-bold text-purple-700 dark:text-purple-400">
-                {formatCurrency(
-                  dashboardData.outsideAmountBreakdown.loanRemainingAmount
-                )}
+            <div className="dark-card p-4 sm:p-6">
+              <p className="text-sm font-medium text-gray-500 dark:text-theme-muted mb-1">Outstanding Loans</p>
+              <p className="text-2xl font-bold text-gray-900 dark:text-theme-heading">
+                {formatCurrency(dashboardData.outsideAmountBreakdown.loanRemainingAmount)}
               </p>
-              <p className="text-sm text-gray-500 mt-2">
-                Pending loan repayments
-              </p>
+              <p className="text-xs text-gray-400 mt-1">Pending loan repayments</p>
             </div>
-            <div className="dark-card p-4 sm:p-6 border-t-4 border-blue-500">
-              <h2 className="text-lg sm:text-xl font-semibold text-gray-600 dark:text-gray-400">
-                Outstanding Chit Fund Amount
-              </h2>
-              <p className="text-2xl font-bold text-blue-700 dark:text-blue-400">
-                {formatCurrency(
-                  dashboardData.outsideAmountBreakdown.chitFundOutsideAmount
-                )}
+            <div className="dark-card p-4 sm:p-6">
+              <p className="text-sm font-medium text-gray-500 dark:text-theme-muted mb-1">Outstanding Chit Funds</p>
+              <p className="text-2xl font-bold text-gray-900 dark:text-theme-heading">
+                {formatCurrency(dashboardData.outsideAmountBreakdown.chitFundOutsideAmount)}
               </p>
-              <p className="text-sm text-gray-500 mt-2">
-                Pending or over-disbursed
-              </p>
+              <p className="text-xs text-gray-400 mt-1">Pending or over-disbursed</p>
             </div>
-            <div className="dark-card p-4 sm:p-6 border-t-4 border-green-500">
-              <h2
-                className="text-lg sm:text-xl font-semibold text-gray-600 dark:text-gray-400 flex items-center cursor-pointer"
+            <div className="dark-card p-4 sm:p-6">
+              <button
+                className="flex items-center gap-1 text-sm font-medium text-gray-500 dark:text-theme-muted mb-1 w-full text-left"
                 onClick={() => setShowProfit(!showProfit)}
               >
                 Total Profit
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  className="h-4 w-4 ml-1"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                  />
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
-              </h2>
+              </button>
               {showProfit ? (
-                <p className="text-2xl font-bold text-green-700 dark:text-green-400">
-                  {formatCurrency(dashboardData.totalProfit)}
-                </p>
+                <p className="text-2xl font-bold text-green-600 dark:text-green-400">{formatCurrency(dashboardData.totalProfit)}</p>
               ) : (
-                <p className="text-2xl font-bold text-gray-400">***</p>
+                <p className="text-2xl font-bold text-gray-300 dark:text-theme-muted tracking-widest">• • •</p>
               )}
             </div>
           </div>
 
-          {/* Profit Breakdown - Only show if showProfit is true */}
+          {/* Profit Breakdown */}
           {showProfit && (
             <div className="grid grid-cols-2 gap-4 sm:gap-6 mb-6 sm:mb-8">
-              <div className="dark-card p-4 sm:p-6 border-t-4 border-purple-500">
-                <h2 className="text-lg sm:text-xl font-semibold text-gray-600 dark:text-gray-400">
-                  Loan Profit
-                </h2>
-                <p className="text-2xl font-bold text-purple-700 dark:text-purple-400">
-                  {formatCurrency(dashboardData.loanProfit)}
-                </p>
-                <p className="text-sm text-gray-500 mt-2">
-                  From interest and document charges
-                </p>
+              <div className="dark-card p-4 sm:p-6">
+                <p className="text-sm font-medium text-gray-500 dark:text-theme-muted mb-1">Loan Profit</p>
+                <p className="text-2xl font-bold text-gray-900 dark:text-theme-heading">{formatCurrency(dashboardData.loanProfit)}</p>
+                <p className="text-xs text-gray-400 mt-1">From interest and document charges</p>
               </div>
-              <div className="dark-card p-4 sm:p-6 border-t-4 border-blue-500">
-                <h2 className="text-lg sm:text-xl font-semibold text-gray-600 dark:text-gray-400">
-                  Chit Fund Profit
-                </h2>
-                <p className="text-2xl font-bold text-blue-700 dark:text-blue-400">
-                  {formatCurrency(dashboardData.chitFundProfit)}
-                </p>
-                <p className="text-sm text-gray-500 mt-2">
-                  From auction commissions
-                </p>
+              <div className="dark-card p-4 sm:p-6">
+                <p className="text-sm font-medium text-gray-500 dark:text-theme-muted mb-1">Chit Fund Profit</p>
+                <p className="text-2xl font-bold text-gray-900 dark:text-theme-heading">{formatCurrency(dashboardData.chitFundProfit)}</p>
+                <p className="text-xs text-gray-400 mt-1">From auction commissions</p>
               </div>
             </div>
           )}
@@ -506,20 +455,14 @@ export default function DashboardPage() {
             {stats.map((stat, index) => (
               <div
                 key={index}
-                className={`dark-card p-4 sm:p-6 flex flex-col items-center ${
+                className={`dark-card p-4 sm:p-6 ${
                   stats.length % 2 !== 0 && index === stats.length - 1
-                    ? "col-span-2 justify-self-center md:col-span-1 md:justify-self-auto"
+                    ? "col-span-2 md:col-span-1"
                     : ""
                 }`}
               >
-                <div
-                  className={`${stat.color} text-white rounded-full w-12 h-12 flex items-center justify-center mb-4`}
-                >
-                  <span className="text-xl font-bold">{stat.value}</span>
-                </div>
-                <h3 className="text-gray-500 dark:text-gray-400 text-sm text-center font-bold">
-                  {stat.label}
-                </h3>
+                <p className="text-3xl font-bold text-gray-900 dark:text-theme-heading">{stat.value}</p>
+                <p className="text-sm text-gray-500 dark:text-theme-muted mt-1">{stat.label}</p>
               </div>
             ))}
           </div>

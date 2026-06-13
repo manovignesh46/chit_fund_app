@@ -294,44 +294,44 @@ export default function FinancialTrendsPage() {
 
       {/* Information cards */}
       <div className="mt-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-lg p-4 border border-green-200">
+        <div className="themed-card p-4">
           <div className="flex items-center justify-between mb-2">
-            <h3 className="text-sm font-medium text-green-800">Cash Inflow</h3>
-            <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <h3 className="text-sm font-medium text-gray-700 dark:text-theme-secondary">Cash Inflow</h3>
+            <svg className="w-4 h-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 11l5-5m0 0l5 5m-5-5v12" />
             </svg>
           </div>
-          <p className="text-sm text-gray-700 dark:text-theme-secondary">Money coming in from loans, contributions, and repayments</p>
+          <p className="text-xs text-gray-500 dark:text-theme-muted">Money coming in from loans, contributions, and repayments</p>
         </div>
 
-        <div className="bg-gradient-to-br from-red-50 to-red-100 rounded-lg p-4 border border-red-200">
+        <div className="themed-card p-4">
           <div className="flex items-center justify-between mb-2">
-            <h3 className="text-sm font-medium text-red-800">Cash Outflow</h3>
-            <svg className="w-5 h-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <h3 className="text-sm font-medium text-gray-700 dark:text-theme-secondary">Cash Outflow</h3>
+            <svg className="w-4 h-4 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 13l-5 5m0 0l-5-5m5 5V6" />
             </svg>
           </div>
-          <p className="text-sm text-gray-700 dark:text-theme-secondary">Money going out for loan disbursements and payouts</p>
+          <p className="text-xs text-gray-500 dark:text-theme-muted">Money going out for loan disbursements and payouts</p>
         </div>
 
-        <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-4 border border-blue-200">
+        <div className="themed-card p-4">
           <div className="flex items-center justify-between mb-2">
-            <h3 className="text-sm font-medium text-blue-800">Profit</h3>
-            <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <h3 className="text-sm font-medium text-gray-700 dark:text-theme-secondary">Profit</h3>
+            <svg className="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
             </svg>
           </div>
-          <p className="text-sm text-gray-700 dark:text-theme-secondary">Net profit from interest and fees</p>
+          <p className="text-xs text-gray-500 dark:text-theme-muted">Net profit from interest and fees</p>
         </div>
 
-        <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-lg p-4 border border-purple-200">
+        <div className="themed-card p-4">
           <div className="flex items-center justify-between mb-2">
-            <h3 className="text-sm font-medium text-purple-800">Outside Amount</h3>
-            <svg className="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <h3 className="text-sm font-medium text-gray-700 dark:text-theme-secondary">Outside Amount</h3>
+            <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
             </svg>
           </div>
-          <p className="text-sm text-gray-700 dark:text-theme-secondary">Total amount owed (loans + chit funds)</p>
+          <p className="text-xs text-gray-500 dark:text-theme-muted">Total amount owed (loans + chit funds)</p>
         </div>
       </div>
     </div>

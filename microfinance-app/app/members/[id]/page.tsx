@@ -270,7 +270,7 @@ export default function MemberDetailPage() {
 
       {/* Member Details */}
       <div className="themed-card p-4 sm:p-6 mb-8">
-        <h2 className="text-lg sm:text-xl font-semibold text-blue-700 mb-4">Member Details</h2>
+        <h2 className="section-heading mb-4">Member Details</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
           <div>
             <p className="text-gray-700 dark:text-theme-secondary text-xs sm:text-sm">Name</p>
@@ -304,7 +304,7 @@ export default function MemberDetailPage() {
       {/* Chit Funds */}
       <div className="themed-card p-4 sm:p-6 mb-8">
         <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 mb-4">
-          <h2 className="text-lg sm:text-xl font-semibold text-blue-700">Chit Funds ({member._count.chitFundMembers})</h2>
+          <h2 className="section-heading">Chit Funds ({member._count.chitFundMembers})</h2>
           <Link href={`/members/${member.id}/assign-chit-fund`} className="text-blue-600 hover:text-blue-900 text-xs sm:text-sm">
             + Assign to Chit Fund
           </Link>
@@ -399,7 +399,7 @@ export default function MemberDetailPage() {
       {/* Loans */}
       <div className="themed-card p-4 sm:p-6 mb-8">
         <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 mb-4">
-          <h2 className="text-lg sm:text-xl font-semibold text-blue-700">Loans ({member._count.loans})</h2>
+          <h2 className="section-heading">Loans ({member._count.loans})</h2>
           <Link href={`/loans/new?borrowerId=${member.id}`} className="text-blue-600 hover:text-blue-900 text-xs sm:text-sm">
             + Create New Loan
           </Link>

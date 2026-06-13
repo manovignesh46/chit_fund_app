@@ -735,7 +735,7 @@ export function TransactionList(props: TransactionListProps & {
                           onClick={() => setCurrentPage(pageNum)}
                           className={`relative inline-flex items-center px-4 py-2 text-sm font-semibold ${
                             currentPage === pageNum
-                              ? 'z-10 bg-green-600 text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-600'
+                              ? 'pagination-page-active'
                               : 'text-gray-900 dark:text-theme-primary pagination-page focus:outline-offset-0'
                           }`}
                         >

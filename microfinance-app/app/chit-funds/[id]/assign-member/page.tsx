@@ -196,7 +196,7 @@ export default function AssignMemberPage() {
     <div className="container mx-auto px-4 py-8">
       <div className="flex justify-between items-center mb-6">
         <div>
-          <h1 className="text-3xl font-bold text-blue-700">Assign Member to {chitFund.name}</h1>
+          <h1 className="page-title">Assign Member to {chitFund.name}</h1>
           <p className="text-gray-700 dark:text-theme-secondary">
             Monthly Contribution: {formatCurrency(chitFund.monthlyContribution)} |
             Total Amount: {formatCurrency(chitFund.totalAmount)}

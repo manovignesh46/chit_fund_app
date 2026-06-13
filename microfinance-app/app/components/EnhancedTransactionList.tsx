@@ -58,18 +58,18 @@ const TYPE_ICONS: Record<string, string> = {
 };
 
 const TYPE_COLORS: Record<string, string> = {
-  collection: 'bg-green-100 text-green-800',
-  transfer: 'bg-blue-100 text-blue-800',
-  loan_given: 'bg-orange-100 text-orange-800',
-  loan_repaid: 'bg-purple-100 text-purple-800',
-  record_amount: 'bg-indigo-100 text-indigo-800',
-  LOAN_DISBURSEMENT: 'bg-orange-100 text-orange-800',
-  LOAN_REPAYMENT: 'bg-purple-100 text-purple-800',
-  DOCUMENT_CHARGE: 'bg-emerald-100 text-emerald-800',
-  CHIT_CONTRIBUTION: 'bg-teal-100 text-teal-800',
-  AUCTION_PAYOUT: 'bg-yellow-100 text-yellow-800',
-  PARTNER_TO_PARTNER: 'bg-blue-100 text-blue-800',
-  RECORD_AMOUNT: 'bg-indigo-100 text-indigo-800',
+  collection: 'bg-green-50 text-green-700 border border-green-200',
+  transfer: 'bg-blue-50 text-blue-700 border border-blue-200',
+  loan_given: 'bg-amber-50 text-amber-700 border border-amber-200',
+  loan_repaid: 'bg-green-50 text-green-700 border border-green-200',
+  record_amount: 'bg-gray-100 text-gray-700 border border-gray-200',
+  LOAN_DISBURSEMENT: 'bg-amber-50 text-amber-700 border border-amber-200',
+  LOAN_REPAYMENT: 'bg-green-50 text-green-700 border border-green-200',
+  DOCUMENT_CHARGE: 'bg-gray-100 text-gray-700 border border-gray-200',
+  CHIT_CONTRIBUTION: 'bg-blue-50 text-blue-700 border border-blue-200',
+  AUCTION_PAYOUT: 'bg-amber-50 text-amber-700 border border-amber-200',
+  PARTNER_TO_PARTNER: 'bg-blue-50 text-blue-700 border border-blue-200',
+  RECORD_AMOUNT: 'bg-gray-100 text-gray-700 border border-gray-200',
 };
 
 export default function EnhancedTransactionList({ refresh }: TransactionListProps) {

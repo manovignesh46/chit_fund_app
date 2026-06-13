@@ -44,22 +44,23 @@ export default function Header({ onMenuToggle }: HeaderProps) {
   const pageTitle = getPageTitle(pathname);
 
   return (
-    <header className="sticky top-0 z-50 bg-white dark:bg-surface-sidebar shadow-sm border-b border-gray-200 dark:border-surface-border h-16 min-h-16 flex items-center flex-shrink-0">
+    <header className="sticky top-0 z-50 bg-white dark:bg-surface-sidebar border-b border-gray-200 dark:border-surface-border h-16 min-h-16 flex items-center flex-shrink-0">
       <div className="px-4 sm:px-6 w-full">
         <div className="flex justify-between items-center h-12 min-h-12">
           <div className="flex items-center gap-3">
             <button
               onClick={onMenuToggle}
-              className="lg:hidden p-1 rounded-md hover:bg-gray-100 dark:hover:bg-surface-hover transition-colors"
+              className="lg:hidden p-1.5 rounded-md text-gray-500 hover:bg-gray-100 dark:hover:bg-surface-hover dark:text-theme-muted transition-colors"
               aria-label="Toggle sidebar"
             >
-              <svg className="w-5 h-5 text-gray-600 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16" />
               </svg>
             </button>
-            <h1 className="text-lg font-semibold text-gray-800 dark:text-theme-heading">
-              <span className="dark:hidden">AM Fincorp</span>
-              <span className="hidden dark:inline">{pageTitle}</span>
+            {/* Mobile: show company name. Desktop: show current page title (sidebar provides brand context) */}
+            <h1 className="text-base font-semibold text-gray-900 dark:text-theme-heading">
+              <span className="lg:hidden">AM Fincorp</span>
+              <span className="hidden lg:inline">{pageTitle}</span>
             </h1>
           </div>
 

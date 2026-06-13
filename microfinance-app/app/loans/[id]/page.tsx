@@ -881,7 +881,7 @@ const LoanDetailPage = () => {
   return (
     <div className="page-container">
       <div className="flex flex-row flex-wrap items-center justify-between gap-2 mb-6 sm:mb-8">
-        <h1 className="text-2xl sm:text-3xl font-bold text-green-700">
+        <h1 className="page-title">
           Loan Details
         </h1>
         <div className="flex flex-row flex-wrap gap-1 sm:gap-2 w-auto items-center">

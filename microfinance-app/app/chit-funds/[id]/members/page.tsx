@@ -837,7 +837,7 @@ export default function ChitFundMembersPage() {
           <Link
             href={`/chit-funds/${chitFundId}/contributions`}
             aria-label="View Contributions"
-            className="p-2 rounded-lg bg-green-600 text-white hover:bg-green-700 transition flex items-center justify-center sm:px-4 sm:py-2"
+            className="btn-primary p-2 sm:px-4 sm:py-2"
           >
             <UsersIcon className="h-5 w-5 block sm:hidden" />
             <span className="hidden sm:inline-flex items-center space-x-1 text-sm">
@@ -864,7 +864,7 @@ export default function ChitFundMembersPage() {
                 onClick={handleAddCurrentMonthContributionForSelected}
                 aria-label={`Add Month ${chitFund.currentMonth} Due for Selected`}
                 disabled={isAddingContribution}
-                className="p-2 rounded-lg bg-purple-600 text-white hover:bg-purple-700 transition flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed sm:px-4 sm:py-2"
+                className="btn-secondary p-2 sm:px-4 sm:py-2 disabled:opacity-50"
               >
                 <PlusCircleIcon className="h-5 w-5 block sm:hidden" />
                 <span className="hidden sm:inline-flex items-center space-x-1 text-sm">
@@ -876,7 +876,7 @@ export default function ChitFundMembersPage() {
                 onClick={handleExportSelectedMembers}
                 aria-label="Export Selected"
                 disabled={isExporting}
-                className="p-2 rounded-lg bg-green-600 text-white hover:bg-green-700 transition flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed sm:px-4 sm:py-2"
+                className="btn-primary p-2 sm:px-4 sm:py-2 disabled:opacity-50"
               >
                 <DocumentArrowDownIcon className="h-5 w-5 block sm:hidden" />
                 <span className="hidden sm:inline-flex items-center space-x-1 text-sm">
@@ -1031,7 +1031,7 @@ export default function ChitFundMembersPage() {
                               setSubmitContributionError(null);
                               setSubmitContributionSuccess(null);
                             }}
-                            className="mt-1 px-2 py-1 bg-green-600 text-white text-xs rounded hover:bg-green-700 transition duration-300"
+                            className="text-xs px-2 py-1 bg-blue-600 text-white rounded hover:bg-blue-700"
                           >
                             Record Contribution
                           </button>
@@ -1325,13 +1325,13 @@ export default function ChitFundMembersPage() {
       {showAddForm && (
         <div className="modal-overlay flex items-center justify-center z-50 px-2">
           <div className="themed-card w-full max-w-xs sm:max-w-md px-2 sm:px-6 py-4 sm:py-6">
-            <h2 className="text-xl font-bold text-blue-700 mb-4">Add Member to Chit Fund</h2>
+            <h2 className="section-heading mb-4">Add Member to Chit Fund</h2>
 
             <div className="mb-6">
               <button
                 type="button"
                 onClick={fetchGlobalMembers}
-                className="w-full px-4 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition duration-300 flex items-center justify-center"
+                className="btn-primary w-full justify-center"
               >
                 <span className="mr-2">📋</span> Select from Global Members
               </button>
@@ -1483,7 +1483,7 @@ export default function ChitFundMembersPage() {
         <div className="modal-overlay flex items-center justify-center z-50">
           <div className="themed-card p-6 w-full max-w-xs sm:max-w-md">
             <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-bold text-blue-700">Record Contribution for {selectedMemberForContribution.globalMember.name}</h2>
+              <h2 className="section-heading">Record Contribution for {selectedMemberForContribution.globalMember.name}</h2>
               <button
                 onClick={() => setShowRecordContributionModal(false)}
                 className="text-gray-500 hover:text-gray-700 dark:text-theme-secondary"
@@ -1574,7 +1574,7 @@ export default function ChitFundMembersPage() {
               <button
                 onClick={handleRecordContribution}
                 disabled={isSubmittingContribution}
-                className={`px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition duration-300 ${
+                className={`btn-primary ${
                   isSubmittingContribution ? 'opacity-50 cursor-not-allowed' : ''
                 }`}
               >

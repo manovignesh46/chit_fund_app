@@ -32,7 +32,7 @@ export default function BusinessROICard({ totalProfit, investedAmount }: Busines
   };
 
   return (
-    <div className="themed-card p-4 sm:p-6 border-t-4 border-green-500">
+    <div className="themed-card p-4 sm:p-6">
       <h2 className="text-lg sm:text-xl font-semibold text-gray-700 dark:text-theme-secondary mb-2">
         Business ROI
       </h2>

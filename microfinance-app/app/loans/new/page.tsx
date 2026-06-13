@@ -358,7 +358,7 @@ export default function NewLoanPage() {
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold text-green-700">Create New Loan</h1>
+        <h1 className="page-title">Create New Loan</h1>
         <Link href="/loans" className="btn-neutral px-4 py-2 rounded-lg transition duration-300">
           Cancel
         </Link>
@@ -654,7 +654,7 @@ export default function NewLoanPage() {
             <button
               type="submit"
               disabled={isSubmitting}
-              className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isSubmitting ? 'Creating...' : 'Create Loan'}
             </button>

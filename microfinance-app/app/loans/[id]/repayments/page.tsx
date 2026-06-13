@@ -281,7 +281,7 @@ const RepaymentsPage = () => {
       <div className="flex items-center justify-between mb-6 sm:mb-8 gap-4 flex-row-reverse">
         <div className="flex flex-row gap-2 w-auto">
           {loan.status === 'Active' && (
-            <Link href={`/loans/${id}/repayments/new`} className="p-2 sm:px-4 sm:py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition duration-300 flex items-center justify-center">
+            <Link href={`/loans/${id}/repayments/new`} className="btn-primary p-2 sm:px-4 sm:py-2">
               <span className="block sm:hidden">
                 {/* Plus Icon */}
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -301,7 +301,7 @@ const RepaymentsPage = () => {
             <span className="hidden sm:inline">Back to Loan Details</span>
           </Link>
         </div>
-        <h1 className="text-2xl sm:text-3xl font-bold text-green-700">Repayment History</h1>
+        <h1 className="page-title">Repayment History</h1>
       </div>
 
       <div className="themed-card p-2 sm:p-6 overflow-x-auto mb-6">
@@ -531,7 +531,7 @@ const RepaymentsPage = () => {
                       onClick={() => setCurrentPage(pageNum)}
                       className={`relative inline-flex items-center px-4 py-2 text-sm font-semibold ${
                         currentPage === pageNum
-                          ? 'z-10 bg-green-600 text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-600'
+                          ? 'pagination-page-active'
                           : 'text-gray-900 dark:text-theme-primary pagination-page focus:outline-offset-0'
                       }`}
                     >

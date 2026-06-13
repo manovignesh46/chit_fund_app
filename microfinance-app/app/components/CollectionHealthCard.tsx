@@ -110,7 +110,7 @@ export default function CollectionHealthCard() {
 
   if (loading) {
     return (
-      <div className="themed-card p-4 sm:p-6 border-t-4 border-blue-500 animate-pulse">
+      <div className="themed-card p-4 sm:p-6 animate-pulse">
         <div className="h-6 bg-gray-200 rounded w-3/4 mx-auto mb-4"></div>
         <div className="flex justify-center mb-4">
           <div className="w-48 h-48 bg-gray-200 rounded-full"></div>
@@ -127,7 +127,7 @@ export default function CollectionHealthCard() {
 
   if (error) {
     return (
-      <div className="themed-card p-4 sm:p-6 border-t-4 border-red-500">
+      <div className="themed-card p-4 sm:p-6">
         <h2 className="text-lg font-semibold text-gray-700 dark:text-theme-secondary mb-2 text-center">
           Collection Health
         </h2>
@@ -141,7 +141,7 @@ export default function CollectionHealthCard() {
   if (!data) return null;
 
   return (
-    <div className="themed-card p-4 sm:p-6 border-t-4 border-blue-500">
+    <div className="themed-card p-4 sm:p-6">
       <h2 className="text-lg sm:text-xl font-semibold text-gray-700 dark:text-theme-secondary mb-4 text-center">
         Collection Health
       </h2>

@@ -465,7 +465,7 @@ export default function MembersPage() {
               setFormErrors({});
             }}
             aria-label="Add Member"
-            className="p-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition duration-300 flex items-center justify-center sm:px-4 sm:py-2"
+            className="btn-primary p-2 sm:px-4 sm:py-2"
           >
             <svg className="h-5 w-5 block sm:hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4"></path></svg>
             <span className="hidden sm:inline-flex items-center">
@@ -770,7 +770,7 @@ export default function MembersPage() {
       {showForm && (
         <div className="modal-overlay flex items-center justify-center z-50">
           <div className="themed-card p-6 w-full max-w-md">
-            <h2 className="text-xl font-bold text-blue-700 mb-4">
+            <h2 className="section-heading mb-4">
               {isEditing ? 'Edit Member' : 'Add New Member'}
             </h2>
             <form onSubmit={handleAddEditMember}>

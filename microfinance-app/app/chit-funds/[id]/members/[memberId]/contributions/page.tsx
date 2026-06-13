@@ -384,7 +384,7 @@ export default function MemberContributionsPage() {
     <div className="container mx-auto px-4 py-8">
       <div className="flex justify-between items-center mb-6">
         <div>
-          <h1 className="text-3xl font-bold text-blue-700">{member.globalMember.name}'s Contributions</h1>
+          <h1 className="page-title">{member.globalMember.name}'s Contributions</h1>
           <p className="text-gray-700 dark:text-theme-secondary">
             {chitFund.name} | Monthly Contribution: {formatCurrency(chitFund.monthlyContribution)}
           </p>
@@ -393,7 +393,7 @@ export default function MemberContributionsPage() {
           <button
             onClick={handleExportMember}
             disabled={isExporting}
-            className={`px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition duration-300 ${
+            className={`btn-primary ${
               isExporting ? 'opacity-50 cursor-not-allowed' : ''
             }`}
           >
@@ -488,7 +488,7 @@ export default function MemberContributionsPage() {
                               e.stopPropagation();
                               handleOpenRecordModal(monthData.month);
                             }}
-                            className="px-2 py-1 bg-green-600 text-white text-xs rounded hover:bg-green-700 transition duration-300"
+                            className="text-xs px-2 py-1 bg-blue-600 text-white rounded hover:bg-blue-700"
                           >
                             Record Payment
                           </button>
@@ -537,7 +537,7 @@ export default function MemberContributionsPage() {
         <div className="modal-overlay flex items-center justify-center z-50">
           <div className="themed-card p-6 w-full max-w-md">
             <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-bold text-blue-700">Record Contribution for Month {selectedMonth}</h2>
+              <h2 className="section-heading">Record Contribution for Month {selectedMonth}</h2>
               <button
                 onClick={() => setShowRecordModal(false)}
                 className="text-gray-500 hover:text-gray-700 dark:text-theme-secondary"
@@ -611,7 +611,7 @@ export default function MemberContributionsPage() {
               <button
                 onClick={handleRecordContribution}
                 disabled={isSubmitting}
-                className={`px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition duration-300 ${
+                className={`btn-primary ${
                   isSubmitting ? 'opacity-50 cursor-not-allowed' : ''
                 }`}
               >
@@ -627,7 +627,7 @@ export default function MemberContributionsPage() {
         <div className="modal-overlay flex items-center justify-center z-50">
           <div className="themed-card p-6 w-full max-w-md">
             <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-bold text-blue-700">Contribution Details</h2>
+              <h2 className="section-heading">Contribution Details</h2>
               <button
                 onClick={() => setShowDetailModal(false)}
                 className="text-gray-500 hover:text-gray-700 dark:text-theme-secondary"
@@ -712,7 +712,7 @@ export default function MemberContributionsPage() {
                       <button
                         onClick={handleMarkBalanceAsPaid}
                         disabled={isUpdating}
-                        className={`w-full px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition duration-300 ${isUpdating ? 'opacity-50 cursor-not-allowed' : ''}`}
+                        className={`btn-primary w-full ${isUpdating ? 'opacity-50 cursor-not-allowed' : ''}`}
                       >
                         {isUpdating ? (
                           <span className="flex items-center justify-center">

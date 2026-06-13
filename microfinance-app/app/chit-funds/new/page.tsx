@@ -269,7 +269,7 @@ export default function NewChitFundPage() {
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold text-blue-700">
+        <h1 className="page-title">
           {copyFromId ? 'Copy Chit Fund' : 'Create New Chit Fund'}
         </h1>
         <Link href="/chit-funds" className="btn-neutral px-4 py-2 rounded-lg transition duration-300">

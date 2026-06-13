@@ -2,42 +2,95 @@
 
 @layer base {
   :root {
+    /* ── Surfaces ── */
     --color-surface: #f9fafb;
     --color-surface-sidebar: #ffffff;
     --color-surface-card: #ffffff;
     --color-surface-elevated: #f9fafb;
     --color-surface-hover: #f3f4f6;
     --color-surface-border: #e5e7eb;
+
+    /* ── Text ── */
     --color-text-primary: #111827;
     --color-text-secondary: #4b5563;
     --color-text-muted: #6b7280;
-    --color-text-heading: #1d4ed8;
+    /* Neutral heading (was blue-700 — now matches text-primary) */
+    --color-text-heading: #111827;
+
+    /* ── Semantic brand / interactive ── */
+    --color-primary: #2563eb;          /* blue-600 */
+    --color-primary-hover: #1d4ed8;    /* blue-700 */
+    --color-primary-light: #eff6ff;    /* blue-50  */
+    --color-primary-border: #bfdbfe;   /* blue-200 */
+
+    /* ── Semantic status ── */
+    --color-success: #16a34a;          /* green-600 */
+    --color-success-light: #f0fdf4;    /* green-50  */
+    --color-success-border: #bbf7d0;   /* green-200 */
+    --color-danger: #dc2626;           /* red-600   */
+    --color-danger-light: #fef2f2;     /* red-50    */
+    --color-danger-border: #fecaca;    /* red-200   */
+    --color-warning: #d97706;          /* amber-600 */
+    --color-warning-light: #fffbeb;    /* amber-50  */
+    --color-warning-border: #fde68a;   /* amber-200 */
+
+    /* ── Overlay ── */
     --color-overlay: rgba(0, 0, 0, 0.45);
+
+    /* ── Tables ── */
     --color-table-head: #f9fafb;
     --color-table-border: #e5e7eb;
     --color-table-row-alt: transparent;
     --color-table-foot: #f3f4f6;
+
+    /* ── Scrollbar ── */
     --color-scrollbar-track: #f3f4f6;
     --color-scrollbar-thumb: #d1d5db;
   }
 
   html.dark,
   .dark {
+    /* ── Surfaces ── */
     --color-surface: #0d0f14;
     --color-surface-sidebar: #111318;
     --color-surface-card: #161b26;
     --color-surface-elevated: #1c2230;
     --color-surface-hover: #222836;
     --color-surface-border: #2a3040;
+
+    /* ── Text ── */
     --color-text-primary: #f3f4f6;
     --color-text-secondary: #d1d5db;
     --color-text-muted: #9ca3af;
-    --color-text-heading: #ffffff;
+    --color-text-heading: #f3f4f6;
+
+    /* ── Semantic brand / interactive ── */
+    --color-primary: #3b82f6;          /* blue-500 (brighter on dark) */
+    --color-primary-hover: #2563eb;    /* blue-600 */
+    --color-primary-light: rgba(59, 130, 246, 0.12);
+    --color-primary-border: rgba(59, 130, 246, 0.3);
+
+    /* ── Semantic status ── */
+    --color-success: #22c55e;          /* green-500 */
+    --color-success-light: rgba(16, 185, 129, 0.12);
+    --color-success-border: rgba(16, 185, 129, 0.3);
+    --color-danger: #ef4444;           /* red-500   */
+    --color-danger-light: rgba(239, 68, 68, 0.12);
+    --color-danger-border: rgba(239, 68, 68, 0.3);
+    --color-warning: #f59e0b;          /* amber-500 */
+    --color-warning-light: rgba(245, 158, 11, 0.12);
+    --color-warning-border: rgba(245, 158, 11, 0.3);
+
+    /* ── Overlay ── */
     --color-overlay: rgba(0, 0, 0, 0.6);
+
+    /* ── Tables ── */
     --color-table-head: rgba(28, 34, 48, 0.5);
     --color-table-border: rgba(42, 48, 64, 0.6);
     --color-table-row-alt: rgba(22, 27, 38, 0.55);
     --color-table-foot: rgba(28, 34, 48, 0.85);
+
+    /* ── Scrollbar ── */
     --color-scrollbar-track: #111318;
     --color-scrollbar-thumb: #3a4258;
   }

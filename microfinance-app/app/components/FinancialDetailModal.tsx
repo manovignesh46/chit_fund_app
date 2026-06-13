@@ -248,7 +248,7 @@ const FinancialDetailModal: React.FC<FinancialDetailModalProps> = ({
           </div>
 
           {/* Transaction Summary Section */}
-          <div className="bg-purple-50 p-3 sm:p-4 rounded-lg">
+          <div className="bg-gray-50 dark:bg-surface-elevated p-3 sm:p-4 rounded-lg">
             <h3 className="text-sm sm:text-lg font-semibold text-purple-700 mb-2">
               Transaction Summary
             </h3>

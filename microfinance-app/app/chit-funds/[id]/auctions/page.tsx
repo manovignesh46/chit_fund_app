@@ -362,7 +362,7 @@ export default function ChitFundAuctionsPage() {
     <div className="container mx-auto px-4 py-8">
       <div className="flex justify-between items-center mb-6">
         <div>
-          <h1 className="text-3xl font-bold text-blue-700">Auctions</h1>
+          <h1 className="page-title">Auctions</h1>
           <p className="text-gray-700 dark:text-theme-secondary">
             Month {chitFund.currentMonth} of {chitFund.duration}
             <br />
@@ -387,7 +387,7 @@ export default function ChitFundAuctionsPage() {
             eligibleMembers.length > 0 ? (
               <button
                 onClick={() => setShowAddForm(true)}
-                className="p-2 rounded-lg text-sm sm:text-base transition duration-300 flex items-center justify-center bg-purple-600 text-white hover:bg-purple-700 sm:px-4 sm:py-2"
+                className="btn-primary p-2 sm:px-4 sm:py-2"
               >
                 <svg className="h-5 w-5 block sm:hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" /></svg>
                 <span className="hidden sm:inline-flex items-center"><svg className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" /></svg>Record Auction</span>
@@ -511,7 +511,7 @@ export default function ChitFundAuctionsPage() {
       {showAddForm && (
         <div className="modal-overlay flex items-center justify-center z-50">
           <div className="themed-card p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
-            <h2 className="text-xl font-bold text-blue-700 mb-4">Record New Auction</h2>
+            <h2 className="section-heading mb-4">Record New Auction</h2>
             <form onSubmit={handleAddAuction}>
               <div className="mb-4">
                 <label htmlFor="winnerId" className="block text-sm font-medium text-gray-700 dark:text-theme-secondary mb-1">
@@ -697,7 +697,7 @@ export default function ChitFundAuctionsPage() {
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition duration-300 disabled:opacity-50"
+                  className="btn-primary disabled:opacity-50"
                 >
                   {isSubmitting ? 'Recording...' : 'Record Auction'}
                 </button>
@@ -748,7 +748,7 @@ export default function ChitFundAuctionsPage() {
         <div className="modal-overlay flex items-center justify-center z-50">
           <div className="themed-card p-6 w-full max-w-md">
             <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-bold text-blue-700">Auction Details</h2>
+              <h2 className="section-heading">Auction Details</h2>
               <button
                 onClick={() => setShowDetailModal(false)}
                 className="text-gray-500 hover:text-gray-700 dark:text-theme-secondary"

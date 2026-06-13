@@ -700,7 +700,7 @@ export default function ChitFundContributionsPage() {
           </Link>
           <button
             onClick={() => setShowAddForm(true)}
-            className="flex flex-col items-center justify-center p-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition duration-300 sm:flex-row sm:px-4 sm:py-2"
+            className="btn-primary p-2 sm:px-4 sm:py-2"
             aria-label="Record Contribution"
           >
             <svg className="h-6 w-6 sm:mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" /></svg>
@@ -1167,7 +1167,7 @@ export default function ChitFundContributionsPage() {
       {showEditForm && contributionToEdit && (
         <div className="modal-overlay flex items-center justify-center z-50">
           <div className="themed-card p-6 w-full max-w-md">
-            <h2 className="text-xl font-bold text-blue-700 mb-4">
+            <h2 className="section-heading mb-4">
               Edit Contribution
             </h2>
             <form onSubmit={handleEditFormSubmit}>
@@ -1348,7 +1348,7 @@ export default function ChitFundContributionsPage() {
         <div className="modal-overlay flex items-center justify-center z-50">
           <div className="themed-card p-6 w-full max-w-md">
             <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-bold text-blue-700">
+              <h2 className="section-heading">
                 Contribution Details
               </h2>
               <button
@@ -1497,7 +1497,7 @@ export default function ChitFundContributionsPage() {
       {showAddForm && (
         <div className="modal-overlay flex items-center justify-center z-50">
           <div className="themed-card p-6 w-full max-w-md">
-            <h2 className="text-xl font-bold text-blue-700 mb-4">
+            <h2 className="section-heading mb-4">
               Record New Contribution
             </h2>
             <form onSubmit={handleAddContribution}>
@@ -1716,7 +1716,7 @@ export default function ChitFundContributionsPage() {
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition duration-300 disabled:opacity-50"
+                  className="btn-primary disabled:opacity-50"
                 >
                   {isSubmitting ? "Recording..." : "Record Contribution"}
                 </button>
