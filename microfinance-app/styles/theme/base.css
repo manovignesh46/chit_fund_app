@@ -1,0 +1,88 @@
+/* Document body and form controls */
+
+@layer base {
+  body {
+    @apply antialiased;
+    @apply bg-gray-50 text-gray-900;
+  }
+
+  html.dark body,
+  .dark body {
+    @apply bg-surface text-theme-primary;
+  }
+
+  html.dark main select:not([size]),
+  html.dark main input[type="text"],
+  html.dark main input[type="number"],
+  html.dark main input[type="date"],
+  html.dark main input[type="email"],
+  html.dark main input[type="password"],
+  html.dark main input[type="search"],
+  html.dark main textarea,
+  .dark main select:not([size]),
+  .dark main input[type="text"],
+  .dark main input[type="number"],
+  .dark main input[type="date"],
+  .dark main input[type="email"],
+  .dark main input[type="password"],
+  .dark main input[type="search"],
+  .dark main textarea {
+    @apply themed-input;
+  }
+
+  /* Override light-only bg/border on form controls in dark mode */
+  html.dark main select:not([size]),
+  html.dark main input[type="text"],
+  html.dark main input[type="number"],
+  html.dark main input[type="date"],
+  html.dark main input[type="email"],
+  html.dark main input[type="password"],
+  html.dark main input[type="search"],
+  html.dark main textarea,
+  .dark main select:not([size]),
+  .dark main input[type="text"],
+  .dark main input[type="number"],
+  .dark main input[type="date"],
+  .dark main input[type="email"],
+  .dark main input[type="password"],
+  .dark main input[type="search"],
+  .dark main textarea {
+    background-color: var(--color-surface-elevated);
+    border-color: var(--color-surface-border);
+    color: var(--color-text-primary);
+  }
+
+  html.dark main select:not([size]),
+  html.dark main select.themed-input,
+  .dark main select:not([size]),
+  .dark main select.themed-input {
+    background-color: var(--color-surface-elevated) !important;
+    border-color: var(--color-surface-border) !important;
+    color: var(--color-text-primary) !important;
+  }
+
+  html.dark main input[type="checkbox"],
+  .dark main input[type="checkbox"] {
+    @apply h-4 w-4 text-blue-600 border-surface-border bg-surface-elevated rounded focus:ring-blue-500 focus:ring-opacity-50;
+  }
+
+  html.dark option,
+  .dark option {
+    background-color: var(--color-surface-card);
+    color: var(--color-text-primary);
+  }
+
+  /* Native date picker styling in dark mode */
+  html.dark input[type="date"],
+  .dark input[type="date"] {
+    color-scheme: dark;
+    background-color: var(--color-surface-elevated) !important;
+    border-color: var(--color-surface-border) !important;
+    color: var(--color-text-primary) !important;
+  }
+
+  html.dark input[type="date"]::-webkit-calendar-picker-indicator,
+  .dark input[type="date"]::-webkit-calendar-picker-indicator {
+    filter: invert(0.8);
+  }
+}

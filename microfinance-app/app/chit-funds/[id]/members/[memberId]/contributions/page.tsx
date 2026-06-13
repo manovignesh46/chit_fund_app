@@ -342,7 +342,7 @@ export default function MemberContributionsPage() {
         <div className="flex justify-center items-center h-64">
           <div className="text-center">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-700 mx-auto mb-4"></div>
-            <p className="text-gray-600">Loading member contributions...</p>
+            <p className="text-gray-700 dark:text-theme-secondary">Loading member contributions...</p>
           </div>
         </div>
       </div>
@@ -352,7 +352,7 @@ export default function MemberContributionsPage() {
   if (error) {
     return (
       <div className="container mx-auto px-4 py-8">
-        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+        <div className="alert-error px-4 py-3 rounded">
           <p className="font-bold">Error</p>
           <p>{error}</p>
           <button
@@ -385,7 +385,7 @@ export default function MemberContributionsPage() {
       <div className="flex justify-between items-center mb-6">
         <div>
           <h1 className="text-3xl font-bold text-blue-700">{member.globalMember.name}'s Contributions</h1>
-          <p className="text-gray-600">
+          <p className="text-gray-700 dark:text-theme-secondary">
             {chitFund.name} | Monthly Contribution: {formatCurrency(chitFund.monthlyContribution)}
           </p>
         </div>
@@ -399,7 +399,7 @@ export default function MemberContributionsPage() {
           >
             {isExporting ? 'Exporting...' : 'Export Member Data'}
           </button>
-          <Link href={`/chit-funds/${chitFundId}/members`} className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition duration-300">
+          <Link href={`/chit-funds/${chitFundId}/members`} className="btn-neutral px-4 py-2 rounded-lg transition duration-300">
             Back to Members
           </Link>
         </div>
@@ -407,13 +407,13 @@ export default function MemberContributionsPage() {
 
       {/* Error Messages */}
       {exportError && (
-        <div className="mb-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative">
+        <div className="mb-4 alert-error px-4 py-3 rounded relative">
           <span className="block sm:inline">{exportError}</span>
         </div>
       )}
 
       {/* Member Info Card */}
-      <div className="bg-white rounded-lg shadow-md p-6 mb-8">
+      <div className="themed-card p-6 mb-8">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
             <p className="text-sm text-gray-500">Member Name</p>
@@ -431,29 +431,29 @@ export default function MemberContributionsPage() {
       </div>
 
       {/* Contributions Table */}
-      <div className="bg-white rounded-lg shadow-md overflow-hidden mb-8">
+      <div className="themed-card overflow-hidden mb-8">
         <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
+          <table className="min-w-full divide-y divide-surface-border">
+            <thead className="bg-gray-50 dark:bg-surface-elevated">
               <tr>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-theme-muted uppercase tracking-wider">
                   Month
                 </th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-theme-muted uppercase tracking-wider">
                   Amount
                 </th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-theme-muted uppercase tracking-wider">
                   Paid Date
                 </th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-theme-muted uppercase tracking-wider">
                   Balance
                 </th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-theme-muted uppercase tracking-wider">
                   Balance Payment Date
                 </th>
               </tr>
             </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
+            <tbody>
               {chitFund && getAllMonthsWithStatus().length === 0 ? (
                 <tr>
                   <td colSpan={5} className="px-6 py-4 text-center text-gray-500">
@@ -464,14 +464,14 @@ export default function MemberContributionsPage() {
                 getAllMonthsWithStatus().map((monthData) => (
                   <tr
                     key={monthData.month}
-                    className={`hover:bg-gray-50 ${monthData.status === 'paid' ? 'cursor-pointer' : ''}`}
+                    className={`hover:bg-gray-50 dark:hover:bg-surface-hover ${monthData.status === 'paid' ? 'cursor-pointer' : ''}`}
                     onClick={() => monthData.status === 'paid' && monthData.contribution && handleViewContribution(monthData.contribution)}
                   >
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">Month {monthData.month}</div>
+                      <div className="text-sm text-gray-900 dark:text-theme-primary">Month {monthData.month}</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">
+                      <div className="text-sm text-gray-900 dark:text-theme-primary">
                         {monthData.status === 'paid'
                           ? formatCurrency(monthData.contribution!.amount)
                           : formatCurrency(chitFund?.monthlyContribution || 0)}
@@ -479,7 +479,7 @@ export default function MemberContributionsPage() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       {monthData.status === 'paid' ? (
-                        <div className="text-sm text-gray-900">{formatDate(monthData.contribution!.paidDate)}</div>
+                        <div className="text-sm text-gray-900 dark:text-theme-primary">{formatDate(monthData.contribution!.paidDate)}</div>
                       ) : (
                         <div className="flex items-center">
                           <div className="text-sm text-red-600 font-semibold mr-2">Pending</div>
@@ -516,7 +516,7 @@ export default function MemberContributionsPage() {
                         monthData.contribution!.balancePaymentStatus === 'Paid' && monthData.contribution!.actualBalancePaymentDate ? (
                           <div className="text-sm text-green-600">{formatDate(monthData.contribution!.actualBalancePaymentDate)}</div>
                         ) : monthData.contribution!.balancePaymentDate ? (
-                          <div className="text-sm text-gray-900">{formatDate(monthData.contribution!.balancePaymentDate)}</div>
+                          <div className="text-sm text-gray-900 dark:text-theme-primary">{formatDate(monthData.contribution!.balancePaymentDate)}</div>
                         ) : (
                           <div className="text-sm text-gray-500">-</div>
                         )
@@ -534,13 +534,13 @@ export default function MemberContributionsPage() {
 
       {/* Record Contribution Modal */}
       {showRecordModal && selectedMonth !== null && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-md">
+        <div className="modal-overlay flex items-center justify-center z-50">
+          <div className="themed-card p-6 w-full max-w-md">
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-xl font-bold text-blue-700">Record Contribution for Month {selectedMonth}</h2>
               <button
                 onClick={() => setShowRecordModal(false)}
-                className="text-gray-500 hover:text-gray-700"
+                className="text-gray-500 hover:text-gray-700 dark:text-theme-secondary"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -549,19 +549,19 @@ export default function MemberContributionsPage() {
             </div>
 
             {submitSuccess && (
-              <div className="mb-4 bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded">
+              <div className="mb-4 alert-success px-4 py-3 rounded">
                 <p>{submitSuccess}</p>
               </div>
             )}
 
             {submitError && (
-              <div className="mb-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+              <div className="mb-4 alert-error px-4 py-3 rounded">
                 <p>{submitError}</p>
               </div>
             )}
 
             <div className="mb-4">
-              <label htmlFor="amount" className="block text-sm font-medium text-gray-700 mb-1">
+              <label htmlFor="amount" className="block text-sm font-medium text-gray-700 dark:text-theme-secondary mb-1">
                 Amount <span className="text-red-500">*</span>
               </label>
               <input
@@ -575,7 +575,7 @@ export default function MemberContributionsPage() {
             </div>
 
             <div className="mb-4">
-              <label htmlFor="paidDate" className="block text-sm font-medium text-gray-700 mb-1">
+              <label htmlFor="paidDate" className="block text-sm font-medium text-gray-700 dark:text-theme-secondary mb-1">
                 Payment Date <span className="text-red-500">*</span>
               </label>
               <input
@@ -588,7 +588,7 @@ export default function MemberContributionsPage() {
             </div>
 
             <div className="mb-6">
-              <label htmlFor="notes" className="block text-sm font-medium text-gray-700 mb-1">
+              <label htmlFor="notes" className="block text-sm font-medium text-gray-700 dark:text-theme-secondary mb-1">
                 Notes
               </label>
               <textarea
@@ -604,7 +604,7 @@ export default function MemberContributionsPage() {
             <div className="flex justify-end space-x-4">
               <button
                 onClick={() => setShowRecordModal(false)}
-                className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition duration-300"
+                className="btn-neutral px-4 py-2 rounded-lg transition duration-300"
               >
                 Cancel
               </button>
@@ -624,13 +624,13 @@ export default function MemberContributionsPage() {
 
       {/* Contribution Detail Modal */}
       {showDetailModal && selectedContribution && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-md">
+        <div className="modal-overlay flex items-center justify-center z-50">
+          <div className="themed-card p-6 w-full max-w-md">
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-xl font-bold text-blue-700">Contribution Details</h2>
               <button
                 onClick={() => setShowDetailModal(false)}
-                className="text-gray-500 hover:text-gray-700"
+                className="text-gray-500 hover:text-gray-700 dark:text-theme-secondary"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -638,7 +638,7 @@ export default function MemberContributionsPage() {
               </button>
             </div>
 
-            <div className="bg-gray-50 p-4 rounded-lg mb-4">
+            <div className="bg-gray-50 dark:bg-surface-elevated p-4 rounded-lg mb-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <p className="text-sm text-gray-500">Member</p>
@@ -732,7 +732,7 @@ export default function MemberContributionsPage() {
                   {/* Error message */}
                   {updateError && (
                     <div className="col-span-2 mt-2">
-                      <div className="bg-red-100 border border-red-400 text-red-700 px-3 py-2 rounded text-sm">
+                      <div className="alert-error px-3 py-2 rounded text-sm">
                         {updateError}
                       </div>
                     </div>
@@ -744,7 +744,7 @@ export default function MemberContributionsPage() {
             <div className="flex justify-end mt-6">
               <button
                 onClick={() => setShowDetailModal(false)}
-                className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition duration-300"
+                className="btn-neutral px-4 py-2 rounded-lg transition duration-300"
               >
                 Close
               </button>

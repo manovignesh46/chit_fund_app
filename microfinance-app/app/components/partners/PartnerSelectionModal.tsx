@@ -52,13 +52,13 @@ export default function PartnerSelectionModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+    <div className="modal-overlay flex items-center justify-center z-50">
+      <div className="themed-card rounded-lg p-6 max-w-md w-full mx-4">
         <div className="flex items-center justify-between mb-6">
-          <h2 className="text-xl font-semibold text-gray-900">Select Active Partner</h2>
+          <h2 className="text-xl font-semibold text-gray-900 dark:text-theme-primary">Select Active Partner</h2>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 transition-colors"
+            className="text-gray-400 hover:text-gray-700 dark:text-theme-secondary transition-colors"
           >
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -68,7 +68,7 @@ export default function PartnerSelectionModal({
 
         {/* Error message and retry button */}
         {error && (
-          <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm flex flex-col items-center">
+          <div className="mb-4 p-3 alert-error rounded-lg text-red-700 text-sm flex flex-col items-center">
             <span>{error}</span>
             <button
               onClick={refreshPartners}
@@ -81,7 +81,7 @@ export default function PartnerSelectionModal({
         )}
 
         <div className="mb-6">
-          <p className="text-gray-600 mb-4">
+          <p className="text-gray-700 dark:text-theme-secondary mb-4">
             Please select which partner you are working as. This will determine how transactions and financial activities are tracked.
           </p>
 
@@ -95,7 +95,7 @@ export default function PartnerSelectionModal({
                   className={`flex items-center p-3 border rounded-lg cursor-pointer transition-colors ${
                     tempSelectedPartner === partner.id
                       ? 'border-blue-500 bg-blue-50'
-                      : 'border-gray-300 hover:border-gray-400'
+                      : 'border-gray-200 dark:border-surface-border hover:border-gray-400'
                   }`}
                 >
                   <input
@@ -107,7 +107,7 @@ export default function PartnerSelectionModal({
                     className="mr-3 text-blue-600 focus:ring-blue-500"
                   />
                   <div>
-                    <div className="font-medium text-gray-900">{partner.name}</div>
+                    <div className="font-medium text-gray-900 dark:text-theme-primary">{partner.name}</div>
                     <div className="text-sm text-gray-500">
                       {partner.isActive ? 'Active Partner' : 'Inactive Partner'}
                     </div>
@@ -130,7 +130,7 @@ export default function PartnerSelectionModal({
         <div className="flex justify-end space-x-3">
           <button
             onClick={onClose}
-            className="px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition duration-300"
+            className="px-4 py-2 text-gray-700 dark:text-theme-secondary border border-gray-200 dark:border-surface-border rounded-lg hover:bg-gray-50 dark:hover:bg-surface-hover transition duration-300"
           >
             Cancel
           </button>

@@ -1,0 +1,81 @@
+/* Dashboard metrics, lists, progress */
+
+@layer components {
+  .metric-row {
+    @apply flex items-center justify-between p-3 rounded-lg bg-gray-50;
+  }
+
+  .metric-row-blue {
+    @apply metric-row;
+    background-color: #eff6ff;
+  }
+
+  .metric-row-green {
+    @apply metric-row;
+    background-color: #f0fdf4;
+  }
+
+  .metric-row-red {
+    @apply metric-row;
+    background-color: #fef2f2;
+  }
+
+  .metric-row-highlight {
+    @apply metric-row mb-4 border border-blue-200;
+    background: linear-gradient(to right, #eff6ff, #eef2ff);
+  }
+
+  html.dark .metric-row,
+  .dark .metric-row {
+    background-color: rgba(28, 34, 48, 0.8);
+    background-image: none;
+  }
+
+  html.dark .metric-row-blue,
+  .dark .metric-row-blue {
+    background-color: rgba(59, 130, 246, 0.1);
+    background-image: none;
+  }
+
+  html.dark .metric-row-green,
+  .dark .metric-row-green {
+    background-color: rgba(16, 185, 129, 0.1);
+    background-image: none;
+  }
+
+  html.dark .metric-row-red,
+  .dark .metric-row-red {
+    background-color: rgba(239, 68, 68, 0.1);
+    background-image: none;
+  }
+
+  html.dark .metric-row-highlight,
+  .dark .metric-row-highlight {
+    background-color: rgba(59, 130, 246, 0.12);
+    background-image: none;
+    border-color: rgba(59, 130, 246, 0.3);
+  }
+
+  .list-item-row {
+    @apply flex items-center justify-between gap-4 p-3 rounded-lg bg-gray-50 hover:bg-gray-100 transition;
+  }
+
+  html.dark .list-item-row,
+  .dark .list-item-row {
+    background-color: rgba(28, 34, 48, 0.6);
+  }
+
+  html.dark .list-item-row:hover,
+  .dark .list-item-row:hover {
+    background-color: rgba(34, 40, 54, 1);
+  }
+
+  .progress-track {
+    @apply w-full rounded-full h-2 bg-gray-200;
+  }
+
+  html.dark .progress-track,
+  .dark .progress-track {
+    background-color: rgba(42, 48, 64, 1);
+  }
+}

@@ -102,7 +102,7 @@ export default function PartnerManagementPage() {
   if (error) {
     return (
       <div className="container mx-auto px-4 py-8">
-        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+        <div className="alert-error px-4 py-3 rounded">
           <p className="font-bold">Error</p>
           <p>{error}</p>
         </div>
@@ -111,9 +111,9 @@ export default function PartnerManagementPage() {
   }
 
   return (
-    <div className="container mx-auto px-2 sm:px-4 py-6 sm:py-8 max-w-screen-xl w-full">
+    <div className="page-container">
       <div className="flex flex-row flex-wrap items-center justify-between gap-2 mb-6 sm:mb-8">
-        <h1 className="text-2xl sm:text-3xl font-bold text-blue-700">Partner Management</h1>
+        <h1 className="page-title">Partner Management</h1>
       </div>
 
       {/* Partner Selector */}
@@ -129,13 +129,13 @@ export default function PartnerManagementPage() {
           {loadingBalances && (
             <div className="flex items-center space-x-2">
               <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-700"></div>
-              <span className="text-sm text-gray-600">Loading balances...</span>
+              <span className="text-sm text-gray-700 dark:text-theme-secondary">Loading balances...</span>
             </div>
           )}
         </div>
 
         {partnersWithBalances.length === 0 ? (
-          <div className="bg-white rounded-lg shadow-md p-8 text-center">
+          <div className="themed-card p-8 text-center">
             <p className="text-gray-500">No partners found. Add a partner to get started.</p>
           </div>
         ) : (
@@ -152,7 +152,7 @@ export default function PartnerManagementPage() {
       </div>
 
       {/* Record Manual Transaction Form */}
-      <div className="bg-white rounded-lg shadow-md p-6 max-w-xl mb-10">
+      <div className="themed-card p-6 max-w-xl mb-10">
         <TransactionForm />
       </div>
 

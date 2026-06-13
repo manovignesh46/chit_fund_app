@@ -174,7 +174,7 @@ const PaymentSchedulesPage = () => {
       case 'InterestOnly': // Keep backward compatibility
         return 'bg-blue-100 text-blue-800';
       default:
-        return 'bg-gray-100 text-gray-800';
+        return 'bg-gray-100 text-gray-900 dark:text-theme-primary';
     }
   };
 
@@ -185,7 +185,7 @@ const PaymentSchedulesPage = () => {
         <div className="flex justify-center items-center h-64">
           <div className="text-center">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-700 mx-auto mb-4"></div>
-            <p className="text-gray-600">Loading payment schedules...</p>
+            <p className="text-gray-700 dark:text-theme-secondary">Loading payment schedules...</p>
           </div>
         </div>
       </div>
@@ -196,7 +196,7 @@ const PaymentSchedulesPage = () => {
   if (error) {
     return (
       <div className="container mx-auto px-4 py-8">
-        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+        <div className="alert-error px-4 py-3 rounded">
           <h2 className="text-xl font-bold mb-2">Error</h2>
           <p>{error}</p>
           <Link href={`/loans/${id}`} className="mt-4 inline-block text-blue-600 hover:underline">
@@ -212,7 +212,7 @@ const PaymentSchedulesPage = () => {
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-3xl font-bold text-green-700">Payment Schedule</h1>
         <div className="flex space-x-4">
-          <Link href={`/loans/${id}`} className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition duration-300">
+          <Link href={`/loans/${id}`} className="btn-neutral px-4 py-2 rounded-lg transition duration-300">
             Back to Loan Details
           </Link>
         </div>
@@ -234,7 +234,7 @@ const PaymentSchedulesPage = () => {
       </div>
 
       {loan && (
-        <div className="bg-white rounded-lg shadow-md overflow-hidden mb-6">
+        <div className="themed-card overflow-hidden mb-6">
           <div className="p-6 border-b">
             <h2 className="text-xl font-semibold">Loan Information</h2>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
@@ -255,12 +255,12 @@ const PaymentSchedulesPage = () => {
         </div>
       )}
 
-      <div className="bg-white rounded-lg shadow-md overflow-hidden mb-6">
+      <div className="themed-card overflow-hidden mb-6">
         <div className="p-6 border-b flex flex-col md:flex-row justify-between items-start md:items-center space-y-4 md:space-y-0">
           <h2 className="text-xl font-semibold">Payment Schedule</h2>
           <div className="flex flex-col md:flex-row space-y-2 md:space-y-0 md:space-x-4">
             <div>
-              <label htmlFor="statusFilter" className="mr-2 text-sm text-gray-600">Status:</label>
+              <label htmlFor="statusFilter" className="mr-2 text-sm text-gray-700 dark:text-theme-secondary">Status:</label>
               <select
                 id="statusFilter"
                 value={statusFilter || 'all'}
@@ -275,7 +275,7 @@ const PaymentSchedulesPage = () => {
               </select>
             </div>
             <div>
-              <label htmlFor="pageSize" className="mr-2 text-sm text-gray-600">Show:</label>
+              <label htmlFor="pageSize" className="mr-2 text-sm text-gray-700 dark:text-theme-secondary">Show:</label>
               <select
                 id="pageSize"
                 value={pageSize}
@@ -294,7 +294,7 @@ const PaymentSchedulesPage = () => {
 
         {schedules.length === 0 ? (
           <div className="p-6 text-center">
-            <p className="text-gray-600 mb-4">No payment schedules found for this loan.</p>
+            <p className="text-gray-700 dark:text-theme-secondary mb-4">No payment schedules found for this loan.</p>
             <p className="text-sm text-gray-500">
               Payment schedules are generated dynamically based on the loan's disbursement date and repayment history.
               <br />
@@ -304,42 +304,42 @@ const PaymentSchedulesPage = () => {
         ) : (
           <>
             <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
+              <table className="min-w-full divide-y divide-surface-border">
+                <thead className="bg-gray-50 dark:bg-surface-elevated">
                   <tr>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-theme-muted uppercase tracking-wider">
                       Period
                     </th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-theme-muted uppercase tracking-wider">
                       Due Date
                     </th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-theme-muted uppercase tracking-wider">
                       Amount
                     </th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-theme-muted uppercase tracking-wider">
                       Status
                     </th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-theme-muted uppercase tracking-wider">
                       Payment Date
                     </th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-theme-muted uppercase tracking-wider">
                       Actions
                     </th>
                   </tr>
                 </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
+                <tbody>
                   {schedules.map((schedule: PaymentSchedule) => (
-                    <tr key={schedule.id} className="hover:bg-gray-50">
+                    <tr key={schedule.id} className="hover:bg-gray-50 dark:hover:bg-surface-hover">
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900">
+                        <div className="text-sm text-gray-900 dark:text-theme-primary">
                           {loan?.repaymentType === 'Weekly' ? `Week ${schedule.period}` : `Month ${schedule.period}`}
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900">{formatDate(schedule.dueDate)}</div>
+                        <div className="text-sm text-gray-900 dark:text-theme-primary">{formatDate(schedule.dueDate)}</div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900">{formatCurrency((schedule as any).paidAmount ?? schedule.amount)}</div>
+                        <div className="text-sm text-gray-900 dark:text-theme-primary">{formatCurrency((schedule as any).paidAmount ?? schedule.amount)}</div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span className={`px-2 py-1 text-xs font-semibold rounded-full ${getStatusBadgeColor(schedule.status)}`}>
@@ -347,7 +347,7 @@ const PaymentSchedulesPage = () => {
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900">
+                        <div className="text-sm text-gray-900 dark:text-theme-primary">
                           {schedule.actualPaymentDate ? formatDate(schedule.actualPaymentDate) : '-'}
                         </div>
                       </td>
@@ -374,7 +374,7 @@ const PaymentSchedulesPage = () => {
                           {schedule.repayment && (
                             <Link
                               href={`/loans/${id}/repayments`}
-                              className="text-xs px-2 py-1 bg-gray-200 text-gray-700 rounded hover:bg-gray-300"
+                              className="btn-neutral text-xs px-2 py-1 rounded"
                             >
                               View Payment
                             </Link>
@@ -389,13 +389,13 @@ const PaymentSchedulesPage = () => {
 
             {/* Pagination */}
             {totalPages > 1 && (
-              <div className="px-6 py-4 flex items-center justify-between border-t border-gray-200">
+              <div className="px-6 py-4 flex items-center justify-between border-t border-gray-200 dark:border-surface-border">
                 <div className="flex-1 flex justify-between sm:hidden">
                   <button
                     onClick={() => handlePageChange(Math.max(1, currentPage - 1))}
                     disabled={currentPage === 1}
-                    className={`relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md ${
-                      currentPage === 1 ? 'bg-gray-100 text-gray-400' : 'bg-white text-gray-700 hover:bg-gray-50'
+                    className={`relative inline-flex items-center px-4 py-2 border border-gray-200 dark:border-surface-border text-sm font-medium rounded-md ${
+                      currentPage === 1 ? 'bg-gray-100 text-gray-400' : 'themed-card text-gray-700 dark:text-theme-secondary hover:bg-gray-50 dark:hover:bg-surface-hover'
                     }`}
                   >
                     Previous
@@ -403,8 +403,8 @@ const PaymentSchedulesPage = () => {
                   <button
                     onClick={() => handlePageChange(Math.min(totalPages, currentPage + 1))}
                     disabled={currentPage === totalPages}
-                    className={`ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md ${
-                      currentPage === totalPages ? 'bg-gray-100 text-gray-400' : 'bg-white text-gray-700 hover:bg-gray-50'
+                    className={`ml-3 relative inline-flex items-center px-4 py-2 border border-gray-200 dark:border-surface-border text-sm font-medium rounded-md ${
+                      currentPage === totalPages ? 'bg-gray-100 text-gray-400' : 'themed-card text-gray-700 dark:text-theme-secondary hover:bg-gray-50 dark:hover:bg-surface-hover'
                     }`}
                   >
                     Next
@@ -412,7 +412,7 @@ const PaymentSchedulesPage = () => {
                 </div>
                 <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
                   <div>
-                    <p className="text-sm text-gray-700">
+                    <p className="text-sm text-gray-700 dark:text-theme-secondary">
                       Showing <span className="font-medium">{(currentPage - 1) * pageSize + 1}</span> to{' '}
                       <span className="font-medium">{Math.min(currentPage * pageSize, totalCount)}</span> of{' '}
                       <span className="font-medium">{totalCount}</span> results
@@ -423,8 +423,8 @@ const PaymentSchedulesPage = () => {
                       <button
                         onClick={() => handlePageChange(Math.max(1, currentPage - 1))}
                         disabled={currentPage === 1}
-                        className={`relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium ${
-                          currentPage === 1 ? 'text-gray-300' : 'text-gray-500 hover:bg-gray-50'
+                        className={`relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-200 dark:border-surface-border themed-card text-sm font-medium ${
+                          currentPage === 1 ? 'text-gray-300' : 'pagination-nav-btn'
                         }`}
                       >
                         <span className="sr-only">Previous</span>
@@ -449,7 +449,7 @@ const PaymentSchedulesPage = () => {
                             className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium ${
                               currentPage === pageNum
                                 ? 'z-10 bg-green-50 border-green-500 text-green-600'
-                                : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-50'
+                                : 'themed-card border-gray-200 dark:border-surface-border pagination-nav-btn'
                             }`}
                           >
                             {pageNum}
@@ -459,8 +459,8 @@ const PaymentSchedulesPage = () => {
                       <button
                         onClick={() => handlePageChange(Math.min(totalPages, currentPage + 1))}
                         disabled={currentPage === totalPages}
-                        className={`relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium ${
-                          currentPage === totalPages ? 'text-gray-300' : 'text-gray-500 hover:bg-gray-50'
+                        className={`relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-200 dark:border-surface-border themed-card text-sm font-medium ${
+                          currentPage === totalPages ? 'text-gray-300' : 'pagination-nav-btn'
                         }`}
                       >
                         <span className="sr-only">Next</span>

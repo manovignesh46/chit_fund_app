@@ -62,26 +62,26 @@ function LoginForm() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-100 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md w-full space-y-8 bg-white p-10 rounded-lg shadow-md">
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-surface py-12 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-md w-full space-y-8 themed-card p-10 rounded-lg shadow-md">
         <div>
-          <h2 className="mt-2 text-center text-3xl font-extrabold text-gray-900">
+          <h2 className="mt-2 text-center text-3xl font-extrabold text-gray-900 dark:text-theme-primary">
             AM Fincorp
           </h2>
-          <p className="mt-2 text-center text-sm text-gray-600">
+          <p className="mt-2 text-center text-sm text-gray-700 dark:text-theme-secondary">
             Sign in with your username or email
           </p>
         </div>
 
         {error && (
-          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative text-sm" role="alert">
+          <div className="alert-error px-4 py-3 rounded relative text-sm" role="alert">
             {error}
           </div>
         )}
 
         <form className="mt-6 space-y-5" onSubmit={handleSubmit}>
           <div>
-            <label htmlFor="username" className="block text-sm font-medium text-gray-700 mb-1">
+            <label htmlFor="username" className="block text-sm font-medium text-gray-700 dark:text-theme-secondary mb-1">
               Username or Email
             </label>
             <input
@@ -90,7 +90,7 @@ function LoginForm() {
               type="text"
               autoComplete="username"
               required
-              className="appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-lg focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+              className="appearance-none relative block w-full px-3 py-2 border border-gray-200 dark:border-surface-border placeholder-gray-500 text-gray-900 dark:text-theme-primary rounded-lg focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
               placeholder="e.g. Username or partner@email.com"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
@@ -98,7 +98,7 @@ function LoginForm() {
           </div>
 
           <div>
-            <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
+            <label htmlFor="password" className="block text-sm font-medium text-gray-700 dark:text-theme-secondary mb-1">
               Password
             </label>
             <input
@@ -107,7 +107,7 @@ function LoginForm() {
               type="password"
               autoComplete="current-password"
               required
-              className="appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-lg focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+              className="appearance-none relative block w-full px-3 py-2 border border-gray-200 dark:border-surface-border placeholder-gray-500 text-gray-900 dark:text-theme-primary rounded-lg focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
               placeholder="Enter password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}

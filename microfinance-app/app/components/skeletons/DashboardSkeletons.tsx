@@ -12,7 +12,7 @@ export function FinancialOverviewSkeleton() {
   return (
     <div className="grid grid-cols-2 gap-4 sm:gap-6 mb-6 sm:mb-8 md:grid-cols-3">
       {Array.from({ length: 3 }).map((_, index) => (
-        <div key={index} className="bg-white shadow-md rounded-lg p-4 sm:p-6 border-t-4 border-gray-300">
+        <div key={index} className="dark-card shadow-md rounded-lg p-4 sm:p-6 border-t-4 border-gray-200 dark:border-surface-border">
           <SkeletonLoader height="1.25rem" width="60%" className="mb-2" />
           <SkeletonLoader height="2rem" width="80%" />
         </div>
@@ -28,7 +28,7 @@ export function ProfitBreakdownSkeleton() {
   return (
     <div className="grid grid-cols-2 gap-4 sm:gap-6 mb-6 sm:mb-8">
       {Array.from({ length: 2 }).map((_, index) => (
-        <div key={index} className="bg-white shadow-md rounded-lg p-4 sm:p-6 border-t-4 border-gray-300">
+        <div key={index} className="dark-card shadow-md rounded-lg p-4 sm:p-6 border-t-4 border-gray-200 dark:border-surface-border">
           <SkeletonLoader height="1.25rem" width="60%" className="mb-2" />
           <SkeletonLoader height="2rem" width="80%" className="mb-2" />
           <SkeletonLoader height="0.875rem" width="90%" />
@@ -45,11 +45,11 @@ export function BalanceCardsSkeleton() {
   return (
     <div className="grid grid-cols-1 gap-4 sm:gap-6 mb-6 sm:mb-8 md:grid-cols-2">
       {/* Balance Summary Skeleton */}
-      <div className="bg-white shadow-md rounded-lg p-4 sm:p-6">
+      <div className="dark-card shadow-md rounded-lg p-4 sm:p-6">
         <SkeletonLoader height="1.5rem" width="10rem" className="mb-4" />
         <div className="space-y-4">
           {Array.from({ length: 3 }).map((_, index) => (
-            <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+            <div key={index} className="flex items-center justify-between p-3 rounded-lg" style={{ backgroundColor: 'rgba(28, 34, 48, 0.6)' }}>
               <div className="flex items-center">
                 <SkeletonLoader height="2.5rem" width="2.5rem" borderRadius="9999px" className="mr-3" />
                 <div>
@@ -64,11 +64,11 @@ export function BalanceCardsSkeleton() {
       </div>
 
       {/* Partner Balances Skeleton */}
-      <div className="bg-white shadow-md rounded-lg p-4 sm:p-6">
+      <div className="dark-card shadow-md rounded-lg p-4 sm:p-6">
         <SkeletonLoader height="1.5rem" width="10rem" className="mb-4" />
         <div className="space-y-3">
           {Array.from({ length: 4 }).map((_, index) => (
-            <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+            <div key={index} className="flex items-center justify-between p-3 rounded-lg" style={{ backgroundColor: 'rgba(28, 34, 48, 0.6)' }}>
               <div className="flex items-center">
                 <SkeletonLoader height="2.5rem" width="2.5rem" borderRadius="9999px" className="mr-3" />
                 <div>
@@ -94,7 +94,7 @@ export function BalanceCardsSkeleton() {
 export function FinancialGraphSkeleton() {
   return (
     <div className="mb-8">
-      <div className="bg-white rounded-lg shadow-md p-4 mb-4">
+      <div className="dark-card rounded-lg shadow-md p-4 mb-4">
         <div className="flex flex-wrap justify-between items-center">
           <SkeletonLoader height="1.5rem" width="12rem" />
           <div className="flex flex-wrap items-center gap-4">
@@ -119,7 +119,7 @@ export function StatsOverviewSkeleton() {
   return (
     <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 gap-4 sm:gap-6 mb-6 sm:mb-8">
       {Array.from({ length: 3 }).map((_, index) => (
-        <div key={index} className="bg-white rounded-lg shadow-md p-4 sm:p-6 flex flex-col items-center">
+        <div key={index} className="dark-card rounded-lg shadow-md p-4 sm:p-6 flex flex-col items-center">
           <div className="bg-gray-300 text-white rounded-full w-12 h-12 flex items-center justify-center mb-4">
             <SkeletonLoader height="1.5rem" width="1.5rem" borderRadius="9999px" />
           </div>
@@ -135,7 +135,7 @@ export function StatsOverviewSkeleton() {
  */
 export function RecentActivitiesSkeleton() {
   return (
-    <div className="bg-white rounded-lg shadow-md p-2 sm:p-6">
+    <div className="dark-card rounded-lg shadow-md p-2 sm:p-6">
       <SkeletonLoader height="1.5rem" width="12rem" className="mb-2 sm:mb-4" />
       <div className="space-y-4">
         {Array.from({ length: 4 }).map((_, index) => (
@@ -166,7 +166,7 @@ export function CurrentMonthCollectionsSkeleton() {
       
       <div className="grid grid-cols-2 gap-4 sm:gap-6 md:grid-cols-3">
         {Array.from({ length: 3 }).map((_, index) => (
-          <div key={index} className="bg-white p-4 sm:p-6 rounded-lg shadow-md border-t-4 border-gray-300">
+          <div key={index} className="dark-card p-4 sm:p-6 rounded-lg shadow-md border-t-4 border-gray-200 dark:border-surface-border">
             <div className="flex items-center justify-between mb-3">
               <SkeletonLoader height="0.875rem" width="7rem" />
               <SkeletonLoader height="2rem" width="2rem" borderRadius="9999px" />
@@ -201,7 +201,7 @@ export function CurrentMonthCollectionsSkeleton() {
  */
 export function UpcomingEventsSkeleton() {
   return (
-    <div className="bg-white rounded-lg shadow-md p-2 sm:p-6">
+    <div className="dark-card rounded-lg shadow-md p-2 sm:p-6">
       <SkeletonLoader height="1.5rem" width="12rem" className="mb-2 sm:mb-4" />
       <div className="space-y-4">
         {Array.from({ length: 3 }).map((_, index) => (
@@ -223,7 +223,7 @@ export function BusinessMetricCardsSkeleton() {
   return (
     <div className="grid grid-cols-1 gap-4 sm:gap-6 mb-6 sm:mb-8 md:grid-cols-2 lg:grid-cols-3">
       {Array.from({ length: 3 }).map((_, index) => (
-        <div key={index} className="bg-white shadow-md rounded-lg p-4 sm:p-6 border-t-4 border-gray-300">
+        <div key={index} className="dark-card shadow-md rounded-lg p-4 sm:p-6 border-t-4 border-gray-200 dark:border-surface-border">
           <SkeletonLoader height="1.25rem" width="60%" className="mb-4 mx-auto" />
           {/* Large metric display */}
           <div className="flex justify-center mb-4">
@@ -247,7 +247,7 @@ export function BusinessMetricCardsSkeleton() {
  */
 export function DashboardSkeleton() {
   return (
-    <div className="container mx-auto px-2 sm:px-4 py-6 sm:py-8 max-w-screen-xl w-full">
+    <div className="page-container">
       {/* Header with action buttons */}
       <div className="flex flex-row flex-wrap items-center justify-between gap-2 mb-6 sm:mb-8">
         <SkeletonLoader height="2rem" width="10rem" />
@@ -264,7 +264,7 @@ export function DashboardSkeleton() {
       {/* Financial Overview (Outstanding amounts + Total Profit) */}
       <div className="grid grid-cols-2 gap-4 sm:gap-6 mb-6 sm:mb-8 md:grid-cols-3">
         {Array.from({ length: 3 }).map((_, index) => (
-          <div key={index} className="bg-white shadow-md rounded-lg p-4 sm:p-6 border-t-4 border-gray-300">
+          <div key={index} className="dark-card shadow-md rounded-lg p-4 sm:p-6 border-t-4 border-gray-200 dark:border-surface-border">
             <SkeletonLoader height="1.25rem" width="60%" className="mb-2" />
             <SkeletonLoader height="2rem" width="80%" />
           </div>

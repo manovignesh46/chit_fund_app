@@ -1,0 +1,44 @@
+/* CSS custom properties — light defaults, dark overrides under .dark */
+
+@layer base {
+  :root {
+    --color-surface: #f9fafb;
+    --color-surface-sidebar: #ffffff;
+    --color-surface-card: #ffffff;
+    --color-surface-elevated: #f9fafb;
+    --color-surface-hover: #f3f4f6;
+    --color-surface-border: #e5e7eb;
+    --color-text-primary: #111827;
+    --color-text-secondary: #4b5563;
+    --color-text-muted: #6b7280;
+    --color-text-heading: #1d4ed8;
+    --color-overlay: rgba(0, 0, 0, 0.45);
+    --color-table-head: #f9fafb;
+    --color-table-border: #e5e7eb;
+    --color-table-row-alt: transparent;
+    --color-table-foot: #f3f4f6;
+    --color-scrollbar-track: #f3f4f6;
+    --color-scrollbar-thumb: #d1d5db;
+  }
+
+  html.dark,
+  .dark {
+    --color-surface: #0d0f14;
+    --color-surface-sidebar: #111318;
+    --color-surface-card: #161b26;
+    --color-surface-elevated: #1c2230;
+    --color-surface-hover: #222836;
+    --color-surface-border: #2a3040;
+    --color-text-primary: #f3f4f6;
+    --color-text-secondary: #d1d5db;
+    --color-text-muted: #9ca3af;
+    --color-text-heading: #ffffff;
+    --color-overlay: rgba(0, 0, 0, 0.6);
+    --color-table-head: rgba(28, 34, 48, 0.5);
+    --color-table-border: rgba(42, 48, 64, 0.6);
+    --color-table-row-alt: rgba(22, 27, 38, 0.55);
+    --color-table-foot: rgba(28, 34, 48, 0.85);
+    --color-scrollbar-track: #111318;
+    --color-scrollbar-thumb: #3a4258;
+  }
+}

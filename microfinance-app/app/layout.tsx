@@ -3,11 +3,10 @@ import React from 'react';
 import '../styles/globals.css';
 import Layout from './components/Layout';
 import { PartnerProvider } from './contexts/PartnerContext';
+import { ThemeProvider, ThemeScript } from './theme';
 
-// Initialize the application (including schedulers)
 import '../lib/init';
 
-// Force static rendering for the layout to avoid hydration issues
 export const dynamic = 'force-static';
 
 export const metadata = {
@@ -23,13 +22,18 @@ export const viewport = {
 
 const RootLayout = ({ children }: { children: React.ReactNode }) => {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
+      <head>
+        <ThemeScript />
+      </head>
       <body>
-        <PartnerProvider>
-          <Layout>
-            {children}
-          </Layout>
-        </PartnerProvider>
+        <ThemeProvider>
+          <PartnerProvider>
+            <Layout>
+              {children}
+            </Layout>
+          </PartnerProvider>
+        </ThemeProvider>
       </body>
     </html>
   );

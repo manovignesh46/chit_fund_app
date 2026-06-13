@@ -205,8 +205,8 @@ export function PartnerSelector({
   if (partnerLocked && selectedPartner) {
     return (
       <div className={`flex flex-row items-center gap-2 ${className}`.trim()}>
-        <span className="text-sm text-gray-600 hidden sm:inline">Logged in as</span>
-        <span className="px-3 py-1.5 bg-blue-50 text-blue-800 text-sm font-medium rounded-lg border border-blue-200">
+        <span className="text-sm text-gray-600 dark:text-gray-400 hidden sm:inline">Logged in as</span>
+        <span className="px-3 py-1.5 bg-blue-50 text-blue-800 dark:bg-transparent dark:text-blue-400 text-sm font-medium rounded-lg border border-blue-200 dark:border-blue-500">
           {selectedPartner.name}
         </span>
       </div>
@@ -225,7 +225,7 @@ export function PartnerSelector({
         <select
           value={selectedPartner?.id || ''}
           onChange={selectPartnerHandler}
-          className="block w-full px-3 py-2 bg-white border border-gray-300 rounded-md text-gray-900 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+          className="block w-full px-3 py-2 bg-white dark:bg-surface-card border border-gray-300 dark:border-surface-border rounded-md text-gray-900 dark:text-theme-primary text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
         >
           <option value="">Select Partner</option>
           {partners.map((partner) => (
@@ -241,7 +241,7 @@ export function PartnerSelector({
   return (
     <div className={`flex flex-row items-center gap-2 ${className}`.trim()}>
       {label && (
-        <label className="block text-sm font-medium text-gray-700 mr-1 mb-0 whitespace-nowrap">
+        <label className="block text-sm font-medium text-gray-700 dark:text-theme-secondary mr-1 mb-0 whitespace-nowrap">
           {label}
         </label>
       )}
@@ -249,7 +249,7 @@ export function PartnerSelector({
         <select
           value={selectedPartner?.id || ''}
           onChange={selectPartnerHandler}
-          className="block px-3 py-2 pr-8 border border-blue-500 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-blue-600 bg-white text-gray-900 font-medium transition-all duration-150 appearance-none hover:border-blue-600"
+          className="block px-3 py-2 pr-8 border border-blue-500 dark:border-surface-border rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-blue-600 bg-white dark:bg-surface-elevated text-gray-900 dark:text-theme-primary font-medium transition-all duration-150 appearance-none hover:border-blue-600 dark:hover:border-blue-500"
           style={{ minWidth: 160 }}
         >
           <option value="">Select Partner</option>

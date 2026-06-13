@@ -5,10 +5,14 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { ChitFundsListSkeleton } from '../components/skeletons';
-import { ArrowDownTrayIcon, TrashIcon, PlusCircleIcon } from '@heroicons/react/24/solid';
+import { ArrowDownTrayIcon, TrashIcon, PlusCircleIcon, ArrowPathIcon, BanknotesIcon, UserGroupIcon, ClockIcon } from '@heroicons/react/24/solid';
+import { BuildingLibraryIcon } from '@heroicons/react/24/outline';
 import ActionDropdown, { ActionItem } from '../components/ui/ActionDropdown';
 import { formatDate as formatDateUtil } from '../../lib/formatUtils';
 import SortableTableHeader, { useSortableData } from '../components/common/SortableTableHeader';
+import PageSectionHeader from '../components/layout/PageSectionHeader';
+import StatsCard from '../components/layout/StatsCard';
+import FilterBar from '../components/layout/FilterBar';
 
 // Define interfaces
 interface ChitFund {
@@ -70,9 +74,19 @@ export default function ChitFundsPage() {
 
   // Status filter state
   const [statusFilter, setStatusFilter] = useState<string>('Active');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [stats, setStats] = useState({
+    active: 0,
+    upcoming: 0,
+    totalMembers: 0,
+    totalValue: 0,
+  });
 
   // Add sorting functionality
   const { items: sortedChitFunds, sortConfig, requestSort } = useSortableData(chitFunds);
+  const filteredChitFunds = sortedChitFunds.filter((fund) =>
+    !searchQuery || fund.name.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
   // Fetch chit funds function
   const fetchChitFunds = async () => {
@@ -118,16 +132,35 @@ export default function ChitFundsPage() {
     }
   };
 
-  // Handle status filter change
-  const handleStatusFilterChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    setStatusFilter(e.target.value);
-    setCurrentPage(1); // Reset to first page when changing filter
-  };
-
   // Initial data fetch
   useEffect(() => {
     fetchChitFunds();
   }, [currentPage, pageSize, statusFilter]);
+
+  useEffect(() => {
+    const fetchStats = async () => {
+      try {
+        const [activeRes, upcomingRes, allRes] = await Promise.all([
+          fetch('/api/chit-funds/consolidated?action=list&page=1&pageSize=1&status=Active'),
+          fetch('/api/chit-funds/consolidated?action=list&page=1&pageSize=1&status=Upcoming'),
+          fetch('/api/chit-funds/consolidated?action=list&page=1&pageSize=500&status=Active'),
+        ]);
+        const activeData = await activeRes.json();
+        const upcomingData = await upcomingRes.json();
+        const allData = await allRes.json();
+        const funds = allData.chitFunds || [];
+        setStats({
+          active: activeData.totalCount || 0,
+          upcoming: upcomingData.totalCount || 0,
+          totalMembers: funds.reduce((sum: number, f: ChitFund) => sum + (f._count?.members || f.membersCount || 0), 0),
+          totalValue: funds.reduce((sum: number, f: ChitFund) => sum + (f.totalAmount || 0), 0),
+        });
+      } catch (err) {
+        console.error('Error fetching chit fund stats:', err);
+      }
+    };
+    fetchStats();
+  }, []);
 
   // Handle selecting/deselecting a chit fund
   const handleSelectChitFund = (chitFundId: number) => {
@@ -357,141 +390,141 @@ export default function ChitFundsPage() {
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'Active':
-        return 'bg-green-100 text-green-800';
+        return 'bg-green-100 text-green-800 dark:status-badge-active';
       case 'Upcoming':
-        return 'bg-blue-100 text-blue-800';
+        return 'bg-yellow-100 text-yellow-800 dark:status-badge-upcoming';
       case 'Completed':
-        return 'bg-gray-100 text-gray-800';
+        return 'bg-gray-100 text-gray-800 dark:status-badge-completed';
       default:
-        return 'bg-gray-100 text-gray-800';
+        return 'bg-gray-100 text-gray-800 dark:status-badge-completed';
     }
   };
 
   return (
-    <div className="container mx-auto px-2 sm:px-4 py-6 sm:py-8 max-w-screen-xl w-full">
-      <div className="flex flex-row flex-wrap items-center justify-between gap-2 mb-6 sm:mb-8">
-        <h1 className="text-2xl sm:text-3xl font-bold text-blue-700">Chit Funds</h1>
-        <div className="flex flex-row flex-wrap gap-1 sm:gap-2 w-auto">
-          {/* Export Selected */}
-          <button
-            onClick={handleExportSelected}
-            disabled={selectedChitFunds.length === 0 || isExporting}
-            aria-label="Export Selected"
-            className={`p-2 rounded-lg text-sm sm:text-base transition duration-300 flex items-center justify-center ${
-              selectedChitFunds.length === 0
-                ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                : 'bg-blue-600 text-white hover:bg-blue-700'
-            } sm:px-4 sm:py-2`}
-          >
-            <ArrowDownTrayIcon className="h-5 w-5 block sm:hidden" />
-            <span className="hidden sm:inline-flex items-center">
-              <ArrowDownTrayIcon className="h-5 w-5 mr-2" />
-              {isExporting ? 'Exporting...' : 'Export Selected'}
-            </span>
-          </button>
-          {/* Delete Selected */}
-          <button
-            onClick={handleBulkDeleteClick}
-            disabled={selectedChitFunds.length === 0}
-            aria-label="Delete Selected"
-            className={`p-2 rounded-lg text-sm sm:text-base transition duration-300 flex items-center justify-center ${
-              selectedChitFunds.length === 0
-                ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                : 'bg-red-600 text-white hover:bg-red-700'
-            } sm:px-4 sm:py-2`}
-          >
-            <TrashIcon className="h-5 w-5 block sm:hidden" />
-            <span className="hidden sm:inline-flex items-center">
-              <TrashIcon className="h-5 w-5 mr-2" />
-              Delete Selected
-            </span>
-          </button>
-          {/* Create New Chit Fund */}
-          <Link
-            href="/chit-funds/new"
-            aria-label="Create New Chit Fund"
-            className="p-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition duration-300 text-center text-sm sm:text-base flex items-center justify-center sm:px-4 sm:py-2"
-          >
-            <PlusCircleIcon className="h-5 w-5 block sm:hidden" />
-            <span className="hidden sm:inline-flex items-center">
-              <PlusCircleIcon className="h-5 w-5 mr-2" />
-              Create New Chit Fund
-            </span>
-          </Link>
-        </div>
-      </div>
-
-      {/* Status filter - always visible */}
-      <div className="bg-white rounded-lg shadow-md overflow-hidden mb-4">
-        <div className="p-2 sm:p-4 flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-4">
-          <label htmlFor="statusFilter" className="text-sm text-gray-600 mr-0 sm:mr-2">
-            Filter by Status:
-          </label>
-          <select
-            id="statusFilter"
-            value={statusFilter}
-            onChange={handleStatusFilterChange}
-            className="border border-gray-300 rounded-md text-sm py-1 pl-2 pr-8"
-          >
-            <option value="">All Statuses</option>
-            <option value="Active">Active</option>
-            <option value="Upcoming">Upcoming</option>
-            <option value="Completed">Completed</option>
-          </select>
-
-          {statusFilter && (
+    <div className="page-container">
+      <PageSectionHeader
+        icon={<BuildingLibraryIcon className="w-5 h-5" />}
+        title="Chit Funds"
+        subtitle="Manage active chit fund schemes and auctions"
+        actions={
+          <>
             <button
-              onClick={() => setStatusFilter('')}
-              className="text-sm text-gray-500 hover:text-gray-700"
+              onClick={() => fetchChitFunds()}
+              className="btn-secondary"
+              aria-label="Refresh"
             >
-              Clear Filter
+              <ArrowPathIcon className="h-4 w-4" />
             </button>
-          )}
-        </div>
+            {selectedChitFunds.length > 0 && (
+              <>
+                <button
+                  onClick={handleExportSelected}
+                  disabled={isExporting}
+                  className="btn-secondary disabled:opacity-50"
+                >
+                  <ArrowDownTrayIcon className="h-4 w-4" />
+                  <span className="hidden sm:inline">{isExporting ? 'Exporting...' : 'Export'}</span>
+                </button>
+                <button
+                  onClick={handleBulkDeleteClick}
+                  className="btn-secondary text-red-400 hover:text-red-300"
+                >
+                  <TrashIcon className="h-4 w-4" />
+                  <span className="hidden sm:inline">Delete</span>
+                </button>
+              </>
+            )}
+            <Link href="/chit-funds/new" className="btn-primary">
+              <PlusCircleIcon className="h-4 w-4" />
+              <span>Add Chit Fund</span>
+            </Link>
+          </>
+        }
+      />
+
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <StatsCard
+          label="Active Chit Funds"
+          value={stats.active}
+          icon={<BuildingLibraryIcon className="w-4 h-4" />}
+        />
+        <StatsCard
+          label="Total Value"
+          value={formatCurrency(stats.totalValue)}
+          icon={<BanknotesIcon className="w-4 h-4" />}
+        />
+        <StatsCard
+          label="Total Members"
+          value={stats.totalMembers.toLocaleString()}
+          icon={<UserGroupIcon className="w-4 h-4" />}
+        />
+        <StatsCard
+          label="Upcoming"
+          value={stats.upcoming}
+          icon={<ClockIcon className="w-4 h-4" />}
+        />
       </div>
+
+      <FilterBar
+        searchValue={searchQuery}
+        onSearchChange={setSearchQuery}
+        searchPlaceholder="Search chit funds..."
+        filters={[
+          {
+            id: 'statusFilter',
+            value: statusFilter,
+            onChange: (value) => {
+              setStatusFilter(value);
+              setCurrentPage(1);
+            },
+            options: [
+              { value: '', label: 'All Status' },
+              { value: 'Active', label: 'Active' },
+              { value: 'Upcoming', label: 'Upcoming' },
+              { value: 'Completed', label: 'Completed' },
+            ],
+          },
+        ]}
+      />
 
       {loading ? (
         <ChitFundsListSkeleton />
       ) : error ? (
-        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded text-sm sm:text-base">
+        <div className="dark-card alert-error text-sm">
           <p className="font-bold">Error</p>
           <p>{error}</p>
         </div>
       ) : chitFunds.length === 0 ? (
-        <div className="bg-white rounded-lg shadow-md p-4 sm:p-6 text-center">
-          <p className="text-gray-600 mb-4 text-sm sm:text-base">
-            {statusFilter ? `No chit funds found with status "${statusFilter}".` : "No chit funds found."}
+        <div className="dark-card p-8 text-center">
+          <p className="text-gray-400 mb-4">
+            {statusFilter ? `No chit funds found with status "${statusFilter}".` : 'No chit funds found.'}
           </p>
           {!statusFilter && (
-            <Link href="/chit-funds/new" className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition duration-300 text-sm sm:text-base">
+            <Link href="/chit-funds/new" className="btn-primary">
               Create Your First Chit Fund
             </Link>
           )}
         </div>
       ) : (
-        <div className="bg-white rounded-lg shadow-md overflow-hidden">
-          <div className="p-2 sm:p-4 border-b flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 sm:gap-0">
-            <div className="flex items-center">
-              <span className="text-sm text-gray-600">
-                {selectedChitFunds.length > 0 ? `${selectedChitFunds.length} selected` : ''}
-              </span>
+        <div className="dark-card overflow-hidden">
+          {selectedChitFunds.length > 0 && (
+            <div className="px-4 py-3 border-b border-gray-200 dark:border-surface-border">
+              <span className="text-sm text-gray-400">{selectedChitFunds.length} selected</span>
             </div>
-          </div>
+          )}
 
-          {/* Table container with proper mobile scrolling - constrained width */}
-          <div className="overflow-x-auto w-full" style={{maxWidth: '85vw'}}>
-            <table className="w-full divide-y divide-gray-200 text-xs sm:text-sm" style={{minWidth: '700px'}}>
-              <thead className="bg-gray-50">
+          <div className="table-shell">
+            <table className="dark-table" style={{ minWidth: '700px' }}>
+              <thead>
                 <tr>
-                  <th scope="col" className="px-2 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th scope="col">
                     <div className="flex items-center">
                       <input
                         type="checkbox"
                         checked={selectAll}
                         onChange={handleSelectAll}
-                        className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                        className="h-4 w-4 text-blue-600 border-gray-200 dark:border-surface-border bg-gray-50 dark:bg-surface-elevated rounded focus:ring-blue-500"
                       />
-                      <span className="ml-2">Select</span>
                     </div>
                   </th>
                   <SortableTableHeader
@@ -544,16 +577,16 @@ export default function ChitFundsPage() {
                     onSort={requestSort}
                     className="px-6 py-3"
                   />
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
                     Actions
                   </th>
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {sortedChitFunds.map((fund) => (
+              <tbody>
+                {filteredChitFunds.map((fund) => (
                   <tr
                     key={fund.id}
-                    className="hover:bg-gray-50 cursor-pointer"
+                    className="cursor-pointer"
                     onClick={(e) => {
                       // Prevent navigation when clicking on checkbox or action buttons/links
                       if (
@@ -567,42 +600,40 @@ export default function ChitFundsPage() {
                       router.push(`/chit-funds/${fund.id}`);
                     }}
                   >
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="whitespace-nowrap">
                       <div className="flex items-center">
                         <input
                           type="checkbox"
                           checked={selectedChitFunds.includes(fund.id)}
                           onChange={() => handleSelectChitFund(fund.id)}
-                          className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                          className="h-4 w-4 text-blue-600 border-gray-200 dark:border-surface-border bg-gray-50 dark:bg-surface-elevated rounded focus:ring-blue-500"
                         />
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm font-medium text-blue-600">
-                        {fund.name}
-                      </div>
+                    <td className="whitespace-nowrap">
+                      <div className="text-sm font-medium text-white">{fund.name}</div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">{formatCurrency(fund.totalAmount)}</div>
+                    <td className="whitespace-nowrap">
+                      <div className="text-sm">{formatCurrency(fund.totalAmount)}</div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">{formatCurrency(fund.monthlyContribution)}</div>
+                    <td className="whitespace-nowrap">
+                      <div className="text-sm">{formatCurrency(fund.monthlyContribution)}</div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">{fund.currentMonth || 0}/{fund.duration}</div>
+                    <td className="whitespace-nowrap">
+                      <div className="text-sm">{fund.currentMonth || 0}/{fund.duration}</div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">{fund._count?.auctions || 0}/{fund._count?.members || 0}</div>
+                    <td className="whitespace-nowrap">
+                      <div className="text-sm">{fund._count?.auctions || 0}/{fund._count?.members || 0}</div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusColor(fund.status)}`}>
-                        {fund.status}
+                    <td className="whitespace-nowrap">
+                      <span className={getStatusColor(fund.status)}>
+                        {fund.status.toLowerCase()}
                       </span>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">{formatDate(fund.nextAuctionDate)}</div>
+                    <td className="whitespace-nowrap">
+                      <div className="text-sm text-gray-400">{formatDate(fund.nextAuctionDate)}</div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                    <td className="whitespace-nowrap text-sm font-medium">
                       <ActionDropdown
                         actions={[
                           {
@@ -647,14 +678,14 @@ export default function ChitFundsPage() {
           </div>
 
           {/* Pagination controls */}
-          <div className="p-2 sm:p-6 border-t">
+          <div className="p-4 border-t border-gray-200 dark:border-surface-border">
             <div className="flex flex-col md:flex-row justify-between items-center gap-2 md:gap-0">
               <div className="mb-2 md:mb-0 flex items-center">
-                <p className="text-xs sm:text-sm text-gray-600 mr-2 sm:mr-4">
-                  Showing {chitFunds.length} of {totalCount} chit funds
+                <p className="text-xs sm:text-sm text-gray-400 mr-2 sm:mr-4">
+                  Showing {filteredChitFunds.length} of {totalCount} chit funds
                 </p>
                 <div className="flex items-center">
-                  <label htmlFor="pageSize" className="text-xs sm:text-sm text-gray-600 mr-2">
+                  <label htmlFor="pageSize" className="text-xs sm:text-sm text-gray-400 mr-2">
                     Show:
                   </label>
                   <select
@@ -662,9 +693,9 @@ export default function ChitFundsPage() {
                     value={pageSize}
                     onChange={(e) => {
                       setPageSize(Number(e.target.value));
-                      setCurrentPage(1); // Reset to first page when changing page size
+                      setCurrentPage(1);
                     }}
-                    className="border border-gray-300 rounded-md text-xs sm:text-sm py-1 pl-2 pr-8"
+                    className="themed-input text-xs sm:text-sm py-1 pl-2 pr-8"
                   >
                     <option value="5">5</option>
                     <option value="10">10</option>
@@ -677,13 +708,11 @@ export default function ChitFundsPage() {
 
               <div className="flex flex-col md:flex-row items-center space-y-2 md:space-y-0">
                 <div>
-                  <nav className="isolate inline-flex -space-x-px rounded-md shadow-sm" aria-label="Pagination">
+                  <nav className="isolate inline-flex -space-x-px rounded-lg" aria-label="Pagination">
                     <button
                       onClick={() => setCurrentPage(1)}
                       disabled={currentPage === 1}
-                      className={`relative inline-flex items-center rounded-l-md px-2 py-2 ${
-                        currentPage === 1 ? 'text-gray-300 cursor-not-allowed' : 'text-gray-500 hover:bg-gray-50'
-                      }`}
+                      className="pagination-bordered rounded-l-lg"
                     >
                       <span className="sr-only">First</span>
                       <span className="text-xs">First</span>
@@ -691,9 +720,7 @@ export default function ChitFundsPage() {
                     <button
                       onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
                       disabled={currentPage === 1}
-                      className={`relative inline-flex items-center px-2 py-2 ${
-                        currentPage === 1 ? 'text-gray-300 cursor-not-allowed' : 'text-gray-500 hover:bg-gray-50'
-                      }`}
+                      className="pagination-bordered border-y"
                     >
                       <span className="sr-only">Previous</span>
                       <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
@@ -718,11 +745,11 @@ export default function ChitFundsPage() {
                         <button
                           key={pageNum}
                           onClick={() => setCurrentPage(pageNum)}
-                          className={`relative inline-flex items-center px-4 py-2 text-sm font-semibold ${
+                          className={
                             currentPage === pageNum
-                              ? 'z-10 bg-blue-600 text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600'
-                              : 'text-gray-900 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:outline-offset-0'
-                          }`}
+                              ? 'pagination-page-active border-y border-blue-600'
+                              : 'pagination-page border-y'
+                          }
                         >
                           {pageNum}
                         </button>
@@ -732,9 +759,7 @@ export default function ChitFundsPage() {
                     <button
                       onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
                       disabled={currentPage === totalPages}
-                      className={`relative inline-flex items-center px-2 py-2 ${
-                        currentPage === totalPages ? 'text-gray-300 cursor-not-allowed' : 'text-gray-500 hover:bg-gray-50'
-                      }`}
+                      className="pagination-bordered border-y"
                     >
                       <span className="sr-only">Next</span>
                       <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
@@ -744,9 +769,7 @@ export default function ChitFundsPage() {
                     <button
                       onClick={() => setCurrentPage(totalPages)}
                       disabled={currentPage === totalPages}
-                      className={`relative inline-flex items-center rounded-r-md px-2 py-2 ${
-                        currentPage === totalPages ? 'text-gray-300 cursor-not-allowed' : 'text-gray-500 hover:bg-gray-50'
-                      }`}
+                      className="pagination-bordered rounded-r-lg"
                     >
                       <span className="sr-only">Last</span>
                       <span className="text-xs">Last</span>
@@ -761,33 +784,33 @@ export default function ChitFundsPage() {
 
       {/* Delete Confirmation Modal */}
       {showDeleteModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 px-2">
-          <div className="bg-white rounded-lg p-4 sm:p-6 max-w-md w-full">
-            <h3 className="text-lg font-semibold mb-4">Confirm Delete</h3>
+        <div className="modal-overlay">
+          <div className="dark-card p-4 sm:p-6 max-w-md w-full">
+            <h3 className="text-lg font-semibold mb-4 text-white">Confirm Delete</h3>
             {deleteSuccess ? (
-              <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-4">
+              <div className="alert-success mb-4">
                 <p>{deleteSuccess}</p>
               </div>
             ) : (
               <>
-                <p className="mb-4">Are you sure you want to delete this chit fund? This action cannot be undone.</p>
-                <p className="mb-4 text-red-600 font-semibold">Warning: This will also delete all members, contributions, and auctions associated with this chit fund.</p>
+                <p className="mb-4 text-gray-300">Are you sure you want to delete this chit fund? This action cannot be undone.</p>
+                <p className="mb-4 text-red-400 font-semibold">Warning: This will also delete all members, contributions, and auctions associated with this chit fund.</p>
                 {deleteError && (
-                  <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+                  <div className="alert-error mb-4">
                     <p>{deleteError}</p>
                   </div>
                 )}
                 <div className="flex justify-end space-x-3">
                   <button
                     onClick={() => setShowDeleteModal(false)}
-                    className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition duration-300"
+                    className="btn-secondary"
                     disabled={isDeleting}
                   >
                     Cancel
                   </button>
                   <button
                     onClick={confirmDeleteChitFund}
-                    className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-500 transition duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
                     disabled={isDeleting}
                   >
                     {isDeleting ? 'Deleting...' : 'Delete'}
@@ -801,33 +824,33 @@ export default function ChitFundsPage() {
 
       {/* Bulk Delete Confirmation Modal */}
       {showBulkDeleteModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 px-2">
-          <div className="bg-white rounded-lg p-4 sm:p-6 max-w-md w-full">
-            <h3 className="text-lg font-semibold mb-4">Confirm Bulk Delete</h3>
+        <div className="modal-overlay">
+          <div className="dark-card p-4 sm:p-6 max-w-md w-full">
+            <h3 className="text-lg font-semibold mb-4 text-white">Confirm Bulk Delete</h3>
             {bulkDeleteSuccess ? (
-              <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-4">
+              <div className="alert-success mb-4">
                 <p>{bulkDeleteSuccess}</p>
               </div>
             ) : (
               <>
-                <p className="mb-4">Are you sure you want to delete {selectedChitFunds.length} chit funds? This action cannot be undone.</p>
-                <p className="mb-4 text-red-600 font-semibold">Warning: This will also delete all members, contributions, and auctions associated with these chit funds.</p>
+                <p className="mb-4 text-gray-300">Are you sure you want to delete {selectedChitFunds.length} chit funds? This action cannot be undone.</p>
+                <p className="mb-4 text-red-400 font-semibold">Warning: This will also delete all members, contributions, and auctions associated with these chit funds.</p>
                 {bulkDeleteError && (
-                  <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+                  <div className="alert-error mb-4">
                     <p>{bulkDeleteError}</p>
                   </div>
                 )}
                 <div className="flex justify-end space-x-3">
                   <button
                     onClick={() => setShowBulkDeleteModal(false)}
-                    className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition duration-300"
+                    className="btn-secondary"
                     disabled={isBulkDeleting}
                   >
                     Cancel
                   </button>
                   <button
                     onClick={confirmBulkDeleteChitFunds}
-                    className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-500 transition duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
                     disabled={isBulkDeleting}
                   >
                     {isBulkDeleting ? 'Deleting...' : 'Delete Selected'}

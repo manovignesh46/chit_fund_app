@@ -778,7 +778,7 @@ export default function ChitFundMembersPage() {
         <div className="flex justify-center items-center h-64">
           <div className="text-center">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-700 mx-auto mb-4"></div>
-            <p className="text-gray-600">Loading members data...</p>
+            <p className="text-gray-700 dark:text-theme-secondary">Loading members data...</p>
           </div>
         </div>
       </div>
@@ -788,7 +788,7 @@ export default function ChitFundMembersPage() {
   if (error) {
     return (
       <div className="container mx-auto px-4 py-8">
-        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+        <div className="alert-error px-4 py-3 rounded">
           <p className="font-bold">Error</p>
           <p>{error}</p>
           <button
@@ -819,13 +819,13 @@ export default function ChitFundMembersPage() {
   return (
     <div className="container w-full max-w-screen-xl mx-auto px-2 sm:px-4 py-4 sm:py-8">
       <div className="flex flex-row flex-wrap items-center justify-between gap-2 mb-6 sm:mb-8">
-        <h1 className="text-2xl sm:text-3xl font-bold text-blue-700 break-words flex-shrink-0">Members</h1>
+        <h1 className="page-title break-words flex-shrink-0">Members</h1>
         <div className="flex flex-row flex-wrap gap-1 sm:gap-2 w-auto">
           {/* Back to Chit Fund */}
           <Link
             href={`/chit-funds/${chitFundId}`}
             aria-label="Back to Chit Fund"
-            className="p-2 rounded-lg bg-gray-200 text-gray-700 hover:bg-gray-300 transition flex items-center justify-center sm:px-4 sm:py-2"
+            className="p-2 rounded-lg btn-neutral transition flex items-center justify-center sm:px-4 sm:py-2"
           >
             <ArrowUturnLeftIcon className="h-5 w-5 block sm:hidden" />
             <span className="hidden sm:inline-flex items-center space-x-1 text-sm">
@@ -900,33 +900,33 @@ export default function ChitFundMembersPage() {
           )}
         </div>
       </div>
-      <p className="text-gray-600 text-xs sm:text-sm w-full sm:w-auto mt-2 sm:mt-0">
+      <p className="text-gray-700 dark:text-theme-secondary text-xs sm:text-sm w-full sm:w-auto mt-2 sm:mt-0">
         Month {chitFund.currentMonth} of {chitFund.duration} |
         Monthly Contribution: {formatCurrency(chitFund.monthlyContribution)}
       </p>
 
       {/* Notification Messages */}
       {contributionSuccess && (
-        <div className="mb-4 bg-green-100 border border-green-400 text-green-700 px-2 sm:px-4 py-2 sm:py-3 rounded text-xs sm:text-sm">
+        <div className="mb-4 alert-success px-2 sm:px-4 py-2 sm:py-3 rounded text-xs sm:text-sm">
           <span className="block sm:inline">{contributionSuccess}</span>
         </div>
       )}
       {contributionError && (
-        <div className="mb-4 bg-red-100 border border-red-400 text-red-700 px-2 sm:px-4 py-2 sm:py-3 rounded text-xs sm:text-sm">
+        <div className="mb-4 alert-error px-2 sm:px-4 py-2 sm:py-3 rounded text-xs sm:text-sm">
           <span className="block sm:inline">{contributionError}</span>
         </div>
       )}
       {exportError && (
-        <div className="mb-4 bg-red-100 border border-red-400 text-red-700 px-2 sm:px-4 py-2 sm:py-3 rounded text-xs sm:text-sm">
+        <div className="mb-4 alert-error px-2 sm:px-4 py-2 sm:py-3 rounded text-xs sm:text-sm">
           <span className="block sm:inline">{exportError}</span>
         </div>
       )}
 
       {/* Members Table */}
-      <div className="bg-white rounded-lg shadow-md overflow-hidden mb-8">
-        <div className="overflow-x-auto w-full" style={{maxWidth: '85vw'}}>
-          <table className="w-full divide-y divide-gray-200 text-xs sm:text-sm" style={{minWidth: '1100px'}}>
-            <thead className="bg-gray-50">
+      <div className="themed-card overflow-hidden mb-8">
+        <div className="table-shell" style={{maxWidth: '85vw'}}>
+          <table className="themed-table text-xs sm:text-sm" style={{minWidth: '1100px'}}>
+            <thead className="bg-gray-50 dark:bg-surface-elevated">
               <tr>
                 <th scope="col" className="px-2 sm:px-6 py-2 sm:py-3 text-left font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
                   <div className="flex items-center">
@@ -934,7 +934,7 @@ export default function ChitFundMembersPage() {
                       type="checkbox"
                       checked={selectAll}
                       onChange={handleSelectAll}
-                      className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                      className="h-4 w-4 text-blue-600 border-gray-200 dark:border-surface-border rounded focus:ring-blue-500"
                     />
                     <span className="ml-2">Select</span>
                   </div>
@@ -965,7 +965,7 @@ export default function ChitFundMembersPage() {
                 </th>
               </tr>
             </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
+            <tbody>
               {members.length === 0 ? (
                 <tr>
                   <td colSpan={9} className="px-6 py-4 text-center text-gray-500">
@@ -974,14 +974,14 @@ export default function ChitFundMembersPage() {
                 </tr>
               ) : (
                 members.map((member) => (
-                  <tr key={member.id} className="hover:bg-gray-50">
+                  <tr key={member.id} className="hover:bg-gray-50 dark:hover:bg-surface-hover">
                     <td className="px-2 sm:px-6 py-2 sm:py-4 whitespace-nowrap">
                       <div className="flex items-center">
                         <input
                           type="checkbox"
                           checked={selectedMembers.includes(member.id)}
                           onChange={() => handleSelectMember(member.id)}
-                          className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                          className="h-4 w-4 text-blue-600 border-gray-200 dark:border-surface-border rounded focus:ring-blue-500"
                         />
                       </div>
                     </td>
@@ -989,17 +989,17 @@ export default function ChitFundMembersPage() {
                       <div className="text-sm font-medium text-blue-600">{member.globalMember.name}</div>
                     </td>
                     <td className="px-2 sm:px-6 py-2 sm:py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">{member.globalMember.contact}</div>
+                      <div className="text-sm text-gray-900 dark:text-theme-primary">{member.globalMember.contact}</div>
                     </td>
                     <td className="px-2 sm:px-6 py-2 sm:py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">{formatDate(member.joinDate)}</div>
+                      <div className="text-sm text-gray-900 dark:text-theme-primary">{formatDate(member.joinDate)}</div>
                     </td>
                     <td className="px-2 sm:px-6 py-2 sm:py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">{formatCurrency(member.contribution)}</div>
+                      <div className="text-sm text-gray-900 dark:text-theme-primary">{formatCurrency(member.contribution)}</div>
                     </td>
                     <td className="px-2 sm:px-6 py-2 sm:py-4 whitespace-nowrap">
                       <div className="flex flex-col">
-                        <div className={`text-xs sm:text-sm ${member.missedContributions > 0 ? 'text-red-600 font-semibold' : 'text-gray-900'}`}>{member.missedContributions}</div>
+                        <div className={`text-xs sm:text-sm ${member.missedContributions > 0 ? 'text-red-600 font-semibold' : 'text-gray-900 dark:text-theme-primary'}`}>{member.missedContributions}</div>
                         {member.missedContributions > 0 && (
                           <button
                             onClick={(e) => {
@@ -1039,7 +1039,7 @@ export default function ChitFundMembersPage() {
                       </div>
                     </td>
                     <td className="px-2 sm:px-6 py-2 sm:py-4 whitespace-nowrap">
-                      <div className={`text-sm ${member.pendingAmount > 0 ? 'text-red-600 font-semibold' : 'text-gray-900'}`}>
+                      <div className={`text-sm ${member.pendingAmount > 0 ? 'text-red-600 font-semibold' : 'text-gray-900 dark:text-theme-primary'}`}>
                         {formatCurrency(member.pendingAmount)}
                       </div>
                     </td>
@@ -1049,7 +1049,7 @@ export default function ChitFundMembersPage() {
                           Won in Month {member.auctionMonth}
                         </span>
                       ) : (
-                        <span className="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-800">
+                        <span className="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-900 dark:text-theme-primary">
                           Not Won Yet
                         </span>
                       )}
@@ -1098,13 +1098,13 @@ export default function ChitFundMembersPage() {
           </table>
 
           {/* Pagination Controls */}
-          <div className="mt-6 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between border-t border-gray-200 bg-white px-2 sm:px-4 py-2 sm:py-3">
+          <div className="mt-6 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between border-t border-gray-200 dark:border-surface-border themed-card px-2 sm:px-4 py-2 sm:py-3">
             <div className="flex flex-1 justify-between sm:hidden">
               <button
                 onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
                 disabled={currentPage === 1}
-                className={`relative inline-flex items-center rounded-md border border-gray-300 bg-white px-3 py-2 text-xs font-medium ${
-                  currentPage === 1 ? 'text-gray-300 cursor-not-allowed' : 'text-gray-700 hover:bg-gray-50'
+                className={`relative inline-flex items-center rounded-md border border-gray-200 dark:border-surface-border themed-card px-3 py-2 text-xs font-medium ${
+                  currentPage === 1 ? 'pagination-nav-btn' : 'text-gray-700 dark:text-theme-secondary hover:bg-gray-50 dark:hover:bg-surface-hover'
                 }`}
               >
                 Previous
@@ -1112,8 +1112,8 @@ export default function ChitFundMembersPage() {
               <button
                 onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
                 disabled={currentPage === totalPages}
-                className={`relative ml-3 inline-flex items-center rounded-md border border-gray-300 bg-white px-3 py-2 text-xs font-medium ${
-                  currentPage === totalPages ? 'text-gray-300 cursor-not-allowed' : 'text-gray-700 hover:bg-gray-50'
+                className={`relative ml-3 inline-flex items-center rounded-md border border-gray-200 dark:border-surface-border themed-card px-3 py-2 text-xs font-medium ${
+                  currentPage === totalPages ? 'pagination-nav-btn' : 'text-gray-700 dark:text-theme-secondary hover:bg-gray-50 dark:hover:bg-surface-hover'
                 }`}
               >
                 Next
@@ -1121,13 +1121,13 @@ export default function ChitFundMembersPage() {
             </div>
             <div className="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between">
               <div className="flex items-center">
-                <p className="text-sm text-gray-700 mr-4">
+                <p className="text-sm text-gray-700 dark:text-theme-secondary mr-4">
                   Showing <span className="font-medium">{members.length > 0 ? (currentPage - 1) * pageSize + 1 : 0}</span> to{' '}
                   <span className="font-medium">{Math.min(currentPage * pageSize, (currentPage - 1) * pageSize + members.length)}</span> of{' '}
                   <span className="font-medium">{totalPages * pageSize}</span> results
                 </p>
                 <div className="flex items-center">
-                  <label htmlFor="pageSize" className="text-sm text-gray-700 mr-2">
+                  <label htmlFor="pageSize" className="text-sm text-gray-700 dark:text-theme-secondary mr-2">
                     Show:
                   </label>
                   <select
@@ -1137,7 +1137,7 @@ export default function ChitFundMembersPage() {
                       setPageSize(Number(e.target.value));
                       setCurrentPage(1); // Reset to first page when changing page size
                     }}
-                    className="border border-gray-300 rounded-md text-sm py-1 pl-2 pr-8"
+                    className="themed-input text-sm py-1 pl-2 pr-8"
                   >
                     <option value="5">5</option>
                     <option value="10">10</option>
@@ -1153,7 +1153,7 @@ export default function ChitFundMembersPage() {
                     onClick={() => setCurrentPage(1)}
                     disabled={currentPage === 1}
                     className={`relative inline-flex items-center rounded-l-md px-2 py-2 ${
-                      currentPage === 1 ? 'text-gray-300 cursor-not-allowed' : 'text-gray-500 hover:bg-gray-50'
+                      currentPage === 1 ? 'pagination-nav-btn' : 'pagination-nav-btn'
                     }`}
                   >
                     <span className="sr-only">First</span>
@@ -1163,7 +1163,7 @@ export default function ChitFundMembersPage() {
                     onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
                     disabled={currentPage === 1}
                     className={`relative inline-flex items-center px-2 py-2 ${
-                      currentPage === 1 ? 'text-gray-300 cursor-not-allowed' : 'text-gray-500 hover:bg-gray-50'
+                      currentPage === 1 ? 'pagination-nav-btn' : 'pagination-nav-btn'
                     }`}
                   >
                     <span className="sr-only">Previous</span>
@@ -1190,7 +1190,7 @@ export default function ChitFundMembersPage() {
                         className={`relative inline-flex items-center px-4 py-2 text-sm font-semibold ${
                           currentPage === pageNum
                             ? 'z-10 bg-blue-600 text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600'
-                            : 'text-gray-900 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:outline-offset-0'
+                            : 'text-gray-900 dark:text-theme-primary pagination-page focus:outline-offset-0'
                         }`}
                       >
                         {pageNum}
@@ -1202,7 +1202,7 @@ export default function ChitFundMembersPage() {
                     onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
                     disabled={currentPage === totalPages}
                     className={`relative inline-flex items-center px-2 py-2 ${
-                      currentPage === totalPages ? 'text-gray-300 cursor-not-allowed' : 'text-gray-500 hover:bg-gray-50'
+                      currentPage === totalPages ? 'pagination-nav-btn' : 'pagination-nav-btn'
                     }`}
                   >
                     <span className="sr-only">Next</span>
@@ -1212,7 +1212,7 @@ export default function ChitFundMembersPage() {
                     onClick={() => setCurrentPage(totalPages)}
                     disabled={currentPage === totalPages}
                     className={`relative inline-flex items-center rounded-r-md px-2 py-2 ${
-                      currentPage === totalPages ? 'text-gray-300 cursor-not-allowed' : 'text-gray-500 hover:bg-gray-50'
+                      currentPage === totalPages ? 'pagination-nav-btn' : 'pagination-nav-btn'
                     }`}
                   >
                     <span className="sr-only">Last</span>
@@ -1227,8 +1227,8 @@ export default function ChitFundMembersPage() {
 
       {/* Delete Confirmation Modal */}
       {showDeleteModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-xs sm:max-w-md">
+        <div className="modal-overlay flex items-center justify-center z-50">
+          <div className="themed-card p-6 w-full max-w-xs sm:max-w-md">
             <h2 className="text-xl font-bold text-red-700 mb-4">Confirm Removal</h2>
             <p className="mb-2">Are you sure you want to remove this member from the chit fund? This action cannot be undone.</p>
             <div className="mb-6 bg-yellow-50 border border-yellow-400 text-yellow-700 p-3 rounded">
@@ -1240,7 +1240,7 @@ export default function ChitFundMembersPage() {
               </ul>
             </div>
             {deleteError && (
-              <div className="mb-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+              <div className="mb-4 alert-error px-4 py-3 rounded">
                 <p>{deleteError}</p>
               </div>
             )}
@@ -1252,7 +1252,7 @@ export default function ChitFundMembersPage() {
                   setMemberToDelete(null);
                   setDeleteError(null);
                 }}
-                className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition duration-300"
+                className="btn-neutral px-4 py-2 rounded-lg transition duration-300"
               >
                 Cancel
               </button>
@@ -1271,8 +1271,8 @@ export default function ChitFundMembersPage() {
 
       {/* Bulk Delete Confirmation Modal */}
       {showBulkDeleteModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-xs sm:max-w-md">
+        <div className="modal-overlay flex items-center justify-center z-50">
+          <div className="themed-card p-6 w-full max-w-xs sm:max-w-md">
             <h2 className="text-xl font-bold text-red-700 mb-4">Confirm Bulk Removal</h2>
             <p className="mb-2">Are you sure you want to remove {selectedMembers.length} selected member{selectedMembers.length > 1 ? 's' : ''} from the chit fund? This action cannot be undone.</p>
             <div className="mb-6 bg-yellow-50 border border-yellow-400 text-yellow-700 p-3 rounded">
@@ -1285,13 +1285,13 @@ export default function ChitFundMembersPage() {
             </div>
 
             {bulkDeleteSuccess && (
-              <div className="mb-4 bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded">
+              <div className="mb-4 alert-success px-4 py-3 rounded">
                 <p>{bulkDeleteSuccess}</p>
               </div>
             )}
 
             {bulkDeleteError && (
-              <div className="mb-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+              <div className="mb-4 alert-error px-4 py-3 rounded">
                 <p>{bulkDeleteError}</p>
               </div>
             )}
@@ -1304,7 +1304,7 @@ export default function ChitFundMembersPage() {
                   setBulkDeleteError(null);
                   setBulkDeleteSuccess(null);
                 }}
-                className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition duration-300"
+                className="btn-neutral px-4 py-2 rounded-lg transition duration-300"
               >
                 Cancel
               </button>
@@ -1323,8 +1323,8 @@ export default function ChitFundMembersPage() {
 
       {/* Add Member Form */}
       {showAddForm && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 px-2">
-          <div className="bg-white rounded-lg shadow-lg w-full max-w-xs sm:max-w-md px-2 sm:px-6 py-4 sm:py-6">
+        <div className="modal-overlay flex items-center justify-center z-50 px-2">
+          <div className="themed-card w-full max-w-xs sm:max-w-md px-2 sm:px-6 py-4 sm:py-6">
             <h2 className="text-xl font-bold text-blue-700 mb-4">Add Member to Chit Fund</h2>
 
             <div className="mb-6">
@@ -1339,17 +1339,17 @@ export default function ChitFundMembersPage() {
               {loadingGlobalMembers ? (
                 <div className="text-center py-4">
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-700 mx-auto"></div>
-                  <p className="mt-2 text-sm text-gray-600">Loading global members...</p>
+                  <p className="mt-2 text-sm text-gray-700 dark:text-theme-secondary">Loading global members...</p>
                 </div>
               ) : globalMembers.length > 0 ? (
                 <div className="border rounded-lg overflow-hidden mt-4">
-                  <div className="bg-gray-50 p-3 border-b">
+                  <div className="bg-gray-50 dark:bg-surface-elevated p-3 border-b">
                     <div className="flex items-center">
                       <input
                         type="checkbox"
                         checked={selectAllGlobal}
                         onChange={handleSelectAllGlobalMembers}
-                        className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                        className="h-4 w-4 text-blue-600 border-gray-200 dark:border-surface-border rounded focus:ring-blue-500"
                       />
                       <span className="ml-2 font-medium">Select All</span>
 
@@ -1369,29 +1369,29 @@ export default function ChitFundMembersPage() {
                   </div>
 
                   <div className="max-h-60 overflow-y-auto">
-                    <table className="min-w-full divide-y divide-gray-200">
-                      <thead className="bg-gray-50">
+                    <table className="min-w-full divide-y divide-surface-border">
+                      <thead className="bg-gray-50 dark:bg-surface-elevated">
                         <tr>
-                          <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-theme-muted uppercase tracking-wider">
                             Select
                           </th>
-                          <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-theme-muted uppercase tracking-wider">
                             Name
                           </th>
-                          <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-theme-muted uppercase tracking-wider">
                             Contact
                           </th>
                         </tr>
                       </thead>
-                      <tbody className="bg-white divide-y divide-gray-200">
+                      <tbody>
                         {globalMembers.map((member) => (
-                          <tr key={member.id} className="hover:bg-gray-50">
+                          <tr key={member.id} className="hover:bg-gray-50 dark:hover:bg-surface-hover">
                             <td className="px-3 py-2 whitespace-nowrap">
                               <input
                                 type="checkbox"
                                 checked={selectedGlobalMembers.includes(member.id)}
                                 onChange={() => handleSelectGlobalMember(member.id)}
-                                className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                                className="h-4 w-4 text-blue-600 border-gray-200 dark:border-surface-border rounded focus:ring-blue-500"
                               />
                             </td>
                             <td className="px-3 py-2 whitespace-nowrap">{member.name}</td>
@@ -1403,20 +1403,20 @@ export default function ChitFundMembersPage() {
                   </div>
                 </div>
               ) : (
-                <p className="text-sm text-gray-600 mt-2">Click to load global members that are not yet part of this chit fund.</p>
+                <p className="text-sm text-gray-700 dark:text-theme-secondary mt-2">Click to load global members that are not yet part of this chit fund.</p>
               )}
 
               <div className="text-center my-4 relative">
                 <hr className="my-4" />
-                <span className="px-3 bg-white text-gray-500 text-sm absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">OR</span>
+                <span className="px-3 themed-card text-gray-500 text-sm absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">OR</span>
               </div>
 
-              <p className="text-sm text-gray-600 mb-4">Create a new member and add them to this chit fund:</p>
+              <p className="text-sm text-gray-700 dark:text-theme-secondary mb-4">Create a new member and add them to this chit fund:</p>
             </div>
 
             <form onSubmit={handleAddMember}>
               <div className="mb-4">
-                <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">
+                <label htmlFor="name" className="block text-sm font-medium text-gray-700 dark:text-theme-secondary mb-1">
                   Name <span className="text-red-500">*</span>
                 </label>
                 <input
@@ -1426,7 +1426,7 @@ export default function ChitFundMembersPage() {
                   value={newMember.name}
                   onChange={handleInputChange}
                   className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                    formErrors.name ? 'border-red-500' : 'border-gray-300'
+                    formErrors.name ? 'border-red-500' : 'border-gray-200 dark:border-surface-border'
                   }`}
                 />
                 {formErrors.name && (
@@ -1434,7 +1434,7 @@ export default function ChitFundMembersPage() {
                 )}
               </div>
               <div className="mb-4">
-                <label htmlFor="contact" className="block text-sm font-medium text-gray-700 mb-1">
+                <label htmlFor="contact" className="block text-sm font-medium text-gray-700 dark:text-theme-secondary mb-1">
                   Contact Number <span className="text-red-500">*</span>
                 </label>
                 <input
@@ -1444,7 +1444,7 @@ export default function ChitFundMembersPage() {
                   value={newMember.contact}
                   onChange={handleInputChange}
                   className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                    formErrors.contact ? 'border-red-500' : 'border-gray-300'
+                    formErrors.contact ? 'border-red-500' : 'border-gray-200 dark:border-surface-border'
                   }`}
                 />
                 {formErrors.contact && (
@@ -1452,7 +1452,7 @@ export default function ChitFundMembersPage() {
                 )}
               </div>
               {formErrors.submit && (
-                <div className="mb-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+                <div className="mb-4 alert-error px-4 py-3 rounded">
                   <p>{formErrors.submit}</p>
                 </div>
               )}
@@ -1460,7 +1460,7 @@ export default function ChitFundMembersPage() {
                 <button
                   type="button"
                   onClick={() => setShowAddForm(false)}
-                  className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition duration-300"
+                  className="btn-neutral px-4 py-2 rounded-lg transition duration-300"
                 >
                   Cancel
                 </button>
@@ -1480,13 +1480,13 @@ export default function ChitFundMembersPage() {
       {/* Record Contribution Modal */}
       {showRecordContributionModal && selectedMemberForContribution && selectedMonth !== null && (
         console.log("selectedMonth", selectedMonth),
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-xs sm:max-w-md">
+        <div className="modal-overlay flex items-center justify-center z-50">
+          <div className="themed-card p-6 w-full max-w-xs sm:max-w-md">
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-xl font-bold text-blue-700">Record Contribution for {selectedMemberForContribution.globalMember.name}</h2>
               <button
                 onClick={() => setShowRecordContributionModal(false)}
-                className="text-gray-500 hover:text-gray-700"
+                className="text-gray-500 hover:text-gray-700 dark:text-theme-secondary"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -1494,7 +1494,7 @@ export default function ChitFundMembersPage() {
               </button>
             </div>
 
-            <div className="bg-gray-50 p-4 rounded-lg mb-4">
+            <div className="bg-gray-50 dark:bg-surface-elevated p-4 rounded-lg mb-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <p className="text-sm text-gray-500">Member</p>
@@ -1512,19 +1512,19 @@ export default function ChitFundMembersPage() {
             </div>
 
             {submitContributionSuccess && (
-              <div className="mb-4 bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded">
+              <div className="mb-4 alert-success px-4 py-3 rounded">
                 <p>{submitContributionSuccess}</p>
               </div>
             )}
 
             {submitContributionError && (
-              <div className="mb-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+              <div className="mb-4 alert-error px-4 py-3 rounded">
                 <p>{submitContributionError}</p>
               </div>
             )}
 
             <div className="mb-4">
-              <label htmlFor="amount" className="block text-sm font-medium text-gray-700 mb-1">
+              <label htmlFor="amount" className="block text-sm font-medium text-gray-700 dark:text-theme-secondary mb-1">
                 Amount <span className="text-red-500">*</span>
               </label>
               <input
@@ -1538,7 +1538,7 @@ export default function ChitFundMembersPage() {
             </div>
 
             <div className="mb-4">
-              <label htmlFor="paidDate" className="block text-sm font-medium text-gray-700 mb-1">
+              <label htmlFor="paidDate" className="block text-sm font-medium text-gray-700 dark:text-theme-secondary mb-1">
                 Payment Date <span className="text-red-500">*</span>
               </label>
               <input
@@ -1551,7 +1551,7 @@ export default function ChitFundMembersPage() {
             </div>
 
             <div className="mb-6">
-              <label htmlFor="notes" className="block text-sm font-medium text-gray-700 mb-1">
+              <label htmlFor="notes" className="block text-sm font-medium text-gray-700 dark:text-theme-secondary mb-1">
                 Notes
               </label>
               <textarea
@@ -1567,7 +1567,7 @@ export default function ChitFundMembersPage() {
             <div className="flex justify-end space-x-4">
               <button
                 onClick={() => setShowRecordContributionModal(false)}
-                className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition duration-300"
+                className="btn-neutral px-4 py-2 rounded-lg transition duration-300"
               >
                 Cancel
               </button>

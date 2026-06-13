@@ -1,0 +1,93 @@
+/* Calendar page */
+
+@layer components {
+  .calendar-day-header {
+    @apply text-center font-semibold text-gray-700;
+  }
+
+  html.dark .calendar-day-header,
+  .dark .calendar-day-header {
+    @apply text-theme-secondary;
+  }
+
+  .calendar-day-empty {
+    @apply h-24 bg-gray-50 rounded;
+  }
+
+  html.dark .calendar-day-empty,
+  .dark .calendar-day-empty {
+    @apply bg-surface-elevated;
+  }
+
+  .calendar-day {
+    min-height: 6rem;
+    @apply h-auto p-2 rounded border border-gray-200 bg-white;
+  }
+
+  html.dark .calendar-day,
+  .dark .calendar-day {
+    @apply border-surface-border bg-surface-card;
+  }
+
+  .calendar-day-today {
+    @apply border-blue-500 bg-blue-50;
+  }
+
+  html.dark .calendar-day-today,
+  .dark .calendar-day-today {
+    background-color: rgba(59, 130, 246, 0.15);
+    border-color: rgba(59, 130, 246, 0.5);
+  }
+
+  .calendar-event {
+    @apply block p-1 text-xs rounded hover:opacity-80 transition-opacity;
+  }
+
+  .calendar-event-loan {
+    @apply bg-green-50 border border-green-200 text-green-900;
+  }
+
+  html.dark .calendar-event-loan,
+  .dark .calendar-event-loan {
+    background-color: rgba(16, 185, 129, 0.15);
+    border-color: rgba(16, 185, 129, 0.35);
+    color: #86efac;
+  }
+
+  .calendar-event-chit {
+    @apply bg-blue-50 border border-blue-200 text-blue-900;
+  }
+
+  html.dark .calendar-event-chit,
+  .dark .calendar-event-chit {
+    background-color: rgba(59, 130, 246, 0.15);
+    border-color: rgba(59, 130, 246, 0.35);
+    color: #93c5fd;
+  }
+
+  .calendar-event-due {
+    @apply bg-yellow-50 border border-yellow-200 text-yellow-900;
+  }
+
+  html.dark .calendar-event-due,
+  .dark .calendar-event-due {
+    background-color: rgba(245, 158, 11, 0.15);
+    border-color: rgba(245, 158, 11, 0.35);
+    color: #fcd34d;
+  }
+
+  .calendar-event-paid {
+    @apply bg-green-50 border border-green-200 text-green-900;
+  }
+
+  html.dark .calendar-event-paid,
+  .dark .calendar-event-paid {
+    background-color: rgba(16, 185, 129, 0.2);
+    border-color: rgba(16, 185, 129, 0.4);
+    color: #6ee7b7;
+  }
+
+  .calendar-event-overdue {
+    @apply alert-error p-1 text-xs rounded;
+  }
+}

@@ -628,7 +628,7 @@ export default function ChitFundContributionsPage() {
         <div className="flex justify-center items-center h-64">
           <div className="text-center">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-700 mx-auto mb-4"></div>
-            <p className="text-gray-600">Loading contributions data...</p>
+            <p className="text-gray-700 dark:text-theme-secondary">Loading contributions data...</p>
           </div>
         </div>
       </div>
@@ -638,7 +638,7 @@ export default function ChitFundContributionsPage() {
   if (error) {
     return (
       <div className="container mx-auto px-4 py-8">
-        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+        <div className="alert-error px-4 py-3 rounded">
           <p className="font-bold">Error</p>
           <p>{error}</p>
           <button
@@ -676,15 +676,15 @@ export default function ChitFundContributionsPage() {
     <div className="container mx-auto px-4 py-8">
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-6 gap-4">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-blue-700">Contributions</h1>
-          <p className="text-gray-600 text-sm sm:text-base">
+          <h1 className="page-title">Contributions</h1>
+          <p className="text-gray-700 dark:text-theme-secondary text-sm sm:text-base">
             Month {chitFund.currentMonth} of {chitFund.duration} | Monthly Contribution: {formatCurrency(chitFund.monthlyContribution)}
           </p>
         </div>
         <div className="grid grid-cols-3 gap-2 w-full sm:w-auto sm:flex sm:space-x-4">
           <Link
             href={`/chit-funds/${chitFundId}`}
-            className="flex flex-col items-center justify-center p-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition duration-300 sm:flex-row sm:px-4 sm:py-2"
+            className="btn-neutral flex flex-col items-center justify-center p-2 rounded-lg sm:flex-row sm:px-4 sm:py-2 transition duration-300"
             aria-label="Back to Chit Fund"
           >
             <svg className="h-6 w-6 sm:mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" /></svg>
@@ -711,7 +711,7 @@ export default function ChitFundContributionsPage() {
 
       {/* View Mode Toggle - Only show Back button when in member detail view */}
       {memberDetail && (
-        <div className="bg-white rounded-lg shadow-md p-4 mb-6">
+        <div className="themed-card p-4 mb-6">
           <div className="flex justify-center space-x-4 mb-4">
             <button
               onClick={() => {
@@ -719,7 +719,7 @@ export default function ChitFundContributionsPage() {
                 setMemberDetail(false);
                 setViewMode("month");
               }}
-              className="px-4 py-2 rounded-lg transition duration-300 bg-gray-200 text-gray-700 hover:bg-gray-300"
+              className="px-4 py-2 rounded-lg transition duration-300 btn-neutral"
             >
               Back
             </button>
@@ -728,12 +728,12 @@ export default function ChitFundContributionsPage() {
       )}
 
       {/* Contributions Table */}
-      <div className="bg-white rounded-lg shadow-md overflow-hidden mb-8">
-        <div className="overflow-x-auto w-full" style={{maxWidth: '85vw'}}>
+      <div className="themed-card overflow-hidden mb-8">
+        <div className="table-shell" style={{maxWidth: '85vw'}}>
           {memberDetail ? (
             // Member View
-            <table className="w-full min-w-[700px] divide-y divide-gray-200 text-xs sm:text-sm">
-              <thead className="bg-gray-50">
+            <table className="w-full min-w-[700px] divide-y divide-surface-border text-xs sm:text-sm">
+              <thead className="bg-gray-50 dark:bg-surface-elevated">
                 <tr>
                   <th scope="col" className="px-2 sm:px-6 py-2 sm:py-3 text-left font-medium text-gray-500 uppercase tracking-wider">Member</th>
                   <th scope="col" className="px-2 sm:px-6 py-2 sm:py-3 text-left font-medium text-gray-500 uppercase tracking-wider">Month</th>
@@ -743,7 +743,7 @@ export default function ChitFundContributionsPage() {
                   <th scope="col" className="px-2 sm:px-6 py-2 sm:py-3 text-right font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
+              <tbody>
                 {selectedMonth !== "all" &&
                 chitFund &&
                 members &&
@@ -753,7 +753,7 @@ export default function ChitFundContributionsPage() {
                     (memberData) => (
                       <tr
                         key={memberData.member.id}
-                        className={`hover:bg-gray-50 ${
+                        className={`hover:bg-gray-50 dark:hover:bg-surface-hover ${
                           memberData.status === "paid" ? "cursor-pointer" : ""
                         }`}
                         onClick={() =>
@@ -767,13 +767,13 @@ export default function ChitFundContributionsPage() {
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-gray-900">
+                          <div className="text-sm text-gray-900 dark:text-theme-primary">
                             Month {selectedMonth}
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           {memberData.status === "paid" ? (
-                            <div className="text-sm text-gray-900">
+                            <div className="text-sm text-gray-900 dark:text-theme-primary">
                               {formatCurrency(memberData.contribution!.amount)}
                             </div>
                           ) : (
@@ -784,7 +784,7 @@ export default function ChitFundContributionsPage() {
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           {memberData.status === "paid" ? (
-                            <div className="text-sm text-gray-900">
+                            <div className="text-sm text-gray-900 dark:text-theme-primary">
                               {formatDate(memberData.contribution!.paidDate)}
                             </div>
                           ) : (
@@ -911,7 +911,7 @@ export default function ChitFundContributionsPage() {
                   filteredContributions.map((contribution) => (
                     <tr
                       key={contribution.id}
-                      className="hover:bg-gray-50 cursor-pointer"
+                      className="hover:bg-gray-50 dark:hover:bg-surface-hover cursor-pointer"
                       onClick={() => handleViewContribution(contribution)}
                     >
                       <td className="px-6 py-4 whitespace-nowrap">
@@ -921,17 +921,17 @@ export default function ChitFundContributionsPage() {
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900">
+                        <div className="text-sm text-gray-900 dark:text-theme-primary">
                           Month {contribution.month}
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900">
+                        <div className="text-sm text-gray-900 dark:text-theme-primary">
                           {formatCurrency(contribution.amount)}
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900">
+                        <div className="text-sm text-gray-900 dark:text-theme-primary">
                           {formatDate(contribution.paidDate)}
                         </div>
                       </td>
@@ -1017,8 +1017,8 @@ export default function ChitFundContributionsPage() {
             </table>
           ) : (
             // Month View
-            <table className="w-full min-w-[700px] divide-y divide-gray-200 text-xs sm:text-sm">
-              <thead className="bg-gray-50">
+            <table className="w-full min-w-[700px] divide-y divide-surface-border text-xs sm:text-sm">
+              <thead className="bg-gray-50 dark:bg-surface-elevated">
                 <tr>
                   <th scope="col" className="px-2 sm:px-6 py-2 sm:py-3 text-left font-medium text-gray-500 uppercase tracking-wider">Month</th>
                   <th scope="col" className="px-2 sm:px-6 py-2 sm:py-3 text-left font-medium text-gray-500 uppercase tracking-wider">Contributions</th>
@@ -1027,7 +1027,7 @@ export default function ChitFundContributionsPage() {
                   <th scope="col" className="px-2 sm:px-6 py-2 sm:py-3 text-left font-medium text-gray-500 uppercase tracking-wider">Outstanding Balance</th>
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
+              <tbody>
                 {contributionsByMonth.length === 0 ? (
                   <tr>
                     <td
@@ -1048,7 +1048,7 @@ export default function ChitFundContributionsPage() {
                     .map((monthData) => (
                       <tr
                         key={monthData.month}
-                        className="hover:bg-gray-50 cursor-pointer"
+                        className="hover:bg-gray-50 dark:hover:bg-surface-hover cursor-pointer"
                         onClick={() => {
                           setMemberDetail(true);
                           setSelectedMonth(String(monthData.month));
@@ -1060,7 +1060,7 @@ export default function ChitFundContributionsPage() {
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-gray-900">
+                          <div className="text-sm text-gray-900 dark:text-theme-primary">
                             {monthData.contributionCount} of{" "}
                             {monthData.memberCount} members
                             {monthData.pendingCount > 0 && (
@@ -1092,12 +1092,12 @@ export default function ChitFundContributionsPage() {
                           )}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-gray-900">
+                          <div className="text-sm text-gray-900 dark:text-theme-primary">
                             {formatCurrency(monthData.totalExpected)}
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-gray-900">
+                          <div className="text-sm text-gray-900 dark:text-theme-primary">
                             {formatCurrency(monthData.totalCollected)}
                           </div>
                         </td>
@@ -1131,8 +1131,8 @@ export default function ChitFundContributionsPage() {
 
       {/* Delete Confirmation Modal */}
       {showDeleteModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-md">
+        <div className="modal-overlay flex items-center justify-center z-50">
+          <div className="themed-card p-6 w-full max-w-md">
             <h2 className="text-xl font-bold text-red-700 mb-4">
               Confirm Deletion
             </h2>
@@ -1147,7 +1147,7 @@ export default function ChitFundContributionsPage() {
                   setShowDeleteModal(false);
                   setContributionToDelete(null);
                 }}
-                className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition duration-300"
+                className="btn-neutral px-4 py-2 rounded-lg transition duration-300"
               >
                 Cancel
               </button>
@@ -1165,8 +1165,8 @@ export default function ChitFundContributionsPage() {
 
       {/* Edit Contribution Form */}
       {showEditForm && contributionToEdit && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-md">
+        <div className="modal-overlay flex items-center justify-center z-50">
+          <div className="themed-card p-6 w-full max-w-md">
             <h2 className="text-xl font-bold text-blue-700 mb-4">
               Edit Contribution
             </h2>
@@ -1174,7 +1174,7 @@ export default function ChitFundContributionsPage() {
               <div className="mb-4">
                 <label
                   htmlFor="amount"
-                  className="block text-sm font-medium text-gray-700 mb-1"
+                  className="block text-sm font-medium text-gray-700 dark:text-theme-secondary mb-1"
                 >
                   Amount <span className="text-red-500">*</span>
                 </label>
@@ -1188,7 +1188,7 @@ export default function ChitFundContributionsPage() {
                     className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
                       editFormErrors.amount
                         ? "border-red-500"
-                        : "border-gray-300"
+                        : "border-gray-200 dark:border-surface-border"
                     }`}
                   />
                   <button
@@ -1199,7 +1199,7 @@ export default function ChitFundContributionsPage() {
                         amount: chitFund.monthlyContribution.toString(),
                       })
                     }
-                    className="ml-2 px-3 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition duration-300"
+                    className="btn-neutral ml-2 px-3 py-2 rounded-lg transition duration-300"
                   >
                     Full Amount
                   </button>
@@ -1224,7 +1224,7 @@ export default function ChitFundContributionsPage() {
               <div className="mb-4">
                 <label
                   htmlFor="paidDate"
-                  className="block text-sm font-medium text-gray-700 mb-1"
+                  className="block text-sm font-medium text-gray-700 dark:text-theme-secondary mb-1"
                 >
                   Paid Date <span className="text-red-500">*</span>
                 </label>
@@ -1237,7 +1237,7 @@ export default function ChitFundContributionsPage() {
                   className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
                     editFormErrors.paidDate
                       ? "border-red-500"
-                      : "border-gray-300"
+                      : "border-gray-200 dark:border-surface-border"
                   }`}
                 />
                 {editFormErrors.paidDate && (
@@ -1252,7 +1252,7 @@ export default function ChitFundContributionsPage() {
                   <div className="mb-4">
                     <label
                       htmlFor="balancePaymentStatus"
-                      className="block text-sm font-medium text-gray-700 mb-1"
+                      className="block text-sm font-medium text-gray-700 dark:text-theme-secondary mb-1"
                     >
                       Balance Payment Status
                     </label>
@@ -1266,7 +1266,7 @@ export default function ChitFundContributionsPage() {
                           balancePaymentStatus: e.target.value,
                         })
                       }
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className="w-full px-4 py-2 border border-gray-200 dark:border-surface-border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     >
                       <option value="Pending">Pending</option>
                       <option value="Paid">Paid</option>
@@ -1277,7 +1277,7 @@ export default function ChitFundContributionsPage() {
                   <div className="mb-4">
                     <label
                       htmlFor="balancePaymentDate"
-                      className="block text-sm font-medium text-gray-700 mb-1"
+                      className="block text-sm font-medium text-gray-700 dark:text-theme-secondary mb-1"
                     >
                       Expected Payment Date
                     </label>
@@ -1287,7 +1287,7 @@ export default function ChitFundContributionsPage() {
                       name="balancePaymentDate"
                       value={editFormData.balancePaymentDate}
                       onChange={handleEditFormChange}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className="w-full px-4 py-2 border border-gray-200 dark:border-surface-border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     />
                     <p className="mt-1 text-xs text-gray-500">
                       Date when the remaining balance is expected to be paid
@@ -1298,7 +1298,7 @@ export default function ChitFundContributionsPage() {
                     <div className="mb-4">
                       <label
                         htmlFor="actualBalancePaymentDate"
-                        className="block text-sm font-medium text-gray-700 mb-1"
+                        className="block text-sm font-medium text-gray-700 dark:text-theme-secondary mb-1"
                       >
                         Actual Payment Date
                       </label>
@@ -1308,7 +1308,7 @@ export default function ChitFundContributionsPage() {
                         name="actualBalancePaymentDate"
                         value={editFormData.actualBalancePaymentDate}
                         onChange={handleEditFormChange}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        className="w-full px-4 py-2 border border-gray-200 dark:border-surface-border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       />
                       <p className="mt-1 text-xs text-gray-500">
                         Date when the balance was actually paid
@@ -1318,7 +1318,7 @@ export default function ChitFundContributionsPage() {
                 </>
               )}
               {editFormErrors.submit && (
-                <div className="mb-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+                <div className="mb-4 alert-error px-4 py-3 rounded">
                   <p>{editFormErrors.submit}</p>
                 </div>
               )}
@@ -1326,7 +1326,7 @@ export default function ChitFundContributionsPage() {
                 <button
                   type="button"
                   onClick={() => setShowEditForm(false)}
-                  className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition duration-300"
+                  className="btn-neutral px-4 py-2 rounded-lg transition duration-300"
                 >
                   Cancel
                 </button>
@@ -1345,15 +1345,15 @@ export default function ChitFundContributionsPage() {
 
       {/* Contribution Detail Modal */}
       {showDetailModal && selectedContribution && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-md">
+        <div className="modal-overlay flex items-center justify-center z-50">
+          <div className="themed-card p-6 w-full max-w-md">
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-xl font-bold text-blue-700">
                 Contribution Details
               </h2>
               <button
                 onClick={() => setShowDetailModal(false)}
-                className="text-gray-500 hover:text-gray-700"
+                className="text-gray-500 hover:text-gray-700 dark:text-theme-secondary"
               >
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
@@ -1372,7 +1372,7 @@ export default function ChitFundContributionsPage() {
               </button>
             </div>
 
-            <div className="bg-gray-50 p-4 rounded-lg mb-4">
+            <div className="bg-gray-50 dark:bg-surface-elevated p-4 rounded-lg mb-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <p className="text-sm text-gray-500">Member</p>
@@ -1484,7 +1484,7 @@ export default function ChitFundContributionsPage() {
               </button> */}
               <button
                 onClick={() => setShowDetailModal(false)}
-                className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition duration-300"
+                className="btn-neutral px-4 py-2 rounded-lg transition duration-300"
               >
                 Close
               </button>
@@ -1495,8 +1495,8 @@ export default function ChitFundContributionsPage() {
 
       {/* Add Contribution Form */}
       {showAddForm && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-md">
+        <div className="modal-overlay flex items-center justify-center z-50">
+          <div className="themed-card p-6 w-full max-w-md">
             <h2 className="text-xl font-bold text-blue-700 mb-4">
               Record New Contribution
             </h2>
@@ -1504,7 +1504,7 @@ export default function ChitFundContributionsPage() {
               <div className="mb-4">
                 <label
                   htmlFor="memberId"
-                  className="block text-sm font-medium text-gray-700 mb-1"
+                  className="block text-sm font-medium text-gray-700 dark:text-theme-secondary mb-1"
                 >
                   Member <span className="text-red-500">*</span>
                 </label>
@@ -1514,7 +1514,7 @@ export default function ChitFundContributionsPage() {
                   value={newContribution.memberId}
                   onChange={handleInputChange}
                   className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                    formErrors.memberId ? "border-red-500" : "border-gray-300"
+                    formErrors.memberId ? "border-red-500" : "border-gray-200 dark:border-surface-border"
                   }`}
                 >
                   <option value="">Select a member</option>
@@ -1533,7 +1533,7 @@ export default function ChitFundContributionsPage() {
               <div className="mb-4">
                 <label
                   htmlFor="month"
-                  className="block text-sm font-medium text-gray-700 mb-1"
+                  className="block text-sm font-medium text-gray-700 dark:text-theme-secondary mb-1"
                 >
                   Month <span className="text-red-500">*</span>
                 </label>
@@ -1543,7 +1543,7 @@ export default function ChitFundContributionsPage() {
                   value={newContribution.month}
                   onChange={handleInputChange}
                   className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                    formErrors.month ? "border-red-500" : "border-gray-300"
+                    formErrors.month ? "border-red-500" : "border-gray-200 dark:border-surface-border"
                   }`}
                 >
                   <option value="">Select a month</option>
@@ -1562,7 +1562,7 @@ export default function ChitFundContributionsPage() {
               <div className="mb-4">
                 <label
                   htmlFor="amount"
-                  className="block text-sm font-medium text-gray-700 mb-1"
+                  className="block text-sm font-medium text-gray-700 dark:text-theme-secondary mb-1"
                 >
                   Amount <span className="text-red-500">*</span>
                 </label>
@@ -1575,7 +1575,7 @@ export default function ChitFundContributionsPage() {
                     onChange={handleInputChange}
                     placeholder={chitFund.monthlyContribution.toString()}
                     className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                      formErrors.amount ? "border-red-500" : "border-gray-300"
+                      formErrors.amount ? "border-red-500" : "border-gray-200 dark:border-surface-border"
                     }`}
                   />
                   <button
@@ -1586,7 +1586,7 @@ export default function ChitFundContributionsPage() {
                         amount: chitFund.monthlyContribution.toString(),
                       })
                     }
-                    className="ml-2 px-3 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition duration-300"
+                    className="btn-neutral ml-2 px-3 py-2 rounded-lg transition duration-300"
                   >
                     Full Amount
                   </button>
@@ -1612,7 +1612,7 @@ export default function ChitFundContributionsPage() {
               <div className="mb-4">
                 <label
                   htmlFor="paidDate"
-                  className="block text-sm font-medium text-gray-700 mb-1"
+                  className="block text-sm font-medium text-gray-700 dark:text-theme-secondary mb-1"
                 >
                   Paid Date <span className="text-red-500">*</span>
                 </label>
@@ -1623,7 +1623,7 @@ export default function ChitFundContributionsPage() {
                   value={newContribution.paidDate}
                   onChange={handleInputChange}
                   className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                    formErrors.paidDate ? "border-red-500" : "border-gray-300"
+                    formErrors.paidDate ? "border-red-500" : "border-gray-200 dark:border-surface-border"
                   }`}
                 />
                 {formErrors.paidDate && (
@@ -1640,7 +1640,7 @@ export default function ChitFundContributionsPage() {
                     <div className="mb-4">
                       <label
                         htmlFor="balancePaymentStatus"
-                        className="block text-sm font-medium text-gray-700 mb-1"
+                        className="block text-sm font-medium text-gray-700 dark:text-theme-secondary mb-1"
                       >
                         Balance Payment Status
                       </label>
@@ -1649,7 +1649,7 @@ export default function ChitFundContributionsPage() {
                         name="balancePaymentStatus"
                         value={newContribution.balancePaymentStatus}
                         onChange={handleInputChange}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        className="w-full px-4 py-2 border border-gray-200 dark:border-surface-border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       >
                         <option value="Pending">Pending</option>
                         <option value="Paid">Paid</option>
@@ -1660,7 +1660,7 @@ export default function ChitFundContributionsPage() {
                     <div className="mb-4">
                       <label
                         htmlFor="balancePaymentDate"
-                        className="block text-sm font-medium text-gray-700 mb-1"
+                        className="block text-sm font-medium text-gray-700 dark:text-theme-secondary mb-1"
                       >
                         Expected Payment Date
                       </label>
@@ -1670,7 +1670,7 @@ export default function ChitFundContributionsPage() {
                         name="balancePaymentDate"
                         value={newContribution.balancePaymentDate}
                         onChange={handleInputChange}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        className="w-full px-4 py-2 border border-gray-200 dark:border-surface-border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       />
                       <p className="mt-1 text-xs text-gray-500">
                         Date when the remaining balance is expected to be paid
@@ -1681,7 +1681,7 @@ export default function ChitFundContributionsPage() {
                       <div className="mb-4">
                         <label
                           htmlFor="actualBalancePaymentDate"
-                          className="block text-sm font-medium text-gray-700 mb-1"
+                          className="block text-sm font-medium text-gray-700 dark:text-theme-secondary mb-1"
                         >
                           Actual Payment Date
                         </label>
@@ -1691,7 +1691,7 @@ export default function ChitFundContributionsPage() {
                           name="actualBalancePaymentDate"
                           value={newContribution.actualBalancePaymentDate}
                           onChange={handleInputChange}
-                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          className="w-full px-4 py-2 border border-gray-200 dark:border-surface-border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                         />
                         <p className="mt-1 text-xs text-gray-500">
                           Date when the balance was actually paid
@@ -1701,7 +1701,7 @@ export default function ChitFundContributionsPage() {
                   </>
                 )}
               {formErrors.submit && (
-                <div className="mb-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+                <div className="mb-4 alert-error px-4 py-3 rounded">
                   <p>{formErrors.submit}</p>
                 </div>
               )}
@@ -1709,7 +1709,7 @@ export default function ChitFundContributionsPage() {
                 <button
                   type="button"
                   onClick={() => setShowAddForm(false)}
-                  className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition duration-300"
+                  className="btn-neutral px-4 py-2 rounded-lg transition duration-300"
                 >
                   Cancel
                 </button>

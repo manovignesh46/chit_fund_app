@@ -862,7 +862,7 @@ const LoanDetailPage = () => {
   if (!loan) {
     return (
       <div className="container mx-auto px-4 py-8">
-        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+        <div className="alert-error px-4 py-3 rounded">
           <h2 className="text-xl font-bold mb-2">Loan Not Found</h2>
           <p>
             The loan you are looking for does not exist or has been removed.
@@ -879,7 +879,7 @@ const LoanDetailPage = () => {
   }
 
   return (
-    <div className="container mx-auto px-2 sm:px-4 py-6 sm:py-8 max-w-screen-xl w-full">
+    <div className="page-container">
       <div className="flex flex-row flex-wrap items-center justify-between gap-2 mb-6 sm:mb-8">
         <h1 className="text-2xl sm:text-3xl font-bold text-green-700">
           Loan Details
@@ -954,7 +954,7 @@ const LoanDetailPage = () => {
           <Link
             href="/loans"
             aria-label="Back to Loans"
-            className="p-2 rounded-lg text-sm sm:text-base transition duration-300 flex items-center justify-center bg-gray-200 text-gray-700 hover:bg-gray-300 sm:px-4 sm:py-2"
+            className="p-2 rounded-lg text-sm sm:text-base transition duration-300 flex items-center justify-center btn-neutral sm:px-4 sm:py-2"
           >
             <svg
               className="h-5 w-5 block sm:hidden"
@@ -993,14 +993,14 @@ const LoanDetailPage = () => {
       {/* Main content grid - Loan Details and Payment Schedule side by side on desktop */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6 mb-6 sm:mb-8 lg:items-start">
         {/* Loan Details Card - Takes 2 columns */}
-        <div className="bg-white rounded-lg shadow-md overflow-hidden lg:col-span-2 h-fit">
+        <div className="themed-card overflow-hidden lg:col-span-2 h-fit">
           <div className="p-6 border-b">
             <div className="flex justify-between items-start">
               <div>
                 <h2 className="text-2xl font-semibold">
                   {loan.borrower?.name || "Unknown"}
                 </h2>
-                <p className="text-gray-600">
+                <p className="text-gray-700 dark:text-theme-secondary">
                   {loan.borrower?.contact || "No contact"}
                 </p>
               </div>
@@ -1363,7 +1363,7 @@ const LoanDetailPage = () => {
         </div>
 
         {/* Payment Schedule Table - Second Column */}
-        <div className="bg-white rounded-lg shadow-md mb-6 lg:mb-0 h-fit">
+        <div className="themed-card mb-6 lg:mb-0 h-fit">
           <div className="p-6 border-b flex flex-col md:flex-row justify-between items-start md:items-center space-y-4 md:space-y-0">
             <div className="flex items-center">
               <h2 className="text-xl font-semibold">Payment Schedule</h2>
@@ -1386,52 +1386,52 @@ const LoanDetailPage = () => {
 
           <div className="overflow-x-auto w-full" style={{ maxWidth: "85vw" }}>
             <table
-              className="w-full divide-y divide-gray-200 text-xs sm:text-sm"
+              className="themed-table text-xs sm:text-sm"
               style={{ minWidth: "500px" }}
             >
-              <thead className="bg-gray-50">
+              <thead className="bg-gray-50 dark:bg-surface-elevated">
                 <tr>
                   <th
                     scope="col"
-                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-theme-muted uppercase tracking-wider"
                   >
                     Period
                   </th>
                   <th
                     scope="col"
-                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-theme-muted uppercase tracking-wider"
                   >
                     Due Date
                   </th>
                   <th
                     scope="col"
-                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-theme-muted uppercase tracking-wider"
                   >
                     Payment Date
                   </th>
                   <th
                     scope="col"
-                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-theme-muted uppercase tracking-wider"
                   >
                     Amount
                   </th>
                   <th
                     scope="col"
-                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-theme-muted uppercase tracking-wider"
                   >
                     Status
                   </th>
                   {loan.loanType !== "Reducing Balance" && (
                     <th
                       scope="col"
-                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-theme-muted uppercase tracking-wider"
                     >
                       Actions
                     </th>
                   )}
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
+              <tbody>
                 {loadingSchedules ? (
                   <tr>
                     <td colSpan={loan.loanType === "Reducing Balance" ? 5 : 6} className="px-6 py-4 text-center">
@@ -1484,26 +1484,26 @@ const LoanDetailPage = () => {
                     return (
                       <tr
                         key={schedule.id}
-                        className={`hover:bg-gray-50 ${
+                        className={`hover:bg-gray-50 dark:hover:bg-surface-hover ${
                           isOverdue
-                            ? "bg-red-50"
+                            ? "table-row-overdue"
                             : isDueTomorrow
-                            ? "bg-yellow-50"
+                            ? "table-row-due-soon"
                             : ""
                         }`}
                       >
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-gray-900">
+                          <div className="text-sm text-gray-900 dark:text-theme-primary">
                             {schedule.period}
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-gray-900">
+                          <div className="text-sm text-gray-900 dark:text-theme-primary">
                             {formatDate(schedule.dueDate)}
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-gray-900">
+                          <div className="text-sm text-gray-900 dark:text-theme-primary">
                             {/* Show payment date from schedule.repayment if present, else fallback to loan.repayments by period */}
                             {(() => {
                               if (
@@ -1528,7 +1528,7 @@ const LoanDetailPage = () => {
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-gray-900">
+                          <div className="text-sm text-gray-900 dark:text-theme-primary">
                             {formatCurrency(
                               schedule.paidAmount !== null && schedule.paidAmount !== undefined
                                 ? schedule.paidAmount
@@ -1556,7 +1556,7 @@ const LoanDetailPage = () => {
                                   ? "bg-blue-100 text-blue-800"
                                   : schedule.status === "InterestOnly"
                                   ? "bg-blue-100 text-blue-800" // Keep backward compatibility
-                                  : "bg-gray-100 text-gray-800"
+                                  : "bg-gray-100 text-gray-900 dark:text-theme-primary"
                               }`}
                             >
                               {isOverdue ? "Overdue" : schedule.status}
@@ -1564,7 +1564,7 @@ const LoanDetailPage = () => {
 
                             {isDueTomorrow && (
                               <span
-                                className="px-2 py-1 text-xs font-semibold rounded-full bg-amber-100 text-amber-800 border border-amber-200"
+                                className="px-2 py-1 text-xs font-semibold rounded-full bg-yellow-100 text-yellow-800 border border-yellow-200"
                                 title="This loan payment is due tomorrow"
                               >
                                 Due Tomorrow
@@ -1640,7 +1640,7 @@ const LoanDetailPage = () => {
                               {schedule.repayment && (
                                 <Link
                                   href={`/loans/${id}/repayments`}
-                                  className="inline-flex items-center px-2 py-1 border border-gray-300 text-xs font-medium rounded text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                                  className="inline-flex items-center px-2 py-1 border border-gray-200 dark:border-surface-border text-xs font-medium rounded text-gray-700 dark:text-theme-secondary themed-card hover:bg-gray-50 dark:hover:bg-surface-hover focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
                                 >
                                   <svg
                                     className="h-3 w-3 mr-1"
@@ -1684,7 +1684,7 @@ const LoanDetailPage = () => {
                     <div className="flex items-center mr-4">
                       <label
                         htmlFor="pageSize"
-                        className="text-sm text-gray-600 mr-2"
+                        className="text-sm text-gray-700 dark:text-theme-secondary mr-2"
                       >
                         Show:
                       </label>
@@ -1695,7 +1695,7 @@ const LoanDetailPage = () => {
                           setPageSize(Number(e.target.value));
                           setCurrentPage(1); // Reset to first page when changing page size
                         }}
-                        className="border border-gray-300 rounded-md text-sm py-1 pl-2 pr-8"
+                        className="themed-input text-sm py-1 pl-2 pr-8"
                       >
                         <option value="5">5</option>
                         <option value="10">10</option>
@@ -1714,8 +1714,8 @@ const LoanDetailPage = () => {
                         disabled={currentPage === 1}
                         className={`relative inline-flex items-center rounded-l-md px-2 py-2 ${
                           currentPage === 1
-                            ? "text-gray-300 cursor-not-allowed"
-                            : "text-gray-500 hover:bg-gray-50"
+                            ? "pagination-nav-btn"
+                            : "pagination-nav-btn"
                         }`}
                       >
                         <span className="sr-only">First</span>
@@ -1728,8 +1728,8 @@ const LoanDetailPage = () => {
                         disabled={currentPage === 1}
                         className={`relative inline-flex items-center px-2 py-2 ${
                           currentPage === 1
-                            ? "text-gray-300 cursor-not-allowed"
-                            : "text-gray-500 hover:bg-gray-50"
+                            ? "pagination-nav-btn"
+                            : "pagination-nav-btn"
                         }`}
                       >
                         <span className="sr-only">Previous</span>
@@ -1747,7 +1747,7 @@ const LoanDetailPage = () => {
                           />
                         </svg>
                       </button>
-                      <span className="relative inline-flex items-center px-4 py-2 text-sm font-semibold text-gray-700 bg-white">
+                      <span className="relative inline-flex items-center px-4 py-2 text-sm font-semibold pagination-info">
                         Page {currentPage} of {totalPages}
                       </span>
                       <button
@@ -1759,8 +1759,8 @@ const LoanDetailPage = () => {
                         disabled={currentPage === totalPages}
                         className={`relative inline-flex items-center px-2 py-2 ${
                           currentPage === totalPages
-                            ? "text-gray-300 cursor-not-allowed"
-                            : "text-gray-500 hover:bg-gray-50"
+                            ? "pagination-nav-btn"
+                            : "pagination-nav-btn"
                         }`}
                       >
                         <span className="sr-only">Next</span>
@@ -1783,8 +1783,8 @@ const LoanDetailPage = () => {
                         disabled={currentPage === totalPages}
                         className={`relative inline-flex items-center rounded-r-md px-2 py-2 ${
                           currentPage === totalPages
-                            ? "text-gray-300 cursor-not-allowed"
-                            : "text-gray-500 hover:bg-gray-50"
+                            ? "pagination-nav-btn"
+                            : "pagination-nav-btn"
                         }`}
                       >
                         <span className="sr-only">Last</span>
@@ -1814,7 +1814,7 @@ const LoanDetailPage = () => {
       {/* Delete Confirmation Modal */}
       {showDeleteModal && (
         <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-xl p-6 max-w-md w-full">
+          <div className="themed-card-xl p-6 max-w-md w-full">
             <h3 className="text-lg font-semibold mb-4">Confirm Delete</h3>
             <p className="mb-6">
               Are you sure you want to delete this repayment? This action cannot
@@ -1822,13 +1822,13 @@ const LoanDetailPage = () => {
             </p>
 
             {deleteError && (
-              <div className="mb-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+              <div className="mb-4 alert-error px-4 py-3 rounded">
                 <p>{deleteError}</p>
               </div>
             )}
 
             {deleteSuccess && (
-              <div className="mb-4 bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded">
+              <div className="mb-4 alert-success px-4 py-3 rounded">
                 <p>{deleteSuccess}</p>
               </div>
             )}
@@ -1837,7 +1837,7 @@ const LoanDetailPage = () => {
               <button
                 onClick={() => setShowDeleteModal(false)}
                 disabled={isDeleting}
-                className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition duration-300"
+                className="btn-neutral px-4 py-2 rounded-lg transition duration-300"
               >
                 Cancel
               </button>

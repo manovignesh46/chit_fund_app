@@ -110,7 +110,7 @@ export default function CollectionHealthCard() {
 
   if (loading) {
     return (
-      <div className="bg-white shadow-md rounded-lg p-4 sm:p-6 border-t-4 border-blue-500 animate-pulse">
+      <div className="themed-card p-4 sm:p-6 border-t-4 border-blue-500 animate-pulse">
         <div className="h-6 bg-gray-200 rounded w-3/4 mx-auto mb-4"></div>
         <div className="flex justify-center mb-4">
           <div className="w-48 h-48 bg-gray-200 rounded-full"></div>
@@ -127,11 +127,11 @@ export default function CollectionHealthCard() {
 
   if (error) {
     return (
-      <div className="bg-white shadow-md rounded-lg p-4 sm:p-6 border-t-4 border-red-500">
-        <h2 className="text-lg font-semibold text-gray-600 mb-2 text-center">
+      <div className="themed-card p-4 sm:p-6 border-t-4 border-red-500">
+        <h2 className="text-lg font-semibold text-gray-700 dark:text-theme-secondary mb-2 text-center">
           Collection Health
         </h2>
-        <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+        <div className="alert-error rounded-lg p-3">
           <p className="text-sm text-red-600">{error}</p>
         </div>
       </div>
@@ -141,8 +141,8 @@ export default function CollectionHealthCard() {
   if (!data) return null;
 
   return (
-    <div className="bg-white shadow-md rounded-lg p-4 sm:p-6 border-t-4 border-blue-500">
-      <h2 className="text-lg sm:text-xl font-semibold text-gray-600 mb-4 text-center">
+    <div className="themed-card p-4 sm:p-6 border-t-4 border-blue-500">
+      <h2 className="text-lg sm:text-xl font-semibold text-gray-700 dark:text-theme-secondary mb-4 text-center">
         Collection Health
       </h2>
 
@@ -189,27 +189,27 @@ export default function CollectionHealthCard() {
       </div>
 
       {/* Label */}
-      <p className="text-sm sm:text-base font-medium text-gray-700 text-center mb-4">
+      <p className="text-sm sm:text-base font-medium text-gray-700 dark:text-theme-secondary text-center mb-4">
         Monthly Recovery Status
       </p>
 
       {/* Collection Details */}
       <div className={`${colors.bg} rounded-lg p-3 space-y-2`}>
         <div className="flex justify-between items-center text-sm">
-          <span className="text-gray-600">Expected:</span>
-          <span className="font-semibold text-gray-800">
+          <span className="text-gray-700 dark:text-theme-secondary">Expected:</span>
+          <span className="font-semibold text-gray-900 dark:text-theme-primary">
             {formatCurrency(data.totalExpectedAmount)}
           </span>
         </div>
         <div className="flex justify-between items-center text-sm">
-          <span className="text-gray-600">Collected:</span>
+          <span className="text-gray-700 dark:text-theme-secondary">Collected:</span>
           <span className={`font-semibold ${colors.text}`}>
             {formatCurrency(data.totalActualAmount)}
           </span>
         </div>
-        <div className="flex justify-between items-center text-sm pt-2 border-t border-gray-200">
-          <span className="text-gray-600">Pending:</span>
-          <span className="font-semibold text-gray-800">
+        <div className="flex justify-between items-center text-sm pt-2 border-t border-gray-200 dark:border-surface-border">
+          <span className="text-gray-700 dark:text-theme-secondary">Pending:</span>
+          <span className="font-semibold text-gray-900 dark:text-theme-primary">
             {formatCurrency(data.totalExpectedAmount - data.totalActualAmount)}
           </span>
         </div>

@@ -186,7 +186,7 @@ export default function MemberDetailPage() {
         <div className="flex justify-center items-center h-64">
           <div className="text-center">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-700 mx-auto mb-4"></div>
-            <p className="text-gray-600">Loading member details...</p>
+            <p className="text-gray-700 dark:text-theme-secondary">Loading member details...</p>
           </div>
         </div>
       </div>
@@ -196,7 +196,7 @@ export default function MemberDetailPage() {
   if (error) {
     return (
       <div className="container mx-auto px-4 py-8">
-        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+        <div className="alert-error px-4 py-3 rounded">
           <p className="font-bold">Error</p>
           <p>{error}</p>
           <button
@@ -225,9 +225,9 @@ export default function MemberDetailPage() {
   }
 
   return (
-    <div className="container mx-auto px-2 sm:px-4 py-6 sm:py-8 max-w-screen-xl w-full">
+    <div className="page-container">
       <div className="flex flex-row flex-wrap items-center justify-between gap-2 mb-6 sm:mb-8">
-        <h1 className="text-2xl sm:text-3xl font-bold text-blue-700">Member Information</h1>
+        <h1 className="page-title">Member Information</h1>
         <div className="flex flex-row flex-wrap gap-1 sm:gap-2 w-auto items-center">
           <button
             onClick={handleDeleteMember}
@@ -258,7 +258,7 @@ export default function MemberDetailPage() {
           </Link>
           {/* Back Button: icon only on mobile, icon+text on desktop */}
           <Link href="/members" aria-label="Back to Members"
-            className="p-2 rounded-lg text-sm sm:text-base transition duration-300 flex items-center justify-center bg-gray-200 text-gray-700 hover:bg-gray-300 sm:px-4 sm:py-2">
+            className="p-2 rounded-lg text-sm sm:text-base transition duration-300 flex items-center justify-center btn-neutral sm:px-4 sm:py-2">
             <svg className="h-5 w-5 block sm:hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7"></path></svg>
             <span className="hidden sm:inline-flex items-center">
               <svg className="h-5 w-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7"></path></svg>
@@ -269,40 +269,40 @@ export default function MemberDetailPage() {
       </div>
 
       {/* Member Details */}
-      <div className="bg-white rounded-lg shadow-md p-4 sm:p-6 mb-8">
+      <div className="themed-card p-4 sm:p-6 mb-8">
         <h2 className="text-lg sm:text-xl font-semibold text-blue-700 mb-4">Member Details</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
           <div>
-            <p className="text-gray-600 text-xs sm:text-sm">Name</p>
+            <p className="text-gray-700 dark:text-theme-secondary text-xs sm:text-sm">Name</p>
             <p className="text-base sm:text-lg font-semibold">{member.name}</p>
           </div>
           <div>
-            <p className="text-gray-600 text-xs sm:text-sm">Contact</p>
+            <p className="text-gray-700 dark:text-theme-secondary text-xs sm:text-sm">Contact</p>
             <p className="text-base sm:text-lg">{member.contact}</p>
           </div>
           <div>
-            <p className="text-gray-600 text-xs sm:text-sm">Email</p>
+            <p className="text-gray-700 dark:text-theme-secondary text-xs sm:text-sm">Email</p>
             <p className="text-base sm:text-lg">{member.email || '-'}</p>
           </div>
           <div>
-            <p className="text-gray-600 text-xs sm:text-sm">Address</p>
+            <p className="text-gray-700 dark:text-theme-secondary text-xs sm:text-sm">Address</p>
             <p className="text-base sm:text-lg">{member.address || '-'}</p>
           </div>
           <div>
-            <p className="text-gray-600 text-xs sm:text-sm">Member Since</p>
+            <p className="text-gray-700 dark:text-theme-secondary text-xs sm:text-sm">Member Since</p>
             <p className="text-base sm:text-lg">{formatDate(member.createdAt)}</p>
           </div>
         </div>
         {member.notes && (
           <div className="mt-6">
-            <p className="text-gray-600 text-xs sm:text-sm">Notes</p>
-            <p className="text-base sm:text-lg mt-1 p-3 bg-gray-50 rounded">{member.notes}</p>
+            <p className="text-gray-700 dark:text-theme-secondary text-xs sm:text-sm">Notes</p>
+            <p className="text-base sm:text-lg mt-1 p-3 bg-gray-50 dark:bg-surface-elevated rounded">{member.notes}</p>
           </div>
         )}
       </div>
 
       {/* Chit Funds */}
-      <div className="bg-white rounded-lg shadow-md p-4 sm:p-6 mb-8">
+      <div className="themed-card p-4 sm:p-6 mb-8">
         <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 mb-4">
           <h2 className="text-lg sm:text-xl font-semibold text-blue-700">Chit Funds ({member._count.chitFundMembers})</h2>
           <Link href={`/members/${member.id}/assign-chit-fund`} className="text-blue-600 hover:text-blue-900 text-xs sm:text-sm">
@@ -313,38 +313,38 @@ export default function MemberDetailPage() {
           <p className="text-gray-500 text-center py-4 text-xs sm:text-sm">This member is not part of any chit funds yet.</p>
         ) : (
           <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200 text-xs sm:text-sm">
-              <thead className="bg-gray-50">
+            <table className="min-w-full divide-y divide-surface-border text-xs sm:text-sm">
+              <thead className="bg-gray-50 dark:bg-surface-elevated">
                 <tr>
-                  <th scope="col" className="px-2 py-2 sm:px-6 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th scope="col" className="px-2 py-2 sm:px-6 sm:py-3 text-left text-xs font-medium text-gray-500 dark:text-theme-muted uppercase tracking-wider">
                     Chit Fund
                   </th>
-                  <th scope="col" className="px-2 py-2 sm:px-6 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th scope="col" className="px-2 py-2 sm:px-6 sm:py-3 text-left text-xs font-medium text-gray-500 dark:text-theme-muted uppercase tracking-wider">
                     Status
                   </th>
-                  <th scope="col" className="px-2 py-2 sm:px-6 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th scope="col" className="px-2 py-2 sm:px-6 sm:py-3 text-left text-xs font-medium text-gray-500 dark:text-theme-muted uppercase tracking-wider">
                     Progress
                   </th>
-                  <th scope="col" className="px-2 py-2 sm:px-6 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th scope="col" className="px-2 py-2 sm:px-6 sm:py-3 text-left text-xs font-medium text-gray-500 dark:text-theme-muted uppercase tracking-wider">
                     Contribution
                   </th>
-                  <th scope="col" className="px-2 py-2 sm:px-6 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th scope="col" className="px-2 py-2 sm:px-6 sm:py-3 text-left text-xs font-medium text-gray-500 dark:text-theme-muted uppercase tracking-wider">
                     Missed Contributions
                   </th>
-                  <th scope="col" className="px-2 py-2 sm:px-6 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th scope="col" className="px-2 py-2 sm:px-6 sm:py-3 text-left text-xs font-medium text-gray-500 dark:text-theme-muted uppercase tracking-wider">
                     Pending Amount
                   </th>
-                  <th scope="col" className="px-2 py-2 sm:px-6 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th scope="col" className="px-2 py-2 sm:px-6 sm:py-3 text-left text-xs font-medium text-gray-500 dark:text-theme-muted uppercase tracking-wider">
                     Join Date
                   </th>
-                  <th scope="col" className="px-2 py-2 sm:px-6 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th scope="col" className="px-2 py-2 sm:px-6 sm:py-3 text-left text-xs font-medium text-gray-500 dark:text-theme-muted uppercase tracking-wider">
                     Actions
                   </th>
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
+              <tbody>
                 {member.chitFundMembers.map((membership) => (
-                  <tr key={membership.id} className="hover:bg-gray-50">
+                  <tr key={membership.id} className="hover:bg-gray-50 dark:hover:bg-surface-hover">
                     <td className="px-2 py-2 sm:px-6 sm:py-4 whitespace-nowrap">
                       <div className="text-sm font-medium text-blue-600">{membership.chitFund.name}</div>
                     </td>
@@ -358,25 +358,25 @@ export default function MemberDetailPage() {
                       </span>
                     </td>
                     <td className="px-2 py-2 sm:px-6 sm:py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">
+                      <div className="text-sm text-gray-900 dark:text-theme-primary">
                         Month {membership.chitFund.currentMonth} of {membership.chitFund.duration}
                       </div>
                     </td>
                     <td className="px-2 py-2 sm:px-6 sm:py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">{formatCurrency(membership.contribution)}</div>
+                      <div className="text-sm text-gray-900 dark:text-theme-primary">{formatCurrency(membership.contribution)}</div>
                     </td>
                     <td className="px-2 py-2 sm:px-6 sm:py-4 whitespace-nowrap">
-                      <div className={`text-sm ${(membership.missedContributions ?? 0) > 0 ? 'text-red-600 font-semibold' : 'text-gray-900'}`}>
+                      <div className={`text-sm ${(membership.missedContributions ?? 0) > 0 ? 'text-red-600 font-semibold' : 'text-gray-900 dark:text-theme-primary'}`}>
                         {membership.missedContributions ?? 0}
                       </div>
                     </td>
                     <td className="px-2 py-2 sm:px-6 sm:py-4 whitespace-nowrap">
-                      <div className={`text-sm ${(membership.pendingAmount ?? 0) > 0 ? 'text-red-600 font-semibold' : 'text-gray-900'}`}>
+                      <div className={`text-sm ${(membership.pendingAmount ?? 0) > 0 ? 'text-red-600 font-semibold' : 'text-gray-900 dark:text-theme-primary'}`}>
                         {formatCurrency(membership.pendingAmount ?? 0)}
                       </div>
                     </td>
                     <td className="px-2 py-2 sm:px-6 sm:py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">{formatDate(membership.joinDate)}</div>
+                      <div className="text-sm text-gray-900 dark:text-theme-primary">{formatDate(membership.joinDate)}</div>
                     </td>
                     <td className="px-2 py-2 sm:px-6 sm:py-4 whitespace-nowrap text-sm font-medium">
                       <Link href={`/chit-funds/${membership.chitFund.id}/members/${membership.id}/contributions`} className="text-blue-600 hover:text-blue-900 flex items-center" aria-label="View Contributions">
@@ -397,7 +397,7 @@ export default function MemberDetailPage() {
       </div>
 
       {/* Loans */}
-      <div className="bg-white rounded-lg shadow-md p-4 sm:p-6 mb-8">
+      <div className="themed-card p-4 sm:p-6 mb-8">
         <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 mb-4">
           <h2 className="text-lg sm:text-xl font-semibold text-blue-700">Loans ({member._count.loans})</h2>
           <Link href={`/loans/new?borrowerId=${member.id}`} className="text-blue-600 hover:text-blue-900 text-xs sm:text-sm">
@@ -408,54 +408,54 @@ export default function MemberDetailPage() {
           <p className="text-gray-500 text-center py-4 text-xs sm:text-sm">This member has no loans yet.</p>
         ) : (
           <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200 text-xs sm:text-sm">
-              <thead className="bg-gray-50">
+            <table className="min-w-full divide-y divide-surface-border text-xs sm:text-sm">
+              <thead className="bg-gray-50 dark:bg-surface-elevated">
                 <tr>
-                  <th scope="col" className="px-2 py-2 sm:px-6 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th scope="col" className="px-2 py-2 sm:px-6 sm:py-3 text-left text-xs font-medium text-gray-500 dark:text-theme-muted uppercase tracking-wider">
                     Loan Type
                   </th>
-                  <th scope="col" className="px-2 py-2 sm:px-6 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th scope="col" className="px-2 py-2 sm:px-6 sm:py-3 text-left text-xs font-medium text-gray-500 dark:text-theme-muted uppercase tracking-wider">
                     Amount
                   </th>
-                  <th scope="col" className="px-2 py-2 sm:px-6 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th scope="col" className="px-2 py-2 sm:px-6 sm:py-3 text-left text-xs font-medium text-gray-500 dark:text-theme-muted uppercase tracking-wider">
                     Remaining
                   </th>
-                  <th scope="col" className="px-2 py-2 sm:px-6 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th scope="col" className="px-2 py-2 sm:px-6 sm:py-3 text-left text-xs font-medium text-gray-500 dark:text-theme-muted uppercase tracking-wider">
                     Overdue Amount
                   </th>
-                  <th scope="col" className="px-2 py-2 sm:px-6 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th scope="col" className="px-2 py-2 sm:px-6 sm:py-3 text-left text-xs font-medium text-gray-500 dark:text-theme-muted uppercase tracking-wider">
                     Missed Payments
                   </th>
-                  <th scope="col" className="px-2 py-2 sm:px-6 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th scope="col" className="px-2 py-2 sm:px-6 sm:py-3 text-left text-xs font-medium text-gray-500 dark:text-theme-muted uppercase tracking-wider">
                     Status
                   </th>
-                  <th scope="col" className="px-2 py-2 sm:px-6 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th scope="col" className="px-2 py-2 sm:px-6 sm:py-3 text-left text-xs font-medium text-gray-500 dark:text-theme-muted uppercase tracking-wider">
                     Disbursement Date
                   </th>
-                  <th scope="col" className="px-2 py-2 sm:px-6 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th scope="col" className="px-2 py-2 sm:px-6 sm:py-3 text-left text-xs font-medium text-gray-500 dark:text-theme-muted uppercase tracking-wider">
                     Actions
                   </th>
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
+              <tbody>
                 {member.loans.map((loan) => (
-                  <tr key={loan.id} className="hover:bg-gray-50">
+                  <tr key={loan.id} className="hover:bg-gray-50 dark:hover:bg-surface-hover">
                     <td className="px-2 py-2 sm:px-6 sm:py-4 whitespace-nowrap">
                       <div className="text-sm font-medium text-blue-600">{loan.loanType}</div>
                     </td>
                     <td className="px-2 py-2 sm:px-6 sm:py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">{formatCurrency(loan.amount)}</div>
+                      <div className="text-sm text-gray-900 dark:text-theme-primary">{formatCurrency(loan.amount)}</div>
                     </td>
                     <td className="px-2 py-2 sm:px-6 sm:py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">{formatCurrency(loan.remainingAmount)}</div>
+                      <div className="text-sm text-gray-900 dark:text-theme-primary">{formatCurrency(loan.remainingAmount)}</div>
                     </td>
                     <td className="px-2 py-2 sm:px-6 sm:py-4 whitespace-nowrap">
-                      <div className={`text-sm ${loan.overdueAmount > 0 ? 'text-red-600 font-semibold' : 'text-gray-900'}`}>
+                      <div className={`text-sm ${loan.overdueAmount > 0 ? 'text-red-600 font-semibold' : 'text-gray-900 dark:text-theme-primary'}`}>
                         {formatCurrency(loan.overdueAmount || 0)}
                       </div>
                     </td>
                     <td className="px-2 py-2 sm:px-6 sm:py-4 whitespace-nowrap">
-                      <div className={`text-sm ${loan.missedPayments > 0 ? 'text-red-600 font-semibold' : 'text-gray-900'}`}>
+                      <div className={`text-sm ${loan.missedPayments > 0 ? 'text-red-600 font-semibold' : 'text-gray-900 dark:text-theme-primary'}`}>
                         {loan.missedPayments || 0}
                       </div>
                     </td>
@@ -469,7 +469,7 @@ export default function MemberDetailPage() {
                       </span>
                     </td>
                     <td className="px-2 py-2 sm:px-6 sm:py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">{formatDate(loan.disbursementDate)}</div>
+                      <div className="text-sm text-gray-900 dark:text-theme-primary">{formatDate(loan.disbursementDate)}</div>
                     </td>
                     <td className="px-2 py-2 sm:px-6 sm:py-4 whitespace-nowrap text-sm font-medium">
                       <Link href={`/loans/${loan.id}`} className="text-blue-600 hover:text-blue-900 flex items-center" aria-label="View Details">
@@ -491,8 +491,8 @@ export default function MemberDetailPage() {
 
       {/* Delete Confirmation Modal */}
       {showDeleteModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-md">
+        <div className="modal-overlay flex items-center justify-center z-50">
+          <div className="themed-card p-6 w-full max-w-md">
             <h2 className="text-xl font-bold text-red-700 mb-4">Confirm Deletion</h2>
             <p className="mb-4">Are you sure you want to delete this member? This action cannot be undone.</p>
             <div className="mb-6 bg-yellow-50 border border-yellow-400 text-yellow-700 p-3 rounded">
@@ -503,7 +503,7 @@ export default function MemberDetailPage() {
               </ul>
             </div>
             {deleteError && (
-              <div className="mb-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+              <div className="mb-4 alert-error px-4 py-3 rounded">
                 <p>{deleteError}</p>
               </div>
             )}
@@ -511,7 +511,7 @@ export default function MemberDetailPage() {
               <button
                 type="button"
                 onClick={() => { setShowDeleteModal(false); setDeleteError(null); }}
-                className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition duration-300"
+                className="btn-neutral px-4 py-2 rounded-lg transition duration-300"
                 disabled={isDeleting}
               >
                 Cancel

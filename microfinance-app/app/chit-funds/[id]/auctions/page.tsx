@@ -320,7 +320,7 @@ export default function ChitFundAuctionsPage() {
         <div className="flex justify-center items-center h-64">
           <div className="text-center">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-700 mx-auto mb-4"></div>
-            <p className="text-gray-600">Loading auctions data...</p>
+            <p className="text-gray-700 dark:text-theme-secondary">Loading auctions data...</p>
           </div>
         </div>
       </div>
@@ -330,7 +330,7 @@ export default function ChitFundAuctionsPage() {
   if (error) {
     return (
       <div className="container mx-auto px-4 py-8">
-        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+        <div className="alert-error px-4 py-3 rounded">
           <p className="font-bold">Error</p>
           <p>{error}</p>
           <button
@@ -363,7 +363,7 @@ export default function ChitFundAuctionsPage() {
       <div className="flex justify-between items-center mb-6">
         <div>
           <h1 className="text-3xl font-bold text-blue-700">Auctions</h1>
-          <p className="text-gray-600">
+          <p className="text-gray-700 dark:text-theme-secondary">
             Month {chitFund.currentMonth} of {chitFund.duration}
             <br />
             Monthly Contribution: {formatCurrency(chitFund.monthlyContribution)}
@@ -375,7 +375,7 @@ export default function ChitFundAuctionsPage() {
           </p>
         </div>
         <div className="flex space-x-2 sm:space-x-4">
-          <Link href={`/chit-funds/${chitFundId}`} className="p-2 rounded-lg text-sm sm:text-base transition duration-300 flex items-center justify-center bg-gray-200 text-gray-700 hover:bg-gray-300 sm:px-4 sm:py-2">
+          <Link href={`/chit-funds/${chitFundId}`} className="p-2 rounded-lg text-sm sm:text-base transition duration-300 flex items-center justify-center btn-neutral sm:px-4 sm:py-2">
             <svg className="h-5 w-5 block sm:hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7"></path></svg>
             <span className="hidden sm:inline-flex items-center"><svg className="h-5 w-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7"></path></svg>Back to Chit Fund</span>
           </Link>
@@ -393,7 +393,7 @@ export default function ChitFundAuctionsPage() {
                 <span className="hidden sm:inline-flex items-center"><svg className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" /></svg>Record Auction</span>
               </button>
             ) : (
-              <div className="p-2 rounded-lg text-sm sm:text-base bg-gray-300 text-gray-600 cursor-not-allowed flex items-center justify-center sm:px-4 sm:py-2" title="All members have already won auctions">
+              <div className="p-2 rounded-lg text-sm sm:text-base bg-gray-300 text-gray-700 dark:text-theme-secondary cursor-not-allowed flex items-center justify-center sm:px-4 sm:py-2" title="All members have already won auctions">
                 <svg className="h-5 w-5 block sm:hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" /></svg>
                 <span className="hidden sm:inline-flex items-center"><svg className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" /></svg>Record Auction (No Eligible Members)</span>
               </div>
@@ -403,35 +403,35 @@ export default function ChitFundAuctionsPage() {
       </div>
 
       {/* Auctions Table */}
-      <div className="bg-white rounded-lg shadow-md overflow-hidden mb-8">
-        <div className="overflow-x-auto w-full" style={{maxWidth: '85vw'}}>
-          <table className="w-full min-w-[700px] divide-y divide-gray-200 text-xs sm:text-sm">
-            <thead className="bg-gray-50">
+      <div className="themed-card overflow-hidden mb-8">
+        <div className="table-shell" style={{maxWidth: '85vw'}}>
+          <table className="w-full min-w-[700px] divide-y divide-surface-border text-xs sm:text-sm">
+            <thead className="bg-gray-50 dark:bg-surface-elevated">
               <tr>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-theme-muted uppercase tracking-wider">
                   Month
                 </th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-theme-muted uppercase tracking-wider">
                   Winner
                 </th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-theme-muted uppercase tracking-wider">
                   Amount
                 </th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-theme-muted uppercase tracking-wider">
                   Auction Date
                 </th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-theme-muted uppercase tracking-wider">
                   Discount
                 </th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-theme-muted uppercase tracking-wider">
                   Details
                 </th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-theme-muted uppercase tracking-wider">
                   Actions
                 </th>
               </tr>
             </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
+            <tbody>
               {auctions.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="px-6 py-4 text-center text-gray-500">
@@ -448,9 +448,9 @@ export default function ChitFundAuctionsPage() {
                     const auctionIndex = sameMonthAuctions.findIndex(a => a.id === auction.id) + 1;
 
                     return (
-                      <tr key={auction.id} className={`hover:bg-gray-50 ${isDuplicateMonth ? 'bg-yellow-50' : ''}`}>
+                      <tr key={auction.id} className={`hover:bg-gray-50 dark:hover:bg-surface-hover ${isDuplicateMonth ? 'bg-yellow-50' : ''}`}>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-gray-900">
+                          <div className="text-sm text-gray-900 dark:text-theme-primary">
                             Month {auction.month}
                             {isDuplicateMonth && (
                               <span className="ml-2 px-2 py-1 text-xs bg-yellow-200 text-yellow-800 rounded-full">
@@ -465,10 +465,10 @@ export default function ChitFundAuctionsPage() {
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-gray-900">{formatCurrency(auction.amount)}</div>
+                          <div className="text-sm text-gray-900 dark:text-theme-primary">{formatCurrency(auction.amount)}</div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-gray-900">{formatDate(auction.date)}</div>
+                          <div className="text-sm text-gray-900 dark:text-theme-primary">{formatDate(auction.date)}</div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="text-sm text-green-600">
@@ -509,12 +509,12 @@ export default function ChitFundAuctionsPage() {
 
       {/* Add Auction Form */}
       {showAddForm && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
+        <div className="modal-overlay flex items-center justify-center z-50">
+          <div className="themed-card p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
             <h2 className="text-xl font-bold text-blue-700 mb-4">Record New Auction</h2>
             <form onSubmit={handleAddAuction}>
               <div className="mb-4">
-                <label htmlFor="winnerId" className="block text-sm font-medium text-gray-700 mb-1">
+                <label htmlFor="winnerId" className="block text-sm font-medium text-gray-700 dark:text-theme-secondary mb-1">
                   Winner <span className="text-red-500">*</span>
                 </label>
                 <select
@@ -523,7 +523,7 @@ export default function ChitFundAuctionsPage() {
                   value={newAuction.winnerId}
                   onChange={handleInputChange}
                   className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                    formErrors.winnerId ? 'border-red-500' : 'border-gray-300'
+                    formErrors.winnerId ? 'border-red-500' : 'border-gray-200 dark:border-surface-border'
                   }`}
                 >
                   <option value="">
@@ -540,7 +540,7 @@ export default function ChitFundAuctionsPage() {
                 )}
               </div>
               <div className="mb-4">
-                <label htmlFor="month" className="block text-sm font-medium text-gray-700 mb-1">
+                <label htmlFor="month" className="block text-sm font-medium text-gray-700 dark:text-theme-secondary mb-1">
                   Month <span className="text-red-500">*</span>
                 </label>
                 <select
@@ -549,7 +549,7 @@ export default function ChitFundAuctionsPage() {
                   value={newAuction.month}
                   onChange={handleInputChange}
                   className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                    formErrors.month ? 'border-red-500' : 'border-gray-300'
+                    formErrors.month ? 'border-red-500' : 'border-gray-200 dark:border-surface-border'
                   }`}
                 >
                   <option value="">Select a month</option>
@@ -568,7 +568,7 @@ export default function ChitFundAuctionsPage() {
                 )}
               </div>
               <div className="mb-4">
-                <label htmlFor="amount" className="block text-sm font-medium text-gray-700 mb-1">
+                <label htmlFor="amount" className="block text-sm font-medium text-gray-700 dark:text-theme-secondary mb-1">
                   Auction Amount <span className="text-red-500">*</span>
                   {chitFund?.chitFundType === 'Fixed' && newAuction.month && (
                     <span className="text-xs text-blue-600 ml-2">(Auto-populated from fixed amount)</span>
@@ -583,7 +583,7 @@ export default function ChitFundAuctionsPage() {
                   placeholder={chitFund.totalAmount.toString()}
                   readOnly={chitFund?.chitFundType === 'Fixed' && newAuction.month && newAuction.amount}
                   className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                    formErrors.amount ? 'border-red-500' : 'border-gray-300'
+                    formErrors.amount ? 'border-red-500' : 'border-gray-200 dark:border-surface-border'
                   } ${chitFund?.chitFundType === 'Fixed' && newAuction.month && newAuction.amount ? 'bg-gray-100 cursor-not-allowed' : ''}`}
                 />
                 {chitFund?.chitFundType === 'Fixed' && newAuction.month && newAuction.amount && (
@@ -596,7 +596,7 @@ export default function ChitFundAuctionsPage() {
                 )}
               </div>
               <div className="mb-4">
-                <label htmlFor="date" className="block text-sm font-medium text-gray-700 mb-1">
+                <label htmlFor="date" className="block text-sm font-medium text-gray-700 dark:text-theme-secondary mb-1">
                   Auction Date <span className="text-red-500">*</span>
                 </label>
                 <input
@@ -606,7 +606,7 @@ export default function ChitFundAuctionsPage() {
                   value={newAuction.date}
                   onChange={handleInputChange}
                   className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                    formErrors.date ? 'border-red-500' : 'border-gray-300'
+                    formErrors.date ? 'border-red-500' : 'border-gray-200 dark:border-surface-border'
                   }`}
                 />
                 {formErrors.date && (
@@ -617,10 +617,10 @@ export default function ChitFundAuctionsPage() {
               {/* Only show Auction Details for Auction type chit funds */}
               {chitFund?.chitFundType === 'Auction' && (
                 <>
-                  <h3 className="text-lg font-semibold text-gray-700 mb-3 mt-6 border-t pt-4">Auction Details</h3>
+                  <h3 className="text-lg font-semibold text-gray-700 dark:text-theme-secondary mb-3 mt-6 border-t pt-4">Auction Details</h3>
 
                   <div className="mb-4">
-                    <label htmlFor="lowestBid" className="block text-sm font-medium text-gray-700 mb-1">
+                    <label htmlFor="lowestBid" className="block text-sm font-medium text-gray-700 dark:text-theme-secondary mb-1">
                       Lowest Bid Amount
                     </label>
                     <input
@@ -630,12 +630,12 @@ export default function ChitFundAuctionsPage() {
                       value={newAuction.lowestBid}
                       onChange={handleInputChange}
                       placeholder="Lowest bid in the auction"
-                      className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent border-gray-300"
+                      className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent border-gray-200 dark:border-surface-border"
                     />
                   </div>
 
                   <div className="mb-4">
-                    <label htmlFor="highestBid" className="block text-sm font-medium text-gray-700 mb-1">
+                    <label htmlFor="highestBid" className="block text-sm font-medium text-gray-700 dark:text-theme-secondary mb-1">
                       Highest Bid Amount
                     </label>
                     <input
@@ -645,12 +645,12 @@ export default function ChitFundAuctionsPage() {
                       value={newAuction.highestBid}
                       onChange={handleInputChange}
                       placeholder="Highest bid in the auction"
-                      className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent border-gray-300"
+                      className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent border-gray-200 dark:border-surface-border"
                     />
                   </div>
 
                   <div className="mb-4">
-                    <label htmlFor="numberOfBidders" className="block text-sm font-medium text-gray-700 mb-1">
+                    <label htmlFor="numberOfBidders" className="block text-sm font-medium text-gray-700 dark:text-theme-secondary mb-1">
                       Number of Bidders
                     </label>
                     <input
@@ -660,14 +660,14 @@ export default function ChitFundAuctionsPage() {
                       value={newAuction.numberOfBidders}
                       onChange={handleInputChange}
                       placeholder="How many members participated in bidding"
-                      className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent border-gray-300"
+                      className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent border-gray-200 dark:border-surface-border"
                     />
                   </div>
                 </>
               )}
 
               <div className="mb-4">
-                <label htmlFor="notes" className="block text-sm font-medium text-gray-700 mb-1">
+                <label htmlFor="notes" className="block text-sm font-medium text-gray-700 dark:text-theme-secondary mb-1">
                   Auction Notes
                 </label>
                 <textarea
@@ -677,12 +677,12 @@ export default function ChitFundAuctionsPage() {
                   onChange={handleInputChange}
                   placeholder="Any additional notes about the auction process"
                   rows={3}
-                  className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent border-gray-300"
+                  className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent border-gray-200 dark:border-surface-border"
                 />
               </div>
 
               {formErrors.submit && (
-                <div className="mb-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+                <div className="mb-4 alert-error px-4 py-3 rounded">
                   <p>{formErrors.submit}</p>
                 </div>
               )}
@@ -690,7 +690,7 @@ export default function ChitFundAuctionsPage() {
                 <button
                   type="button"
                   onClick={() => setShowAddForm(false)}
-                  className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition duration-300"
+                  className="btn-neutral px-4 py-2 rounded-lg transition duration-300"
                 >
                   Cancel
                 </button>
@@ -709,12 +709,12 @@ export default function ChitFundAuctionsPage() {
 
       {/* Delete Confirmation Modal */}
       {showDeleteModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-md">
+        <div className="modal-overlay flex items-center justify-center z-50">
+          <div className="themed-card p-6 w-full max-w-md">
             <h2 className="text-xl font-bold text-red-700 mb-4">Confirm Deletion</h2>
             <p className="mb-6">Are you sure you want to delete this auction? This action cannot be undone.</p>
             {deleteError && (
-              <div className="mb-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+              <div className="mb-4 alert-error px-4 py-3 rounded">
                 <p>{deleteError}</p>
               </div>
             )}
@@ -725,7 +725,7 @@ export default function ChitFundAuctionsPage() {
                   setShowDeleteModal(false);
                   setAuctionToDelete(null);
                 }}
-                className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition duration-300"
+                className="btn-neutral px-4 py-2 rounded-lg transition duration-300"
                 disabled={isDeleting}
               >
                 Cancel
@@ -745,13 +745,13 @@ export default function ChitFundAuctionsPage() {
 
       {/* Auction Details Modal */}
       {showDetailModal && selectedAuction && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-md">
+        <div className="modal-overlay flex items-center justify-center z-50">
+          <div className="themed-card p-6 w-full max-w-md">
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-xl font-bold text-blue-700">Auction Details</h2>
               <button
                 onClick={() => setShowDetailModal(false)}
-                className="text-gray-500 hover:text-gray-700"
+                className="text-gray-500 hover:text-gray-700 dark:text-theme-secondary"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -759,7 +759,7 @@ export default function ChitFundAuctionsPage() {
               </button>
             </div>
 
-            <div className="bg-gray-50 p-4 rounded-lg mb-4">
+            <div className="bg-gray-50 dark:bg-surface-elevated p-4 rounded-lg mb-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <p className="text-sm text-gray-500">Month</p>
@@ -828,7 +828,7 @@ export default function ChitFundAuctionsPage() {
             <div className="flex justify-end mt-6">
               <button
                 onClick={() => setShowDetailModal(false)}
-                className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition duration-300"
+                className="btn-neutral px-4 py-2 rounded-lg transition duration-300"
               >
                 Close
               </button>

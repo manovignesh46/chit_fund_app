@@ -67,7 +67,7 @@ const TYPE_COLORS: Record<string, string> = {
   LOAN_REPAYMENT: 'bg-purple-100 text-purple-800',
   DOCUMENT_CHARGE: 'bg-emerald-100 text-emerald-800',
   CHIT_CONTRIBUTION: 'bg-teal-100 text-teal-800',
-  AUCTION_PAYOUT: 'bg-amber-100 text-amber-800',
+  AUCTION_PAYOUT: 'bg-yellow-100 text-yellow-800',
   PARTNER_TO_PARTNER: 'bg-blue-100 text-blue-800',
   RECORD_AMOUNT: 'bg-indigo-100 text-indigo-800',
 };
@@ -173,7 +173,7 @@ export default function EnhancedTransactionList({ refresh }: TransactionListProp
 
   if (loading && page === 1) {
     return (
-      <div className="bg-white rounded-lg shadow-md p-6">
+      <div className="themed-card p-6">
         <div className="animate-pulse space-y-4">
           <div className="h-4 bg-gray-200 rounded w-1/4"></div>
           <div className="space-y-3">
@@ -187,11 +187,11 @@ export default function EnhancedTransactionList({ refresh }: TransactionListProp
   }
 
   return (
-    <div className="bg-white rounded-lg shadow-md">
+    <div className="themed-card">
       {/* Header */}
-      <div className="p-6 border-b border-gray-200">
+      <div className="p-6 border-b border-gray-200 dark:border-surface-border">
         <div className="flex justify-between items-center mb-4">
-          <h2 className="text-xl font-bold text-gray-800">Transaction History</h2>
+          <h2 className="text-xl font-bold text-gray-900 dark:text-theme-primary">Transaction History</h2>
           <button
             onClick={() => setShowFilters(!showFilters)}
             className="flex items-center space-x-2 px-3 py-1.5 text-sm bg-gray-100 hover:bg-gray-200 rounded-md transition-colors"
@@ -205,14 +205,14 @@ export default function EnhancedTransactionList({ refresh }: TransactionListProp
 
         {/* Filters */}
         {showFilters && (
-          <div className="bg-gray-50 p-4 rounded-lg space-y-4">
+          <div className="bg-gray-50 dark:bg-surface-elevated p-4 rounded-lg space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">Type</label>
+                <label className="block text-xs font-medium text-gray-700 dark:text-theme-secondary mb-1">Type</label>
                 <select
                   value={filters.type}
                   onChange={(e) => updateFilter('type', e.target.value)}
-                  className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  className="w-full px-2 py-1.5 text-sm border border-gray-200 dark:border-surface-border rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
                 >
                   {TRANSACTION_TYPE_OPTIONS.map(option => (
                     <option key={option.value} value={option.value}>{option.label}</option>
@@ -221,33 +221,33 @@ export default function EnhancedTransactionList({ refresh }: TransactionListProp
               </div>
               
               <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">From Date</label>
+                <label className="block text-xs font-medium text-gray-700 dark:text-theme-secondary mb-1">From Date</label>
                 <input
                   type="date"
                   value={filters.dateFrom}
                   onChange={(e) => updateFilter('dateFrom', e.target.value)}
-                  className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  className="w-full px-2 py-1.5 text-sm border border-gray-200 dark:border-surface-border rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
                 />
               </div>
               
               <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">To Date</label>
+                <label className="block text-xs font-medium text-gray-700 dark:text-theme-secondary mb-1">To Date</label>
                 <input
                   type="date"
                   value={filters.dateTo}
                   onChange={(e) => updateFilter('dateTo', e.target.value)}
-                  className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  className="w-full px-2 py-1.5 text-sm border border-gray-200 dark:border-surface-border rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
                 />
               </div>
               
               <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">Search</label>
+                <label className="block text-xs font-medium text-gray-700 dark:text-theme-secondary mb-1">Search</label>
                 <input
                   type="text"
                   value={filters.search}
                   onChange={(e) => updateFilter('search', e.target.value)}
                   placeholder="Member, note, type..."
-                  className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  className="w-full px-2 py-1.5 text-sm border border-gray-200 dark:border-surface-border rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
                 />
               </div>
             </div>
@@ -255,7 +255,7 @@ export default function EnhancedTransactionList({ refresh }: TransactionListProp
             <div className="flex justify-end">
               <button
                 onClick={clearFilters}
-                className="px-3 py-1.5 text-sm text-gray-600 hover:text-gray-800 transition-colors"
+                className="px-3 py-1.5 text-sm text-gray-700 dark:text-theme-secondary hover:text-gray-900 dark:text-theme-primary transition-colors"
               >
                 Clear Filters
               </button>
@@ -264,7 +264,7 @@ export default function EnhancedTransactionList({ refresh }: TransactionListProp
         )}
 
         {/* Summary */}
-        <div className="mt-4 text-sm text-gray-600">
+        <div className="mt-4 text-sm text-gray-700 dark:text-theme-secondary">
           Showing {transactions.length} of {totalCount} transactions for {activePartner}
         </div>
       </div>
@@ -272,7 +272,7 @@ export default function EnhancedTransactionList({ refresh }: TransactionListProp
       {/* Content */}
       <div className="p-6">
         {error && (
-          <div className="bg-red-50 border border-red-200 rounded-md p-3 mb-4">
+          <div className="alert-error rounded-md p-3 mb-4">
             <p className="text-red-600 text-sm">{error}</p>
           </div>
         )}
@@ -293,19 +293,19 @@ export default function EnhancedTransactionList({ refresh }: TransactionListProp
         ) : (
           <div className="space-y-3">
             {transactions.map((t) => (
-              <div key={t.id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+              <div key={t.id} className="border border-gray-200 dark:border-surface-border rounded-lg p-4 hover:shadow-md transition-shadow">
                 <div className="flex justify-between items-start">
                   <div className="flex-1">
                     <div className="flex items-center space-x-2 mb-1">
                       <span className="text-lg">{TYPE_ICONS[t.type] || '📄'}</span>
-                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${TYPE_COLORS[t.type] || 'bg-gray-100 text-gray-800'}`}>
+                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${TYPE_COLORS[t.type] || 'bg-gray-100 text-gray-900 dark:text-theme-primary'}`}>
                         {t.type.replace('_', ' ').toUpperCase()}
                       </span>
                     </div>
-                    <div className="font-medium text-gray-900 mb-1">
+                    <div className="font-medium text-gray-900 dark:text-theme-primary mb-1">
                       {getTransactionDescription(t)}
                     </div>
-                    <div className="text-sm text-gray-600">
+                    <div className="text-sm text-gray-700 dark:text-theme-secondary">
                       {formatDate(t.date)} • Performed by: {t.action_performer}
                     </div>
                     {t.note && (
@@ -315,7 +315,7 @@ export default function EnhancedTransactionList({ refresh }: TransactionListProp
                     )}
                   </div>
                   <div className="text-right">
-                    <div className="text-lg font-semibold text-gray-900">
+                    <div className="text-lg font-semibold text-gray-900 dark:text-theme-primary">
                       {formatCurrency(t.amount)}
                     </div>
                     <div className="text-xs text-gray-500">
@@ -331,21 +331,21 @@ export default function EnhancedTransactionList({ refresh }: TransactionListProp
         {/* Pagination */}
         {totalPages > 1 && (
           <div className="mt-6 flex justify-between items-center">
-            <div className="text-sm text-gray-600">
+            <div className="text-sm text-gray-700 dark:text-theme-secondary">
               Page {page} of {totalPages}
             </div>
             <div className="flex space-x-2">
               <button
                 onClick={() => setPage(page - 1)}
                 disabled={page === 1}
-                className="px-3 py-1.5 text-sm border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-3 py-1.5 text-sm border border-gray-200 dark:border-surface-border rounded hover:bg-gray-50 dark:hover:bg-surface-hover disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Previous
               </button>
               <button
                 onClick={() => setPage(page + 1)}
                 disabled={page === totalPages}
-                className="px-3 py-1.5 text-sm border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-3 py-1.5 text-sm border border-gray-200 dark:border-surface-border rounded hover:bg-gray-50 dark:hover:bg-surface-hover disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Next
               </button>

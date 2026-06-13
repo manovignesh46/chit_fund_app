@@ -162,10 +162,10 @@ export default function NotificationBell() {
     <div className="relative" ref={dropdownRef}>
       <button
         onClick={handleToggle}
-        className="relative p-2 rounded-md hover:bg-gray-100 transition-colors"
+        className="relative p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-surface-hover transition-colors"
         aria-label="Notifications"
       >
-        <BellIcon className="w-5 h-5 text-gray-600" />
+        <BellIcon className="w-5 h-5 text-gray-400" />
         {unreadCount > 0 && (
           <span className="absolute -top-0.5 -right-0.5 flex items-center justify-center min-w-[18px] h-[18px] px-1 text-[10px] font-bold text-white bg-red-500 rounded-full">
             {unreadCount > 99 ? '99+' : unreadCount}
@@ -177,9 +177,9 @@ export default function NotificationBell() {
       </button>
 
       {isOpen && (
-        <div className="fixed inset-x-3 top-16 sm:absolute sm:inset-x-auto sm:top-auto sm:right-0 sm:mt-2 w-auto sm:w-80 md:w-96 max-w-[calc(100vw-1.5rem)] sm:max-w-none bg-white rounded-lg shadow-lg border border-gray-200 z-50">
+        <div className="fixed inset-x-3 top-16 sm:absolute sm:inset-x-auto sm:top-auto sm:right-0 sm:mt-2 w-auto sm:w-80 md:w-96 max-w-[calc(100vw-1.5rem)] sm:max-w-none themed-card border border-gray-200 dark:border-surface-border z-50 shadow-lg">
           <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
-            <h3 className="text-sm font-semibold text-gray-800">Notifications</h3>
+            <h3 className="text-sm font-semibold text-gray-900 dark:text-theme-primary">Notifications</h3>
             {unreadCount > 0 && (
               <button
                 onClick={markAllAsRead}
@@ -209,8 +209,8 @@ export default function NotificationBell() {
                       <span className="mt-1.5 w-2 h-2 bg-blue-500 rounded-full flex-shrink-0" />
                     )}
                     <div className={!notification.read ? '' : 'ml-4'}>
-                      <p className="text-sm font-medium text-gray-800">{notification.title}</p>
-                      <p className="text-xs text-gray-600 mt-0.5">{notification.message}</p>
+                      <p className="text-sm font-medium text-gray-900 dark:text-theme-primary">{notification.title}</p>
+                      <p className="text-xs text-gray-700 dark:text-theme-secondary mt-0.5">{notification.message}</p>
                       <p className="text-xs text-gray-400 mt-1">
                         {formatDistanceToNow(new Date(notification.createdAt), { addSuffix: true })}
                       </p>
@@ -221,7 +221,7 @@ export default function NotificationBell() {
             )}
           </div>
 
-          <div className="px-3 sm:px-4 py-3 border-t border-gray-100 bg-gray-50 rounded-b-lg">
+          <div className="px-3 sm:px-4 py-3 border-t border-gray-100 bg-gray-50 dark:bg-surface-elevated rounded-b-lg">
             <Link
               href="/notifications"
               onClick={() => setIsOpen(false)}

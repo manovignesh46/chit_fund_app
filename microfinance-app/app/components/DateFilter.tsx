@@ -172,7 +172,7 @@ export default function DateFilter({ onDateRangeChange, className = '' }: DateFi
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm bg-white flex items-center justify-between hover:bg-gray-50"
+        className="dropdown-trigger focus:ring-2 focus:ring-blue-500 focus:border-transparent"
       >
         <span className="flex items-center">
           <svg className="w-4 h-4 mr-2 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -186,62 +186,62 @@ export default function DateFilter({ onDateRangeChange, className = '' }: DateFi
       </button>
 
       {isOpen && (
-        <div className="absolute z-50 mt-1 w-full bg-white border border-gray-300 rounded-lg shadow-lg">
+        <div className="absolute z-50 mt-1 w-full themed-card border border-gray-200 dark:border-surface-border rounded-lg shadow-lg">
           {!showCustomCalendar ? (
             <div className="py-1">
               <button
                 type="button"
                 onClick={() => handlePeriodSelect('all')}
-                className={`w-full px-4 py-2 text-left text-sm hover:bg-gray-100 ${selectedPeriod === 'all' ? 'bg-blue-50 text-blue-600' : 'text-gray-700'}`}
+                className={`dropdown-item ${selectedPeriod === 'all' ? 'dropdown-item-active' : ''}`}
               >
                 All Time
               </button>
               <button
                 type="button"
                 onClick={() => handlePeriodSelect('today')}
-                className={`w-full px-4 py-2 text-left text-sm hover:bg-gray-100 ${selectedPeriod === 'today' ? 'bg-blue-50 text-blue-600' : 'text-gray-700'}`}
+                className={`w-full px-4 py-2 text-left text-sm hover:bg-gray-50 dark:hover:bg-surface-hover ${selectedPeriod === 'today' ? 'bg-blue-50 text-blue-600' : 'text-gray-700 dark:text-theme-secondary'}`}
               >
                 Today
               </button>
               <button
                 type="button"
                 onClick={() => handlePeriodSelect('yesterday')}
-                className={`w-full px-4 py-2 text-left text-sm hover:bg-gray-100 ${selectedPeriod === 'yesterday' ? 'bg-blue-50 text-blue-600' : 'text-gray-700'}`}
+                className={`w-full px-4 py-2 text-left text-sm hover:bg-gray-50 dark:hover:bg-surface-hover ${selectedPeriod === 'yesterday' ? 'bg-blue-50 text-blue-600' : 'text-gray-700 dark:text-theme-secondary'}`}
               >
                 Yesterday
               </button>
               <button
                 type="button"
                 onClick={() => handlePeriodSelect('lastWeek')}
-                className={`w-full px-4 py-2 text-left text-sm hover:bg-gray-100 ${selectedPeriod === 'lastWeek' ? 'bg-blue-50 text-blue-600' : 'text-gray-700'}`}
+                className={`w-full px-4 py-2 text-left text-sm hover:bg-gray-50 dark:hover:bg-surface-hover ${selectedPeriod === 'lastWeek' ? 'bg-blue-50 text-blue-600' : 'text-gray-700 dark:text-theme-secondary'}`}
               >
                 Last Week
               </button>
               <button
                 type="button"
                 onClick={() => handlePeriodSelect('last7Days')}
-                className={`w-full px-4 py-2 text-left text-sm hover:bg-gray-100 ${selectedPeriod === 'last7Days' ? 'bg-blue-50 text-blue-600' : 'text-gray-700'}`}
+                className={`w-full px-4 py-2 text-left text-sm hover:bg-gray-50 dark:hover:bg-surface-hover ${selectedPeriod === 'last7Days' ? 'bg-blue-50 text-blue-600' : 'text-gray-700 dark:text-theme-secondary'}`}
               >
                 Last 7 Days
               </button>
               <button
                 type="button"
                 onClick={() => handlePeriodSelect('thisMonth')}
-                className={`w-full px-4 py-2 text-left text-sm hover:bg-gray-100 ${selectedPeriod === 'thisMonth' ? 'bg-blue-50 text-blue-600' : 'text-gray-700'}`}
+                className={`w-full px-4 py-2 text-left text-sm hover:bg-gray-50 dark:hover:bg-surface-hover ${selectedPeriod === 'thisMonth' ? 'bg-blue-50 text-blue-600' : 'text-gray-700 dark:text-theme-secondary'}`}
               >
                 This Month
               </button>
               <button
                 type="button"
                 onClick={() => handlePeriodSelect('untilLastMonth')}
-                className={`w-full px-4 py-2 text-left text-sm hover:bg-gray-100 ${selectedPeriod === 'untilLastMonth' ? 'bg-blue-50 text-blue-600' : 'text-gray-700'}`}
+                className={`w-full px-4 py-2 text-left text-sm hover:bg-gray-50 dark:hover:bg-surface-hover ${selectedPeriod === 'untilLastMonth' ? 'bg-blue-50 text-blue-600' : 'text-gray-700 dark:text-theme-secondary'}`}
               >
                 Until Last Month
               </button>
               <button
                 type="button"
                 onClick={() => handlePeriodSelect('lastMonth')}
-                className={`w-full px-4 py-2 text-left text-sm hover:bg-gray-100 ${selectedPeriod === 'lastMonth' ? 'bg-blue-50 text-blue-600' : 'text-gray-700'}`}
+                className={`w-full px-4 py-2 text-left text-sm hover:bg-gray-50 dark:hover:bg-surface-hover ${selectedPeriod === 'lastMonth' ? 'bg-blue-50 text-blue-600' : 'text-gray-700 dark:text-theme-secondary'}`}
               >
                 Last Month
               </button>
@@ -249,7 +249,7 @@ export default function DateFilter({ onDateRangeChange, className = '' }: DateFi
               <button
                 type="button"
                 onClick={() => handlePeriodSelect('custom')}
-                className="w-full px-4 py-2 text-left text-sm hover:bg-gray-100 text-gray-700 flex items-center"
+                className="dropdown-item flex items-center"
               >
                 <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
@@ -259,25 +259,25 @@ export default function DateFilter({ onDateRangeChange, className = '' }: DateFi
             </div>
           ) : (
             <div className="p-4">
-              <h3 className="text-sm font-medium text-gray-700 mb-3">Select Date Range</h3>
+              <h3 className="text-sm font-medium text-gray-700 dark:text-theme-secondary mb-3">Select Date Range</h3>
               <div className="space-y-3">
                 <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-1">Start Date</label>
+                  <label className="block text-xs font-medium text-gray-700 dark:text-theme-secondary mb-1">Start Date</label>
                   <input
                     type="date"
                     value={customStartDate}
                     onChange={(e) => setCustomStartDate(e.target.value)}
-                    className="w-full px-3 py-2 border rounded text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="themed-input w-full text-sm"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-1">End Date</label>
+                  <label className="block text-xs font-medium text-gray-700 dark:text-theme-secondary mb-1">End Date</label>
                   <input
                     type="date"
                     value={customEndDate}
                     onChange={(e) => setCustomEndDate(e.target.value)}
                     min={customStartDate}
-                    className="w-full px-3 py-2 border rounded text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="themed-input w-full text-sm"
                   />
                 </div>
                 <div className="flex space-x-2 pt-2">
@@ -292,14 +292,14 @@ export default function DateFilter({ onDateRangeChange, className = '' }: DateFi
                   <button
                     type="button"
                     onClick={handleClearCustomDate}
-                    className="flex-1 px-3 py-2 bg-gray-200 text-gray-700 rounded text-sm hover:bg-gray-300"
+                    className="btn-neutral flex-1 px-3 py-2 rounded text-sm"
                   >
                     Clear
                   </button>
                   <button
                     type="button"
                     onClick={() => setShowCustomCalendar(false)}
-                    className="flex-1 px-3 py-2 border border-gray-300 text-gray-700 rounded text-sm hover:bg-gray-50"
+                    className="btn-secondary flex-1 px-3 py-2 rounded text-sm"
                   >
                     Cancel
                   </button>

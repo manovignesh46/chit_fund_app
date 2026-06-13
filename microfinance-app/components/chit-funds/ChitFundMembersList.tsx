@@ -35,7 +35,7 @@ export default function ChitFundMembersList({
   const hasMoreMembers = !showAll && members.length > maxDisplay;
 
   return (
-    <div className="bg-white rounded-lg shadow-md overflow-hidden">
+    <div className="themed-card overflow-hidden">
       <div className="p-6 border-b">
         <h2 className="text-xl font-semibold">Members ({members.length})</h2>
       </div>
@@ -43,11 +43,11 @@ export default function ChitFundMembersList({
         {members.length === 0 ? (
           <p className="text-center text-gray-500">No members found</p>
         ) : (
-          <ul className="divide-y divide-gray-200">
+          <ul className="divide-y divide-surface-border">
             {displayMembers.map((member) => (
               <li key={member.id} className="py-3 flex justify-between items-center">
                 <div>
-                  <p className="text-sm font-medium text-gray-900">{getMemberName(member)}</p>
+                  <p className="text-sm font-medium text-gray-900 dark:text-theme-primary">{getMemberName(member)}</p>
                   {showAuctionDetails && (
                     <p className="text-sm text-gray-500">
                       {member.auctionWon

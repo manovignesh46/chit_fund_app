@@ -154,8 +154,8 @@ export default function UsersPage() {
     <div className="p-4 sm:p-6 max-w-4xl mx-auto">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6 gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">User Accounts</h1>
-          <p className="text-sm text-gray-600 mt-1">
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-theme-primary">User Accounts</h1>
+          <p className="text-sm text-gray-700 dark:text-theme-secondary mt-1">
             Create individual login accounts for each business partner. They will log in directly — no partner selection popup.
           </p>
         </div>
@@ -168,56 +168,56 @@ export default function UsersPage() {
       </div>
 
       {showForm && (
-        <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+        <div className="themed-card p-6 mb-6">
           <h2 className="text-lg font-semibold mb-4">Create Partner Login</h2>
           {formError && (
-            <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg text-sm">
+            <div className="mb-4 p-3 alert-error text-red-700 rounded-lg text-sm">
               {formError}
             </div>
           )}
           <form onSubmit={handleCreate} className="space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-theme-secondary mb-1">Name</label>
                 <input
                   type="text"
                   required
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-gray-200 dark:border-surface-border rounded-lg focus:ring-2 focus:ring-blue-500"
                   placeholder="Partner's display name"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-theme-secondary mb-1">Email</label>
                 <input
                   type="email"
                   required
                   value={formData.email}
                   onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-gray-200 dark:border-surface-border rounded-lg focus:ring-2 focus:ring-blue-500"
                   placeholder="partner@email.com"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-theme-secondary mb-1">Password</label>
                 <input
                   type="password"
                   required
                   minLength={8}
                   value={formData.password}
                   onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-gray-200 dark:border-surface-border rounded-lg focus:ring-2 focus:ring-blue-500"
                   placeholder="Min 8 characters"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Linked Partner</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-theme-secondary mb-1">Linked Partner</label>
                 <select
                   required
                   value={formData.partnerId}
                   onChange={(e) => setFormData({ ...formData, partnerId: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-gray-200 dark:border-surface-border rounded-lg focus:ring-2 focus:ring-blue-500"
                 >
                   <option value="">Select partner...</option>
                   {partners.map((p) => (
@@ -239,22 +239,22 @@ export default function UsersPage() {
         </div>
       )}
 
-      <div className="bg-white rounded-lg shadow-md overflow-hidden">
-        <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-gray-50">
+      <div className="themed-card overflow-hidden">
+        <table className="min-w-full divide-y divide-surface-border">
+          <thead className="bg-gray-50 dark:bg-surface-elevated">
             <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Email</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Role</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Partner</th>
-              <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Actions</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-theme-muted uppercase">Name</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-theme-muted uppercase">Email</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-theme-muted uppercase">Role</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-theme-muted uppercase">Partner</th>
+              <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-theme-muted uppercase">Actions</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-200">
+          <tbody>
             {users.map((user) => (
-              <tr key={user.id} className="hover:bg-gray-50">
-                <td className="px-6 py-4 text-sm font-medium text-gray-900">{user.name}</td>
-                <td className="px-6 py-4 text-sm text-gray-600">{user.email}</td>
+              <tr key={user.id} className="hover:bg-gray-50 dark:hover:bg-surface-hover">
+                <td className="px-6 py-4 text-sm font-medium text-gray-900 dark:text-theme-primary">{user.name}</td>
+                <td className="px-6 py-4 text-sm text-gray-700 dark:text-theme-secondary">{user.email}</td>
                 <td className="px-6 py-4 text-sm">
                   <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
                     !user.dataOwnerId ? 'bg-purple-100 text-purple-800' : 'bg-blue-100 text-blue-800'
@@ -262,7 +262,7 @@ export default function UsersPage() {
                     {!user.dataOwnerId ? 'Primary Admin' : 'Partner'}
                   </span>
                 </td>
-                <td className="px-6 py-4 text-sm text-gray-600">
+                <td className="px-6 py-4 text-sm text-gray-700 dark:text-theme-secondary">
                   {user.partner?.name || '—'}
                 </td>
                 <td className="px-6 py-4 text-right text-sm">

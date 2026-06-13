@@ -146,13 +146,13 @@ export default function TransactionForm({ onSuccess }: TransactionFormProps) {
   }
 
   return (
-    <form className="max-w-xl mx-auto p-6 bg-white rounded-lg shadow-md space-y-4" onSubmit={handleSubmit}>
-      <h2 className="text-xl font-bold mb-4 text-gray-800">Record Manual Transaction</h2>
+    <form className="max-w-xl mx-auto p-6 themed-card space-y-4" onSubmit={handleSubmit}>
+      <h2 className="text-xl font-bold mb-4 text-gray-900 dark:text-theme-primary">Record Manual Transaction</h2>
 
       <div>
-        <label className="block font-medium text-gray-700">Transaction Type</label>
+        <label className="block font-medium text-gray-700 dark:text-theme-secondary">Transaction Type</label>
         <select
-          className="w-full border-gray-300 rounded-md p-2 mt-1 shadow-sm"
+          className="w-full border-gray-200 dark:border-surface-border rounded-md p-2 mt-1 shadow-sm"
           value={type}
           onChange={(e) => handleTypeChange(e.target.value)}
         >
@@ -163,10 +163,10 @@ export default function TransactionForm({ onSuccess }: TransactionFormProps) {
       </div>
 
       <div>
-        <label className="block font-medium text-gray-700">Amount</label>
+        <label className="block font-medium text-gray-700 dark:text-theme-secondary">Amount</label>
         <input
           type="number"
-          className="w-full border-gray-300 rounded-md p-2 mt-1 shadow-sm"
+          className="w-full border-gray-200 dark:border-surface-border rounded-md p-2 mt-1 shadow-sm"
           value={amount}
           onChange={(e) => setAmount(e.target.value)}
           required
@@ -179,9 +179,9 @@ export default function TransactionForm({ onSuccess }: TransactionFormProps) {
       {type === TRANSACTION_TYPES_CONFIG.PARTNER_TO_PARTNER && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label className="block font-medium text-gray-700">From Partner</label>
+            <label className="block font-medium text-gray-700 dark:text-theme-secondary">From Partner</label>
             <select
-              className="w-full border-gray-300 rounded-md p-2 mt-1 shadow-sm"
+              className="w-full border-gray-200 dark:border-surface-border rounded-md p-2 mt-1 shadow-sm"
               value={fromPartnerId}
               onChange={(e) => handleFromPartnerChange(e.target.value)}
               required
@@ -193,9 +193,9 @@ export default function TransactionForm({ onSuccess }: TransactionFormProps) {
             </select>
           </div>
           <div>
-            <label className="block font-medium text-gray-700">To Partner</label>
+            <label className="block font-medium text-gray-700 dark:text-theme-secondary">To Partner</label>
             <select
-              className="w-full border-gray-300 rounded-md p-2 mt-1 shadow-sm"
+              className="w-full border-gray-200 dark:border-surface-border rounded-md p-2 mt-1 shadow-sm"
               value={toPartnerId}
               onChange={(e) => setToPartnerId(e.target.value)}
               required
@@ -214,8 +214,8 @@ export default function TransactionForm({ onSuccess }: TransactionFormProps) {
       {/* --- Restored Radio Button UI for Record Amount --- */}
       {type === TRANSACTION_TYPES_CONFIG.RECORD_AMOUNT && (
         <div>
-            <label className="block font-medium text-gray-700">Adjustment Type for <span className="font-bold">{selectedPartner?.name}</span></label>
-             <div className="flex gap-6 mt-2 p-3 border border-gray-200 rounded-md">
+            <label className="block font-medium text-gray-700 dark:text-theme-secondary">Adjustment Type for <span className="font-bold">{selectedPartner?.name}</span></label>
+             <div className="flex gap-6 mt-2 p-3 border border-gray-200 dark:border-surface-border rounded-md">
               <label className="flex items-center cursor-pointer">
                 <input
                   type="radio"
@@ -223,9 +223,9 @@ export default function TransactionForm({ onSuccess }: TransactionFormProps) {
                   value="credit"
                   checked={adjustmentType === 'credit'}
                   onChange={() => setAdjustmentType('credit')}
-                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
+                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-200 dark:border-surface-border"
                 />
-                <span className="ml-2 text-gray-700">Credit (Add cash)</span>
+                <span className="ml-2 text-gray-700 dark:text-theme-secondary">Credit (Add cash)</span>
               </label>
               <label className="flex items-center cursor-pointer">
                 <input
@@ -234,19 +234,19 @@ export default function TransactionForm({ onSuccess }: TransactionFormProps) {
                   value="debit"
                   checked={adjustmentType === 'debit'}
                   onChange={() => setAdjustmentType('debit')}
-                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
+                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-200 dark:border-surface-border"
                 />
-                <span className="ml-2 text-gray-700">Debit (Remove cash)</span>
+                <span className="ml-2 text-gray-700 dark:text-theme-secondary">Debit (Remove cash)</span>
               </label>
             </div>
         </div>
       )}
 
       <div>
-        <label className="block font-medium text-gray-700">Date</label>
+        <label className="block font-medium text-gray-700 dark:text-theme-secondary">Date</label>
         <input
           type="date"
-          className="w-full border-gray-300 rounded-md p-2 mt-1 shadow-sm"
+          className="w-full border-gray-200 dark:border-surface-border rounded-md p-2 mt-1 shadow-sm"
           value={date}
           onChange={(e) => setDate(e.target.value)}
           required
@@ -254,9 +254,9 @@ export default function TransactionForm({ onSuccess }: TransactionFormProps) {
       </div>
 
       <div>
-        <label className="block font-medium text-gray-700">Note</label>
+        <label className="block font-medium text-gray-700 dark:text-theme-secondary">Note</label>
         <textarea
-          className="w-full border-gray-300 rounded-md p-2 mt-1 shadow-sm"
+          className="w-full border-gray-200 dark:border-surface-border rounded-md p-2 mt-1 shadow-sm"
           value={note}
           onChange={(e) => setNote(e.target.value)}
           rows={2}

@@ -44,7 +44,7 @@ export function DetailInfoCardSkeleton({
   rows?: number;
 }) {
   return (
-    <div className="bg-white rounded-lg shadow-md overflow-hidden">
+    <div className="themed-card overflow-hidden">
       <div className="p-4 sm:p-6 border-b">
         <SkeletonLoader height="1.5rem" width="10rem" />
       </div>
@@ -75,7 +75,7 @@ export function DetailTableSectionSkeleton({
   columns?: number;
 }) {
   return (
-    <div className="bg-white rounded-lg shadow-md overflow-hidden">
+    <div className="themed-card overflow-hidden">
       <div className="p-4 sm:p-6 border-b flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
         <SkeletonLoader height="1.5rem" width="10rem" />
         <div className="flex space-x-2 sm:space-x-3">
@@ -95,7 +95,7 @@ export function DetailTableSectionSkeleton({
  */
 export function LoanDetailSkeleton() {
   return (
-    <div className="container mx-auto px-2 sm:px-4 py-6 sm:py-8 max-w-screen-xl w-full">
+    <div className="page-container">
       <DetailHeaderSkeleton actionButtons={3} />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6 mb-6 sm:mb-8">
@@ -103,7 +103,7 @@ export function LoanDetailSkeleton() {
           <DetailInfoCardSkeleton title="Loan Details" rows={6} />
         </div>
         <div>
-          <div className="bg-white rounded-lg shadow-md overflow-hidden">
+          <div className="themed-card overflow-hidden">
             <div className="p-4 sm:p-6 border-b">
               <SkeletonLoader height="1.5rem" width="10rem" />
             </div>
@@ -141,7 +141,7 @@ export function LoanDetailSkeleton() {
  */
 export function ChitFundDetailSkeleton() {
   return (
-    <div className="container mx-auto px-2 sm:px-4 py-6 sm:py-8 max-w-screen-xl w-full">
+    <div className="page-container">
       <DetailHeaderSkeleton actionButtons={3} />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6 mb-6 sm:mb-8">
@@ -149,7 +149,7 @@ export function ChitFundDetailSkeleton() {
           <DetailInfoCardSkeleton title="Chit Fund Details" rows={6} />
         </div>
         <div>
-          <div className="bg-white rounded-lg shadow-md overflow-hidden">
+          <div className="themed-card overflow-hidden">
             <div className="p-4 sm:p-6 border-b">
               <SkeletonLoader height="1.5rem" width="12rem" />
             </div>

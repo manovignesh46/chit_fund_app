@@ -525,7 +525,7 @@ const ChitFundDetails = () => {
   if (error) {
     return (
       <div className="container mx-auto px-4 py-8">
-        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+        <div className="alert-error px-4 py-3 rounded">
           <h2 className="text-xl font-bold mb-2">Error</h2>
           <p>{error}</p>
           <Link href="/chit-funds" className="mt-4 inline-block text-blue-600 hover:underline">
@@ -539,7 +539,7 @@ const ChitFundDetails = () => {
   if (!chitFund) {
     return (
       <div className="container mx-auto px-4 py-8">
-        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+        <div className="alert-error px-4 py-3 rounded">
           <h2 className="text-xl font-bold mb-2">Chit Fund Not Found</h2>
           <p>The chit fund you are looking for does not exist or has been removed.</p>
           <Link href="/chit-funds" className="mt-4 inline-block text-blue-600 hover:underline">
@@ -551,9 +551,9 @@ const ChitFundDetails = () => {
   }
 
   return (
-    <div className="container mx-auto px-2 sm:px-4 py-6 sm:py-8 max-w-screen-xl w-full">
+    <div className="page-container">
       <div className="flex flex-row flex-wrap items-center justify-between gap-2 mb-6 sm:mb-8">
-        <h1 className="text-2xl sm:text-3xl font-bold text-blue-700">Chit Fund Overview</h1>
+        <h1 className="page-title">Chit Fund Overview</h1>
         <div className="flex flex-row flex-wrap gap-1 sm:gap-2 w-auto items-center">
           <button
             onClick={() => setShowDeleteModal(true)}
@@ -588,7 +588,7 @@ const ChitFundDetails = () => {
           </Link>
           {/* Back Button: icon only on mobile, icon+text on desktop */}
           <Link href="/chit-funds" aria-label="Back to Chit Funds"
-            className="p-2 rounded-lg text-sm sm:text-base transition duration-300 flex items-center justify-center bg-gray-200 text-gray-700 hover:bg-gray-300 sm:px-4 sm:py-2">
+            className="p-2 rounded-lg text-sm sm:text-base transition duration-300 flex items-center justify-center btn-neutral sm:px-4 sm:py-2">
             <svg className="h-5 w-5 block sm:hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7"></path></svg>
             <span className="hidden sm:inline-flex items-center">
               <svg className="h-5 w-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7"></path></svg>
@@ -600,7 +600,7 @@ const ChitFundDetails = () => {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
         <div className="lg:col-span-2">
-          <div className="bg-white rounded-lg shadow-md overflow-hidden">
+          <div className="themed-card overflow-hidden">
             <div className="p-6 border-b">
               <div className="flex justify-between items-start">
                 <h2 className="text-xl font-semibold">Chit Fund Overview</h2>
@@ -756,7 +756,7 @@ const ChitFundDetails = () => {
 
           {/* Fixed Amounts Section - Only show when Fixed type is selected */}
           {chitFund.chitFundType === 'Fixed' && chitFund.fixedAmounts && chitFund.fixedAmounts.length > 0 && (
-            <div className="bg-white rounded-lg shadow-md overflow-hidden mt-6">
+            <div className="themed-card overflow-hidden mt-6">
               <div className="p-6 border-b">
                 <h2 className="text-xl font-semibold">Fixed Amounts by Month</h2>
                 <p className="text-sm text-gray-500 mt-1">Predefined auction amounts for each month</p>
@@ -766,7 +766,7 @@ const ChitFundDetails = () => {
                   {chitFund.fixedAmounts
                     .sort((a, b) => a.month - b.month)
                     .map((fixedAmount) => (
-                      <div key={fixedAmount.month} className="bg-gray-50 rounded-lg p-4 border">
+                      <div key={fixedAmount.month} className="bg-gray-50 dark:bg-surface-elevated rounded-lg p-4 border">
                         <div className="text-center">
                           <h3 className="text-sm font-medium text-gray-500 mb-1">Month {fixedAmount.month}</h3>
                           <p className="text-lg font-semibold text-blue-600">{formatCurrency(fixedAmount.amount)}</p>
@@ -778,42 +778,42 @@ const ChitFundDetails = () => {
             </div>
           )}
 
-          <div className="bg-white rounded-lg shadow-md overflow-hidden mt-6">
+          <div className="themed-card overflow-hidden mt-6">
             <div className="p-6 border-b">
               <h2 className="text-xl font-semibold">Auction History</h2>
             </div>
-            <div className="overflow-x-auto w-full">
-              <table className="min-w-[700px] w-full divide-y divide-gray-200 text-xs sm:text-sm">
-                <thead className="bg-gray-50">
+            <div className="table-shell">
+              <table className="min-w-[700px] w-full divide-y divide-surface-border text-xs sm:text-sm">
+                <thead className="bg-gray-50 dark:bg-surface-elevated">
                   <tr>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-theme-muted uppercase tracking-wider">
                       Month
                     </th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-theme-muted uppercase tracking-wider">
                       Date
                     </th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-theme-muted uppercase tracking-wider">
                       Winner
                     </th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-theme-muted uppercase tracking-wider">
                       Amount
                     </th>
                   </tr>
                 </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
+                <tbody>
                   {auctions.map((auction) => (
-                    <tr key={auction.id} className="hover:bg-gray-50">
+                    <tr key={auction.id} className="hover:bg-gray-50 dark:hover:bg-surface-hover">
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900">{auction.month}</div>
+                        <div className="text-sm text-gray-900 dark:text-theme-primary">{auction.month}</div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900">{formatDate(auction.date)}</div>
+                        <div className="text-sm text-gray-900 dark:text-theme-primary">{formatDate(auction.date)}</div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="text-sm font-medium text-blue-600">{auction.winner?.globalMember?.name || `Member ID: ${auction.winnerId}`}</div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900">{formatCurrency(auction.amount)}</div>
+                        <div className="text-sm text-gray-900 dark:text-theme-primary">{formatCurrency(auction.amount)}</div>
                       </td>
                     </tr>
                   ))}
@@ -832,7 +832,7 @@ const ChitFundDetails = () => {
 
         {/* Contributions Overview - Show when contributions are loaded */}
         {contributionsLoading ? (
-          <div className="bg-white rounded-lg shadow-md overflow-hidden mt-6">
+          <div className="themed-card overflow-hidden mt-6">
             <div className="p-6 border-b">
               <h2 className="text-xl font-semibold">Contributions Overview</h2>
             </div>
@@ -855,7 +855,7 @@ const ChitFundDetails = () => {
 
           {/* Next Payout Section - Show when auctions and members are loaded */}
           {auctionsLoading || membersLoading ? (
-            <div className="bg-white rounded-lg shadow-md overflow-hidden mt-6">
+            <div className="themed-card overflow-hidden mt-6">
               <div className="p-6 border-b">
                 <h2 className="text-xl font-semibold">Next Payout</h2>
               </div>
@@ -869,7 +869,7 @@ const ChitFundDetails = () => {
               </div>
             </div>
           ) : (
-            <div className="bg-white rounded-lg shadow-md overflow-hidden mt-6">
+            <div className="themed-card overflow-hidden mt-6">
               <div className="p-6 border-b">
                 <h2 className="text-xl font-semibold">Next Payout</h2>
               </div>
@@ -904,7 +904,7 @@ const ChitFundDetails = () => {
 
           {/* Outstanding Balances Section - Show when contributions are loaded */}
           {contributionsLoading ? (
-            <div className="bg-white rounded-lg shadow-md overflow-hidden mt-6">
+            <div className="themed-card overflow-hidden mt-6">
               <div className="p-6 border-b">
                 <div className="flex justify-between items-center">
                   <h2 className="text-xl font-semibold">Outstanding Balances</h2>
@@ -922,7 +922,7 @@ const ChitFundDetails = () => {
               </div>
             </div>
           ) : membersWithBalance.length > 0 && (
-            <div className="bg-white rounded-lg shadow-md overflow-hidden mt-6">
+            <div className="themed-card overflow-hidden mt-6">
               <div className="p-6 border-b">
                 <div className="flex justify-between items-center">
                   <h2 className="text-xl font-semibold">Outstanding Balances</h2>
@@ -932,11 +932,11 @@ const ChitFundDetails = () => {
                 </div>
               </div>
               <div className="p-6">
-                <ul className="divide-y divide-gray-200">
+                <ul className="divide-y divide-surface-border">
                   {membersWithBalance.map((member) => (
                     <li key={member.id} className="py-3">
                       <div className="flex justify-between items-center mb-1">
-                        <p className="text-sm font-medium text-gray-900">{member.name}</p>
+                        <p className="text-sm font-medium text-gray-900 dark:text-theme-primary">{member.name}</p>
                         <div className="text-sm font-semibold text-red-600">
                           {formatCurrency(member.totalBalance)}
                         </div>
@@ -958,7 +958,7 @@ const ChitFundDetails = () => {
       </div>
 
       {/* Actions Section */}
-      <div className="bg-white rounded-lg shadow-md overflow-hidden mt-6">
+      <div className="themed-card overflow-hidden mt-6">
         <div className="p-6 border-b">
           <h2 className="text-xl font-semibold">Actions</h2>
         </div>
@@ -985,12 +985,12 @@ const ChitFundDetails = () => {
 
       {/* Delete Confirmation Modal */}
       {showDeleteModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 px-2">
-          <div className="bg-white rounded-lg shadow-lg w-full max-w-xs sm:max-w-md px-2 sm:px-6 py-4 sm:py-6">
+        <div className="modal-overlay flex items-center justify-center z-50 px-2">
+          <div className="themed-card w-full max-w-xs sm:max-w-md px-2 sm:px-6 py-4 sm:py-6">
             <h2 className="text-xl font-bold text-red-700 mb-4">Confirm Deletion</h2>
             <p className="mb-6">Are you sure you want to delete this chit fund? This action cannot be undone.</p>
             {deleteError && (
-              <div className="mb-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+              <div className="mb-4 alert-error px-4 py-3 rounded">
                 <p>{deleteError}</p>
               </div>
             )}
@@ -1001,7 +1001,7 @@ const ChitFundDetails = () => {
                   setShowDeleteModal(false);
                   setDeleteError(null);
                 }}
-                className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition duration-300"
+                className="btn-neutral px-4 py-2 rounded-lg transition duration-300"
               >
                 Cancel
               </button>

@@ -234,13 +234,13 @@ export default function RepaymentForm({ loanId, onSuccess, onCancel, initialLoan
   if (loading) return <div className="p-6 text-center text-gray-500">Loading form...</div>;
 
   return (
-    <div className="bg-white rounded-lg shadow-md overflow-hidden">
-      <div className="p-6 border-b bg-gray-50">
-        <h2 className="text-xl font-semibold text-green-700">Record Payment</h2>
+    <div className="themed-card overflow-hidden">
+      <div className="p-6 border-b bg-gray-50 dark:bg-surface-elevated">
+        <h2 className="text-xl font-semibold text-gray-900 dark:text-theme-heading">Record Payment</h2>
       </div>
       <form onSubmit={handleSubmit} className="p-6">
         {errors.general && (
-          <div className="mb-6 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+          <div className="mb-6 alert-error px-4 py-3 rounded">
             <p>{errors.general}</p>
           </div>
         )}
@@ -248,22 +248,22 @@ export default function RepaymentForm({ loanId, onSuccess, onCancel, initialLoan
         {/* Interest Only Toggle */}
         {(loan?.loanType === 'Monthly' || loan?.loanType === 'Reducing Balance') && (
           <div className="mb-6">
-            <div className="flex items-center justify-between p-4 bg-blue-50 rounded-lg border border-blue-200">
+            <div className="flex items-center justify-between p-4 form-panel rounded-lg">
               <div>
-                <h3 className="font-semibold text-blue-900">Interest Only Payment</h3>
-                <p className="text-xs text-blue-700">No principal reduction</p>
+                <h3 className="font-semibold text-gray-900 dark:text-theme-heading">Interest Only Payment</h3>
+                <p className="text-xs text-gray-500 dark:text-theme-muted">No principal reduction</p>
               </div>
               <div className="flex items-center">
                 <div
                   className={`relative w-12 h-6 rounded-full cursor-pointer transition-colors duration-300 ${
-                    formData.paymentType === 'INTEREST_ONLY' ? 'bg-blue-600' : 'bg-gray-300'
+                    formData.paymentType === 'INTEREST_ONLY' ? 'bg-blue-600' : 'bg-surface-border'
                   }`}
                   onClick={() => {
                     const newType = formData.paymentType === 'INTEREST_ONLY' ? 'REGULAR' : 'INTEREST_ONLY';
                     setFormData(prev => ({ ...prev, paymentType: newType }));
                   }}
                 >
-                  <div className={`absolute top-0.5 left-0.5 bg-white rounded-full h-5 w-5 shadow transition-transform duration-300 transform ${
+                  <div className={`absolute top-0.5 left-0.5 bg-white dark:bg-surface-card border border-gray-200 dark:border-surface-border rounded-full h-5 w-5 shadow transition-transform duration-300 transform ${
                     formData.paymentType === 'INTEREST_ONLY' ? 'translate-x-6' : 'translate-x-0'
                   }`}></div>
                 </div>
@@ -274,35 +274,35 @@ export default function RepaymentForm({ loanId, onSuccess, onCancel, initialLoan
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Amount (₹)*</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-theme-secondary mb-1">Amount (₹)*</label>
             <input
               type="number"
               name="amount"
               value={formData.amount}
               onChange={handleChange}
-              className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-green-500 ${errors.amount ? 'border-red-500' : 'border-gray-300'}`}
+              className={`themed-input w-full ${errors.amount ? 'border-red-500' : ''}`}
             />
             {errors.amount && <p className="mt-1 text-xs text-red-500">{errors.amount}</p>}
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Date*</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-theme-secondary mb-1">Date*</label>
             <input
               type="date"
               name="paidDate"
               value={formData.paidDate}
               onChange={handleChange}
-              className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-green-500 ${errors.paidDate ? 'border-red-500' : 'border-gray-300'}`}
+              className={`themed-input w-full ${errors.paidDate ? 'border-red-500' : ''}`}
             />
           </div>
 
           <div className="md:col-span-2">
-            <label className="block text-sm font-medium text-gray-700 mb-1">Payment Schedule*</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-theme-secondary mb-1">Payment Schedule*</label>
             <select
               name="scheduleId"
               value={formData.scheduleId}
               onChange={handleChange}
-              className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-green-500 ${errors.scheduleId ? 'border-red-500' : 'border-gray-300'}`}
+              className={`themed-input w-full ${errors.scheduleId ? 'border-red-500' : ''}`}
             >
               <option value="">-- Select Schedule --</option>
               {pendingSchedules
@@ -321,13 +321,13 @@ export default function RepaymentForm({ loanId, onSuccess, onCancel, initialLoan
           </div>
 
           <div className="md:col-span-2">
-            <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-theme-secondary mb-1">Notes</label>
             <textarea
               name="notes"
               value={formData.notes}
               onChange={handleChange}
               rows={2}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+              className="themed-input w-full"
               placeholder="Add any additional notes..."
             />
           </div>
@@ -338,7 +338,7 @@ export default function RepaymentForm({ loanId, onSuccess, onCancel, initialLoan
             <button
               type="button"
               onClick={onCancel}
-              className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
+              className="btn-secondary"
             >
               Cancel
             </button>

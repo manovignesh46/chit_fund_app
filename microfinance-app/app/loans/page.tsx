@@ -302,20 +302,20 @@ export default function LoansPage() {
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'Active':
-        return 'bg-green-100 text-green-800';
+        return 'bg-green-100 text-green-800 dark:status-badge-active';
       case 'Pending':
-        return 'bg-yellow-100 text-yellow-800';
+        return 'bg-yellow-100 text-yellow-800 dark:status-badge-upcoming';
       case 'Completed':
-        return 'bg-blue-100 text-blue-800';
+        return 'bg-blue-100 text-blue-800 dark:status-badge-upcoming';
       case 'Defaulted':
-        return 'bg-red-100 text-red-800';
+        return 'bg-red-100 text-red-800 dark:badge-overdue';
       default:
-        return 'bg-gray-100 text-gray-800';
+        return 'bg-gray-100 text-gray-800 dark:status-badge-completed';
     }
   };
 
   return (
-    <div className="container mx-auto px-2 sm:px-4 py-6 sm:py-8 max-w-screen-xl w-full">
+    <div className="page-container">
       <div className="flex flex-row flex-wrap items-center justify-between gap-2 mb-6 sm:mb-8">
         <h1 className="text-2xl sm:text-3xl font-bold text-green-700">Loans</h1>
         <div className="flex flex-row flex-wrap gap-1 sm:gap-2 w-auto">
@@ -369,16 +369,16 @@ export default function LoansPage() {
       </div>
 
       {/* Status filter - always visible */}
-      <div className="bg-white rounded-lg shadow-md overflow-hidden mb-4">
+      <div className="themed-card overflow-hidden mb-4">
         <div className="p-2 sm:p-4 flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-4">
-          <label htmlFor="statusFilter" className="text-sm text-gray-600 mr-0 sm:mr-2">
+          <label htmlFor="statusFilter" className="text-sm text-gray-700 dark:text-theme-secondary mr-0 sm:mr-2">
             Filter by Status:
           </label>
           <select
             id="statusFilter"
             value={statusFilter}
             onChange={handleStatusFilterChange}
-            className="border border-gray-300 rounded-md text-sm py-1 pl-2 pr-8"
+            className="themed-input text-sm py-1 pl-2 pr-8"
           >
             <option value="">All Statuses</option>
             <option value="Active">Active</option>
@@ -390,7 +390,7 @@ export default function LoansPage() {
           {statusFilter && (
             <button
               onClick={() => setStatusFilter('')}
-              className="text-sm text-gray-500 hover:text-gray-700"
+              className="text-sm text-gray-500 hover:text-gray-700 dark:text-theme-secondary"
             >
               Clear Filter
             </button>
@@ -401,13 +401,13 @@ export default function LoansPage() {
       {loading ? (
         <LoansListSkeleton />
       ) : error ? (
-        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded text-sm sm:text-base">
+        <div className="alert-error px-4 py-3 rounded text-sm sm:text-base">
           <p className="font-bold">Error</p>
           <p>{error}</p>
         </div>
       ) : loans.length === 0 ? (
-        <div className="bg-white rounded-lg shadow-md p-4 sm:p-6 text-center">
-          <p className="text-gray-600 mb-4 text-sm sm:text-base">
+        <div className="themed-card p-4 sm:p-6 text-center">
+          <p className="text-gray-700 dark:text-theme-secondary mb-4 text-sm sm:text-base">
             {statusFilter ? `No loans found with status "${statusFilter}".` : "No loans found."}
           </p>
           {!statusFilter && (
@@ -417,27 +417,27 @@ export default function LoansPage() {
           )}
         </div>
       ) : (
-        <div className="bg-white rounded-lg shadow-md overflow-hidden">
-          <div className="p-2 sm:p-4 border-b flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 sm:gap-0">
+        <div className="table-card">
+          <div className="table-toolbar">
             <div className="flex items-center">
-              <span className="text-sm text-gray-600">
+              <span className="text-sm text-gray-700 dark:text-theme-secondary">
                 {selectedLoans.length > 0 ? `${selectedLoans.length} selected` : ''}
               </span>
             </div>
           </div>
 
           {/* Table container with proper mobile scrolling - constrained width */}
-          <div className="overflow-x-auto w-full" style={{maxWidth: '85vw'}}>
-            <table className="w-full divide-y divide-gray-200 text-xs sm:text-sm" style={{minWidth: '800px'}}>
-              <thead className="bg-gray-50">
+          <div className="table-shell" style={{maxWidth: '85vw'}}>
+            <table className="themed-table text-xs sm:text-sm" style={{minWidth: '800px'}}>
+              <thead className="bg-gray-50 dark:bg-surface-elevated">
                 <tr>
-                  <th scope="col" className="px-2 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th scope="col" className="px-2 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 dark:text-theme-muted uppercase tracking-wider">
                     <div className="flex items-center">
                       <input
                         type="checkbox"
                         checked={selectAll}
                         onChange={handleSelectAll}
-                        className="h-4 w-4 text-green-600 border-gray-300 rounded focus:ring-green-500"
+                        className="h-4 w-4 text-green-600 border-gray-200 dark:border-surface-border rounded focus:ring-green-500"
                       />
                       <span className="ml-2">Select</span>
                     </div>
@@ -463,7 +463,7 @@ export default function LoansPage() {
                     currentSortDirection={sortConfig.direction}
                     onSort={requestSort}
                   />
-                  <th scope="col" className="px-2 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th scope="col" className="px-2 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 dark:text-theme-muted uppercase tracking-wider">
                     Installment Amount
                   </th>
                   <SortableTableHeader
@@ -504,16 +504,16 @@ export default function LoansPage() {
                     onSort={requestSort}
                     className="px-6 py-3"
                   />
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-theme-muted uppercase tracking-wider">
                     Actions
                   </th>
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
+              <tbody>
                 {sortedLoans.map((loan) => (
                   <tr
                     key={loan.id}
-                    className="hover:bg-gray-50 cursor-pointer"
+                    className="hover:bg-gray-50 dark:hover:bg-surface-hover cursor-pointer"
                     onClick={(e) => {
                       // Prevent navigation when clicking on checkbox or action buttons/links
                       if (
@@ -533,7 +533,7 @@ export default function LoansPage() {
                           type="checkbox"
                           checked={selectedLoans.includes(loan.id)}
                           onChange={() => handleSelectLoan(loan.id)}
-                          className="h-4 w-4 text-green-600 border-gray-300 rounded focus:ring-green-500"
+                          className="h-4 w-4 text-green-600 border-gray-200 dark:border-surface-border rounded focus:ring-green-500"
                         />
                       </div>
                     </td>
@@ -543,20 +543,20 @@ export default function LoansPage() {
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">{loan.loanType}</div>
+                      <div className="text-sm text-gray-900 dark:text-theme-primary">{loan.loanType}</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">{formatCurrency(loan.amount)}</div>
+                      <div className="text-sm text-gray-900 dark:text-theme-primary">{formatCurrency(loan.amount)}</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      {/* <div className="text-sm text-gray-900">{formatCurrency(loan.interestRate)}</div> */}
-                      <div className="text-sm text-gray-900">{formatCurrency(loan.installmentAmount)}</div>
+                      {/* <div className="text-sm text-gray-900 dark:text-theme-primary">{formatCurrency(loan.interestRate)}</div> */}
+                      <div className="text-sm text-gray-900 dark:text-theme-primary">{formatCurrency(loan.installmentAmount)}</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">{loan._count?.repayments || 0}/{loan.duration}</div>
+                      <div className="text-sm text-gray-900 dark:text-theme-primary">{loan._count?.repayments || 0}/{loan.duration}</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">{formatCurrency(loan.remainingAmount)}</div>
+                      <div className="text-sm text-gray-900 dark:text-theme-primary">{formatCurrency(loan.remainingAmount)}</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className={`text-sm ${loan.missedPayments > 0 ? 'text-red-600 font-medium' : 'text-green-600'}`}>
@@ -564,7 +564,7 @@ export default function LoansPage() {
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">{formatDate(loan.nextPaymentDate)}</div>
+                      <div className="text-sm text-gray-900 dark:text-theme-primary">{formatDate(loan.nextPaymentDate)}</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusColor(loan.status)}`}>
@@ -631,11 +631,11 @@ export default function LoansPage() {
           <div className="p-2 sm:p-6 border-t">
             <div className="flex flex-col md:flex-row justify-between items-center gap-2 md:gap-0">
               <div className="mb-2 md:mb-0 flex items-center">
-                <p className="text-xs sm:text-sm text-gray-600 mr-2 sm:mr-4">
+                <p className="text-xs sm:text-sm text-gray-700 dark:text-theme-secondary mr-2 sm:mr-4">
                   Showing {loans.length} of {totalCount} loans
                 </p>
                 <div className="flex items-center">
-                  <label htmlFor="pageSize" className="text-xs sm:text-sm text-gray-600 mr-2">
+                  <label htmlFor="pageSize" className="text-xs sm:text-sm text-gray-700 dark:text-theme-secondary mr-2">
                     Show:
                   </label>
                   <select
@@ -645,7 +645,7 @@ export default function LoansPage() {
                       setPageSize(Number(e.target.value));
                       setCurrentPage(1); // Reset to first page when changing page size
                     }}
-                    className="border border-gray-300 rounded-md text-xs sm:text-sm py-1 pl-2 pr-8"
+                    className="border border-gray-200 dark:border-surface-border rounded-md text-xs sm:text-sm py-1 pl-2 pr-8"
                   >
                     <option value="5">5</option>
                     <option value="10">10</option>
@@ -663,7 +663,7 @@ export default function LoansPage() {
                       onClick={() => setCurrentPage(1)}
                       disabled={currentPage === 1}
                       className={`relative inline-flex items-center rounded-l-md px-2 py-2 ${
-                        currentPage === 1 ? 'text-gray-300 cursor-not-allowed' : 'text-gray-500 hover:bg-gray-50'
+                        currentPage === 1 ? 'pagination-nav-btn' : 'pagination-nav-btn'
                       }`}
                     >
                       <span className="sr-only">First</span>
@@ -673,7 +673,7 @@ export default function LoansPage() {
                       onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
                       disabled={currentPage === 1}
                       className={`relative inline-flex items-center px-2 py-2 ${
-                        currentPage === 1 ? 'text-gray-300 cursor-not-allowed' : 'text-gray-500 hover:bg-gray-50'
+                        currentPage === 1 ? 'pagination-nav-btn' : 'pagination-nav-btn'
                       }`}
                     >
                       <span className="sr-only">Previous</span>
@@ -702,7 +702,7 @@ export default function LoansPage() {
                           className={`relative inline-flex items-center px-4 py-2 text-sm font-semibold ${
                             currentPage === pageNum
                               ? 'z-10 bg-green-600 text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-600'
-                              : 'text-gray-900 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:outline-offset-0'
+                              : 'text-gray-900 dark:text-theme-primary pagination-page focus:outline-offset-0'
                           }`}
                         >
                           {pageNum}
@@ -714,7 +714,7 @@ export default function LoansPage() {
                       onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
                       disabled={currentPage === totalPages}
                       className={`relative inline-flex items-center px-2 py-2 ${
-                        currentPage === totalPages ? 'text-gray-300 cursor-not-allowed' : 'text-gray-500 hover:bg-gray-50'
+                        currentPage === totalPages ? 'pagination-nav-btn' : 'pagination-nav-btn'
                       }`}
                     >
                       <span className="sr-only">Next</span>
@@ -726,7 +726,7 @@ export default function LoansPage() {
                       onClick={() => setCurrentPage(totalPages)}
                       disabled={currentPage === totalPages}
                       className={`relative inline-flex items-center rounded-r-md px-2 py-2 ${
-                        currentPage === totalPages ? 'text-gray-300 cursor-not-allowed' : 'text-gray-500 hover:bg-gray-50'
+                        currentPage === totalPages ? 'pagination-nav-btn' : 'pagination-nav-btn'
                       }`}
                     >
                       <span className="sr-only">Last</span>
@@ -742,25 +742,25 @@ export default function LoansPage() {
 
       {/* Delete Confirmation Modal */}
       {showDeleteModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 px-2">
-          <div className="bg-white rounded-lg p-4 sm:p-6 max-w-md w-full">
+        <div className="modal-overlay flex items-center justify-center z-50 px-2">
+          <div className="themed-card rounded-lg p-4 sm:p-6 max-w-md w-full">
             <h3 className="text-lg font-semibold mb-4">Confirm Delete</h3>
             {deleteSuccess ? (
-              <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-4">
+              <div className="alert-success px-4 py-3 rounded mb-4">
                 <p>{deleteSuccess}</p>
               </div>
             ) : (
               <>
                 <p className="mb-4">Are you sure you want to delete this loan? This action cannot be undone.</p>
                 {deleteError && (
-                  <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+                  <div className="alert-error px-4 py-3 rounded mb-4">
                     <p>{deleteError}</p>
                   </div>
                 )}
                 <div className="flex justify-end space-x-3">
                   <button
                     onClick={() => setShowDeleteModal(false)}
-                    className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition duration-300"
+                    className="btn-neutral px-4 py-2 rounded-lg transition duration-300"
                     disabled={isDeleting}
                   >
                     Cancel
@@ -781,25 +781,25 @@ export default function LoansPage() {
 
       {/* Bulk Delete Confirmation Modal */}
       {showBulkDeleteModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 px-2">
-          <div className="bg-white rounded-lg p-4 sm:p-6 max-w-md w-full">
+        <div className="modal-overlay flex items-center justify-center z-50 px-2">
+          <div className="themed-card rounded-lg p-4 sm:p-6 max-w-md w-full">
             <h3 className="text-lg font-semibold mb-4">Confirm Bulk Delete</h3>
             {bulkDeleteSuccess ? (
-              <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-4">
+              <div className="alert-success px-4 py-3 rounded mb-4">
                 <p>{bulkDeleteSuccess}</p>
               </div>
             ) : (
               <>
                 <p className="mb-4">Are you sure you want to delete {selectedLoans.length} loans? This action cannot be undone.</p>
                 {bulkDeleteError && (
-                  <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+                  <div className="alert-error px-4 py-3 rounded mb-4">
                     <p>{bulkDeleteError}</p>
                   </div>
                 )}
                 <div className="flex justify-end space-x-3">
                   <button
                     onClick={() => setShowBulkDeleteModal(false)}
-                    className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition duration-300"
+                    className="btn-neutral px-4 py-2 rounded-lg transition duration-300"
                     disabled={isBulkDeleting}
                   >
                     Cancel

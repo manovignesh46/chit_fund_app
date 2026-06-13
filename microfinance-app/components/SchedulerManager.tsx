@@ -71,21 +71,21 @@ export default function SchedulerManager() {
 
   if (loading && !status) {
     return (
-      <div className="bg-white rounded-lg shadow p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">
+      <div className="themed-card p-6">
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-theme-primary mb-4">
           Automatic Monthly Email Scheduler
         </h3>
         <div className="text-center py-4">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="text-gray-600 mt-2">Loading scheduler status...</p>
+          <p className="text-gray-700 dark:text-theme-secondary mt-2">Loading scheduler status...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="bg-white rounded-lg shadow p-6">
-      <h3 className="text-lg font-semibold text-gray-900 mb-4">
+    <div className="themed-card p-6">
+      <h3 className="text-lg font-semibold text-gray-900 dark:text-theme-primary mb-4">
         Automatic Monthly Email Scheduler
       </h3>
 
@@ -93,8 +93,8 @@ export default function SchedulerManager() {
       {status && (
         <div className="mb-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-            <div className="bg-gray-50 p-4 rounded-lg">
-              <h4 className="font-medium text-gray-900 mb-2">Status</h4>
+            <div className="bg-gray-50 dark:bg-surface-elevated p-4 rounded-lg">
+              <h4 className="font-medium text-gray-900 dark:text-theme-primary mb-2">Status</h4>
               <div className="space-y-2">
                 <div className="flex items-center">
                   <div className={`w-3 h-3 rounded-full mr-2 ${status.enabled ? 'bg-green-500' : 'bg-gray-400'}`}></div>
@@ -111,9 +111,9 @@ export default function SchedulerManager() {
               </div>
             </div>
 
-            <div className="bg-gray-50 p-4 rounded-lg">
-              <h4 className="font-medium text-gray-900 mb-2">Schedule</h4>
-              <div className="text-sm text-gray-600 space-y-1">
+            <div className="bg-gray-50 dark:bg-surface-elevated p-4 rounded-lg">
+              <h4 className="font-medium text-gray-900 dark:text-theme-primary mb-2">Schedule</h4>
+              <div className="text-sm text-gray-700 dark:text-theme-secondary space-y-1">
                 <p>Day: {status.configuration.day} of each month</p>
                 <p>Time: {status.configuration.hour}:00</p>
                 <p>Timezone: {status.configuration.timezone}</p>
@@ -122,8 +122,8 @@ export default function SchedulerManager() {
           </div>
 
           <div className="bg-blue-50 p-4 rounded-lg">
-            <h4 className="font-medium text-gray-900 mb-2">Next Run</h4>
-            <p className="text-sm text-gray-600">{status.nextRun}</p>
+            <h4 className="font-medium text-gray-900 dark:text-theme-primary mb-2">Next Run</h4>
+            <p className="text-sm text-gray-700 dark:text-theme-secondary">{status.nextRun}</p>
           </div>
         </div>
       )}
@@ -171,7 +171,7 @@ export default function SchedulerManager() {
       )}
 
       {error && (
-        <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+        <div className="mb-4 p-3 alert-error rounded-lg">
           <p className="text-red-800 text-sm">{error}</p>
         </div>
       )}

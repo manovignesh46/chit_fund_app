@@ -85,13 +85,13 @@ export { calculateLoanProfit, calculateChitFundProfit, calculateChitFundProfitUp
 export function getStatusColor(status: string): string {
   switch (status) {
     case 'Active':
-      return 'bg-green-100 text-green-800';
+      return 'bg-green-100 text-green-800 dark:status-badge-active';
     case 'Completed':
-      return 'bg-blue-100 text-blue-800';
+      return 'bg-blue-100 text-blue-800 dark:status-badge-upcoming';
     case 'Defaulted':
-      return 'bg-red-100 text-red-800';
+      return 'bg-red-100 text-red-800 dark:badge-overdue';
     default:
-      return 'bg-gray-100 text-gray-800';
+      return 'bg-gray-100 text-gray-800 dark:status-badge-completed';
   }
 }
 

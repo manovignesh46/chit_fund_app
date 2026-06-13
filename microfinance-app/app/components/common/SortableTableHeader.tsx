@@ -27,7 +27,7 @@ export default function SortableTableHeader({
   return (
     <th
       scope="col"
-      className={`px-2 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors ${className}`}
+      className={`px-2 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 dark:text-theme-muted uppercase tracking-wider cursor-pointer hover:bg-gray-50 dark:hover:bg-surface-hover transition-colors ${className}`}
       onClick={() => onSort(sortKey)}
     >
       <div className="flex items-center space-x-1">

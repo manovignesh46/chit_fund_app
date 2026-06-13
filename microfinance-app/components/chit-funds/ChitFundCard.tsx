@@ -25,7 +25,7 @@ export default function ChitFundCard({ chitFund, showActions = true }: ChitFundC
       case 'Upcoming':
         return 'bg-yellow-100 text-yellow-800';
       default:
-        return 'bg-gray-100 text-gray-800';
+        return 'bg-gray-100 text-gray-900 dark:text-theme-primary';
     }
   };
 
@@ -47,7 +47,7 @@ export default function ChitFundCard({ chitFund, showActions = true }: ChitFundC
   };
 
   return (
-    <div className="bg-white rounded-lg shadow-md overflow-hidden">
+    <div className="themed-card overflow-hidden">
       <div className="p-6 border-b">
         <div className="flex justify-between items-center">
           <h2 className="text-xl font-semibold">{chitFund.name}</h2>

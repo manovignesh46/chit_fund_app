@@ -37,7 +37,7 @@ export default function PartnerSelector({ variant = 'form', className = '' }: Pa
         className={`w-full px-3 py-1.5 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm ${
           variant === 'header' 
             ? 'border-gray-700 bg-blue-700 text-white placeholder-gray-300' 
-            : 'border-gray-300 bg-white'
+            : 'border-gray-200 dark:border-surface-border themed-card'
         }`}
       >
         <option value="">Select Partner</option>

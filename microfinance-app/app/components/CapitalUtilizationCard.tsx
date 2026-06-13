@@ -42,8 +42,8 @@ export default function CapitalUtilizationCard({
   };
 
   return (
-    <div className="bg-white shadow-md rounded-lg p-4 sm:p-6 border-t-4 border-purple-500">
-      <h2 className="text-lg sm:text-xl font-semibold text-gray-600 mb-4">
+    <div className="themed-card p-4 sm:p-6 border-t-4 border-purple-500">
+      <h2 className="text-lg sm:text-xl font-semibold text-gray-700 dark:text-theme-secondary mb-4">
         Capital Utilization
       </h2>
       
@@ -106,20 +106,20 @@ export default function CapitalUtilizationCard({
       {/* Breakdown Details */}
       <div className="bg-purple-50 rounded-lg p-4 space-y-3 border border-purple-100">
         <div className="flex justify-between items-center">
-          <span className="text-sm text-gray-600">Total Outstanding:</span>
+          <span className="text-sm text-gray-700 dark:text-theme-secondary">Total Outstanding:</span>
           <span className="text-base font-bold text-purple-700">
             {formatCurrency(totalOutstanding)}
           </span>
         </div>
         <div className="flex justify-between items-center">
-          <span className="text-sm text-gray-600">Invested Capital:</span>
-          <span className="text-base font-semibold text-gray-700">
+          <span className="text-sm text-gray-700 dark:text-theme-secondary">Invested Capital:</span>
+          <span className="text-base font-semibold text-gray-700 dark:text-theme-secondary">
             {formatCurrency(investedAmount)}
           </span>
         </div>
         <div className="pt-2 border-t border-purple-200">
           <div className="flex justify-between items-center">
-            <span className="text-sm text-gray-600">Available Buffer:</span>
+            <span className="text-sm text-gray-700 dark:text-theme-secondary">Available Buffer:</span>
             <span className={`text-base font-semibold ${investedAmount - totalOutstanding >= 0 ? 'text-green-600' : 'text-red-600'}`}>
               {formatCurrency(Math.abs(investedAmount - totalOutstanding))}
               {investedAmount - totalOutstanding < 0 && ' (Exceeded)'}

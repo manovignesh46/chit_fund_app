@@ -43,46 +43,46 @@ export default function ChitFundTable({
 
   return (
     <div className="overflow-x-auto">
-      <table className="min-w-full divide-y divide-gray-200">
-        <thead className="bg-gray-50">
+      <table className="min-w-full divide-y divide-gray-200 dark:divide-surface-border">
+        <thead className="bg-gray-50 dark:bg-surface-elevated">
           <tr>
             {showCheckboxes && (
-              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-theme-muted uppercase tracking-wider">
                 <input
                   type="checkbox"
                   checked={selectAll}
                   onChange={onSelectAll}
-                  className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                  className="h-4 w-4 text-blue-600 border-gray-200 dark:border-surface-border rounded focus:ring-blue-500"
                 />
               </th>
             )}
-            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-theme-muted uppercase tracking-wider">
               Name
             </th>
-            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-theme-muted uppercase tracking-wider">
               Total Amount
             </th>
-            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-theme-muted uppercase tracking-wider">
               Monthly Contribution
             </th>
-            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-theme-muted uppercase tracking-wider">
               Duration
             </th>
-            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-theme-muted uppercase tracking-wider">
               Members
             </th>
-            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-theme-muted uppercase tracking-wider">
               Status
             </th>
-            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-theme-muted uppercase tracking-wider">
               Next Auction
             </th>
-            <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+            <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-theme-muted uppercase tracking-wider">
               Actions
             </th>
           </tr>
         </thead>
-        <tbody className="bg-white divide-y divide-gray-200">
+        <tbody>
           {chitFunds.length === 0 ? (
             <tr>
               <td colSpan={showCheckboxes ? 9 : 8} className="px-6 py-4 text-center text-gray-500">
@@ -91,7 +91,7 @@ export default function ChitFundTable({
             </tr>
           ) : (
             chitFunds.map((fund) => (
-              <tr key={fund.id} className="hover:bg-gray-50">
+              <tr key={fund.id} className="hover:bg-gray-50 dark:hover:bg-surface-hover">
                 {showCheckboxes && (
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center">
@@ -99,7 +99,7 @@ export default function ChitFundTable({
                         type="checkbox"
                         checked={selectedChitFunds.includes(fund.id)}
                         onChange={() => onSelectChitFund && onSelectChitFund(fund.id)}
-                        className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                        className="h-4 w-4 text-blue-600 border-gray-200 dark:border-surface-border rounded focus:ring-blue-500"
                       />
                     </div>
                   </td>
@@ -110,16 +110,16 @@ export default function ChitFundTable({
                   </div>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="text-sm text-gray-900">{formatCurrency(fund.totalAmount)}</div>
+                  <div className="text-sm text-gray-900 dark:text-theme-primary">{formatCurrency(fund.totalAmount)}</div>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="text-sm text-gray-900">{formatCurrency(fund.monthlyContribution)}</div>
+                  <div className="text-sm text-gray-900 dark:text-theme-primary">{formatCurrency(fund.monthlyContribution)}</div>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="text-sm text-gray-900">{fund.duration} months</div>
+                  <div className="text-sm text-gray-900 dark:text-theme-primary">{fund.duration} months</div>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="text-sm text-gray-900">{fund._count?.members || 0} of {fund.membersCount}</div>
+                  <div className="text-sm text-gray-900 dark:text-theme-primary">{fund._count?.members || 0} of {fund.membersCount}</div>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
                   <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusColor(fund.status)}`}>
@@ -127,7 +127,7 @@ export default function ChitFundTable({
                   </span>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="text-sm text-gray-900">{formatDate(fund.nextAuctionDate)}</div>
+                  <div className="text-sm text-gray-900 dark:text-theme-primary">{formatDate(fund.nextAuctionDate)}</div>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                   <div className="flex justify-end">

@@ -38,7 +38,7 @@ export default function ChitFundFinancialSummary({
   const outsideAmount = calculateChitFundOutsideAmount(chitFundForCalculation, contributions, auctions);
 
   return (
-    <div className="bg-white rounded-lg shadow-md overflow-hidden">
+    <div className="themed-card overflow-hidden">
       <div className="p-6 border-b">
         <h2 className="text-xl font-semibold">Financial Summary</h2>
       </div>
@@ -59,7 +59,7 @@ export default function ChitFundFinancialSummary({
               <p className="text-sm text-gray-500 mr-1">Profit</p>
               <button
                 onClick={() => setShowProfit(!showProfit)}
-                className="text-gray-400 hover:text-gray-600"
+                className="text-gray-400 hover:text-gray-700 dark:text-theme-secondary"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -83,9 +83,9 @@ export default function ChitFundFinancialSummary({
           </div>
         </div>
 
-        <div className="mt-4 p-4 bg-gray-50 rounded-md">
-          <h3 className="text-sm font-medium text-gray-700 mb-2">Explanation</h3>
-          <ul className="text-xs text-gray-600 space-y-1">
+        <div className="mt-4 p-4 bg-gray-50 dark:bg-surface-elevated rounded-md">
+          <h3 className="text-sm font-medium text-gray-700 dark:text-theme-secondary mb-2">Explanation</h3>
+          <ul className="text-xs text-gray-700 dark:text-theme-secondary space-y-1">
             <li><strong>Cash Inflow:</strong> Total money received from member contributions</li>
             <li><strong>Cash Outflow:</strong> Total money paid out in auctions</li>
             <li><strong>Profit:</strong> Difference between monthly total (contribution × members) and auction amount</li>

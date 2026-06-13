@@ -1,0 +1,181 @@
+/* Tables and data grids */
+
+@layer components {
+  .table-shell {
+    @apply overflow-x-auto w-full;
+  }
+
+  .dark .table-shell {
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-scrollbar-thumb) var(--color-scrollbar-track);
+  }
+
+  .dark .table-shell::-webkit-scrollbar {
+    height: 8px;
+    width: 8px;
+  }
+
+  .dark .table-shell::-webkit-scrollbar-track {
+    background: var(--color-scrollbar-track);
+  }
+
+  .dark .table-shell::-webkit-scrollbar-thumb {
+    background: var(--color-scrollbar-thumb);
+    border-radius: 4px;
+  }
+
+  .table-card {
+    @apply themed-card overflow-hidden;
+  }
+
+  .table-toolbar {
+    @apply px-4 py-3 border-b border-gray-200 bg-white;
+  }
+
+  .dark .table-toolbar {
+    @apply border-surface-border bg-surface-card;
+  }
+
+  .table-footer {
+    @apply px-4 py-3 border-t border-gray-200 bg-white;
+  }
+
+  .dark .table-footer {
+    @apply border-surface-border bg-surface-card;
+  }
+
+  .themed-table,
+  .dark-table {
+    @apply w-full text-sm border-collapse bg-white;
+  }
+
+  .dark .themed-table,
+  .dark .dark-table {
+    background-color: var(--color-surface-card);
+  }
+
+  .themed-table thead,
+  .dark-table thead {
+    @apply bg-gray-50 border-b border-gray-200;
+  }
+
+  .dark .themed-table thead,
+  .dark .dark-table thead {
+    background-color: var(--color-table-head);
+    @apply border-surface-border;
+  }
+
+  .themed-table th,
+  .dark-table th,
+  .table-th {
+    @apply px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider;
+  }
+
+  .dark .themed-table th,
+  .dark .dark-table th,
+  .dark .table-th {
+    @apply text-theme-muted;
+  }
+
+  .themed-table tbody,
+  .dark-table tbody {
+    @apply bg-white divide-y divide-gray-200;
+  }
+
+  .dark .themed-table tbody,
+  .dark .dark-table tbody {
+    background-color: var(--color-surface-card);
+    @apply divide-surface-border;
+  }
+
+  .themed-table tbody tr,
+  .dark-table tbody tr {
+    @apply transition-colors;
+  }
+
+  .themed-table tbody tr:hover,
+  .dark-table tbody tr:hover {
+    @apply bg-gray-50;
+  }
+
+  .dark .themed-table tbody tr:hover,
+  .dark .dark-table tbody tr:hover {
+    background-color: var(--color-surface-hover);
+  }
+
+  .dark .themed-table tbody tr:nth-child(even),
+  .dark .dark-table tbody tr:nth-child(even) {
+    background-color: var(--color-table-row-alt);
+  }
+
+  .dark .themed-table tbody tr:nth-child(even):hover,
+  .dark .dark-table tbody tr:nth-child(even):hover {
+    background-color: var(--color-surface-hover);
+  }
+
+  .themed-table td,
+  .dark-table td,
+  .table-td {
+    @apply px-4 py-3 text-gray-900;
+  }
+
+  .dark .themed-table td,
+  .dark .dark-table td,
+  .dark .table-td {
+    @apply text-theme-secondary;
+  }
+
+  .table-foot-row {
+    @apply bg-gray-100 font-semibold border-t-2 border-gray-300;
+  }
+
+  .dark .table-foot-row {
+    background-color: var(--color-table-foot);
+    @apply border-surface-border;
+  }
+
+  .table-sticky-cell {
+    @apply sticky left-0 z-10 bg-white;
+  }
+
+  .dark .table-sticky-cell {
+    background-color: var(--color-surface-card);
+  }
+
+  .table-sticky-head {
+    @apply sticky left-0 z-20 bg-gray-50;
+  }
+
+  .dark .table-sticky-head {
+    background-color: var(--color-table-head);
+  }
+
+  /* Row highlights */
+  .table-row-overdue {
+    background-color: #fef2f2;
+  }
+
+  html.dark .table-row-overdue,
+  .dark .table-row-overdue {
+    background-color: rgba(239, 68, 68, 0.12);
+  }
+
+  html.dark .table-row-overdue:hover,
+  .dark .table-row-overdue:hover {
+    background-color: rgba(239, 68, 68, 0.18);
+  }
+
+  .table-row-due-soon {
+    background-color: #fefce8;
+  }
+
+  html.dark .table-row-due-soon,
+  .dark .table-row-due-soon {
+    background-color: rgba(245, 158, 11, 0.12);
+  }
+
+  html.dark .table-row-due-soon:hover,
+  .dark .table-row-due-soon:hover {
+    background-color: rgba(245, 158, 11, 0.18);
+  }
+}

@@ -64,7 +64,7 @@ const ChitFundContributionsOverview: React.FC<ChitFundContributionsOverviewProps
   };
 
   return (
-    <div className="bg-white rounded-lg shadow-md overflow-hidden">
+    <div className="themed-card overflow-hidden">
       <div className="p-6 border-b">
         <div className="flex justify-between items-center">
           <h2 className="text-xl font-semibold">Contributions Overview</h2>
@@ -87,7 +87,7 @@ const ChitFundContributionsOverview: React.FC<ChitFundContributionsOverviewProps
               <Link
                 key={monthData.month}
                 href={`/chit-funds/${chitFundId}/contributions?month=${monthData.month}`}
-                className="block border rounded-lg p-4 hover:bg-gray-50 transition-colors cursor-pointer"
+                className="block border rounded-lg p-4 hover:bg-gray-50 dark:hover:bg-surface-hover transition-colors cursor-pointer"
               >
                 <div className="flex justify-between items-start mb-2">
                   <div className="flex items-center">
@@ -105,7 +105,7 @@ const ChitFundContributionsOverview: React.FC<ChitFundContributionsOverviewProps
                   </div>
                 </div>
                 
-                <div className="flex justify-between items-center text-sm text-gray-600 mb-2">
+                <div className="flex justify-between items-center text-sm text-gray-700 dark:text-theme-secondary mb-2">
                   <span>
                     {monthData.contributionCount} of {monthData.memberCount} members
                   </span>
@@ -151,7 +151,7 @@ const ChitFundContributionsOverview: React.FC<ChitFundContributionsOverviewProps
                             </span>
                           ))}
                           {monthData.pendingMembers.length > 5 && (
-                            <span className="inline-block px-2 py-1 bg-gray-100 text-gray-600 rounded text-xs">
+                            <span className="inline-block px-2 py-1 bg-gray-100 text-gray-700 dark:text-theme-secondary rounded text-xs">
                               +{monthData.pendingMembers.length - 5} more
                             </span>
                           )}

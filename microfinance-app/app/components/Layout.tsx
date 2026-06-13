@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { usePathname } from 'next/navigation';
 import Header from './Header';
 import Sidebar from './Sidebar';
 
@@ -9,13 +10,14 @@ interface LayoutProps {
 }
 
 const Layout: React.FC<LayoutProps> = ({ children }) => {
+  const pathname = usePathname();
+  const isMessagesPage = pathname === '/messages';
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarExpanded, setSidebarExpanded] = useState(false);
 
-  // Close sidebar when clicking outside on mobile
   useEffect(() => {
     const handleResize = () => {
-      if (window.innerWidth >= 1024) { // lg breakpoint
+      if (window.innerWidth >= 1024) {
         setSidebarOpen(false);
       }
     };
@@ -28,7 +30,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     setSidebarOpen(!sidebarOpen);
   };
 
-    const openSidebar = () => {
+  const openSidebar = () => {
     setSidebarOpen(true);
   };
 
@@ -36,7 +38,6 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     setSidebarOpen(false);
   };
 
-  // Handle sidebar expansion state changes
   useEffect(() => {
     const handleSidebarExpansion = (event: CustomEvent) => {
       setSidebarExpanded(event.detail.expanded);
@@ -49,17 +50,17 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   }, []);
 
   return (
-    <div className="flex h-dvh overflow-hidden bg-gray-50">
-      {/* Sidebar */}
+    <div className="flex h-screen overflow-hidden bg-gray-50 dark:bg-surface">
       <Sidebar isOpen={sidebarOpen} onOpen={openSidebar} onClose={closeSidebar} />
 
-      {/* Main Content Area */}
       <div className={`flex flex-col flex-1 min-w-0 min-h-0 transition-all duration-300 ${sidebarExpanded ? 'lg:ml-64' : 'lg:ml-16'}`}>
-        {/* Header */}
         <Header onMenuToggle={toggleSidebar} />
 
-        {/* Page Content */}
-        <main className="flex flex-1 min-h-0 w-full flex-col overflow-y-auto pt-4 pr-3 sm:pt-4 sm:pr-4 has-[.messages-fullscreen]:overflow-hidden has-[.messages-fullscreen]:p-0">
+        <main
+          className={`flex flex-1 min-h-0 w-full flex-col ${
+            isMessagesPage ? 'overflow-hidden p-0' : 'overflow-y-auto pt-4 pr-3 sm:pt-4 sm:pr-4'
+          }`}
+        >
           {children}
         </main>
       </div>

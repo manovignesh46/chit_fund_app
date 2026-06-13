@@ -119,8 +119,8 @@ export default function TransactionSummary(props: TransactionSummaryProps) {
 
   if (loading) {
     return (
-      <div className="bg-white rounded-lg shadow p-6 mb-6">
-        <h3 className="text-lg font-medium text-gray-900 mb-4">Transaction Summary</h3>
+      <div className="themed-card p-6 mb-6">
+        <h3 className="text-lg font-medium text-gray-900 dark:text-theme-primary mb-4">Transaction Summary</h3>
         <div className="animate-pulse">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {[...Array(8)].map((_, i) => (
@@ -137,8 +137,8 @@ export default function TransactionSummary(props: TransactionSummaryProps) {
 
   if (error) {
     return (
-      <div className="bg-white rounded-lg shadow p-6 mb-6">
-        <h3 className="text-lg font-medium text-gray-900 mb-4">Transaction Summary</h3>
+      <div className="themed-card p-6 mb-6">
+        <h3 className="text-lg font-medium text-gray-900 dark:text-theme-primary mb-4">Transaction Summary</h3>
         <div className="text-red-600 text-sm">
           {error}
           <button 
@@ -154,8 +154,8 @@ export default function TransactionSummary(props: TransactionSummaryProps) {
 
   if (!summaryData) {
     return (
-      <div className="bg-white rounded-lg shadow p-6 mb-6">
-        <h3 className="text-lg font-medium text-gray-900 mb-4">Transaction Summary</h3>
+      <div className="themed-card p-6 mb-6">
+        <h3 className="text-lg font-medium text-gray-900 dark:text-theme-primary mb-4">Transaction Summary</h3>
         <div className="text-gray-500 text-center py-8">
           No data available for the selected filters
         </div>
@@ -177,11 +177,11 @@ export default function TransactionSummary(props: TransactionSummaryProps) {
   };
 
   return (
-    <div className="bg-white rounded-lg shadow p-6 mb-6">
+    <div className="themed-card p-6 mb-6">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h3 className="text-lg font-medium text-gray-900">Transaction Summary</h3>
-          <p className="text-sm text-gray-600">
+          <h3 className="text-lg font-medium text-gray-900 dark:text-theme-primary">Transaction Summary</h3>
+          <p className="text-sm text-gray-700 dark:text-theme-secondary">
             {formatPeriod()} • {summaryData.totalTransactions} transactions
             {selectedPartnerId !== 'ALL' && ` • ${selectedPartnerId}`}
           </p>
@@ -195,7 +195,7 @@ export default function TransactionSummary(props: TransactionSummaryProps) {
         </div>
         <button
           onClick={fetchTransactionSummary}
-          className="text-sm text-gray-500 hover:text-gray-700 p-1 rounded"
+          className="text-sm text-gray-500 hover:text-gray-700 dark:text-theme-secondary p-1 rounded"
           title="Refresh summary"
         >
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -205,47 +205,47 @@ export default function TransactionSummary(props: TransactionSummaryProps) {
       </div>
 
       {/* Transaction Summary Table */}
-      <div className="border border-gray-300 rounded-lg">
-        <div className="overflow-x-auto w-full" style={{maxWidth: '85vw'}}>
-          <table className="w-full text-sm border-collapse divide-y divide-gray-200" style={{minWidth: '1000px'}}>
-            <thead className="bg-gray-50">
+      <div className="border border-gray-200 dark:border-surface-border rounded-lg themed-card">
+        <div className="table-shell" style={{maxWidth: '85vw'}}>
+          <table className="themed-table border-collapse" style={{minWidth: '1000px'}}>
+            <thead className="bg-gray-50 dark:bg-surface-elevated">
               <tr>
-                <th className="px-3 py-3 text-left font-medium text-gray-700 border-r border-gray-300 sticky left-0 bg-gray-50 z-10">Partner</th>
-                <th className="px-3 py-3 text-right font-medium text-gray-700 border-r border-gray-300 min-w-[120px]">Loan Repayments</th>
-                <th className="px-3 py-3 text-right font-medium text-gray-700 border-r border-gray-300 min-w-[120px]">Chit Contributions</th>
-                <th className="px-3 py-3 text-right font-medium text-gray-700 border-r border-gray-300 min-w-[120px]">Recorded Amounts</th>
-                <th className="px-3 py-3 text-right font-medium text-gray-700 border-r border-gray-300 min-w-[120px]">Loan Disbursements</th>
-                <th className="px-3 py-3 text-right font-medium text-gray-700 border-r border-gray-300 min-w-[120px]">Document Charges</th>
-                <th className="px-3 py-3 text-right font-medium text-gray-700 border-r border-gray-300 min-w-[120px]">Auction Payouts</th>
-                <th className="px-3 py-3 text-right font-medium text-gray-700 border-r border-gray-300 min-w-[120px]">Partner Transfers</th>
-                <th className="px-3 py-3 text-right font-medium text-gray-700 min-w-[120px]">Total Amount</th>
+                <th className="px-3 py-3 text-left font-medium text-gray-700 dark:text-theme-secondary border-r border-gray-200 dark:border-surface-border sticky left-0 bg-gray-50 dark:bg-surface-elevated z-10">Partner</th>
+                <th className="px-3 py-3 text-right font-medium text-gray-700 dark:text-theme-secondary border-r border-gray-200 dark:border-surface-border min-w-[120px]">Loan Repayments</th>
+                <th className="px-3 py-3 text-right font-medium text-gray-700 dark:text-theme-secondary border-r border-gray-200 dark:border-surface-border min-w-[120px]">Chit Contributions</th>
+                <th className="px-3 py-3 text-right font-medium text-gray-700 dark:text-theme-secondary border-r border-gray-200 dark:border-surface-border min-w-[120px]">Recorded Amounts</th>
+                <th className="px-3 py-3 text-right font-medium text-gray-700 dark:text-theme-secondary border-r border-gray-200 dark:border-surface-border min-w-[120px]">Loan Disbursements</th>
+                <th className="px-3 py-3 text-right font-medium text-gray-700 dark:text-theme-secondary border-r border-gray-200 dark:border-surface-border min-w-[120px]">Document Charges</th>
+                <th className="px-3 py-3 text-right font-medium text-gray-700 dark:text-theme-secondary border-r border-gray-200 dark:border-surface-border min-w-[120px]">Auction Payouts</th>
+                <th className="px-3 py-3 text-right font-medium text-gray-700 dark:text-theme-secondary border-r border-gray-200 dark:border-surface-border min-w-[120px]">Partner Transfers</th>
+                <th className="px-3 py-3 text-right font-medium text-gray-700 dark:text-theme-secondary min-w-[120px]">Total Amount</th>
               </tr>
             </thead>
             <tbody>
               {summaryData.partnerBreakdown.map((partner, index) => (
-                <tr key={index} className="hover:bg-gray-50 border-b border-gray-200">
-                  <td className="px-3 py-3 font-medium text-gray-900 border-r border-gray-300 sticky left-0 bg-white hover:bg-gray-50">{partner.partnerName}</td>
-                  <td className="px-3 py-3 text-right text-green-600 border-r border-gray-300">
+                <tr key={index} className="hover:bg-gray-50 dark:hover:bg-surface-hover border-b border-gray-200 dark:border-surface-border">
+                  <td className="px-3 py-3 font-medium text-gray-900 dark:text-theme-primary border-r border-gray-200 dark:border-surface-border sticky left-0 table-sticky-cell">{partner.partnerName}</td>
+                  <td className="px-3 py-3 text-right text-green-600 border-r border-gray-200 dark:border-surface-border">
                     {formatCurrency(partner.loanRepayments || 0)}
                   </td>
-                  <td className="px-3 py-3 text-right text-blue-600 border-r border-gray-300">
+                  <td className="px-3 py-3 text-right text-blue-600 border-r border-gray-200 dark:border-surface-border">
                     {formatCurrency(partner.chitContributions || 0)}
                   </td>
-                  <td className={`px-3 py-3 text-right border-r border-gray-300 ${
+                  <td className={`px-3 py-3 text-right border-r border-gray-200 dark:border-surface-border ${
                     (partner.recordedAmounts || 0) >= 0 ? 'text-green-600' : 'text-red-600'
                   }`}>
                     {formatCurrency(partner.recordedAmounts || 0)}
                   </td>
-                  <td className="px-3 py-3 text-right text-red-600 border-r border-gray-300">
+                  <td className="px-3 py-3 text-right text-red-600 border-r border-gray-200 dark:border-surface-border">
                     {formatCurrency(partner.loanDisbursements || 0)}
                   </td>
-                  <td className="px-3 py-3 text-right text-orange-600 border-r border-gray-300">
+                  <td className="px-3 py-3 text-right text-orange-600 border-r border-gray-200 dark:border-surface-border">
                     {formatCurrency(partner.documentCharges || 0)}
                   </td>
-                  <td className="px-3 py-3 text-right text-purple-600 border-r border-gray-300">
+                  <td className="px-3 py-3 text-right text-purple-600 border-r border-gray-200 dark:border-surface-border">
                     {formatCurrency(partner.auctionPayouts || 0)}
                   </td>
-                  <td className="px-3 py-3 text-right text-indigo-600 border-r border-gray-300">
+                  <td className="px-3 py-3 text-right text-indigo-600 border-r border-gray-200 dark:border-surface-border">
                     {formatCurrency(partner.partnerTransfers || 0)}
                   </td>
                   <td className={`px-3 py-3 text-right font-semibold ${
@@ -256,29 +256,29 @@ export default function TransactionSummary(props: TransactionSummaryProps) {
                 </tr>
               ))}
               {/* Total Row */}
-              <tr className="bg-gray-100 font-semibold border-t-2 border-gray-400">
-                <td className="px-3 py-3 font-bold text-gray-900 border-r border-gray-300 sticky left-0 bg-gray-100">Total</td>
-                <td className="px-3 py-3 text-right text-green-600 border-r border-gray-300">
+              <tr className="table-foot-row">
+                <td className="px-3 py-3 font-bold text-gray-900 dark:text-theme-primary border-r border-gray-200 dark:border-surface-border sticky left-0 table-sticky-cell">Total</td>
+                <td className="px-3 py-3 text-right text-green-600 border-r border-gray-200 dark:border-surface-border">
                   {formatCurrency(summaryData.totalLoanRepayment)}
                 </td>
-                <td className="px-3 py-3 text-right text-blue-600 border-r border-gray-300">
+                <td className="px-3 py-3 text-right text-blue-600 border-r border-gray-200 dark:border-surface-border">
                   {formatCurrency(summaryData.totalChitContributions)}
                 </td>
-                <td className={`px-3 py-3 text-right border-r border-gray-300 ${
+                <td className={`px-3 py-3 text-right border-r border-gray-200 dark:border-surface-border ${
                   summaryData.totalRecordedAmount >= 0 ? 'text-green-600' : 'text-red-600'
                 }`}>
                   {formatCurrency(summaryData.totalRecordedAmount)}
                 </td>
-                <td className="px-3 py-3 text-right text-red-600 border-r border-gray-300">
+                <td className="px-3 py-3 text-right text-red-600 border-r border-gray-200 dark:border-surface-border">
                   {formatCurrency(summaryData.totalLoanDisbursement)}
                 </td>
-                <td className="px-3 py-3 text-right text-orange-600 border-r border-gray-300">
+                <td className="px-3 py-3 text-right text-orange-600 border-r border-gray-200 dark:border-surface-border">
                   {formatCurrency(summaryData.totalDocumentCharges)}
                 </td>
-                <td className="px-3 py-3 text-right text-purple-600 border-r border-gray-300">
+                <td className="px-3 py-3 text-right text-purple-600 border-r border-gray-200 dark:border-surface-border">
                   {formatCurrency(summaryData.totalAuctionPayouts)}
                 </td>
-                <td className="px-3 py-3 text-right text-indigo-600 border-r border-gray-300">
+                <td className="px-3 py-3 text-right text-indigo-600 border-r border-gray-200 dark:border-surface-border">
                   {formatCurrency(summaryData.totalPartnerTransfers)}
                 </td>
                 <td className={`px-3 py-3 text-right font-bold ${

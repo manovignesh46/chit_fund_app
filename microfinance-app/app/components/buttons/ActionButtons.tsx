@@ -138,7 +138,7 @@ export const BackButton = ({ href, className = '', ...props }: LinkButtonProps) 
   return (
     <LinkButton
       href={href}
-      className={`bg-gray-200 text-gray-700 hover:bg-gray-300 ${className}`}
+      className={`btn-neutral ${className}`}
       {...props}
     >
       {props.children || 'Back'}

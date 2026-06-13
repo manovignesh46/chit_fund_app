@@ -241,7 +241,7 @@ const RepaymentsPage = () => {
         <div className="flex justify-center items-center h-64">
           <div className="text-center">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-700 mx-auto mb-4"></div>
-            <p className="text-gray-600">Loading repayments...</p>
+            <p className="text-gray-700 dark:text-theme-secondary">Loading repayments...</p>
           </div>
         </div>
       </div>
@@ -251,7 +251,7 @@ const RepaymentsPage = () => {
   if (error) {
     return (
       <div className="container mx-auto px-4 py-8">
-        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+        <div className="alert-error px-4 py-3 rounded">
           <h2 className="text-xl font-bold mb-2">Error</h2>
           <p>{error}</p>
           <Link href="/loans" className="mt-4 inline-block text-blue-600 hover:underline">
@@ -265,7 +265,7 @@ const RepaymentsPage = () => {
   if (!loan) {
     return (
       <div className="container mx-auto px-4 py-8">
-        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+        <div className="alert-error px-4 py-3 rounded">
           <h2 className="text-xl font-bold mb-2">Loan Not Found</h2>
           <p>The loan you are looking for does not exist or has been removed.</p>
           <Link href="/loans" className="mt-4 inline-block text-blue-600 hover:underline">
@@ -277,7 +277,7 @@ const RepaymentsPage = () => {
   }
 
   return (
-    <div className="container mx-auto px-2 sm:px-4 py-6 sm:py-8 max-w-screen-xl w-full">
+    <div className="page-container">
       <div className="flex items-center justify-between mb-6 sm:mb-8 gap-4 flex-row-reverse">
         <div className="flex flex-row gap-2 w-auto">
           {loan.status === 'Active' && (
@@ -291,7 +291,7 @@ const RepaymentsPage = () => {
               <span className="hidden sm:inline">Record New Payment</span>
             </Link>
           )}
-          <Link href={`/loans/${id}`} className="p-2 sm:px-4 sm:py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition duration-300 flex items-center justify-center">
+          <Link href={`/loans/${id}`} className="btn-neutral p-2 sm:px-4 sm:py-2 rounded-lg flex items-center justify-center">
             <span className="block sm:hidden">
               {/* Arrow Left Icon */}
               <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -304,7 +304,7 @@ const RepaymentsPage = () => {
         <h1 className="text-2xl sm:text-3xl font-bold text-green-700">Repayment History</h1>
       </div>
 
-      <div className="bg-white rounded-lg shadow-md p-2 sm:p-6 overflow-x-auto mb-6">
+      <div className="themed-card p-2 sm:p-6 overflow-x-auto mb-6">
         {/* Loan Information grid */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
           <div>
@@ -323,69 +323,69 @@ const RepaymentsPage = () => {
       </div>
 
       {/* Repayments Table */}
-      <div className="bg-white rounded-lg shadow-md overflow-hidden mb-6">
-        <div className="overflow-x-auto w-full" style={{maxWidth: '85vw'}}>
-          <table className="w-full divide-y divide-gray-200 text-xs sm:text-sm" style={{minWidth: '800px'}}>
-          <thead className="bg-gray-50">
+      <div className="themed-card overflow-hidden mb-6">
+        <div className="table-shell" style={{maxWidth: '85vw'}}>
+          <table className="themed-table text-xs sm:text-sm" style={{minWidth: '800px'}}>
+          <thead className="bg-gray-50 dark:bg-surface-elevated">
             <tr>
-              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-theme-muted uppercase tracking-wider">
                 <div className="flex items-center">
                   <input
                     type="checkbox"
                     checked={selectAll}
                     onChange={handleSelectAll}
-                    className="h-4 w-4 text-green-600 border-gray-300 rounded focus:ring-green-500"
+                    className="h-4 w-4 text-green-600 border-gray-200 dark:border-surface-border rounded focus:ring-green-500"
                   />
                   <span className="ml-2">Select</span>
                 </div>
               </th>
-              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-theme-muted uppercase tracking-wider">
                 Period
               </th>
-              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-theme-muted uppercase tracking-wider">
                 Due Date
               </th>
-              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-theme-muted uppercase tracking-wider">
                 Payment Date
               </th>
-              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-theme-muted uppercase tracking-wider">
                 Amount
               </th>
-              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-theme-muted uppercase tracking-wider">
                 Type
               </th>
-              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-theme-muted uppercase tracking-wider">
                 Source
               </th>
-              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-theme-muted uppercase tracking-wider">
                 Actions
               </th>
             </tr>
           </thead>
-          <tbody className="bg-white divide-y divide-gray-200">
+          <tbody>
             {repayments.map((repayment) => (
-              <tr key={repayment.id} className="hover:bg-gray-50">
+              <tr key={repayment.id} className="hover:bg-gray-50 dark:hover:bg-surface-hover">
                 <td className="px-6 py-4 whitespace-nowrap">
                   <div className="flex items-center">
                     <input
                       type="checkbox"
                       checked={selectedRepayments.includes(repayment.id)}
                       onChange={() => handleSelectRepayment(repayment.id)}
-                      className="h-4 w-4 text-green-600 border-gray-300 rounded focus:ring-green-500"
+                      className="h-4 w-4 text-green-600 border-gray-200 dark:border-surface-border rounded focus:ring-green-500"
                     />
                   </div>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="text-sm text-gray-900">{repayment.period ? `Period ${repayment.period}` : '-'}</div>
+                  <div className="text-sm text-gray-900 dark:text-theme-primary">{repayment.period ? `Period ${repayment.period}` : '-'}</div>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="text-sm text-gray-900">{repayment.dueDate ? formatDate(repayment.dueDate) : '-'}</div>
+                  <div className="text-sm text-gray-900 dark:text-theme-primary">{repayment.dueDate ? formatDate(repayment.dueDate) : '-'}</div>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="text-sm text-gray-900">{formatDate(repayment.paidDate)}</div>
+                  <div className="text-sm text-gray-900 dark:text-theme-primary">{formatDate(repayment.paidDate)}</div>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="text-sm text-gray-900">
+                  <div className="text-sm text-gray-900 dark:text-theme-primary">
                     {repayment.paymentType === 'INTEREST_ONLY' ? (
                       <div>
                         <div>{formatCurrency((loan as any).interestRate || repayment.amount)}</div>
@@ -415,8 +415,8 @@ const RepaymentsPage = () => {
                   )}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="text-sm text-gray-900">
-                    <span className="px-2 py-1 text-xs font-medium rounded-full bg-gray-100 text-gray-800">
+                  <div className="text-sm text-gray-900 dark:text-theme-primary">
+                    <span className="px-2 py-1 text-xs font-medium rounded-full bg-gray-100 text-gray-900 dark:text-theme-primary">
                       Manual Entry
                     </span>
                   </div>
@@ -464,7 +464,7 @@ const RepaymentsPage = () => {
               </div>
             </div>
             <div className="flex items-center">
-              <label htmlFor="pageSize" className="text-sm text-gray-600 mr-2">
+              <label htmlFor="pageSize" className="text-sm text-gray-700 dark:text-theme-secondary mr-2">
                 Show:
               </label>
               <select
@@ -474,7 +474,7 @@ const RepaymentsPage = () => {
                   setPageSize(Number(e.target.value));
                   setCurrentPage(1); // Reset to first page when changing page size
                 }}
-                className="border border-gray-300 rounded-md text-sm py-1 pl-2 pr-8"
+                className="themed-input text-sm py-1 pl-2 pr-8"
               >
                 <option value="5">5</option>
                 <option value="10">10</option>
@@ -493,7 +493,7 @@ const RepaymentsPage = () => {
                   onClick={() => setCurrentPage(1)}
                   disabled={currentPage === 1}
                   className={`relative inline-flex items-center rounded-l-md px-2 py-2 ${
-                    currentPage === 1 ? 'text-gray-300 cursor-not-allowed' : 'text-gray-500 hover:bg-gray-50'
+                    currentPage === 1 ? 'pagination-nav-btn' : 'pagination-nav-btn'
                   }`}
                 >
                   <span className="sr-only">First</span>
@@ -503,7 +503,7 @@ const RepaymentsPage = () => {
                   onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
                   disabled={currentPage === 1}
                   className={`relative inline-flex items-center px-2 py-2 ${
-                    currentPage === 1 ? 'text-gray-300 cursor-not-allowed' : 'text-gray-500 hover:bg-gray-50'
+                    currentPage === 1 ? 'pagination-nav-btn' : 'pagination-nav-btn'
                   }`}
                 >
                   <span className="sr-only">Previous</span>
@@ -532,7 +532,7 @@ const RepaymentsPage = () => {
                       className={`relative inline-flex items-center px-4 py-2 text-sm font-semibold ${
                         currentPage === pageNum
                           ? 'z-10 bg-green-600 text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-600'
-                          : 'text-gray-900 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:outline-offset-0'
+                          : 'text-gray-900 dark:text-theme-primary pagination-page focus:outline-offset-0'
                       }`}
                     >
                       {pageNum}
@@ -544,7 +544,7 @@ const RepaymentsPage = () => {
                   onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
                   disabled={currentPage === totalPages}
                   className={`relative inline-flex items-center px-2 py-2 ${
-                    currentPage === totalPages ? 'text-gray-300 cursor-not-allowed' : 'text-gray-500 hover:bg-gray-50'
+                    currentPage === totalPages ? 'pagination-nav-btn' : 'pagination-nav-btn'
                   }`}
                 >
                   <span className="sr-only">Next</span>
@@ -556,7 +556,7 @@ const RepaymentsPage = () => {
                   onClick={() => setCurrentPage(totalPages)}
                   disabled={currentPage === totalPages}
                   className={`relative inline-flex items-center rounded-r-md px-2 py-2 ${
-                    currentPage === totalPages ? 'text-gray-300 cursor-not-allowed' : 'text-gray-500 hover:bg-gray-50'
+                    currentPage === totalPages ? 'pagination-nav-btn' : 'pagination-nav-btn'
                   }`}
                 >
                   <span className="sr-only">Last</span>
@@ -570,25 +570,25 @@ const RepaymentsPage = () => {
 
       {/* Delete Confirmation Modal */}
       {showDeleteModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 max-w-md w-full">
+        <div className="modal-overlay flex items-center justify-center z-50">
+          <div className="themed-card rounded-lg p-6 max-w-md w-full">
             <h3 className="text-lg font-semibold mb-4">Confirm Delete</h3>
             {deleteSuccess ? (
-              <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-4">
+              <div className="alert-success px-4 py-3 rounded mb-4">
                 <p>{deleteSuccess}</p>
               </div>
             ) : (
               <>
                 <p className="mb-4">Are you sure you want to delete this repayment? This action cannot be undone.</p>
                 {deleteError && (
-                  <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+                  <div className="alert-error px-4 py-3 rounded mb-4">
                     <p>{deleteError}</p>
                   </div>
                 )}
                 <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 w-full">
                   <button
                     onClick={() => setShowDeleteModal(false)}
-                    className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition duration-300 w-full sm:w-auto"
+                    className="btn-neutral px-4 py-2 rounded-lg transition duration-300 w-full sm:w-auto"
                     disabled={isDeleting}
                   >
                     Cancel
@@ -609,25 +609,25 @@ const RepaymentsPage = () => {
 
       {/* Bulk Delete Confirmation Modal */}
       {showBulkDeleteModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 max-w-md w-full">
+        <div className="modal-overlay flex items-center justify-center z-50">
+          <div className="themed-card rounded-lg p-6 max-w-md w-full">
             <h3 className="text-lg font-semibold mb-4">Confirm Bulk Delete</h3>
             {bulkDeleteSuccess ? (
-              <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-4">
+              <div className="alert-success px-4 py-3 rounded mb-4">
                 <p>{bulkDeleteSuccess}</p>
               </div>
             ) : (
               <>
                 <p className="mb-4">Are you sure you want to delete {selectedRepayments.length} repayments? This action cannot be undone.</p>
                 {bulkDeleteError && (
-                  <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+                  <div className="alert-error px-4 py-3 rounded mb-4">
                     <p>{bulkDeleteError}</p>
                   </div>
                 )}
                 <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 w-full">
                   <button
                     onClick={() => setShowBulkDeleteModal(false)}
-                    className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition duration-300 w-full sm:w-auto"
+                    className="btn-neutral px-4 py-2 rounded-lg transition duration-300 w-full sm:w-auto"
                     disabled={isBulkDeleting}
                   >
                     Cancel

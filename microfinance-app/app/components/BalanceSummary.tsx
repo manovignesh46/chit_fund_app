@@ -44,8 +44,8 @@ export default function BalanceSummary({ refreshTrigger }: BalanceSummaryProps) 
 
   if (loading) {
     return (
-      <div className="bg-white rounded-lg shadow p-6 mb-6">
-        <h3 className="text-lg font-medium text-gray-900 mb-4">Balance Summary</h3>
+      <div className="themed-card p-6 mb-6">
+        <h3 className="text-lg font-medium text-gray-900 dark:text-theme-primary mb-4">Balance Summary</h3>
         <div className="animate-pulse">
           <div className="h-4 bg-gray-200 rounded w-1/3 mb-2"></div>
           <div className="h-6 bg-gray-200 rounded w-1/2 mb-4"></div>
@@ -60,8 +60,8 @@ export default function BalanceSummary({ refreshTrigger }: BalanceSummaryProps) 
 
   if (error) {
     return (
-      <div className="bg-white rounded-lg shadow p-6 mb-6">
-        <h3 className="text-lg font-medium text-gray-900 mb-4">Balance Summary</h3>
+      <div className="themed-card p-6 mb-6">
+        <h3 className="text-lg font-medium text-gray-900 dark:text-theme-primary mb-4">Balance Summary</h3>
         <div className="text-red-600 text-sm">
           {error}
           <button 
@@ -80,12 +80,12 @@ export default function BalanceSummary({ refreshTrigger }: BalanceSummaryProps) 
   }
 
   return (
-    <div className="bg-white rounded-lg shadow p-6 mb-6">
+    <div className="themed-card p-6 mb-6">
       <div className="flex items-center justify-between mb-4">
-        <h3 className="text-lg font-medium text-gray-900">Balance Summary</h3>
+        <h3 className="text-lg font-medium text-gray-900 dark:text-theme-primary">Balance Summary</h3>
         <button
           onClick={fetchBalanceSummary}
-          className="text-sm text-gray-500 hover:text-gray-700"
+          className="text-sm text-gray-500 hover:text-gray-700 dark:text-theme-secondary"
           title="Refresh balances"
         >
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -96,7 +96,7 @@ export default function BalanceSummary({ refreshTrigger }: BalanceSummaryProps) 
 
       {/* Total Balance */}
       <div className="mb-6">
-        <div className="text-sm text-gray-600">Total Balance</div>
+        <div className="text-sm text-gray-700 dark:text-theme-secondary">Total Balance</div>
         <div className={`text-2xl font-bold ${
           balanceSummary.totalBalance >= 0 ? 'text-green-600' : 'text-red-600'
         }`}>
@@ -107,11 +107,11 @@ export default function BalanceSummary({ refreshTrigger }: BalanceSummaryProps) 
       {/* Partner Balances */}
       {balanceSummary.partnerBalances.length > 0 && (
         <div>
-          <div className="text-sm text-gray-600 mb-3">Partner Balances</div>
+          <div className="text-sm text-gray-700 dark:text-theme-secondary mb-3">Partner Balances</div>
           <div className="space-y-2">
             {balanceSummary.partnerBalances.map((partner) => (
               <div key={partner.partnerId} className="flex justify-between items-center py-2 border-b border-gray-100 last:border-b-0">
-                <div className="text-sm font-medium text-gray-900">
+                <div className="text-sm font-medium text-gray-900 dark:text-theme-primary">
                   {partner.partnerName}
                 </div>
                 <div className={`text-sm font-semibold ${

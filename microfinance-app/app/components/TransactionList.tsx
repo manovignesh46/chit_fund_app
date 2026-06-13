@@ -278,7 +278,7 @@ export function TransactionList(props: TransactionListProps & {
   }
 
   return (
-    <div className="bg-white rounded shadow p-4">
+    <div className="themed-card p-4">
       <div className="flex justify-between items-center mb-4">
         <h2 className="text-xl font-bold">Recent Transactions</h2>
         <div className="flex items-center space-x-3">
@@ -288,7 +288,7 @@ export function TransactionList(props: TransactionListProps & {
             disabled={recalculating}
             className={`flex items-center px-3 py-1 text-sm rounded-md transition duration-300 ${
               recalculating 
-                ? 'bg-gray-400 text-gray-700 cursor-not-allowed' 
+                ? 'bg-gray-400 text-gray-700 dark:text-theme-secondary cursor-not-allowed' 
                 : 'bg-blue-600 text-white hover:bg-blue-700'
             }`}
             title="Recalculate all transaction balances"
@@ -310,7 +310,7 @@ export function TransactionList(props: TransactionListProps & {
             {recalculating ? 'Recalculating...' : 'Recalculate All'}
           </button>
 
-          <div className="text-sm text-gray-600">
+          <div className="text-sm text-gray-700 dark:text-theme-secondary">
             {totalCount > 0 && `${totalCount} total transactions`}
           </div>
         </div>
@@ -339,7 +339,7 @@ export function TransactionList(props: TransactionListProps & {
           onClick={() => !recalculating && setShowRecalculateModal(false)}
         >
           <div
-            className="bg-white rounded-lg shadow-2xl max-w-md w-full mx-4 p-6"
+            className="themed-card-2xl max-w-md w-full mx-4 p-6"
             style={{ zIndex: 1001 }}
             onClick={e => e.stopPropagation()}
           >
@@ -357,20 +357,20 @@ export function TransactionList(props: TransactionListProps & {
                   d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
                 />
               </svg>
-              <h3 className="text-lg font-bold text-gray-900">Recalculate All Balances</h3>
+              <h3 className="text-lg font-bold text-gray-900 dark:text-theme-primary">Recalculate All Balances</h3>
             </div>
             
             <div className="mb-6">
-              <p className="text-gray-700 mb-3">
+              <p className="text-gray-700 dark:text-theme-secondary mb-3">
                 This will recalculate all transaction balances from scratch. This process will:
               </p>
-              <ul className="list-disc list-inside text-gray-600 text-sm space-y-1 ml-2">
+              <ul className="list-disc list-inside text-gray-700 dark:text-theme-secondary text-sm space-y-1 ml-2">
                 <li>Process all your transactions in chronological order</li>
                 <li>Recalculate partner balances</li>
                 <li>Update total balance for each transaction</li>
                 <li>Fix any balance inconsistencies</li>
               </ul>
-              <p className="text-gray-700 mt-3 font-semibold">
+              <p className="text-gray-700 dark:text-theme-secondary mt-3 font-semibold">
                 Do you want to proceed (Only use if any transaction deleted)?
               </p>
             </div>
@@ -381,8 +381,8 @@ export function TransactionList(props: TransactionListProps & {
                 disabled={recalculating}
                 className={`px-4 py-2 text-sm font-medium rounded-md transition duration-300 ${
                   recalculating
-                    ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
-                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                    ? 'btn-neutral opacity-50 cursor-not-allowed'
+                    : 'btn-neutral'
                 }`}
               >
                 Cancel
@@ -474,7 +474,7 @@ export function TransactionList(props: TransactionListProps & {
           }}
         >
           <div
-            className="bg-white rounded-lg shadow-2xl max-w-md w-full mx-4 p-6"
+            className="themed-card-2xl max-w-md w-full mx-4 p-6"
             style={{ zIndex: 1001 }}
             onClick={e => e.stopPropagation()}
           >
@@ -514,11 +514,11 @@ export function TransactionList(props: TransactionListProps & {
             </div>
             
             <div className="mb-6">
-              <p className="text-gray-800 font-semibold mb-2">
+              <p className="text-gray-900 dark:text-theme-primary font-semibold mb-2">
                 {recalculateResult.message}
               </p>
               {recalculateResult.details && (
-                <p className="text-gray-600 text-sm whitespace-pre-line">
+                <p className="text-gray-700 dark:text-theme-secondary text-sm whitespace-pre-line">
                   {recalculateResult.details}
                 </p>
               )}
@@ -544,8 +544,8 @@ export function TransactionList(props: TransactionListProps & {
       ) : (
         <>
           <div className="overflow-x-auto w-full mb-6" style={{maxWidth: '85vw'}}>
-            <table className="w-full min-w-[1400px] divide-y divide-gray-200 text-xs sm:text-sm">
-              <thead className="bg-gray-50">
+            <table className="w-full min-w-[1400px] divide-y divide-surface-border text-xs sm:text-sm">
+              <thead className="bg-gray-50 dark:bg-surface-elevated">
                 <tr>
                   <SortableTableHeader
                     label="Date"
@@ -600,11 +600,11 @@ export function TransactionList(props: TransactionListProps & {
                   />
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
+              <tbody>
                 {sortedTransactions.map((t: Transaction) => (
                   <tr
                     key={t.id}
-                    className="hover:bg-gray-50 cursor-pointer group"
+                    className="hover:bg-gray-50 dark:hover:bg-surface-hover cursor-pointer group"
                     tabIndex={0}
                     onClick={() => {
                       if (!t.note) return;
@@ -645,7 +645,7 @@ export function TransactionList(props: TransactionListProps & {
                     }>
                       {formatCurrency(t.amount)}
                     </td>
-                    <td className="px-4 py-2 whitespace-nowrap text-right font-medium text-gray-900">
+                    <td className="px-4 py-2 whitespace-nowrap text-right font-medium text-gray-900 dark:text-theme-primary">
                       {t.partnerBalance !== null && t.partnerBalance !== undefined 
                         ? formatCurrency(t.partnerBalance) 
                         : '-'}
@@ -665,11 +665,11 @@ export function TransactionList(props: TransactionListProps & {
           <div className="p-2 sm:p-6 border-t">
             <div className="flex flex-col md:flex-row justify-between items-center gap-2 md:gap-0">
               <div className="mb-2 md:mb-0 flex items-center">
-                <p className="text-xs sm:text-sm text-gray-600 mr-2 sm:mr-4">
+                <p className="text-xs sm:text-sm text-gray-700 dark:text-theme-secondary mr-2 sm:mr-4">
                   Showing {transactions.length} of {totalCount} transactions
                 </p>
                 <div className="flex items-center">
-                  <label htmlFor="pageSize" className="text-xs sm:text-sm text-gray-600 mr-2">
+                  <label htmlFor="pageSize" className="text-xs sm:text-sm text-gray-700 dark:text-theme-secondary mr-2">
                     Show:
                   </label>
                   <select
@@ -679,7 +679,7 @@ export function TransactionList(props: TransactionListProps & {
                       setPageSize(Number(e.target.value));
                       setCurrentPage(1);
                     }}
-                    className="border border-gray-300 rounded-md text-xs sm:text-sm py-1 pl-2 pr-8"
+                    className="border border-gray-200 dark:border-surface-border rounded-md text-xs sm:text-sm py-1 pl-2 pr-8"
                   >
                     <option value="5">5</option>
                     <option value="10">10</option>
@@ -697,7 +697,7 @@ export function TransactionList(props: TransactionListProps & {
                       onClick={() => setCurrentPage(1)}
                       disabled={currentPage === 1}
                       className={`relative inline-flex items-center rounded-l-md px-2 py-2 ${
-                        currentPage === 1 ? 'text-gray-300 cursor-not-allowed' : 'text-gray-500 hover:bg-gray-50'
+                        currentPage === 1 ? 'pagination-nav-btn' : 'pagination-nav-btn'
                       }`}
                     >
                       <span className="sr-only">First</span>
@@ -707,7 +707,7 @@ export function TransactionList(props: TransactionListProps & {
                       onClick={() => setCurrentPage(Math.max(currentPage - 1, 1))}
                       disabled={currentPage === 1}
                       className={`relative inline-flex items-center px-2 py-2 ${
-                        currentPage === 1 ? 'text-gray-300 cursor-not-allowed' : 'text-gray-500 hover:bg-gray-50'
+                        currentPage === 1 ? 'pagination-nav-btn' : 'pagination-nav-btn'
                       }`}
                     >
                       <span className="sr-only">Previous</span>
@@ -736,7 +736,7 @@ export function TransactionList(props: TransactionListProps & {
                           className={`relative inline-flex items-center px-4 py-2 text-sm font-semibold ${
                             currentPage === pageNum
                               ? 'z-10 bg-green-600 text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-600'
-                              : 'text-gray-900 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:outline-offset-0'
+                              : 'text-gray-900 dark:text-theme-primary pagination-page focus:outline-offset-0'
                           }`}
                         >
                           {pageNum}
@@ -748,7 +748,7 @@ export function TransactionList(props: TransactionListProps & {
                       onClick={() => setCurrentPage(Math.min(currentPage + 1, totalPages))}
                       disabled={currentPage === totalPages}
                       className={`relative inline-flex items-center px-2 py-2 ${
-                        currentPage === totalPages ? 'text-gray-300 cursor-not-allowed' : 'text-gray-500 hover:bg-gray-50'
+                        currentPage === totalPages ? 'pagination-nav-btn' : 'pagination-nav-btn'
                       }`}
                     >
                       <span className="sr-only">Next</span>
@@ -760,7 +760,7 @@ export function TransactionList(props: TransactionListProps & {
                       onClick={() => setCurrentPage(totalPages)}
                       disabled={currentPage === totalPages}
                       className={`relative inline-flex items-center rounded-r-md px-2 py-2 ${
-                        currentPage === totalPages ? 'text-gray-300 cursor-not-allowed' : 'text-gray-500 hover:bg-gray-50'
+                        currentPage === totalPages ? 'pagination-nav-btn' : 'pagination-nav-btn'
                       }`}
                     >
                       <span className="sr-only">Last</span>

@@ -121,7 +121,7 @@ export default function ActionDropdown({ actions, className = '' }: ActionDropdo
           ref={buttonRef}
           type="button"
           onClick={() => setIsOpen((prev: boolean) => !prev)}
-          className="inline-flex items-center justify-center w-8 h-8 text-gray-400 hover:text-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 rounded-full hover:bg-gray-100"
+          className="inline-flex items-center justify-center w-8 h-8 text-gray-400 hover:text-gray-700 dark:text-theme-secondary focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 rounded-full hover:bg-gray-50 dark:hover:bg-surface-hover"
           aria-label="Actions"
         >
           <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
@@ -134,7 +134,7 @@ export default function ActionDropdown({ actions, className = '' }: ActionDropdo
       {isOpen && typeof window !== 'undefined' && createPortal(
         <div
           ref={dropdownRef}
-          className="fixed w-48 bg-white rounded-md shadow-xl border border-gray-200 focus:outline-none"
+          className="fixed w-48 themed-card rounded-md shadow-xl border border-gray-200 dark:border-surface-border focus:outline-none"
           style={{
             top: `${dropdownPosition.top}px`,
             left: `${dropdownPosition.left}px`,
@@ -156,7 +156,7 @@ export default function ActionDropdown({ actions, className = '' }: ActionDropdo
                     className={`group flex items-center px-4 py-2 text-sm transition-colors ${
                       action.disabled
                         ? 'text-gray-400 cursor-not-allowed'
-                        : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900'
+                        : 'text-gray-700 dark:text-theme-secondary hover:bg-gray-50 dark:hover:bg-surface-hover hover:text-gray-900 dark:text-theme-primary'
                     } ${action.className || ''}`}
                   >
                     {action.icon && (
@@ -177,7 +177,7 @@ export default function ActionDropdown({ actions, className = '' }: ActionDropdo
                     className={`group flex items-center w-full px-4 py-2 text-sm text-left transition-colors ${
                       action.disabled
                         ? 'text-gray-400 cursor-not-allowed'
-                        : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900'
+                        : 'text-gray-700 dark:text-theme-secondary hover:bg-gray-50 dark:hover:bg-surface-hover hover:text-gray-900 dark:text-theme-primary'
                     } ${action.className || ''}`}
                   >
                     {action.icon && (

@@ -61,8 +61,8 @@ const FinancialGraph: React.FC<FinancialGraphProps> = ({ data, loading, error })
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
       return (
-        <div className="bg-white p-4 border border-gray-200 shadow-md rounded-md">
-          <p className="font-semibold text-gray-700">{label}</p>
+        <div className="themed-card p-4 border border-gray-200 dark:border-surface-border shadow-md rounded-md">
+          <p className="font-semibold text-gray-700 dark:text-theme-secondary">{label}</p>
           {payload.map((entry: any, index: number) => (
             <div key={`tooltip-${index}`} className="flex justify-between gap-4 items-center">
               <div className="flex items-center">
@@ -75,7 +75,7 @@ const FinancialGraph: React.FC<FinancialGraphProps> = ({ data, loading, error })
               <span className="text-sm font-medium">{formatCurrency(entry.value)}</span>
             </div>
           ))}
-          <div className="mt-2 pt-2 border-t border-gray-200">
+          <div className="mt-2 pt-2 border-t border-gray-200 dark:border-surface-border">
             <p className="text-xs text-gray-500">Click on any data point for detailed breakdown</p>
           </div>
         </div>
@@ -105,8 +105,8 @@ const FinancialGraph: React.FC<FinancialGraphProps> = ({ data, loading, error })
                 onClick={() => handleLegendClick(item.dataKey)}
                 className={`flex items-center gap-2 px-3 py-1.5 rounded-md cursor-pointer transition-all select-none border-2 ${
                   isHidden 
-                    ? 'bg-gray-50 border-gray-300 opacity-60 hover:opacity-80' 
-                    : 'bg-white border-transparent hover:bg-gray-50 shadow-sm'
+                    ? 'bg-gray-50 dark:bg-surface-elevated border-gray-200 dark:border-surface-border opacity-60 hover:opacity-80' 
+                    : 'themed-card border-transparent hover:bg-gray-50 dark:hover:bg-surface-hover shadow-sm'
                 }`}
                 title={isHidden ? `Click to show ${item.name}` : `Click to hide ${item.name}`}
               >
@@ -130,7 +130,7 @@ const FinancialGraph: React.FC<FinancialGraphProps> = ({ data, loading, error })
                   className={`text-sm font-medium ${
                     isHidden 
                       ? 'line-through text-gray-400' 
-                      : 'text-gray-700'
+                      : 'text-gray-700 dark:text-theme-secondary'
                   }`}
                 >
                   {item.name}
@@ -164,8 +164,8 @@ const FinancialGraph: React.FC<FinancialGraphProps> = ({ data, loading, error })
 
   if (error) {
     return (
-      <div className="bg-white rounded-lg shadow-md p-6">
-        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+      <div className="themed-card p-6">
+        <div className="alert-error px-4 py-3 rounded">
           <p className="font-bold">Error</p>
           <p>{error}</p>
         </div>
@@ -174,12 +174,12 @@ const FinancialGraph: React.FC<FinancialGraphProps> = ({ data, loading, error })
   }
 
   return (
-    <div className="bg-white rounded-lg shadow-md p-6">
+    <div className="themed-card p-6">
       <div className="flex justify-between items-center mb-6">
         <h2 className="text-xl font-bold text-blue-700">Financial Trends</h2>
         <div className="flex space-x-4">
           <div className="flex items-center">
-            <label htmlFor="showProfit" className="mr-2 text-sm text-gray-600">
+            <label htmlFor="showProfit" className="mr-2 text-sm text-gray-700 dark:text-theme-secondary">
               Show Profit
             </label>
             <input
@@ -196,7 +196,7 @@ const FinancialGraph: React.FC<FinancialGraphProps> = ({ data, loading, error })
               className={`px-3 py-1 text-sm rounded-md ${
                 graphType === 'line'
                   ? 'bg-blue-600 text-white'
-                  : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                  : 'btn-neutral'
               }`}
             >
               Line
@@ -206,7 +206,7 @@ const FinancialGraph: React.FC<FinancialGraphProps> = ({ data, loading, error })
               className={`px-3 py-1 text-sm rounded-md ${
                 graphType === 'bar'
                   ? 'bg-blue-600 text-white'
-                  : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                  : 'btn-neutral'
               }`}
             >
               Bar

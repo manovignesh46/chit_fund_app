@@ -143,7 +143,7 @@ export default function AssignChitFundPage() {
         <div className="flex justify-center items-center h-64">
           <div className="text-center">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-700 mx-auto mb-4"></div>
-            <p className="text-gray-600">Loading data...</p>
+            <p className="text-gray-700 dark:text-theme-secondary">Loading data...</p>
           </div>
         </div>
       </div>
@@ -153,7 +153,7 @@ export default function AssignChitFundPage() {
   if (error) {
     return (
       <div className="container mx-auto px-4 py-8">
-        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+        <div className="alert-error px-4 py-3 rounded">
           <p className="font-bold">Error</p>
           <p>{error}</p>
           <button
@@ -185,15 +185,15 @@ export default function AssignChitFundPage() {
     <div className="container mx-auto px-4 py-8">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-3xl font-bold text-blue-700">Assign {member.name} to Chit Fund</h1>
-        <Link href={`/members/${memberId}`} className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition duration-300">
+        <Link href={`/members/${memberId}`} className="btn-neutral px-4 py-2 rounded-lg transition duration-300">
           Back to Member
         </Link>
       </div>
 
-      <div className="bg-white rounded-lg shadow-md p-6 mb-8">
+      <div className="themed-card p-6 mb-8">
         <form onSubmit={handleSubmit}>
           <div className="mb-6">
-            <label htmlFor="chitFund" className="block text-sm font-medium text-gray-700 mb-1">
+            <label htmlFor="chitFund" className="block text-sm font-medium text-gray-700 dark:text-theme-secondary mb-1">
               Select Chit Fund <span className="text-red-500">*</span>
             </label>
             <select
@@ -201,7 +201,7 @@ export default function AssignChitFundPage() {
               value={selectedChitFund}
               onChange={handleChitFundChange}
               className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                formErrors.chitFund ? 'border-red-500' : 'border-gray-300'
+                formErrors.chitFund ? 'border-red-500' : 'border-gray-200 dark:border-surface-border'
               }`}
             >
               <option value="">Select a chit fund</option>
@@ -217,7 +217,7 @@ export default function AssignChitFundPage() {
           </div>
 
           <div className="mb-6">
-            <label htmlFor="contribution" className="block text-sm font-medium text-gray-700 mb-1">
+            <label htmlFor="contribution" className="block text-sm font-medium text-gray-700 dark:text-theme-secondary mb-1">
               Monthly Contribution <span className="text-red-500">*</span>
             </label>
             <input
@@ -226,7 +226,7 @@ export default function AssignChitFundPage() {
               value={contribution}
               onChange={(e) => setContribution(e.target.value)}
               className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                formErrors.contribution ? 'border-red-500' : 'border-gray-300'
+                formErrors.contribution ? 'border-red-500' : 'border-gray-200 dark:border-surface-border'
               }`}
             />
             {formErrors.contribution && (
@@ -235,7 +235,7 @@ export default function AssignChitFundPage() {
           </div>
 
           {formErrors.submit && (
-            <div className="mb-6 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+            <div className="mb-6 alert-error px-4 py-3 rounded">
               <p>{formErrors.submit}</p>
             </div>
           )}

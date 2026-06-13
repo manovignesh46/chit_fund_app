@@ -84,7 +84,7 @@ export function ListViewSkeleton({
   actionButtons?: number;
 }) {
   return (
-    <div className="container mx-auto px-2 sm:px-4 py-6 sm:py-8 max-w-screen-xl w-full">
+    <div className="page-container">
       <ListHeaderSkeleton
         title={title}
         showSearch={showSearch}

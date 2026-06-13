@@ -99,15 +99,15 @@ export default function NotificationsPage() {
       <div className="flex flex-col gap-3 mb-4 sm:mb-6">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Notifications</h1>
+            <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-theme-primary">Notifications</h1>
             {unreadCount > 0 && (
-              <p className="text-sm text-gray-600 mt-0.5">{unreadCount} unread</p>
+              <p className="text-sm text-gray-700 dark:text-theme-secondary mt-0.5">{unreadCount} unread</p>
             )}
           </div>
           <button
             type="button"
             onClick={handleBack}
-            className="flex-shrink-0 px-3 py-2 text-sm bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 min-h-[44px] flex items-center"
+            className="btn-neutral flex-shrink-0 px-3 py-2 text-sm rounded-lg min-h-[44px] flex items-center"
           >
             Back
           </button>
@@ -122,12 +122,12 @@ export default function NotificationsPage() {
         )}
       </div>
 
-      <div className="bg-white rounded-xl sm:rounded-lg shadow-md overflow-hidden mb-4">
+      <div className="themed-card rounded-xl sm:rounded-lg shadow-md overflow-hidden mb-4">
         <div className="p-3 sm:p-4 border-b flex gap-2">
           <button
             onClick={() => { setFilter('all'); setCurrentPage(1); }}
             className={`flex-1 sm:flex-none px-4 py-2.5 text-sm rounded-lg min-h-[44px] ${
-              filter === 'all' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              filter === 'all' ? 'bg-blue-600 text-white' : 'bg-gray-50 dark:bg-surface-elevated text-gray-700 dark:text-theme-secondary hover:bg-gray-50 dark:hover:bg-surface-hover'
             }`}
           >
             All
@@ -135,7 +135,7 @@ export default function NotificationsPage() {
           <button
             onClick={() => { setFilter('unread'); setCurrentPage(1); }}
             className={`flex-1 sm:flex-none px-4 py-2.5 text-sm rounded-lg min-h-[44px] ${
-              filter === 'unread' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              filter === 'unread' ? 'bg-blue-600 text-white' : 'bg-gray-50 dark:bg-surface-elevated text-gray-700 dark:text-theme-secondary hover:bg-gray-50 dark:hover:bg-surface-hover'
             }`}
           >
             Unread {unreadCount > 0 && `(${unreadCount})`}
@@ -145,7 +145,7 @@ export default function NotificationsPage() {
         {loading && notifications.length === 0 ? (
           <div className="p-8 text-center text-gray-500 text-sm">Loading notifications...</div>
         ) : error ? (
-          <div className="p-3 m-3 bg-red-50 border border-red-200 text-red-700 rounded-lg text-sm">{error}</div>
+          <div className="p-3 m-3 alert-error text-red-700 rounded-lg text-sm">{error}</div>
         ) : notifications.length === 0 ? (
           <div className="p-8 text-center text-gray-500 text-sm">
             {filter === 'unread' ? 'No unread notifications.' : 'No notifications yet.'}
@@ -166,14 +166,14 @@ export default function NotificationsPage() {
                     )}
                     <div className={`flex-1 min-w-0 ${notification.read ? 'ml-[18px] sm:ml-5' : ''}`}>
                       <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-1 sm:gap-2 mb-1">
-                        <span className="text-sm font-semibold text-gray-900 leading-snug">
+                        <span className="text-sm font-semibold text-gray-900 dark:text-theme-primary leading-snug">
                           {notification.title}
                         </span>
-                        <span className="self-start text-xs px-2 py-0.5 bg-gray-100 text-gray-600 rounded-full whitespace-nowrap">
+                        <span className="self-start text-xs px-2 py-0.5 bg-gray-100 text-gray-700 dark:text-theme-secondary rounded-full whitespace-nowrap">
                           {getTypeLabel(notification.type)}
                         </span>
                       </div>
-                      <p className="text-sm text-gray-600 leading-relaxed break-words">
+                      <p className="text-sm text-gray-700 dark:text-theme-secondary leading-relaxed break-words">
                         {notification.message}
                       </p>
                       <p className="text-xs text-gray-400 mt-1.5">
@@ -208,7 +208,7 @@ export default function NotificationsPage() {
 
       {totalPages > 1 && (
         <div className="flex flex-col gap-3">
-          <p className="text-xs sm:text-sm text-gray-600 text-center sm:text-left">
+          <p className="text-xs sm:text-sm text-gray-700 dark:text-theme-secondary text-center sm:text-left">
             {(currentPage - 1) * pageSize + 1}–{Math.min(currentPage * pageSize, totalCount)} of {totalCount}
           </p>
           <div className="flex items-center gap-2">
@@ -219,7 +219,7 @@ export default function NotificationsPage() {
             >
               Previous
             </button>
-            <span className="text-sm text-gray-600 px-2 whitespace-nowrap">
+            <span className="text-sm text-gray-700 dark:text-theme-secondary px-2 whitespace-nowrap">
               {currentPage} / {totalPages}
             </span>
             <button
@@ -233,7 +233,7 @@ export default function NotificationsPage() {
           <select
             value={pageSize}
             onChange={(e) => { setPageSize(Number(e.target.value)); setCurrentPage(1); }}
-            className="w-full sm:w-auto text-base sm:text-sm border border-gray-300 rounded-lg px-3 py-2.5 min-h-[44px]"
+            className="w-full sm:w-auto text-base sm:text-sm border border-gray-200 dark:border-surface-border rounded-lg px-3 py-2.5 min-h-[44px]"
           >
             <option value={10}>10 per page</option>
             <option value={20}>20 per page</option>

@@ -163,13 +163,13 @@ export default function EmailExportModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+    <div className="modal-overlay flex items-center justify-center z-50">
+      <div className="themed-card rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
         <div className="flex justify-between items-center mb-6">
-          <h2 className="text-xl font-semibold text-gray-900">Email Export</h2>
+          <h2 className="text-xl font-semibold text-gray-900 dark:text-theme-primary">Email Export</h2>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600"
+            className="text-gray-400 hover:text-gray-700 dark:text-theme-secondary"
           >
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -187,7 +187,7 @@ export default function EmailExportModal({
               </span>
             </div>
             {emailStatus.configured && (
-              <div className="mt-2 text-xs text-gray-600">
+              <div className="mt-2 text-xs text-gray-700 dark:text-theme-secondary">
                 <p>Host: {emailStatus.settings.host}</p>
                 <p>User: {emailStatus.settings.user}</p>
               </div>
@@ -209,9 +209,9 @@ export default function EmailExportModal({
         )}
 
         {/* Export Details */}
-        <div className="mb-6 p-4 bg-gray-50 rounded-lg">
-          <h3 className="font-medium text-gray-900 mb-2">Export Details</h3>
-          <div className="text-sm text-gray-600 space-y-1">
+        <div className="mb-6 p-4 bg-gray-50 dark:bg-surface-elevated rounded-lg">
+          <h3 className="font-medium text-gray-900 dark:text-theme-primary mb-2">Export Details</h3>
+          <div className="text-sm text-gray-700 dark:text-theme-secondary space-y-1">
             <p><strong>Type:</strong> {exportType}</p>
             <p><strong>Period:</strong> {duration === 'single' ? period : `Last ${limit} ${duration}`}</p>
             {duration === 'single' && startDate && endDate && (
@@ -222,7 +222,7 @@ export default function EmailExportModal({
 
         {/* Recipients */}
         <div className="mb-4">
-          <label className="block text-sm font-medium text-gray-700 mb-2">
+          <label className="block text-sm font-medium text-gray-700 dark:text-theme-secondary mb-2">
             Email Recipients *
           </label>
 
@@ -233,9 +233,9 @@ export default function EmailExportModal({
                 type="checkbox"
                 checked={useDefaultRecipients}
                 onChange={(e) => setUseDefaultRecipients(e.target.checked)}
-                className="mr-2 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                className="mr-2 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-200 dark:border-surface-border rounded"
               />
-              <span className="text-sm text-gray-700">
+              <span className="text-sm text-gray-700 dark:text-theme-secondary">
                 Use default recipients from configuration
               </span>
             </label>
@@ -256,7 +256,7 @@ export default function EmailExportModal({
                     value={recipient}
                     onChange={(e) => updateRecipient(index, e.target.value)}
                     placeholder="Enter email address"
-                    className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="flex-1 px-3 py-2 border border-gray-200 dark:border-surface-border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   />
                   {recipients.length > 1 && (
                     <button
@@ -282,7 +282,7 @@ export default function EmailExportModal({
 
         {/* Custom Message */}
         <div className="mb-6">
-          <label className="block text-sm font-medium text-gray-700 mb-2">
+          <label className="block text-sm font-medium text-gray-700 dark:text-theme-secondary mb-2">
             Custom Message (Optional)
           </label>
           <textarea
@@ -290,13 +290,13 @@ export default function EmailExportModal({
             onChange={(e) => setCustomMessage(e.target.value)}
             placeholder="Add a custom message to include in the email..."
             rows={3}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            className="w-full px-3 py-2 border border-gray-200 dark:border-surface-border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
           />
         </div>
 
         {/* Error/Success Messages */}
         {error && (
-          <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+          <div className="mb-4 p-3 alert-error rounded-lg">
             <p className="text-red-800 text-sm">{error}</p>
           </div>
         )}
@@ -311,7 +311,7 @@ export default function EmailExportModal({
         <div className="flex justify-end space-x-3">
           <button
             onClick={onClose}
-            className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200"
+            className="px-4 py-2 text-gray-700 dark:text-theme-secondary bg-gray-100 rounded-lg hover:bg-gray-200"
           >
             Cancel
           </button>

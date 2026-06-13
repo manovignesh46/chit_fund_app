@@ -359,20 +359,20 @@ export default function NewLoanPage() {
     <div className="container mx-auto px-4 py-8">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-3xl font-bold text-green-700">Create New Loan</h1>
-        <Link href="/loans" className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition duration-300">
+        <Link href="/loans" className="btn-neutral px-4 py-2 rounded-lg transition duration-300">
           Cancel
         </Link>
       </div>
 
-      <div className="bg-white rounded-lg shadow-md overflow-hidden">
+      <div className="themed-card overflow-hidden">
         <form onSubmit={handleSubmit} className="p-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="md:col-span-2">
-              <label htmlFor="globalMemberId" className="block text-sm font-medium text-gray-700 mb-1">
+              <label htmlFor="globalMemberId" className="block text-sm font-medium text-gray-700 dark:text-theme-secondary mb-1">
                 Select Member <span className="text-red-500">*</span>
               </label>
               {isLoadingMembers ? (
-                <div className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-50">
+                <div className="w-full px-4 py-2 border border-gray-200 dark:border-surface-border rounded-lg bg-gray-50 dark:bg-surface-elevated">
                   Loading members...
                 </div>
               ) : memberError ? (
@@ -386,7 +386,7 @@ export default function NewLoanPage() {
                   value={formData.globalMemberId}
                   onChange={handleChange}
                   className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent ${
-                    errors.globalMemberId ? 'border-red-500' : 'border-gray-300'
+                    errors.globalMemberId ? 'border-red-500' : 'border-gray-200 dark:border-surface-border'
                   }`}
                 >
                   <option value="">-- Select a member --</option>
@@ -400,7 +400,7 @@ export default function NewLoanPage() {
               {errors.globalMemberId && (
                 <p className="mt-1 text-sm text-red-500">{errors.globalMemberId}</p>
               )}
-              <div className="mt-2 text-sm text-gray-600">
+              <div className="mt-2 text-sm text-gray-700 dark:text-theme-secondary">
                 <Link href="/members" className="text-green-600 hover:text-green-800">
                   + Add a new member
                 </Link> if not in the list
@@ -408,7 +408,7 @@ export default function NewLoanPage() {
             </div>
 
             <div>
-              <label htmlFor="borrowerName" className="block text-sm font-medium text-gray-700 mb-1">
+              <label htmlFor="borrowerName" className="block text-sm font-medium text-gray-700 dark:text-theme-secondary mb-1">
                 Borrower Name <span className="text-red-500">*</span>
               </label>
               <input
@@ -419,7 +419,7 @@ export default function NewLoanPage() {
                 onChange={handleChange}
                 readOnly={!!formData.globalMemberId}
                 className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent ${
-                  errors.borrowerName ? 'border-red-500' : 'border-gray-300'
+                  errors.borrowerName ? 'border-red-500' : 'border-gray-200 dark:border-surface-border'
                 } ${!!formData.globalMemberId ? 'bg-gray-100' : ''}`}
               />
               {errors.borrowerName && (
@@ -428,7 +428,7 @@ export default function NewLoanPage() {
             </div>
 
             <div>
-              <label htmlFor="contact" className="block text-sm font-medium text-gray-700 mb-1">
+              <label htmlFor="contact" className="block text-sm font-medium text-gray-700 dark:text-theme-secondary mb-1">
                 Contact Number <span className="text-red-500">*</span>
               </label>
               <input
@@ -439,7 +439,7 @@ export default function NewLoanPage() {
                 onChange={handleChange}
                 readOnly={!!formData.globalMemberId}
                 className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent ${
-                  errors.contact ? 'border-red-500' : 'border-gray-300'
+                  errors.contact ? 'border-red-500' : 'border-gray-200 dark:border-surface-border'
                 } ${!!formData.globalMemberId ? 'bg-gray-100' : ''}`}
               />
               {errors.contact && (
@@ -448,7 +448,7 @@ export default function NewLoanPage() {
             </div>
 
             <div>
-              <label htmlFor="loanType" className="block text-sm font-medium text-gray-700 mb-1">
+              <label htmlFor="loanType" className="block text-sm font-medium text-gray-700 dark:text-theme-secondary mb-1">
                 Loan Type <span className="text-red-500">*</span>
               </label>
               <select
@@ -456,7 +456,7 @@ export default function NewLoanPage() {
                 name="loanType"
                 value={formData.loanType}
                 onChange={handleChange}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                className="w-full px-4 py-2 border border-gray-200 dark:border-surface-border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
               >
                 {loanTypes.map((type) => (
                   <option key={type.value} value={type.value}>
@@ -467,7 +467,7 @@ export default function NewLoanPage() {
             </div>
 
             <div>
-              <label htmlFor="amount" className="block text-sm font-medium text-gray-700 mb-1">
+              <label htmlFor="amount" className="block text-sm font-medium text-gray-700 dark:text-theme-secondary mb-1">
                 Loan Amount (₹) <span className="text-red-500">*</span>
               </label>
               <input
@@ -479,7 +479,7 @@ export default function NewLoanPage() {
                 min="1"
                 step="1"
                 className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent ${
-                  errors.amount ? 'border-red-500' : 'border-gray-300'
+                  errors.amount ? 'border-red-500' : 'border-gray-200 dark:border-surface-border'
                 }`}
               />
               {errors.amount && (
@@ -489,7 +489,7 @@ export default function NewLoanPage() {
 
             {formData.loanType === 'Monthly' && (
               <div>
-                <label htmlFor="interestRate" className="block text-sm font-medium text-gray-700 mb-1">
+                <label htmlFor="interestRate" className="block text-sm font-medium text-gray-700 dark:text-theme-secondary mb-1">
                   Interest Amount (₹) <span className="text-red-500">*</span>
                 </label>
                 <input
@@ -501,7 +501,7 @@ export default function NewLoanPage() {
                   min="0"
                   step="1"
                   className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent ${
-                    errors.interestRate ? 'border-red-500' : 'border-gray-300'
+                    errors.interestRate ? 'border-red-500' : 'border-gray-200 dark:border-surface-border'
                   }`}
                 />
                 {errors.interestRate && (
@@ -512,7 +512,7 @@ export default function NewLoanPage() {
 
             {formData.loanType === 'Reducing Balance' && (
               <div>
-                <label htmlFor="interestPercentage" className="block text-sm font-medium text-gray-700 mb-1">
+                <label htmlFor="interestPercentage" className="block text-sm font-medium text-gray-700 dark:text-theme-secondary mb-1">
                   Interest Percentage (%) <span className="text-red-500">*</span>
                 </label>
                 <input
@@ -524,7 +524,7 @@ export default function NewLoanPage() {
                   min="0"
                   step="0.1"
                   className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent ${
-                    errors.interestPercentage ? 'border-red-500' : 'border-gray-300'
+                    errors.interestPercentage ? 'border-red-500' : 'border-gray-200 dark:border-surface-border'
                   }`}
                 />
                 {errors.interestPercentage && (
@@ -535,7 +535,7 @@ export default function NewLoanPage() {
 
             {formData.loanType === 'Monthly' && (
               <div>
-                <label htmlFor="documentCharge" className="block text-sm font-medium text-gray-700 mb-1">
+                <label htmlFor="documentCharge" className="block text-sm font-medium text-gray-700 dark:text-theme-secondary mb-1">
                   Document Charge (₹)
                 </label>
                 <input
@@ -547,7 +547,7 @@ export default function NewLoanPage() {
                   min="0"
                   step="1"
                   className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent ${
-                    errors.documentCharge ? 'border-red-500' : 'border-gray-300'
+                    errors.documentCharge ? 'border-red-500' : 'border-gray-200 dark:border-surface-border'
                   }`}
                 />
                 {errors.documentCharge && (
@@ -558,7 +558,7 @@ export default function NewLoanPage() {
 
             {formData.loanType !== 'Reducing Balance' && (
               <div>
-                <label htmlFor="duration" className="block text-sm font-medium text-gray-700 mb-1">
+                <label htmlFor="duration" className="block text-sm font-medium text-gray-700 dark:text-theme-secondary mb-1">
                   Duration ({formData.loanType === 'Weekly' ? 'weeks' : 'months'}) <span className="text-red-500">*</span>
                 </label>
                 <input
@@ -570,7 +570,7 @@ export default function NewLoanPage() {
                   min="1"
                   max={formData.loanType === 'Weekly' ? '260' : '60'} // 5 years in weeks or months
                   className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent ${
-                    errors.duration ? 'border-red-500' : 'border-gray-300'
+                    errors.duration ? 'border-red-500' : 'border-gray-200 dark:border-surface-border'
                   }`}
                 />
                 {errors.duration && (
@@ -581,10 +581,10 @@ export default function NewLoanPage() {
 
             {formData.loanType === 'Reducing Balance' && (
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-gray-700 dark:text-theme-secondary mb-1">
                   1st Month Interest Amount (₹)
                 </label>
-                <div className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-50 font-semibold text-green-700">
+                <div className="w-full px-4 py-2 border border-gray-200 dark:border-surface-border rounded-lg bg-gray-50 dark:bg-surface-elevated font-semibold text-green-700">
                   ₹{(parseFloat(formData.amount || '0') * (parseFloat(formData.interestPercentage || '0') / 100 / 12)).toFixed(2)}
                 </div>
                 <p className="mt-1 text-xs text-gray-500 italic">Auto-calculated based on amount and percentage</p>
@@ -593,7 +593,7 @@ export default function NewLoanPage() {
 
             {formData.loanType !== 'Reducing Balance' && (
               <div>
-                <label htmlFor="installmentAmount" className="block text-sm font-medium text-gray-700 mb-1">
+                <label htmlFor="installmentAmount" className="block text-sm font-medium text-gray-700 dark:text-theme-secondary mb-1">
                   Installment Amount (₹)
                 </label>
                 <input
@@ -602,14 +602,14 @@ export default function NewLoanPage() {
                   name="installmentAmount"
                   value={formData.installmentAmount}
                   onChange={handleChange}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  className="w-full px-4 py-2 border border-gray-200 dark:border-surface-border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
                 />
                 <p className="mt-1 text-xs text-gray-500">Auto-calculated but can be manually adjusted if needed</p>
               </div>
             )}
 
             <div>
-              <label htmlFor="disbursementDate" className="block text-sm font-medium text-gray-700 mb-1">
+              <label htmlFor="disbursementDate" className="block text-sm font-medium text-gray-700 dark:text-theme-secondary mb-1">
                 Disbursement Date <span className="text-red-500">*</span>
               </label>
               <input
@@ -619,7 +619,7 @@ export default function NewLoanPage() {
                 value={formData.disbursementDate}
                 onChange={handleChange}
                 className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent ${
-                  errors.disbursementDate ? 'border-red-500' : 'border-gray-300'
+                  errors.disbursementDate ? 'border-red-500' : 'border-gray-200 dark:border-surface-border'
                 }`}
               />
               {errors.disbursementDate && (
@@ -628,7 +628,7 @@ export default function NewLoanPage() {
             </div>
 
             <div className="md:col-span-2">
-              <label htmlFor="purpose" className="block text-sm font-medium text-gray-700 mb-1">
+              <label htmlFor="purpose" className="block text-sm font-medium text-gray-700 dark:text-theme-secondary mb-1">
                 Loan Purpose <span className="text-red-500">*</span>
               </label>
               <textarea
@@ -638,7 +638,7 @@ export default function NewLoanPage() {
                 onChange={handleChange}
                 rows={3}
                 className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent ${
-                  errors.purpose ? 'border-red-500' : 'border-gray-300'
+                  errors.purpose ? 'border-red-500' : 'border-gray-200 dark:border-surface-border'
                 }`}
               />
               {errors.purpose && (
@@ -648,7 +648,7 @@ export default function NewLoanPage() {
           </div>
 
           <div className="mt-8 flex justify-end">
-            <Link href="/loans" className="px-6 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition duration-300 mr-4">
+            <Link href="/loans" className="btn-neutral px-6 py-2 rounded-lg transition duration-300 mr-4">
               Cancel
             </Link>
             <button

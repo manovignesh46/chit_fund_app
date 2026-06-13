@@ -408,9 +408,9 @@ export default function MembersPage() {
   }
 
   return (
-    <div className="container mx-auto px-2 sm:px-4 py-6 sm:py-8 max-w-screen-xl w-full">
+    <div className="page-container">
       <div className="flex flex-row flex-wrap items-center justify-between gap-2 mb-6 sm:mb-8">
-        <h1 className="text-2xl sm:text-3xl font-bold text-blue-700">Members</h1>
+        <h1 className="page-title">Members</h1>
         <div className="flex flex-row flex-wrap gap-1 sm:gap-2 w-auto">
           {/* Responsive action buttons for mobile and desktop, matching loan list style */}
           <button
@@ -477,33 +477,33 @@ export default function MembersPage() {
       </div>
 
       {error && (
-        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-6">
+        <div className="alert-error px-4 py-3 rounded mb-6">
           <p className="font-bold">Error</p>
           <p>{error}</p>
         </div>
       )}
 
       {exportError && (
-        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-6">
+        <div className="alert-error px-4 py-3 rounded mb-6">
           <p className="font-bold">Export Error</p>
           <p>{exportError}</p>
         </div>
       )}
 
       {/* Members Table */}
-      <div className="bg-white rounded-lg shadow-md mb-6 overflow-hidden">
+      <div className="themed-card mb-6 overflow-hidden">
         {/* Table container with proper mobile scrolling - constrained width */}
-        <div className="overflow-x-auto w-full" style={{maxWidth: '85vw'}}>
-          <table className="w-full divide-y divide-gray-200 text-xs sm:text-sm" style={{minWidth: '600px'}}>
-          <thead className="bg-gray-50">
+        <div className="table-shell" style={{maxWidth: '85vw'}}>
+          <table className="themed-table text-xs sm:text-sm" style={{minWidth: '600px'}}>
+          <thead className="bg-gray-50 dark:bg-surface-elevated">
             <tr>
-              <th scope="col" className="px-2 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th scope="col" className="px-2 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 dark:text-theme-muted uppercase tracking-wider">
                 <div className="flex items-center">
                   <input
                     type="checkbox"
                     checked={selectAll}
                     onChange={handleSelectAll}
-                    className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                    className="h-4 w-4 text-blue-600 border-gray-200 dark:border-surface-border rounded focus:ring-blue-500"
                   />
                   <span className="ml-2">Select</span>
                 </div>
@@ -543,12 +543,12 @@ export default function MembersPage() {
                 currentSortDirection={sortConfig.direction}
                 onSort={requestSort}
               />
-              <th scope="col" className="px-2 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th scope="col" className="px-2 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 dark:text-theme-muted uppercase tracking-wider">
                 Actions
               </th>
             </tr>
           </thead>
-          <tbody className="bg-white divide-y divide-gray-200">
+          <tbody>
             {sortedMembers.length === 0 ? (
               <tr>
                 <td colSpan={7} className="px-6 py-4 text-center text-gray-500">
@@ -559,7 +559,7 @@ export default function MembersPage() {
               sortedMembers.map((member) => (
                 <tr
                   key={member.id}
-                  className="hover:bg-gray-50 cursor-pointer"
+                  className="hover:bg-gray-50 dark:hover:bg-surface-hover cursor-pointer"
                   onClick={(e) => {
                     // Prevent navigation when clicking on checkbox or action buttons/links
                     if (
@@ -579,7 +579,7 @@ export default function MembersPage() {
                         type="checkbox"
                         checked={selectedMembers.includes(member.id)}
                         onChange={() => handleSelectMember(member.id)}
-                        className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                        className="h-4 w-4 text-blue-600 border-gray-200 dark:border-surface-border rounded focus:ring-blue-500"
                       />
                     </div>
                   </td>
@@ -589,16 +589,16 @@ export default function MembersPage() {
                     </div>
                   </td>
                   <td className="px-2 sm:px-6 py-2 sm:py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-900">{member.contact}</div>
+                    <div className="text-sm text-gray-900 dark:text-theme-primary">{member.contact}</div>
                   </td>
                   <td className="px-2 sm:px-6 py-2 sm:py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-900">{member.email || '-'}</div>
+                    <div className="text-sm text-gray-900 dark:text-theme-primary">{member.email || '-'}</div>
                   </td>
                   <td className="px-2 sm:px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-900">{member._count.chitFundMembers}</div>
+                    <div className="text-sm text-gray-900 dark:text-theme-primary">{member._count.chitFundMembers}</div>
                   </td>
                   <td className="px-2 sm:px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-900">{member._count.loans}</div>
+                    <div className="text-sm text-gray-900 dark:text-theme-primary">{member._count.loans}</div>
                   </td>
                   <td className="px-2 sm:px-6 py-4 whitespace-nowrap text-sm font-medium">
                     <ActionDropdown
@@ -640,13 +640,13 @@ export default function MembersPage() {
         </div>
 
         {/* Pagination Controls */}
-        <div className="mt-6 flex items-center justify-between border-t border-gray-200 bg-white px-4 py-3 sm:px-6">
+        <div className="mt-6 flex items-center justify-between border-t border-gray-200 dark:border-surface-border themed-card px-4 py-3 sm:px-6">
           <div className="flex flex-1 justify-between sm:hidden">
             <button
               onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
               disabled={currentPage === 1}
-              className={`relative inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium ${
-                currentPage === 1 ? 'text-gray-300 cursor-not-allowed' : 'text-gray-700 hover:bg-gray-50'
+              className={`relative inline-flex items-center rounded-md border border-gray-200 dark:border-surface-border themed-card px-4 py-2 text-sm font-medium ${
+                currentPage === 1 ? 'pagination-nav-btn' : 'text-gray-700 dark:text-theme-secondary hover:bg-gray-50 dark:hover:bg-surface-hover'
               }`}
             >
               Previous
@@ -654,8 +654,8 @@ export default function MembersPage() {
             <button
               onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
               disabled={currentPage === totalPages}
-              className={`relative ml-3 inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium ${
-                currentPage === totalPages ? 'text-gray-300 cursor-not-allowed' : 'text-gray-700 hover:bg-gray-50'
+              className={`relative ml-3 inline-flex items-center rounded-md border border-gray-200 dark:border-surface-border themed-card px-4 py-2 text-sm font-medium ${
+                currentPage === totalPages ? 'pagination-nav-btn' : 'text-gray-700 dark:text-theme-secondary hover:bg-gray-50 dark:hover:bg-surface-hover'
               }`}
             >
               Next
@@ -663,13 +663,13 @@ export default function MembersPage() {
           </div>
           <div className="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between">
             <div className="flex items-center">
-              <p className="text-sm text-gray-700 mr-4">
+              <p className="text-sm text-gray-700 dark:text-theme-secondary mr-4">
                 Showing <span className="font-medium">{members.length > 0 ? (currentPage - 1) * pageSize + 1 : 0}</span> to{' '}
                 <span className="font-medium">{Math.min(currentPage * pageSize, (currentPage - 1) * pageSize + members.length)}</span> of{' '}
                 <span className="font-medium">{totalPages * pageSize}</span> results
               </p>
               <div className="flex items-center">
-                <label htmlFor="pageSize" className="text-sm text-gray-700 mr-2">
+                <label htmlFor="pageSize" className="text-sm text-gray-700 dark:text-theme-secondary mr-2">
                   Show:
                 </label>
                 <select
@@ -679,7 +679,7 @@ export default function MembersPage() {
                     setPageSize(Number(e.target.value));
                     setCurrentPage(1); // Reset to first page when changing page size
                   }}
-                  className="border border-gray-300 rounded-md text-sm py-1 pl-2 pr-8"
+                  className="themed-input text-sm py-1 pl-2 pr-8"
                 >
                   <option value="5">5</option>
                   <option value="10">10</option>
@@ -695,7 +695,7 @@ export default function MembersPage() {
                   onClick={() => setCurrentPage(1)}
                   disabled={currentPage === 1}
                   className={`relative inline-flex items-center rounded-l-md px-2 py-2 ${
-                    currentPage === 1 ? 'text-gray-300 cursor-not-allowed' : 'text-gray-500 hover:bg-gray-50'
+                    currentPage === 1 ? 'pagination-nav-btn' : 'pagination-nav-btn'
                   }`}
                 >
                   <span className="sr-only">First</span>
@@ -705,7 +705,7 @@ export default function MembersPage() {
                   onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
                   disabled={currentPage === 1}
                   className={`relative inline-flex items-center px-2 py-2 ${
-                    currentPage === 1 ? 'text-gray-300 cursor-not-allowed' : 'text-gray-500 hover:bg-gray-50'
+                    currentPage === 1 ? 'pagination-nav-btn' : 'pagination-nav-btn'
                   }`}
                 >
                   <span className="sr-only">Previous</span>
@@ -732,7 +732,7 @@ export default function MembersPage() {
                       className={`relative inline-flex items-center px-4 py-2 text-sm font-semibold ${
                         currentPage === pageNum
                           ? 'z-10 bg-blue-600 text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600'
-                          : 'text-gray-900 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:outline-offset-0'
+                          : 'text-gray-900 dark:text-theme-primary pagination-page focus:outline-offset-0'
                       }`}
                     >
                       {pageNum}
@@ -744,7 +744,7 @@ export default function MembersPage() {
                   onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
                   disabled={currentPage === totalPages}
                   className={`relative inline-flex items-center px-2 py-2 ${
-                    currentPage === totalPages ? 'text-gray-300 cursor-not-allowed' : 'text-gray-500 hover:bg-gray-50'
+                    currentPage === totalPages ? 'pagination-nav-btn' : 'pagination-nav-btn'
                   }`}
                 >
                   <span className="sr-only">Next</span>
@@ -754,7 +754,7 @@ export default function MembersPage() {
                   onClick={() => setCurrentPage(totalPages)}
                   disabled={currentPage === totalPages}
                   className={`relative inline-flex items-center rounded-r-md px-2 py-2 ${
-                    currentPage === totalPages ? 'text-gray-300 cursor-not-allowed' : 'text-gray-500 hover:bg-gray-50'
+                    currentPage === totalPages ? 'pagination-nav-btn' : 'pagination-nav-btn'
                   }`}
                 >
                   <span className="sr-only">Last</span>
@@ -768,14 +768,14 @@ export default function MembersPage() {
 
       {/* Add/Edit Member Form */}
       {showForm && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-md">
+        <div className="modal-overlay flex items-center justify-center z-50">
+          <div className="themed-card p-6 w-full max-w-md">
             <h2 className="text-xl font-bold text-blue-700 mb-4">
               {isEditing ? 'Edit Member' : 'Add New Member'}
             </h2>
             <form onSubmit={handleAddEditMember}>
               <div className="mb-4">
-                <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">
+                <label htmlFor="name" className="block text-sm font-medium text-gray-700 dark:text-theme-secondary mb-1">
                   Name <span className="text-red-500">*</span>
                 </label>
                 <input
@@ -785,7 +785,7 @@ export default function MembersPage() {
                   value={currentMember.name || ''}
                   onChange={handleInputChange}
                   className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                    formErrors.name ? 'border-red-500' : 'border-gray-300'
+                    formErrors.name ? 'border-red-500' : 'border-gray-200 dark:border-surface-border'
                   }`}
                 />
                 {formErrors.name && (
@@ -793,7 +793,7 @@ export default function MembersPage() {
                 )}
               </div>
               <div className="mb-4">
-                <label htmlFor="contact" className="block text-sm font-medium text-gray-700 mb-1">
+                <label htmlFor="contact" className="block text-sm font-medium text-gray-700 dark:text-theme-secondary mb-1">
                   Contact Number <span className="text-red-500">*</span>
                 </label>
                 <input
@@ -803,7 +803,7 @@ export default function MembersPage() {
                   value={currentMember.contact || ''}
                   onChange={handleInputChange}
                   className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                    formErrors.contact ? 'border-red-500' : 'border-gray-300'
+                    formErrors.contact ? 'border-red-500' : 'border-gray-200 dark:border-surface-border'
                   }`}
                 />
                 {formErrors.contact && (
@@ -811,7 +811,7 @@ export default function MembersPage() {
                 )}
               </div>
               <div className="mb-4">
-                <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
+                <label htmlFor="email" className="block text-sm font-medium text-gray-700 dark:text-theme-secondary mb-1">
                   Email
                 </label>
                 <input
@@ -821,7 +821,7 @@ export default function MembersPage() {
                   value={currentMember.email || ''}
                   onChange={handleInputChange}
                   className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                    formErrors.email ? 'border-red-500' : 'border-gray-300'
+                    formErrors.email ? 'border-red-500' : 'border-gray-200 dark:border-surface-border'
                   }`}
                 />
                 {formErrors.email && (
@@ -829,7 +829,7 @@ export default function MembersPage() {
                 )}
               </div>
               <div className="mb-4">
-                <label htmlFor="address" className="block text-sm font-medium text-gray-700 mb-1">
+                <label htmlFor="address" className="block text-sm font-medium text-gray-700 dark:text-theme-secondary mb-1">
                   Address
                 </label>
                 <input
@@ -838,11 +838,11 @@ export default function MembersPage() {
                   name="address"
                   value={currentMember.address || ''}
                   onChange={handleInputChange}
-                  className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent border-gray-300"
+                  className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent border-gray-200 dark:border-surface-border"
                 />
               </div>
               <div className="mb-4">
-                <label htmlFor="notes" className="block text-sm font-medium text-gray-700 mb-1">
+                <label htmlFor="notes" className="block text-sm font-medium text-gray-700 dark:text-theme-secondary mb-1">
                   Notes
                 </label>
                 <textarea
@@ -851,11 +851,11 @@ export default function MembersPage() {
                   value={currentMember.notes || ''}
                   onChange={handleInputChange}
                   rows={3}
-                  className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent border-gray-300"
+                  className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent border-gray-200 dark:border-surface-border"
                 />
               </div>
               {formErrors.submit && (
-                <div className="mb-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+                <div className="mb-4 alert-error px-4 py-3 rounded">
                   <p>{formErrors.submit}</p>
                 </div>
               )}
@@ -863,7 +863,7 @@ export default function MembersPage() {
                 <button
                   type="button"
                   onClick={() => setShowForm(false)}
-                  className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition duration-300"
+                  className="btn-neutral px-4 py-2 rounded-lg transition duration-300"
                 >
                   Cancel
                 </button>
@@ -882,8 +882,8 @@ export default function MembersPage() {
 
       {/* Delete Confirmation Modal */}
       {showDeleteModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-md">
+        <div className="modal-overlay flex items-center justify-center z-50">
+          <div className="themed-card p-6 w-full max-w-md">
             <h2 className="text-xl font-bold text-red-700 mb-4">Confirm Deletion</h2>
             <p className="mb-4">Are you sure you want to delete this member? This action cannot be undone.</p>
             <div className="mb-6 bg-yellow-50 border border-yellow-400 text-yellow-700 p-3 rounded">
@@ -894,7 +894,7 @@ export default function MembersPage() {
               </ul>
             </div>
             {deleteError && (
-              <div className="mb-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+              <div className="mb-4 alert-error px-4 py-3 rounded">
                 <p>{deleteError}</p>
               </div>
             )}
@@ -906,7 +906,7 @@ export default function MembersPage() {
                   setMemberToDelete(null);
                   setDeleteError(null);
                 }}
-                className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition duration-300"
+                className="btn-neutral px-4 py-2 rounded-lg transition duration-300"
               >
                 Cancel
               </button>
@@ -927,8 +927,8 @@ export default function MembersPage() {
 
       {/* Bulk Delete Confirmation Modal */}
       {showBulkDeleteModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-md">
+        <div className="modal-overlay flex items-center justify-center z-50">
+          <div className="themed-card p-6 w-full max-w-md">
             <h2 className="text-xl font-bold text-red-700 mb-4">Confirm Bulk Deletion</h2>
             <p className="mb-2">Are you sure you want to delete {selectedMembers.length} selected member{selectedMembers.length > 1 ? 's' : ''}? This action cannot be undone.</p>
             <div className="mb-6 bg-yellow-50 border border-yellow-400 text-yellow-700 p-3 rounded">
@@ -940,13 +940,13 @@ export default function MembersPage() {
             </div>
 
             {bulkDeleteSuccess && (
-              <div className="mb-4 bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded">
+              <div className="mb-4 alert-success px-4 py-3 rounded">
                 <p>{bulkDeleteSuccess}</p>
               </div>
             )}
 
             {bulkDeleteError && (
-              <div className="mb-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+              <div className="mb-4 alert-error px-4 py-3 rounded">
                 <p>{bulkDeleteError}</p>
               </div>
             )}
@@ -959,7 +959,7 @@ export default function MembersPage() {
                   setBulkDeleteError(null);
                   setBulkDeleteSuccess(null);
                 }}
-                className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition duration-300"
+                className="btn-neutral px-4 py-2 rounded-lg transition duration-300"
               >
                 Cancel
               </button>

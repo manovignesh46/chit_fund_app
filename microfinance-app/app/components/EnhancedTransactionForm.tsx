@@ -178,13 +178,13 @@ export default function EnhancedTransactionForm({ onSuccess }: TransactionFormPr
   const selectedType = TRANSACTION_TYPES.find(t => t.value === formData.type);
 
   return (
-    <div className="bg-white rounded-lg shadow-md p-6">
-      <h2 className="text-xl font-bold mb-4 text-gray-800">Record New Transaction</h2>
+    <div className="themed-card p-6">
+      <h2 className="text-xl font-bold mb-4 text-gray-900 dark:text-theme-primary">Record New Transaction</h2>
       
       <form onSubmit={handleSubmit} className="space-y-4">
         {/* Transaction Type Selection */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
+          <label className="block text-sm font-medium text-gray-700 dark:text-theme-secondary mb-2">
             Transaction Type
           </label>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -196,7 +196,7 @@ export default function EnhancedTransactionForm({ onSuccess }: TransactionFormPr
                 className={`p-3 rounded-lg border-2 text-left transition-all ${
                   formData.type === type.value
                     ? 'border-blue-500 bg-blue-50 text-blue-700'
-                    : 'border-gray-200 hover:border-gray-300 text-gray-700'
+                    : 'border-gray-200 dark:border-surface-border hover:border-gray-200 dark:border-surface-border text-gray-700 dark:text-theme-secondary'
                 }`}
               >
                 <div className="flex items-center space-x-2">
@@ -213,7 +213,7 @@ export default function EnhancedTransactionForm({ onSuccess }: TransactionFormPr
 
         {/* Amount */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
+          <label className="block text-sm font-medium text-gray-700 dark:text-theme-secondary mb-1">
             Amount <span className="text-red-500">*</span>
           </label>
           <div className="relative">
@@ -223,7 +223,7 @@ export default function EnhancedTransactionForm({ onSuccess }: TransactionFormPr
               value={formData.amount}
               onChange={(e) => updateFormData('amount', e.target.value)}
               className={`w-full pl-8 pr-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                errors.amount ? 'border-red-500' : 'border-gray-300'
+                errors.amount ? 'border-red-500' : 'border-gray-200 dark:border-surface-border'
               }`}
               placeholder="0.00"
               min="0"
@@ -237,7 +237,7 @@ export default function EnhancedTransactionForm({ onSuccess }: TransactionFormPr
         {/* Member Name (conditional) */}
         {(formData.type === "collection" || formData.type === "loan_given" || formData.type === "loan_repaid") && (
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-gray-700 dark:text-theme-secondary mb-1">
               Member Name <span className="text-red-500">*</span>
             </label>
             <input
@@ -245,7 +245,7 @@ export default function EnhancedTransactionForm({ onSuccess }: TransactionFormPr
               value={formData.member}
               onChange={(e) => updateFormData('member', e.target.value)}
               className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                errors.member ? 'border-red-500' : 'border-gray-300'
+                errors.member ? 'border-red-500' : 'border-gray-200 dark:border-surface-border'
               }`}
               placeholder="Enter member name"
               required
@@ -255,16 +255,16 @@ export default function EnhancedTransactionForm({ onSuccess }: TransactionFormPr
         )}
 
         {/* Partner Override Section */}
-        <div className="bg-gray-50 p-4 rounded-lg">
-          <h3 className="text-sm font-medium text-gray-700 mb-3">Partner Details (Optional Override)</h3>
+        <div className="bg-gray-50 dark:bg-surface-elevated p-4 rounded-lg">
+          <h3 className="text-sm font-medium text-gray-700 dark:text-theme-secondary mb-3">Partner Details (Optional Override)</h3>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             {(formData.type === "transfer" || formData.type === "loan_given") && (
               <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">From Partner</label>
+                <label className="block text-xs font-medium text-gray-700 dark:text-theme-secondary mb-1">From Partner</label>
                 <select
                   value={formData.fromPartner}
                   onChange={(e) => updateFormData('fromPartner', e.target.value)}
-                  className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  className="w-full px-2 py-1.5 text-sm border border-gray-200 dark:border-surface-border rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
                 >
                   <option value="">(default: {activePartner})</option>
                   {PARTNERS.map((p) => (
@@ -276,11 +276,11 @@ export default function EnhancedTransactionForm({ onSuccess }: TransactionFormPr
             
             {(formData.type === "transfer" || formData.type === "collection" || formData.type === "loan_repaid") && (
               <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">To Partner</label>
+                <label className="block text-xs font-medium text-gray-700 dark:text-theme-secondary mb-1">To Partner</label>
                 <select
                   value={formData.toPartner}
                   onChange={(e) => updateFormData('toPartner', e.target.value)}
-                  className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  className="w-full px-2 py-1.5 text-sm border border-gray-200 dark:border-surface-border rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
                 >
                   <option value="">(default: {formData.type === "transfer" ? otherPartner : activePartner})</option>
                   {PARTNERS.map((p) => (
@@ -291,11 +291,11 @@ export default function EnhancedTransactionForm({ onSuccess }: TransactionFormPr
             )}
             
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">Action Performer</label>
+              <label className="block text-xs font-medium text-gray-700 dark:text-theme-secondary mb-1">Action Performer</label>
               <select
                 value={formData.actionPerformer}
                 onChange={(e) => updateFormData('actionPerformer', e.target.value)}
-                className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
+                className="w-full px-2 py-1.5 text-sm border border-gray-200 dark:border-surface-border rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
               >
                 {PARTNERS.map((p) => (
                   <option key={p} value={p}>{p}</option>
@@ -307,27 +307,27 @@ export default function EnhancedTransactionForm({ onSuccess }: TransactionFormPr
 
         {/* Date */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
+          <label className="block text-sm font-medium text-gray-700 dark:text-theme-secondary mb-1">
             Date <span className="text-red-500">*</span>
           </label>
           <input
             type="date"
             value={formData.date}
             onChange={(e) => updateFormData('date', e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-3 py-2 border border-gray-200 dark:border-surface-border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
             required
           />
         </div>
 
         {/* Note */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
+          <label className="block text-sm font-medium text-gray-700 dark:text-theme-secondary mb-1">
             Note (Optional)
           </label>
           <textarea
             value={formData.note}
             onChange={(e) => updateFormData('note', e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-3 py-2 border border-gray-200 dark:border-surface-border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
             rows={2}
             placeholder="Add any additional details..."
           />
@@ -335,7 +335,7 @@ export default function EnhancedTransactionForm({ onSuccess }: TransactionFormPr
 
         {/* Error and Success Messages */}
         {errors.general && (
-          <div className="bg-red-50 border border-red-200 rounded-md p-3">
+          <div className="alert-error rounded-md p-3">
             <p className="text-red-600 text-sm">{errors.general}</p>
           </div>
         )}

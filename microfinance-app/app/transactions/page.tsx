@@ -147,9 +147,9 @@ export default function TransactionsPage() {
   };
 
   return (
-    <div className="container mx-auto p-4">
+    <div className="page-container">
       <div className="mb-6">
-        <h1 className="text-2xl font-bold mb-4">Transactions</h1>
+        <h1 className="text-2xl font-bold mb-4 dark:text-white">Transactions</h1>
 
         {/* Balance Summary and Monthly Aggregations */}
         <BalanceSummary refreshTrigger={refreshList} />
@@ -163,11 +163,11 @@ export default function TransactionsPage() {
 
         <div className="mb-2 flex flex-col md:flex-row md:items-end md:space-x-4 md:space-y-0 space-y-2">
           <div className="w-full md:w-1/3">
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-gray-700 dark:text-theme-secondary mb-1">
               Partner
             </label>
             <select
-              className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+              className="themed-input w-full text-sm"
               value={selectedPartnerId}
               onChange={(e) => setSelectedPartnerId(e.target.value)}
             >
@@ -180,7 +180,7 @@ export default function TransactionsPage() {
             </select>
           </div>
           <div className="w-full md:w-1/3">
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-gray-700 dark:text-theme-secondary mb-1">
               Date Filter
             </label>
             <DateFilter onDateRangeChange={handleDateRangeChange} />
@@ -190,7 +190,7 @@ export default function TransactionsPage() {
       {/* Advanced Filter Toggle */}
       <div className="mb-4">
         <button
-          className="px-4 py-2 bg-blue-100 text-blue-700 rounded hover:bg-blue-200 text-sm"
+          className="px-4 py-2 bg-gray-100 dark:bg-surface-elevated text-gray-700 dark:text-theme-secondary border border-gray-300 dark:border-surface-border rounded hover:bg-gray-200 dark:hover:bg-surface-hover text-sm"
           onClick={() => setShowAdvanced((v) => !v)}
         >
           {showAdvanced ? "Hide Advanced Filter" : "Show Advanced Filter"}
@@ -199,9 +199,9 @@ export default function TransactionsPage() {
 
       {/* Advanced Filter UI */}
       {showAdvanced && (
-        <div className="mb-4 flex flex-col md:flex-row md:items-end md:space-x-4 md:space-y-0 space-y-2 bg-gray-50 p-4 rounded border">
+        <div className="mb-4 flex flex-col md:flex-row md:items-end md:space-x-4 md:space-y-0 space-y-2 bg-gray-50 dark:bg-surface-elevated p-4 rounded border border-gray-200 dark:border-surface-border">
           <div className="w-full md:w-1/5">
-            <label className="block text-xs font-medium text-gray-700 mb-1">
+            <label className="block text-xs font-medium text-gray-700 dark:text-theme-secondary mb-1">
               Type
             </label>
             <select
@@ -211,7 +211,7 @@ export default function TransactionsPage() {
                 setAdvEntity("");
                 setAdvSubType("");
               }}
-              className="w-full px-3 py-2 border rounded-lg text-sm"
+              className="themed-input w-full text-sm"
             >
               <option value="">Select Type</option>
               <option value="loan">Loan</option>
@@ -219,7 +219,7 @@ export default function TransactionsPage() {
             </select>
           </div>
           <div className="w-full md:w-1/5">
-            <label className="block text-xs font-medium text-gray-700 mb-1">
+            <label className="block text-xs font-medium text-gray-700 dark:text-theme-secondary mb-1">
               Member
             </label>
             <select
@@ -229,7 +229,7 @@ export default function TransactionsPage() {
                 setAdvEntity("");
                 setAdvSubType("");
               }}
-              className="w-full px-3 py-2 border rounded-lg text-sm"
+              className="themed-input w-full text-sm"
             >
               <option value="">Select Member</option>
               {members.map((m: any) => (
@@ -240,7 +240,7 @@ export default function TransactionsPage() {
             </select>
           </div>
           <div className="w-full md:w-1/5">
-            <label className="block text-xs font-medium text-gray-700 mb-1">
+            <label className="block text-xs font-medium text-gray-700 dark:text-theme-secondary mb-1">
               {advType === "loan"
                 ? "Loan"
                 : advType === "chit"
@@ -253,7 +253,7 @@ export default function TransactionsPage() {
                 setAdvEntity(e.target.value);
                 setAdvSubType("");
               }}
-              className="w-full px-3 py-2 border rounded-lg text-sm"
+              className="themed-input w-full text-sm"
               disabled={!advType || !advMember || entityLoading}
             >
               <option value="">
@@ -279,13 +279,13 @@ export default function TransactionsPage() {
           </div>
           {/* Subtype dropdown */}
           <div className="w-full md:w-1/5">
-            <label className="block text-xs font-medium text-gray-700 mb-1">
+            <label className="block text-xs font-medium text-gray-700 dark:text-theme-secondary mb-1">
               Subtype
             </label>
             <select
               value={advSubType}
               onChange={(e) => setAdvSubType(e.target.value)}
-              className="w-full px-3 py-2 border rounded-lg text-sm"
+              className="themed-input w-full text-sm"
               disabled={!advEntity}
             >
               <option value="">Select Subtype</option>
@@ -306,7 +306,7 @@ export default function TransactionsPage() {
           {/* Clear button */}
           <div className="w-full md:w-1/5 flex items-end">
             <button
-              className="w-full px-3 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 text-sm"
+              className="btn-neutral w-full px-3 py-2 rounded text-sm"
               onClick={() => {
                 setAdvType("");
                 setAdvMember("");
@@ -323,13 +323,13 @@ export default function TransactionsPage() {
 
       <div className="mb-4 w-full flex flex-col md:flex-row md:items-end md:space-x-4 md:space-y-0 space-y-2">
         <div className="w-full md:w-1/3">
-          <label className="block text-sm font-medium text-gray-700 mb-1">
+          <label className="block text-sm font-medium text-gray-700 dark:text-theme-secondary mb-1">
             Filter by Transaction Type
           </label>
           <select
             value={filterType}
             onChange={(e) => setFilterType(e.target.value)}
-            className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+            className="themed-input w-full text-sm"
           >
             <option value="">All Types</option>
             {Object.entries(TRANSACTION_TYPES_CONFIG).map(([key, value]) => (
@@ -342,7 +342,7 @@ export default function TransactionsPage() {
           </select>
         </div>
         <div className="w-full md:w-1/3">
-          <label className="block text-sm font-medium text-gray-700 mb-1">
+          <label className="block text-sm font-medium text-gray-700 dark:text-theme-secondary mb-1">
             Filter by Member
           </label>
           <input
@@ -350,7 +350,7 @@ export default function TransactionsPage() {
             value={filterMember}
             onChange={(e) => setFilterMember(e.target.value)}
             placeholder="Enter member name"
-            className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+            className="themed-input w-full text-sm"
           />
         </div>
       </div>

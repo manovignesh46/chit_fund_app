@@ -58,15 +58,15 @@ const FinancialDetailModal: React.FC<FinancialDetailModalProps> = ({
   }
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-start sm:items-center justify-center z-50 p-2 sm:p-4 overflow-y-auto">
+    <div className="modal-overlay flex items-start sm:items-center justify-center z-50 p-2 sm:p-4 overflow-y-auto">
       <div
         ref={modalRef}
-        className="bg-white rounded-lg shadow-xl p-4 sm:p-6 w-full max-w-sm sm:max-w-lg lg:max-w-2xl my-4 sm:my-8 max-h-[calc(100vh-4rem)] sm:max-h-[85vh] overflow-y-auto"
+        className="themed-card-xl p-4 sm:p-6 w-full max-w-sm sm:max-w-lg lg:max-w-2xl my-4 sm:my-8 max-h-[calc(100vh-4rem)] sm:max-h-[85vh] overflow-y-auto"
       >
         {/* Header */}
         <div className="flex justify-between items-start mb-4">
           <div className="flex-1 pr-4">
-            <h2 className="text-lg sm:text-xl font-bold text-blue-700">
+            <h2 className="section-heading">
               Financial Details: {periodData.period}
             </h2>
             {periodData.periodRange && (
@@ -78,7 +78,7 @@ const FinancialDetailModal: React.FC<FinancialDetailModalProps> = ({
           </div>
           <button
             onClick={onClose}
-            className="flex-shrink-0 text-gray-500 hover:text-gray-700 p-2 hover:bg-gray-100 rounded-full transition-colors"
+            className="flex-shrink-0 text-gray-500 hover:text-gray-700 dark:text-theme-secondary p-2 hover:bg-gray-50 dark:hover:bg-surface-hover rounded-full transition-colors"
             aria-label="Close modal"
           >
             <svg
@@ -107,7 +107,7 @@ const FinancialDetailModal: React.FC<FinancialDetailModalProps> = ({
             </h3>
             <div className="space-y-1 sm:space-y-2">
               <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-1 sm:gap-0">
-                <span className="text-xs sm:text-sm text-gray-600">Cash Inflow:</span>
+                <span className="text-xs sm:text-sm text-gray-700 dark:text-theme-secondary">Cash Inflow:</span>
                 <span className="font-medium text-blue-600 text-xs sm:text-sm">
                   {formatCurrency(periodData.cashInflow)}
                 </span>
@@ -129,7 +129,7 @@ const FinancialDetailModal: React.FC<FinancialDetailModalProps> = ({
                 </>
               )}
               <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-1 sm:gap-0 mt-1 sm:mt-2">
-                <span className="text-xs sm:text-sm text-gray-600">Cash Outflow:</span>
+                <span className="text-xs sm:text-sm text-gray-700 dark:text-theme-secondary">Cash Outflow:</span>
                 <span className="font-medium text-red-600 text-xs sm:text-sm">
                   {formatCurrency(periodData.cashOutflow)}
                 </span>
@@ -152,7 +152,7 @@ const FinancialDetailModal: React.FC<FinancialDetailModalProps> = ({
               )}
               {periodData.cashFlowDetails && (
                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center border-t border-blue-200 pt-1 sm:pt-2 mt-1 sm:mt-2">
-                  <span className="font-semibold text-xs sm:text-sm text-gray-700">
+                  <span className="font-semibold text-xs sm:text-sm text-gray-700 dark:text-theme-secondary">
                     Net Cash Flow:
                   </span>
                   <span
@@ -176,7 +176,7 @@ const FinancialDetailModal: React.FC<FinancialDetailModalProps> = ({
             </h3>
             <div className="space-y-1 sm:space-y-2">
               <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-1 sm:gap-0">
-                <span className="text-xs sm:text-sm text-gray-600">Total Profit:</span>
+                <span className="text-xs sm:text-sm text-gray-700 dark:text-theme-secondary">Total Profit:</span>
                 <span className="font-medium text-green-600 text-xs sm:text-sm">
                   {formatCurrency(periodData.profit)}
                 </span>
@@ -215,7 +215,7 @@ const FinancialDetailModal: React.FC<FinancialDetailModalProps> = ({
               {periodData.outsideAmountBreakdown && (
                 <>
                   <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-1 sm:gap-0">
-                    <span className="text-xs sm:text-sm text-gray-600">
+                    <span className="text-xs sm:text-sm text-gray-700 dark:text-theme-secondary">
                       Loan Remaining:
                     </span>
                     <span className="font-medium text-orange-600 text-xs sm:text-sm">
@@ -225,7 +225,7 @@ const FinancialDetailModal: React.FC<FinancialDetailModalProps> = ({
                     </span>
                   </div>
                   <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-1 sm:gap-0">
-                    <span className="text-xs sm:text-sm text-gray-600">
+                    <span className="text-xs sm:text-sm text-gray-700 dark:text-theme-secondary">
                       Chit Fund Outside:
                     </span>
                     <span className="font-medium text-blue-600 text-xs sm:text-sm">
@@ -235,7 +235,7 @@ const FinancialDetailModal: React.FC<FinancialDetailModalProps> = ({
                     </span>
                   </div>
                   <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center border-t border-orange-200 pt-1 sm:pt-2 mt-1 sm:mt-2">
-                    <span className="font-semibold text-xs sm:text-sm text-gray-700">
+                    <span className="font-semibold text-xs sm:text-sm text-gray-700 dark:text-theme-secondary">
                       Total Outside Amount:
                     </span>
                     <span className="font-semibold text-xs sm:text-sm text-orange-600">
@@ -256,7 +256,7 @@ const FinancialDetailModal: React.FC<FinancialDetailModalProps> = ({
               {periodData.transactionCounts && (
                 <>
                   <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-1 sm:gap-0">
-                    <span className="text-xs sm:text-sm text-gray-600">
+                    <span className="text-xs sm:text-sm text-gray-700 dark:text-theme-secondary">
                       Contributions:
                     </span>
                     <span className="font-medium text-purple-600 text-xs sm:text-sm">
@@ -264,7 +264,7 @@ const FinancialDetailModal: React.FC<FinancialDetailModalProps> = ({
                     </span>
                   </div>
                   <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-1 sm:gap-0">
-                    <span className="text-xs sm:text-sm text-gray-600">
+                    <span className="text-xs sm:text-sm text-gray-700 dark:text-theme-secondary">
                       Loan Repayments:
                     </span>
                     <span className="font-medium text-purple-600 text-xs sm:text-sm">
@@ -272,13 +272,13 @@ const FinancialDetailModal: React.FC<FinancialDetailModalProps> = ({
                     </span>
                   </div>
                   <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-1 sm:gap-0">
-                    <span className="text-xs sm:text-sm text-gray-600">Auctions:</span>
+                    <span className="text-xs sm:text-sm text-gray-700 dark:text-theme-secondary">Auctions:</span>
                     <span className="font-medium text-purple-600 text-xs sm:text-sm">
                       {periodData.transactionCounts.auctions}
                     </span>
                   </div>
                   <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-1 sm:gap-0">
-                    <span className="text-xs sm:text-sm text-gray-600">
+                    <span className="text-xs sm:text-sm text-gray-700 dark:text-theme-secondary">
                       Loan Disbursements:
                     </span>
                     <span className="font-medium text-purple-600 text-xs sm:text-sm">

@@ -207,12 +207,12 @@ export default function DashboardPage() {
   };
 
   return (
-    <div className="container mx-auto px-2 sm:px-4 py-6 sm:py-8 max-w-screen-xl w-full">
-      <div className="flex flex-row flex-wrap items-center justify-between gap-2 mb-6 sm:mb-8">
-        <h1 className="text-2xl sm:text-3xl font-bold text-blue-700">
+    <div className="page-container">
+      <div className="flex flex-row flex-wrap items-center justify-between gap-3 mb-6 sm:mb-8">
+        <h1 className="text-2xl sm:text-3xl font-bold text-blue-700 dark:text-theme-heading">
           Dashboard
         </h1>
-        <div className="flex flex-row flex-wrap gap-1 sm:gap-2 w-auto">
+        <div className="flex flex-row flex-wrap items-center gap-2 w-auto">
           {/* Manage Members */}
           <Link
             href="/members"
@@ -255,7 +255,7 @@ export default function DashboardPage() {
       {loading ? (
         <DashboardSkeleton />
       ) : error ? (
-        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded text-sm sm:text-base">
+        <div className="alert-error text-sm sm:text-base">
           <p className="font-bold">Error</p>
           <p>{error}</p>
         </div>
@@ -264,94 +264,89 @@ export default function DashboardPage() {
           {/* Balance Summary and Partner Balances - Moved to Top */}
           <div className="grid grid-cols-1 gap-4 sm:gap-6 mb-6 sm:mb-8 md:grid-cols-2">
             {/* Balance Summary Card - Cash Flow */}
-            <div className="bg-white shadow-md rounded-lg p-4 sm:p-6">
-              <h2 className="text-lg sm:text-xl font-bold text-blue-700 mb-4">
+            <div className="dark-card p-4 sm:p-6">
+              <h2 className="card-title">
                 Cash Flow Summary
               </h2>
               <div className="space-y-4">
 
-                {/* Invested Amount (Recorded Amount) */}
-                <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
+                <div className="metric-row-blue">
                   <div className="flex items-center">
-                    <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center mr-3">
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <div className="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900 flex items-center justify-center mr-3">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-blue-600 dark:text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
                       </svg>
                     </div>
                     <div>
-                      <p className="text-sm text-gray-600 font-medium">Invested Amount</p>
-                      <p className="text-xs text-gray-400">Total recorded transactions</p>
+                      <p className="text-sm text-gray-600 dark:text-gray-300 font-medium">Invested Amount</p>
+                      <p className="text-xs text-gray-400 dark:text-gray-500">Total recorded transactions</p>
                     </div>
                   </div>
-                  <p className="text-lg font-bold text-blue-600">
+                  <p className="text-lg font-bold text-blue-600 dark:text-blue-400">
                     {formatCurrency(dashboardData.investedAmount || 0)}
                   </p>
                 </div>
-                {/* Cash Inflow */}
-                <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
+                <div className="metric-row-green">
                   <div className="flex items-center">
-                    <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center mr-3">
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <div className="w-10 h-10 rounded-full bg-green-100 dark:bg-green-900 flex items-center justify-center mr-3">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-green-600 dark:text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 11l5-5m0 0l5 5m-5-5v12" />
                       </svg>
                     </div>
                     <div>
-                      <p className="text-sm text-gray-600 font-medium">Cash Inflow</p>
-                      <p className="text-xs text-gray-400">Loan repayments + Chit contributions</p>
+                      <p className="text-sm text-gray-600 dark:text-gray-300 font-medium">Cash Inflow</p>
+                      <p className="text-xs text-gray-400 dark:text-gray-500">Loan repayments + Chit contributions</p>
                     </div>
                   </div>
-                  <p className="text-lg font-bold text-green-600">
+                  <p className="text-lg font-bold text-green-600 dark:text-green-400">
                     {formatCurrency(dashboardData.totalCashInflow)}
                   </p>
                 </div>
 
-                {/* Cash Outflow */}
-                <div className="flex items-center justify-between p-3 bg-red-50 rounded-lg">
+                <div className="metric-row-red">
                   <div className="flex items-center">
-                    <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center mr-3">
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <div className="w-10 h-10 rounded-full bg-red-100 dark:bg-red-900 flex items-center justify-center mr-3">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-red-600 dark:text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 13l-5 5m0 0l-5-5m5 5V6" />
                       </svg>
                     </div>
                     <div>
-                      <p className="text-sm text-gray-600 font-medium">Cash Outflow</p>
-                      <p className="text-xs text-gray-400">Loan disbursements + Auction payouts</p>
+                      <p className="text-sm text-gray-600 dark:text-gray-300 font-medium">Cash Outflow</p>
+                      <p className="text-xs text-gray-400 dark:text-gray-500">Loan disbursements + Auction payouts</p>
                     </div>
                   </div>
-                  <p className="text-lg font-bold text-red-600">
+                  <p className="text-lg font-bold text-red-600 dark:text-red-400">
                     {formatCurrency(dashboardData.totalCashOutflow)}
                   </p>
                 </div>
               </div>
             </div>
 
-            {/* Partner Balances Card with Total Balance */}
-            <div className="bg-white shadow-md rounded-lg p-4 sm:p-6">
-              <h2 className="text-lg sm:text-xl font-bold text-blue-700 mb-4">
+            <div className="dark-card p-4 sm:p-6">
+              <h2 className="card-title">
                 Partner-wise Balance
               </h2>
               
-              {/* Total Balance at the top */}
-              <div className="flex items-center justify-between p-3 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg mb-4 border border-blue-200">
+              <div className="metric-row-highlight">
                 <div className="flex items-center">
-                  <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center mr-3">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <div className="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900 flex items-center justify-center mr-3">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-blue-600 dark:text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
                   </div>
                   <div>
-                    <p className="text-sm text-gray-600 font-semibold">Total Balance</p>
-                    <p className="text-xs text-gray-400">Sum of all partners</p>
+                    <p className="text-sm text-gray-600 dark:text-gray-300 font-semibold">Total Balance</p>
+                    <p className="text-xs text-gray-400 dark:text-gray-500">Sum of all partners</p>
                   </div>
                 </div>
-                <p className={`text-xl font-bold ${balanceSummary && balanceSummary.totalBalance >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                <p className={`text-xl font-bold ${balanceSummary && balanceSummary.totalBalance >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
                   {balanceSummary ? formatCurrency(balanceSummary.totalBalance) : formatCurrency(0)}
                 </p>
               </div>
 
               {partnerBalances.length === 0 ? (
                 <div className="text-center py-8 text-gray-500">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 mx-auto mb-2 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 mx-auto mb-2 text-gray-300 dark:text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
                   </svg>
                   <p>No partners found</p>
@@ -359,22 +354,22 @@ export default function DashboardPage() {
               ) : (
                 <div className="space-y-3 max-h-64 overflow-y-auto">
                   {partnerBalances.map((partner) => (
-                    <div key={partner.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition">
-                      <div className="flex items-center">
-                        <div className={`w-10 h-10 rounded-full flex items-center justify-center mr-3 ${partner.balance >= 0 ? 'bg-green-100' : 'bg-red-100'}`}>
-                          <span className="text-sm font-bold text-gray-700">
+                    <div key={partner.id} className="list-item-row gap-4">
+                      <div className="flex items-center min-w-0 flex-1">
+                        <div className={`w-10 h-10 rounded-full flex items-center justify-center mr-3 ${partner.balance >= 0 ? 'bg-green-100 dark:bg-green-900' : 'bg-red-100 dark:bg-red-900'}`}>
+                          <span className="text-sm font-bold text-gray-700 dark:text-gray-200">
                             {partner.name.substring(0, 2).toUpperCase()}
                           </span>
                         </div>
                         <div>
-                          <p className="text-sm font-medium text-gray-700">{partner.name}</p>
-                          <p className="text-xs text-gray-400">
+                          <p className="text-sm font-medium text-gray-700 dark:text-gray-200">{partner.name}</p>
+                          <p className="text-xs text-gray-400 dark:text-gray-500">
                             {partner.balance >= 0 ? 'Credit balance' : 'Debit balance'}
                           </p>
                         </div>
                       </div>
-                      <div className="text-right">
-                        <p className={`text-base font-bold ${partner.balance >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                      <div className="text-right flex-shrink-0 ml-4">
+                        <p className={`text-base font-bold ${partner.balance >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
                           {formatCurrency(Math.abs(partner.balance))}
                         </p>
                         {partner.balance >= 0 ? (
@@ -402,11 +397,11 @@ export default function DashboardPage() {
 
           {/* Financial Overview */}
           <div className="grid grid-cols-2 gap-4 sm:gap-6 mb-6 sm:mb-8 md:grid-cols-3">
-            <div className="bg-white shadow-md rounded-lg p-4 sm:p-6 border-t-4 border-purple-500">
-              <h2 className="text-lg sm:text-xl font-semibold text-gray-600">
+            <div className="dark-card p-4 sm:p-6 border-t-4 border-purple-500">
+              <h2 className="text-lg sm:text-xl font-semibold text-gray-600 dark:text-gray-400">
                 Outstanding Loan Amount
               </h2>
-              <p className="text-2xl font-bold text-purple-700">
+              <p className="text-2xl font-bold text-purple-700 dark:text-purple-400">
                 {formatCurrency(
                   dashboardData.outsideAmountBreakdown.loanRemainingAmount
                 )}
@@ -415,11 +410,11 @@ export default function DashboardPage() {
                 Pending loan repayments
               </p>
             </div>
-            <div className="bg-white shadow-md rounded-lg p-4 sm:p-6 border-t-4 border-blue-500">
-              <h2 className="text-lg sm:text-xl font-semibold text-gray-600">
+            <div className="dark-card p-4 sm:p-6 border-t-4 border-blue-500">
+              <h2 className="text-lg sm:text-xl font-semibold text-gray-600 dark:text-gray-400">
                 Outstanding Chit Fund Amount
               </h2>
-              <p className="text-2xl font-bold text-blue-700">
+              <p className="text-2xl font-bold text-blue-700 dark:text-blue-400">
                 {formatCurrency(
                   dashboardData.outsideAmountBreakdown.chitFundOutsideAmount
                 )}
@@ -428,9 +423,9 @@ export default function DashboardPage() {
                 Pending or over-disbursed
               </p>
             </div>
-            <div className="bg-white shadow-md rounded-lg p-4 sm:p-6 border-t-4 border-green-500">
+            <div className="dark-card p-4 sm:p-6 border-t-4 border-green-500">
               <h2
-                className="text-lg sm:text-xl font-semibold text-gray-600 flex items-center cursor-pointer"
+                className="text-lg sm:text-xl font-semibold text-gray-600 dark:text-gray-400 flex items-center cursor-pointer"
                 onClick={() => setShowProfit(!showProfit)}
               >
                 Total Profit
@@ -450,7 +445,7 @@ export default function DashboardPage() {
                 </svg>
               </h2>
               {showProfit ? (
-                <p className="text-2xl font-bold text-green-700">
+                <p className="text-2xl font-bold text-green-700 dark:text-green-400">
                   {formatCurrency(dashboardData.totalProfit)}
                 </p>
               ) : (
@@ -462,22 +457,22 @@ export default function DashboardPage() {
           {/* Profit Breakdown - Only show if showProfit is true */}
           {showProfit && (
             <div className="grid grid-cols-2 gap-4 sm:gap-6 mb-6 sm:mb-8">
-              <div className="bg-white shadow-md rounded-lg p-4 sm:p-6 border-t-4 border-purple-500">
-                <h2 className="text-lg sm:text-xl font-semibold text-gray-600">
+              <div className="dark-card p-4 sm:p-6 border-t-4 border-purple-500">
+                <h2 className="text-lg sm:text-xl font-semibold text-gray-600 dark:text-gray-400">
                   Loan Profit
                 </h2>
-                <p className="text-2xl font-bold text-purple-700">
+                <p className="text-2xl font-bold text-purple-700 dark:text-purple-400">
                   {formatCurrency(dashboardData.loanProfit)}
                 </p>
                 <p className="text-sm text-gray-500 mt-2">
                   From interest and document charges
                 </p>
               </div>
-              <div className="bg-white shadow-md rounded-lg p-4 sm:p-6 border-t-4 border-blue-500">
-                <h2 className="text-lg sm:text-xl font-semibold text-gray-600">
+              <div className="dark-card p-4 sm:p-6 border-t-4 border-blue-500">
+                <h2 className="text-lg sm:text-xl font-semibold text-gray-600 dark:text-gray-400">
                   Chit Fund Profit
                 </h2>
-                <p className="text-2xl font-bold text-blue-700">
+                <p className="text-2xl font-bold text-blue-700 dark:text-blue-400">
                   {formatCurrency(dashboardData.chitFundProfit)}
                 </p>
                 <p className="text-sm text-gray-500 mt-2">
@@ -511,7 +506,7 @@ export default function DashboardPage() {
             {stats.map((stat, index) => (
               <div
                 key={index}
-                className={`bg-white rounded-lg shadow-md p-4 sm:p-6 flex flex-col items-center ${
+                className={`dark-card p-4 sm:p-6 flex flex-col items-center ${
                   stats.length % 2 !== 0 && index === stats.length - 1
                     ? "col-span-2 justify-self-center md:col-span-1 md:justify-self-auto"
                     : ""
@@ -522,7 +517,7 @@ export default function DashboardPage() {
                 >
                   <span className="text-xl font-bold">{stat.value}</span>
                 </div>
-                <h3 className="text-gray-500 text-sm text-center font-bold">
+                <h3 className="text-gray-500 dark:text-gray-400 text-sm text-center font-bold">
                   {stat.label}
                 </h3>
               </div>
@@ -531,8 +526,8 @@ export default function DashboardPage() {
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
             {/* Recent Activities */}
-            <div className="lg:col-span-2 bg-white rounded-lg shadow-md p-2 sm:p-6">
-              <h2 className="text-lg sm:text-xl font-bold text-blue-700 mb-2 sm:mb-4">
+            <div className="lg:col-span-2 dark-card p-2 sm:p-6">
+              <h2 className="section-heading mb-2 sm:mb-4">
                 Recent Activities
               </h2>
               {dashboardData.recentActivities.length === 0 ? (
@@ -557,7 +552,7 @@ export default function DashboardPage() {
                       <Link
                         href={activityLink}
                         key={activity.id}
-                        className="block border-l-4 pl-4 border-gray-300 hover:bg-gray-50 transition-colors duration-200 pb-4"
+                        className="block border-l-4 pl-4 border-gray-200 dark:border-surface-border hover:bg-gray-50 dark:hover:bg-surface-hover transition-colors duration-200 pb-4 rounded-r-lg"
                         style={{
                           borderColor:
                             activity.type === "Chit Fund"
@@ -569,8 +564,8 @@ export default function DashboardPage() {
                           <span
                             className={`px-2 py-1 rounded-full text-xs ${
                               activity.type === "Chit Fund"
-                                ? "bg-blue-100 text-blue-800"
-                                : "bg-green-100 text-green-800"
+                                ? "badge-blue"
+                                : "badge-green"
                             }`}
                           >
                             {activity.type}
@@ -579,14 +574,14 @@ export default function DashboardPage() {
                             {activity.date}
                           </span>
                         </div>
-                        <h3 className="font-semibold mt-1">
+                        <h3 className="font-semibold mt-1 text-gray-900 dark:text-theme-heading">
                           {activity.action}
                         </h3>
-                        <p className="text-gray-600 text-sm">
+                        <p className="text-gray-600 dark:text-gray-400 text-sm">
                           {activity.details}
                         </p>
                         {activity.amount && (
-                          <p className="text-gray-700 text-sm font-medium mt-1">
+                          <p className="text-gray-700 dark:text-gray-300 text-sm font-medium mt-1">
                             Amount: {formatCurrency(activity.amount)}
                           </p>
                         )}
@@ -646,8 +641,8 @@ export default function DashboardPage() {
             </div>
 
             {/* Upcoming Events */}
-            <div className="bg-white rounded-lg shadow-md p-2 sm:p-6">
-              <h2 className="text-lg sm:text-xl font-bold text-blue-700 mb-2 sm:mb-4">
+            <div className="dark-card p-2 sm:p-6">
+              <h2 className="section-heading mb-2 sm:mb-4">
                 Upcoming Events
               </h2>
               {!dashboardData.upcomingEvents ||
@@ -673,9 +668,9 @@ export default function DashboardPage() {
                       <Link
                         href={eventLink}
                         key={event.id}
-                        className={`block border-l-4 pl-4 hover:bg-gray-50 transition-colors duration-200 ${
+                        className={`block border-l-4 pl-4 hover:bg-gray-50 dark:hover:bg-surface-hover transition-colors duration-200 rounded-r-lg ${
                           event.isDueTomorrow
-                            ? "bg-yellow-50 rounded-r p-2"
+                            ? "bg-yellow-50 dark:bg-yellow-900 dark:bg-opacity-20 rounded-r p-2"
                             : ""
                         }`}
                         style={{
@@ -683,10 +678,10 @@ export default function DashboardPage() {
                             event.type === "Chit Fund" ? "#3b82f6" : "#10b981",
                         }}
                       >
-                        <h3 className="font-semibold">{event.title}</h3>
-                        <p className="text-gray-600 text-sm">{event.date}</p>
+                        <h3 className="font-semibold text-gray-900 dark:text-theme-heading">{event.title}</h3>
+                        <p className="text-gray-600 dark:text-gray-400 text-sm">{event.date}</p>
                         {event.dueAmount !== undefined && (
-                          <p className="text-gray-700 text-sm font-medium mt-1">
+                          <p className="text-gray-700 dark:text-gray-300 text-sm font-medium mt-1">
                             Amount: {formatCurrency(event.dueAmount)}
                           </p>
                         )}
@@ -694,33 +689,24 @@ export default function DashboardPage() {
                           <span
                             className={`inline-block px-2 py-1 rounded-full text-xs ${
                               event.type === "Chit Fund"
-                                ? "bg-blue-100 text-blue-800"
-                                : "bg-green-100 text-green-800"
+                                ? "badge-blue"
+                                : "badge-green"
                             }`}
                           >
                             {event.type}
                           </span>
                           {event.isDueTomorrow && (
-                            <span
-                              className="px-2 py-1 text-xs font-semibold rounded-full bg-amber-100 text-amber-800 border border-amber-200"
-                              title="This event is due tomorrow"
-                            >
+                            <span className="badge-amber" title="This event is due tomorrow">
                               Due Tomorrow
                             </span>
                           )}
                           {event.status === "Paid" && (
-                            <span
-                              className="px-2 py-1 text-xs font-semibold rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200"
-                              title="This payment has been made"
-                            >
+                            <span className="badge-paid" title="This payment has been made">
                               Paid
                             </span>
                           )}
                           {event.status === "Overdue" && (
-                            <span
-                              className="px-2 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-800 border border-red-200"
-                              title="This payment is overdue"
-                            >
+                            <span className="badge-overdue" title="This payment is overdue">
                               Overdue
                             </span>
                           )}
