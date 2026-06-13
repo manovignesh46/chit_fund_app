@@ -15,6 +15,12 @@ export const metadata = {
   description: 'A full-stack application for managing microfinance and chit funds.',
 };
 
+export const viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  interactiveWidget: 'resizes-content',
+};
+
 const RootLayout = ({ children }: { children: React.ReactNode }) => {
   return (
     <html lang="en">

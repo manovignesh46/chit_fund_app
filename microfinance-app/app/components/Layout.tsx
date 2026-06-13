@@ -49,17 +49,17 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   }, []);
 
   return (
-    <div className="flex min-h-screen bg-gray-50">
+    <div className="flex h-dvh overflow-hidden bg-gray-50">
       {/* Sidebar */}
       <Sidebar isOpen={sidebarOpen} onOpen={openSidebar} onClose={closeSidebar} />
 
       {/* Main Content Area */}
-      <div className={`flex-1 transition-all duration-300 ${sidebarExpanded ? 'lg:ml-64' : 'lg:ml-16'}`}>
+      <div className={`flex flex-col flex-1 min-w-0 min-h-0 transition-all duration-300 ${sidebarExpanded ? 'lg:ml-64' : 'lg:ml-16'}`}>
         {/* Header */}
         <Header onMenuToggle={toggleSidebar} />
 
         {/* Page Content */}
-        <main className="pt-4 pr-3 sm:pt-4 sm:pr-4 overflow-x-hidden min-h-[calc(100vh-4rem)]">
+        <main className="flex flex-1 min-h-0 w-full flex-col overflow-y-auto pt-4 pr-3 sm:pt-4 sm:pr-4 has-[.messages-fullscreen]:overflow-hidden has-[.messages-fullscreen]:p-0">
           {children}
         </main>
       </div>

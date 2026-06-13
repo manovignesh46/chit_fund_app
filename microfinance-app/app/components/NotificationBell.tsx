@@ -177,7 +177,7 @@ export default function NotificationBell() {
       </button>
 
       {isOpen && (
-        <div className="absolute right-0 mt-2 w-80 sm:w-96 bg-white rounded-lg shadow-lg border border-gray-200 z-50">
+        <div className="fixed inset-x-3 top-16 sm:absolute sm:inset-x-auto sm:top-auto sm:right-0 sm:mt-2 w-auto sm:w-80 md:w-96 max-w-[calc(100vw-1.5rem)] sm:max-w-none bg-white rounded-lg shadow-lg border border-gray-200 z-50">
           <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
             <h3 className="text-sm font-semibold text-gray-800">Notifications</h3>
             {unreadCount > 0 && (
@@ -190,7 +190,7 @@ export default function NotificationBell() {
             )}
           </div>
 
-          <div className="max-h-80 overflow-y-auto">
+          <div className="max-h-[60vh] sm:max-h-80 overflow-y-auto overscroll-contain">
             {loading ? (
               <div className="px-4 py-6 text-center text-sm text-gray-500">Loading...</div>
             ) : notifications.length === 0 ? (
@@ -200,7 +200,7 @@ export default function NotificationBell() {
                 <button
                   key={notification.id}
                   onClick={() => handleNotificationClick(notification)}
-                  className={`w-full text-left px-4 py-3 border-b border-gray-50 hover:bg-gray-50 transition-colors ${
+                  className={`w-full text-left px-3 sm:px-4 py-3.5 border-b border-gray-50 active:bg-gray-100 transition-colors min-h-[44px] ${
                     !notification.read ? 'bg-blue-50/50' : ''
                   }`}
                 >
@@ -221,11 +221,11 @@ export default function NotificationBell() {
             )}
           </div>
 
-          <div className="px-4 py-2 border-t border-gray-100 bg-gray-50 rounded-b-lg">
+          <div className="px-3 sm:px-4 py-3 border-t border-gray-100 bg-gray-50 rounded-b-lg">
             <Link
               href="/notifications"
               onClick={() => setIsOpen(false)}
-              className="block text-center text-sm text-blue-600 hover:text-blue-800 font-medium py-1"
+              className="w-full text-center text-sm text-blue-600 hover:text-blue-800 font-medium py-2 min-h-[44px] flex items-center justify-center"
             >
               View all notifications
             </Link>

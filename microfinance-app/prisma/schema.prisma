@@ -27,6 +27,9 @@ model User {
   contributions         Contribution[] @relation("CreatedContributions")
   notificationsReceived Notification[] @relation("UserNotifications")
   notificationsSent     Notification[] @relation("ActorNotifications")
+  messagesSent          Message[]      @relation("SentMessages")
+  orgMessages           Message[]      @relation("OrgMessages")
+  messageReadState      MessageReadState[]
   partner               Partner?       @relation("PartnerLogin", fields: [partnerId], references: [id])
   dataOwner             User?          @relation("OrgMembers", fields: [dataOwnerId], references: [id])
   orgMembers            User[]         @relation("OrgMembers")
@@ -367,6 +370,32 @@ model Notification {
 
   @@index([userId, read])
   @@index([createdAt])
+}
+
+model Message {
+  id          Int      @id @default(autoincrement())
+  dataOwnerId Int
+  senderId    Int
+  content     String
+  createdAt   DateTime @default(now())
+
+  dataOwner User @relation("OrgMessages", fields: [dataOwnerId], references: [id], onDelete: Cascade)
+  sender    User @relation("SentMessages", fields: [senderId], references: [id])
+
+  @@index([dataOwnerId, createdAt])
+  @@index([senderId])
+}
+
+model MessageReadState {
+  id          Int      @id @default(autoincrement())
+  userId      Int
+  dataOwnerId Int
+  lastReadAt  DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, dataOwnerId])
+  @@index([dataOwnerId])
 }
 
 enum RepaymentType {

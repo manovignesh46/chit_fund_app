@@ -2,7 +2,6 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { formatDistanceToNow, format } from 'date-fns';
 
@@ -87,38 +86,47 @@ export default function NotificationsPage() {
     return labels[type] || type;
   };
 
+  const handleBack = () => {
+    if (typeof window !== 'undefined' && window.history.length > 1) {
+      router.back();
+    } else {
+      router.push('/dashboard');
+    }
+  };
+
   return (
-    <div className="container mx-auto px-4 py-6 max-w-4xl">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Notifications</h1>
-          {unreadCount > 0 && (
-            <p className="text-sm text-gray-600 mt-1">{unreadCount} unread</p>
-          )}
-        </div>
-        <div className="flex items-center gap-2">
-          {unreadCount > 0 && (
-            <button
-              onClick={markAllAsRead}
-              className="px-3 py-1.5 text-sm text-blue-600 hover:text-blue-800 border border-blue-200 rounded-lg hover:bg-blue-50"
-            >
-              Mark all read
-            </button>
-          )}
-          <Link
-            href="/dashboard"
-            className="px-3 py-1.5 text-sm bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300"
+    <div className="w-full max-w-4xl mx-auto px-3 sm:px-4 py-3 sm:py-6 pb-[max(1rem,env(safe-area-inset-bottom))]">
+      <div className="flex flex-col gap-3 mb-4 sm:mb-6">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Notifications</h1>
+            {unreadCount > 0 && (
+              <p className="text-sm text-gray-600 mt-0.5">{unreadCount} unread</p>
+            )}
+          </div>
+          <button
+            type="button"
+            onClick={handleBack}
+            className="flex-shrink-0 px-3 py-2 text-sm bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 min-h-[44px] flex items-center"
           >
-            Dashboard
-          </Link>
+            Back
+          </button>
         </div>
+        {unreadCount > 0 && (
+          <button
+            onClick={markAllAsRead}
+            className="w-full sm:w-auto sm:self-start px-4 py-2.5 text-sm text-blue-600 border border-blue-200 rounded-lg hover:bg-blue-50 min-h-[44px]"
+          >
+            Mark all as read
+          </button>
+        )}
       </div>
 
-      <div className="bg-white rounded-lg shadow-md overflow-hidden mb-4">
-        <div className="p-4 border-b flex flex-wrap gap-2">
+      <div className="bg-white rounded-xl sm:rounded-lg shadow-md overflow-hidden mb-4">
+        <div className="p-3 sm:p-4 border-b flex gap-2">
           <button
             onClick={() => { setFilter('all'); setCurrentPage(1); }}
-            className={`px-3 py-1.5 text-sm rounded-lg ${
+            className={`flex-1 sm:flex-none px-4 py-2.5 text-sm rounded-lg min-h-[44px] ${
               filter === 'all' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
             }`}
           >
@@ -126,7 +134,7 @@ export default function NotificationsPage() {
           </button>
           <button
             onClick={() => { setFilter('unread'); setCurrentPage(1); }}
-            className={`px-3 py-1.5 text-sm rounded-lg ${
+            className={`flex-1 sm:flex-none px-4 py-2.5 text-sm rounded-lg min-h-[44px] ${
               filter === 'unread' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
             }`}
           >
@@ -135,11 +143,11 @@ export default function NotificationsPage() {
         </div>
 
         {loading && notifications.length === 0 ? (
-          <div className="p-8 text-center text-gray-500">Loading notifications...</div>
+          <div className="p-8 text-center text-gray-500 text-sm">Loading notifications...</div>
         ) : error ? (
-          <div className="p-4 m-4 bg-red-50 border border-red-200 text-red-700 rounded-lg text-sm">{error}</div>
+          <div className="p-3 m-3 bg-red-50 border border-red-200 text-red-700 rounded-lg text-sm">{error}</div>
         ) : notifications.length === 0 ? (
-          <div className="p-8 text-center text-gray-500">
+          <div className="p-8 text-center text-gray-500 text-sm">
             {filter === 'unread' ? 'No unread notifications.' : 'No notifications yet.'}
           </div>
         ) : (
@@ -148,31 +156,47 @@ export default function NotificationsPage() {
               <li key={notification.id}>
                 <button
                   onClick={() => handleClick(notification)}
-                  className={`w-full text-left px-4 py-4 hover:bg-gray-50 transition-colors ${
+                  className={`w-full text-left px-3 sm:px-4 py-3.5 sm:py-4 active:bg-gray-100 transition-colors min-h-[44px] ${
                     !notification.read ? 'bg-blue-50/40' : ''
                   }`}
                 >
-                  <div className="flex items-start gap-3">
+                  <div className="flex items-start gap-2.5 sm:gap-3">
                     {!notification.read && (
-                      <span className="mt-2 w-2 h-2 bg-blue-500 rounded-full flex-shrink-0" />
+                      <span className="mt-2 w-2.5 h-2.5 bg-blue-500 rounded-full flex-shrink-0" />
                     )}
-                    <div className={`flex-1 min-w-0 ${notification.read ? 'ml-5' : ''}`}>
-                      <div className="flex flex-wrap items-center gap-2 mb-1">
-                        <span className="text-sm font-semibold text-gray-900">{notification.title}</span>
-                        <span className="text-xs px-2 py-0.5 bg-gray-100 text-gray-600 rounded-full">
+                    <div className={`flex-1 min-w-0 ${notification.read ? 'ml-[18px] sm:ml-5' : ''}`}>
+                      <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-1 sm:gap-2 mb-1">
+                        <span className="text-sm font-semibold text-gray-900 leading-snug">
+                          {notification.title}
+                        </span>
+                        <span className="self-start text-xs px-2 py-0.5 bg-gray-100 text-gray-600 rounded-full whitespace-nowrap">
                           {getTypeLabel(notification.type)}
                         </span>
                       </div>
-                      <p className="text-sm text-gray-600">{notification.message}</p>
+                      <p className="text-sm text-gray-600 leading-relaxed break-words">
+                        {notification.message}
+                      </p>
                       <p className="text-xs text-gray-400 mt-1.5">
-                        {notification.actor?.name && <span>By {notification.actor.name} · </span>}
-                        {format(new Date(notification.createdAt), 'MMM d, yyyy h:mm a')}
-                        {' · '}
-                        {formatDistanceToNow(new Date(notification.createdAt), { addSuffix: true })}
+                        {notification.actor?.name && (
+                          <span className="block sm:inline">By {notification.actor.name}</span>
+                        )}
+                        {notification.actor?.name && (
+                          <span className="hidden sm:inline"> · </span>
+                        )}
+                        <span className="block sm:inline mt-0.5 sm:mt-0">
+                          <span className="sm:hidden">
+                            {formatDistanceToNow(new Date(notification.createdAt), { addSuffix: true })}
+                          </span>
+                          <span className="hidden sm:inline">
+                            {format(new Date(notification.createdAt), 'MMM d, yyyy h:mm a')}
+                            {' · '}
+                            {formatDistanceToNow(new Date(notification.createdAt), { addSuffix: true })}
+                          </span>
+                        </span>
                       </p>
                     </div>
                     {notification.link && (
-                      <span className="text-xs text-blue-600 flex-shrink-0">View →</span>
+                      <span className="text-xs text-blue-600 flex-shrink-0 mt-1 sm:mt-0">→</span>
                     )}
                   </div>
                 </button>
@@ -183,38 +207,38 @@ export default function NotificationsPage() {
       </div>
 
       {totalPages > 1 && (
-        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
-          <p className="text-sm text-gray-600">
-            Showing {(currentPage - 1) * pageSize + 1}–{Math.min(currentPage * pageSize, totalCount)} of {totalCount}
+        <div className="flex flex-col gap-3">
+          <p className="text-xs sm:text-sm text-gray-600 text-center sm:text-left">
+            {(currentPage - 1) * pageSize + 1}–{Math.min(currentPage * pageSize, totalCount)} of {totalCount}
           </p>
           <div className="flex items-center gap-2">
-            <select
-              value={pageSize}
-              onChange={(e) => { setPageSize(Number(e.target.value)); setCurrentPage(1); }}
-              className="text-sm border border-gray-300 rounded-lg px-2 py-1"
-            >
-              <option value={10}>10 per page</option>
-              <option value={20}>20 per page</option>
-              <option value={50}>50 per page</option>
-            </select>
             <button
               onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
               disabled={currentPage === 1}
-              className="px-3 py-1 text-sm rounded-lg bg-gray-200 disabled:opacity-50"
+              className="flex-1 sm:flex-none px-4 py-2.5 text-sm rounded-lg bg-gray-200 disabled:opacity-50 min-h-[44px]"
             >
               Previous
             </button>
-            <span className="text-sm text-gray-600">
-              Page {currentPage} of {totalPages}
+            <span className="text-sm text-gray-600 px-2 whitespace-nowrap">
+              {currentPage} / {totalPages}
             </span>
             <button
               onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
               disabled={currentPage === totalPages}
-              className="px-3 py-1 text-sm rounded-lg bg-gray-200 disabled:opacity-50"
+              className="flex-1 sm:flex-none px-4 py-2.5 text-sm rounded-lg bg-gray-200 disabled:opacity-50 min-h-[44px]"
             >
               Next
             </button>
           </div>
+          <select
+            value={pageSize}
+            onChange={(e) => { setPageSize(Number(e.target.value)); setCurrentPage(1); }}
+            className="w-full sm:w-auto text-base sm:text-sm border border-gray-300 rounded-lg px-3 py-2.5 min-h-[44px]"
+          >
+            <option value={10}>10 per page</option>
+            <option value={20}>20 per page</option>
+            <option value={50}>50 per page</option>
+          </select>
         </div>
       )}
     </div>
