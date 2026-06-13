@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '../../../../lib/prisma';
 import { getCurrentUserId } from '../../../../lib/auth';
+import { notifyOtherAdmins, getActorName } from '../../../../lib/notifications';
 
 // Define extended types for the membership object
 interface ChitFundMembershipWithExtras {
@@ -377,6 +378,15 @@ async function createMember(request: NextRequest, currentUserId: number) {
         notes: body.notes || null,
         createdById: currentUserId,
       },
+    });
+
+    const actorName = await getActorName(currentUserId);
+    await notifyOtherAdmins({
+      actorId: currentUserId,
+      type: 'member_created',
+      title: 'New Member',
+      message: `${actorName} added member "${member.name}"`,
+      link: `/members/${member.id}`,
     });
 
     return NextResponse.json(member, { status: 201 });

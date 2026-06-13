@@ -8,6 +8,7 @@ import {
 } from "../../../../lib/paymentSchedule";
 import { TRANSACTION_TYPES_CONFIG } from "../../../../config/config";
 import { calculateTransactionBalance, getCurrentPartnerBalance, getCurrentTotalBalance, recalculateBalancesAfterDeletion } from "../../../../lib/balanceCalculator";
+import { notifyOtherAdmins, getActorName } from "../../../../lib/notifications";
 
 /**
  * Check if all periods of a loan have been completed (paid)
@@ -1088,6 +1089,16 @@ async function createLoan(request: NextRequest, currentUserId: number) {
       console.error("Error generating payment schedule:", scheduleError);
     }
 
+    const actorName = await getActorName(currentUserId);
+    const borrowerName = loan.borrower?.name ?? globalMember?.name ?? 'a borrower';
+    await notifyOtherAdmins({
+      actorId: currentUserId,
+      type: 'loan_created',
+      title: 'New Loan',
+      message: `${actorName} disbursed a loan of ₹${loanAmount} to ${borrowerName}`,
+      link: `/loans/${loan.id}`,
+    });
+
     // Return the loan object, consistent with the original function's response
     return NextResponse.json(loan, { status: 201 });
 
@@ -1260,6 +1271,15 @@ async function addRepayment(request: NextRequest, id: number, currentUserId: num
       },
     });
     
+    const actorName = await getActorName(currentUserId);
+    await notifyOtherAdmins({
+      actorId: currentUserId,
+      type: 'loan_repayment',
+      title: 'Loan Repayment',
+      message: `${actorName} recorded a repayment of ₹${paymentAmount} from ${loan.borrower?.name ?? 'a borrower'}`,
+      link: `/loans/${loanId}`,
+    });
+
     // Return the repayment object from the transaction response
     return NextResponse.json({loan: createdTransaction.repayment}, { status: 201 });
 

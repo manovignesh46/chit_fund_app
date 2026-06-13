@@ -7,6 +7,7 @@ import * as XLSX from 'xlsx';
 import { calculateTransactionBalance, getCurrentPartnerBalance, getCurrentTotalBalance } from '../../../lib/balanceCalculator';
 import { buildTransactionWhereClause } from '../../../lib/transactionWhereBuilder';
 import { generateTransactionExportName } from '../../../lib/transactionExportNameGenerator';
+import { notifyOtherAdmins, getActorName } from '../../../lib/notifications';
 
 // GET /api/transactions
 export async function GET(request: NextRequest) {
@@ -205,6 +206,15 @@ async function handlePartnerToPartnerTransfer(
 
     console.log(`Debit transaction created: ${fromPartner.name} balance = ₹${debitBalanceCalculation.partnerBalance}`);
     console.log(`Credit transaction created: ${toPartner.name} balance = ₹${creditBalanceCalculation.partnerBalance}`);
+
+    const actorName = await getActorName(currentUserId);
+    await notifyOtherAdmins({
+      actorId: currentUserId,
+      type: 'transaction',
+      title: 'Partner Transfer',
+      message: `${actorName} recorded a transfer of ₹${amount} from ${fromPartner.name} to ${toPartner.name}`,
+      link: '/transactions',
+    });
 
     return { debitTransaction, creditTransaction };
   });
@@ -422,6 +432,15 @@ export async function POST(request: NextRequest) {
         fromPartner: true, // Include full partner objects in the response
         toPartner: true,
       }
+    });
+
+    const actorName = await getActorName(currentUserId);
+    await notifyOtherAdmins({
+      actorId: currentUserId,
+      type: 'transaction',
+      title: 'New Transaction',
+      message: `${actorName} added a ${type} transaction of ₹${amount}`,
+      link: '/transactions',
     });
 
     return NextResponse.json(transaction, { status: 201 });

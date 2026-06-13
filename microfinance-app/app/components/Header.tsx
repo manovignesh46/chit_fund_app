@@ -5,6 +5,7 @@ import React, { useState, useEffect } from 'react';
 import { PartnerSelector } from '../contexts/PartnerContext';
 import { usePathname, useRouter } from 'next/navigation';
 import { authAPI } from '../../lib/api';
+import NotificationBell from './NotificationBell';
 
 interface User {
   id: number;
@@ -92,8 +93,9 @@ export default function Header({ onMenuToggle }: HeaderProps) {
             </h1>
           </div>
 
-          {/* Right: Partner Selector - align with main content on desktop */}
-          <div className="flex items-center min-w-[180px] sm:pr-8 lg:pr-16 xl:pr-32 2xl:pr-64">
+          {/* Right: Notifications and Partner Selector */}
+          <div className="flex items-center gap-2 min-w-[180px] sm:pr-8 lg:pr-16 xl:pr-32 2xl:pr-64">
+            <NotificationBell />
             <PartnerSelector variant="default" label="" className="flex flex-row items-center gap-2 !mb-0" />
           </div>
         </div>

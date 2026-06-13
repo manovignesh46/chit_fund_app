@@ -9,20 +9,22 @@ datasource db {
 }
 
 model User {
-  id            Int            @id @default(autoincrement())
-  name          String
-  email         String         @unique
-  password      String
-  role          String         @default("user")
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
-  chitFunds     ChitFund[]
-  globalMembers GlobalMember[]
-  loans         Loan[]
-  partners      Partner[]
-  repayments    Repayment[]
-  transactions  Transaction[]
-  contributions Contribution[] @relation("CreatedContributions")
+  id                    Int            @id @default(autoincrement())
+  name                  String
+  email                 String         @unique
+  password              String
+  role                  String         @default("user")
+  createdAt             DateTime       @default(now())
+  updatedAt             DateTime       @updatedAt
+  chitFunds             ChitFund[]
+  globalMembers         GlobalMember[]
+  loans                 Loan[]
+  partners              Partner[]
+  repayments            Repayment[]
+  transactions          Transaction[]
+  contributions         Contribution[] @relation("CreatedContributions")
+  notificationsReceived Notification[] @relation("UserNotifications")
+  notificationsSent     Notification[] @relation("ActorNotifications")
 }
 
 model ChitFund {
@@ -341,6 +343,24 @@ model Transaction {
   @@index([to_partner_id])
   @@index([type])
   @@index([date])
+}
+
+model Notification {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  actorId   Int
+  type      String
+  title     String
+  message   String
+  link      String?
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  user User @relation("UserNotifications", fields: [userId], references: [id], onDelete: Cascade)
+  actor User @relation("ActorNotifications", fields: [actorId], references: [id])
+
+  @@index([userId, read])
+  @@index([createdAt])
 }
 
 enum RepaymentType {

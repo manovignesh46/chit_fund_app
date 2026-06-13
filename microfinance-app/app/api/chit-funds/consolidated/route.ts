@@ -4,6 +4,7 @@ import { getCurrentUserId } from '../../../../lib/auth';
 import { TRANSACTION_TYPES_CONFIG } from '../../../../config/config';
 import { calculateTransactionBalance, getCurrentPartnerBalance, getCurrentTotalBalance, recalculateBalancesAfterDeletion } from '../../../../lib/balanceCalculator';
 import { calculateChitFundProfitUpToCurrentMonth, calculateChitFundOutsideAmount } from '../../../../lib/financialUtils';
+import { notifyOtherAdmins, getActorName } from '../../../../lib/notifications';
 
 // Use ISR with a 5-minute revalidation period
 export const revalidate = 300; // 5 minutes
@@ -841,6 +842,15 @@ async function createChitFund(request: NextRequest, currentUserId: number) {
     });
   }
 
+  const actorName = await getActorName(currentUserId);
+  await notifyOtherAdmins({
+    actorId: currentUserId,
+    type: 'chit_fund_created',
+    title: 'New Chit Fund',
+    message: `${actorName} created chit fund "${chitFund.name}"`,
+    link: `/chit-funds/${chitFund.id}`,
+  });
+
   return NextResponse.json(chitFund, { status: 201 });
 }
 
@@ -1067,6 +1077,16 @@ async function addContribution(request: NextRequest, id: number, currentUserId: 
       },
     });
 
+    const actorName = await getActorName(currentUserId);
+    const memberName = createdTransaction.contribution?.member?.globalMember?.name ?? 'a member';
+    await notifyOtherAdmins({
+      actorId: currentUserId,
+      type: 'contribution',
+      title: 'Chit Fund Contribution',
+      message: `${actorName} recorded a contribution of ₹${paidAmount} from ${memberName}`,
+      link: `/chit-funds/${id}/contributions`,
+    });
+
     return NextResponse.json(createdTransaction.contribution, { status: 201 });
 
   } catch (error) {
@@ -1189,6 +1209,16 @@ async function addAuction(request: NextRequest, id: number, currentUserId: numbe
       });
 
       return [createdTransaction.auction];
+    });
+
+    const actorName = await getActorName(currentUserId);
+    const winnerName = auction?.winner?.globalMember?.name ?? 'a member';
+    await notifyOtherAdmins({
+      actorId: currentUserId,
+      type: 'auction',
+      title: 'Chit Fund Auction',
+      message: `${actorName} recorded an auction payout of ₹${body.amount} to ${winnerName}`,
+      link: `/chit-funds/${id}/auctions`,
     });
 
     return NextResponse.json(auction, { status: 201 });
