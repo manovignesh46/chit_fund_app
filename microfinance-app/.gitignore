@@ -79,3 +79,7 @@ temp/
 
 # Vercel build output
 .vercel_build_output
+
+# graphify
+graphify-out
+
