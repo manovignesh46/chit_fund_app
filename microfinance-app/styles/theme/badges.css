@@ -21,16 +21,16 @@
 
   .dark .status-badge-active,
   html.dark .status-badge-active {
-    @apply text-green-400;
-    background-color: rgba(16, 185, 129, 0.12);
-    border-color: rgba(16, 185, 129, 0.25);
+    color: #34d399;
+    background-color: rgba(52, 211, 153, 0.12);
+    border-color: rgba(52, 211, 153, 0.25);
   }
 
   .dark .status-badge-upcoming,
   html.dark .status-badge-upcoming {
-    @apply text-blue-400;
-    background-color: rgba(59, 130, 246, 0.12);
-    border-color: rgba(59, 130, 246, 0.25);
+    color: #60a5fa;
+    background-color: rgba(96, 165, 250, 0.12);
+    border-color: rgba(96, 165, 250, 0.25);
   }
 
   .dark .status-badge-completed,
@@ -63,36 +63,36 @@
 
   .dark .badge-blue,
   html.dark .badge-blue {
-    background-color: rgba(59, 130, 246, 0.12);
+    background-color: rgba(96, 165, 250, 0.12);
     color: #60a5fa;
-    border-color: rgba(59, 130, 246, 0.25);
+    border-color: rgba(96, 165, 250, 0.25);
   }
 
   .dark .badge-green,
   html.dark .badge-green {
-    background-color: rgba(16, 185, 129, 0.12);
-    color: #4ade80;
-    border-color: rgba(16, 185, 129, 0.25);
+    background-color: rgba(52, 211, 153, 0.12);
+    color: #34d399;
+    border-color: rgba(52, 211, 153, 0.25);
   }
 
   .dark .badge-amber,
   html.dark .badge-amber {
-    background-color: rgba(245, 158, 11, 0.12);
+    background-color: rgba(251, 191, 36, 0.12);
     color: #fbbf24;
-    border-color: rgba(245, 158, 11, 0.25);
+    border-color: rgba(251, 191, 36, 0.25);
   }
 
   .dark .badge-paid,
   html.dark .badge-paid {
-    background-color: rgba(16, 185, 129, 0.12);
-    color: #4ade80;
-    border-color: rgba(16, 185, 129, 0.25);
+    background-color: rgba(52, 211, 153, 0.12);
+    color: #34d399;
+    border-color: rgba(52, 211, 153, 0.25);
   }
 
   .dark .badge-overdue,
   html.dark .badge-overdue {
-    background-color: rgba(239, 68, 68, 0.12);
+    background-color: rgba(248, 113, 113, 0.12);
     color: #f87171;
-    border-color: rgba(239, 68, 68, 0.25);
+    border-color: rgba(248, 113, 113, 0.25);
   }
 }

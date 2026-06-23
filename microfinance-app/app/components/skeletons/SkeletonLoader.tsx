@@ -23,7 +23,7 @@ const SkeletonLoader = ({
 }: SkeletonProps) => {
   return (
     <div
-      className={`bg-gray-200 ${animate ? 'animate-pulse' : ''} ${className}`}
+      className={`bg-gray-200 dark:bg-surface-elevated ${animate ? 'animate-pulse' : ''} ${className}`}
       style={{
         width: typeof width === 'number' ? `${width}px` : width,
         height: typeof height === 'number' ? `${height}px` : height,

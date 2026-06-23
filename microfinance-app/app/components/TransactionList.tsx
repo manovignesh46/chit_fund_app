@@ -628,20 +628,20 @@ export function TransactionList(props: TransactionListProps & {
                     <td className={
                       `px-4 py-2 whitespace-nowrap text-center font-semibold ` +
                       (getCrDr(t) === 'Credit'
-                        ? 'text-green-600'
+                        ? 'text-green-600 dark:text-emerald-400'
                         : getCrDr(t) === 'Debit'
-                        ? 'text-red-600'
-                        : 'text-blue-600')
+                        ? 'text-red-600 dark:text-red-400'
+                        : 'text-blue-600 dark:text-blue-400')
                     }>
                       {getCrDr(t)}
                     </td>
                     <td className={
                       `px-4 py-2 whitespace-nowrap text-right font-semibold ` +
                       (getCrDr(t) === 'Credit'
-                        ? 'text-green-600'
+                        ? 'text-green-600 dark:text-emerald-400'
                         : getCrDr(t) === 'Debit'
-                        ? 'text-red-600'
-                        : 'text-blue-600')
+                        ? 'text-red-600 dark:text-red-400'
+                        : 'text-blue-600 dark:text-blue-400')
                     }>
                       {formatCurrency(t.amount)}
                     </td>
@@ -650,9 +650,9 @@ export function TransactionList(props: TransactionListProps & {
                         ? formatCurrency(t.partnerBalance) 
                         : '-'}
                     </td>
-                    <td className="px-4 py-2 whitespace-nowrap text-right font-bold text-blue-900">
-                      {t.totalBalance !== null && t.totalBalance !== undefined 
-                        ? formatCurrency(t.totalBalance) 
+                    <td className="px-4 py-2 whitespace-nowrap text-right font-bold text-blue-900 dark:text-blue-300">
+                      {t.totalBalance !== null && t.totalBalance !== undefined
+                        ? formatCurrency(t.totalBalance)
                         : '-'}
                     </td>
                   </tr>

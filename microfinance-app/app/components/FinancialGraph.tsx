@@ -57,6 +57,24 @@ const FinancialGraph: React.FC<FinancialGraphProps> = ({ data, loading, error })
     }).format(value);
   };
 
+  // Compact Y-axis labels (40000 → 40K, 100000 → 1L)
+  const formatYAxis = (value: number) => {
+    if (value >= 100000) return `${(value / 100000).toFixed(1)}L`;
+    if (value >= 1000) return `${(value / 1000).toFixed(0)}K`;
+    return value.toString();
+  };
+
+  // Shorten X-axis period labels on mobile
+  const formatXAxis = (label: string) => {
+    if (!label) return '';
+    // "January 2026" → "Jan 26", "Aug 2025" → "Aug 25"
+    const parts = label.split(' ');
+    if (parts.length === 2 && parts[1].length === 4) {
+      return `${parts[0].slice(0, 3)} '${parts[1].slice(2)}`;
+    }
+    return label.length > 8 ? label.slice(0, 8) : label;
+  };
+
   // Custom tooltip component
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
@@ -95,54 +113,37 @@ const FinancialGraph: React.FC<FinancialGraphProps> = ({ data, loading, error })
     ];
 
     return (
-      <div className="flex flex-col items-center gap-2">
-        <div className="flex flex-wrap justify-center gap-4">
+      <div className="flex flex-col items-center gap-2 mt-2">
+        <div className="grid grid-cols-2 sm:flex sm:flex-wrap sm:justify-center gap-2">
           {allItems.map((item, index) => {
             const isHidden = hiddenSeries[item.dataKey];
             return (
               <div
                 key={`legend-${index}`}
                 onClick={() => handleLegendClick(item.dataKey)}
-                className={`flex items-center gap-2 px-3 py-1.5 rounded-md cursor-pointer transition-all select-none border-2 ${
-                  isHidden 
-                    ? 'bg-gray-50 dark:bg-surface-elevated border-gray-200 dark:border-surface-border opacity-60 hover:opacity-80' 
+                className={`flex items-center gap-1.5 px-2 py-1 rounded-md cursor-pointer transition-all select-none border ${
+                  isHidden
+                    ? 'bg-gray-50 dark:bg-surface-elevated border-gray-200 dark:border-surface-border opacity-60'
                     : 'themed-card border-transparent hover:bg-gray-50 dark:hover:bg-surface-hover shadow-sm'
                 }`}
                 title={isHidden ? `Click to show ${item.name}` : `Click to hide ${item.name}`}
               >
                 <div
-                  className="w-4 h-4 rounded flex-shrink-0 relative"
-                  style={{ 
-                    backgroundColor: item.color,
-                    opacity: isHidden ? 0.4 : 1,
-                  }}
-                >
-                  {isHidden && (
-                    <div 
-                      className="absolute inset-0 flex items-center justify-center text-white font-bold"
-                      style={{ fontSize: '14px', lineHeight: '1' }}
-                    >
-                      ×
-                    </div>
-                  )}
-                </div>
+                  className="w-3 h-3 rounded flex-shrink-0"
+                  style={{ backgroundColor: item.color, opacity: isHidden ? 0.4 : 1 }}
+                />
                 <span
-                  className={`text-sm font-medium ${
-                    isHidden 
-                      ? 'line-through text-gray-400' 
-                      : 'text-gray-700 dark:text-theme-secondary'
+                  className={`text-xs font-medium ${
+                    isHidden ? 'line-through text-gray-400' : 'text-gray-700 dark:text-theme-secondary'
                   }`}
                 >
                   {item.name}
                 </span>
-                {isHidden && (
-                  <span className="text-xs text-gray-400 ml-1"></span>
-                )}
               </div>
             );
           })}
         </div>
-        <p className="text-xs text-gray-500 italic mt-1">
+        <p className="text-xs text-gray-500 dark:text-theme-muted italic mt-0.5">
           💡 Click on any item above to show/hide it from the graph
         </p>
       </div>
@@ -174,14 +175,12 @@ const FinancialGraph: React.FC<FinancialGraphProps> = ({ data, loading, error })
   }
 
   return (
-    <div className="themed-card p-6">
-      <div className="flex justify-between items-center mb-6">
-        <h2 className="text-xl font-bold text-blue-700">Financial Trends</h2>
-        <div className="flex space-x-4">
-          <div className="flex items-center">
-            <label htmlFor="showProfit" className="mr-2 text-sm text-gray-700 dark:text-theme-secondary">
-              Show Profit
-            </label>
+    <div className="themed-card p-3 sm:p-6">
+      {/* Header — stacks vertically on mobile */}
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-4 sm:mb-6">
+        <h2 className="text-lg sm:text-xl font-bold text-blue-700 dark:text-blue-400">Financial Trends</h2>
+        <div className="flex items-center gap-3 flex-wrap">
+          <label htmlFor="showProfit" className="flex items-center gap-1.5 text-sm text-gray-700 dark:text-theme-secondary cursor-pointer select-none">
             <input
               type="checkbox"
               id="showProfit"
@@ -189,14 +188,13 @@ const FinancialGraph: React.FC<FinancialGraphProps> = ({ data, loading, error })
               onChange={() => setShowProfit(!showProfit)}
               className="form-checkbox h-4 w-4 text-blue-600"
             />
-          </div>
-          <div className="flex space-x-2">
+            Show Profit
+          </label>
+          <div className="flex gap-1.5">
             <button
               onClick={() => setGraphType('line')}
               className={`px-3 py-1 text-sm rounded-md ${
-                graphType === 'line'
-                  ? 'bg-blue-600 text-white'
-                  : 'btn-neutral'
+                graphType === 'line' ? 'bg-blue-600 text-white' : 'btn-neutral'
               }`}
             >
               Line
@@ -204,9 +202,7 @@ const FinancialGraph: React.FC<FinancialGraphProps> = ({ data, loading, error })
             <button
               onClick={() => setGraphType('bar')}
               className={`px-3 py-1 text-sm rounded-md ${
-                graphType === 'bar'
-                  ? 'bg-blue-600 text-white'
-                  : 'btn-neutral'
+                graphType === 'bar' ? 'bg-blue-600 text-white' : 'btn-neutral'
               }`}
             >
               Bar
@@ -215,69 +211,59 @@ const FinancialGraph: React.FC<FinancialGraphProps> = ({ data, loading, error })
         </div>
       </div>
 
-      <div className="h-80">
+      <div className="h-64 sm:h-80">
         <ResponsiveContainer width="100%" height="100%">
           {graphType === 'line' ? (
             <LineChart
               data={data}
-              margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+              margin={{ top: 5, right: 8, left: 0, bottom: 5 }}
               onClick={handleDataPointClick}
             >
               <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="period" />
-              <YAxis />
+              <XAxis
+                dataKey="period"
+                tickFormatter={formatXAxis}
+                tick={{ fontSize: 11 }}
+                interval="preserveStartEnd"
+              />
+              <YAxis
+                tickFormatter={formatYAxis}
+                tick={{ fontSize: 11 }}
+                width={40}
+              />
               <Tooltip content={<CustomTooltip />} />
               <Legend content={<CustomLegend />} />
               {!hiddenSeries.cashInflow && (
-                <Line
-                  type="monotone"
-                  dataKey="cashInflow"
-                  name="Cash Inflow"
-                  stroke="#3b82f6"
-                  activeDot={{ r: 8 }}
-                  strokeWidth={2}
-                />
+                <Line type="monotone" dataKey="cashInflow" name="Cash Inflow" stroke="#3b82f6" activeDot={{ r: 6 }} strokeWidth={2} />
               )}
               {!hiddenSeries.cashOutflow && (
-                <Line
-                  type="monotone"
-                  dataKey="cashOutflow"
-                  name="Cash Outflow"
-                  stroke="#ef4444"
-                  activeDot={{ r: 8 }}
-                  strokeWidth={2}
-                />
+                <Line type="monotone" dataKey="cashOutflow" name="Cash Outflow" stroke="#ef4444" activeDot={{ r: 6 }} strokeWidth={2} />
               )}
               {showProfit && !hiddenSeries.profit && (
-                <Line
-                  type="monotone"
-                  dataKey="profit"
-                  name="Profit"
-                  stroke="#10b981"
-                  activeDot={{ r: 8 }}
-                  strokeWidth={2}
-                />
+                <Line type="monotone" dataKey="profit" name="Profit" stroke="#10b981" activeDot={{ r: 6 }} strokeWidth={2} />
               )}
               {!hiddenSeries.outsideAmount && (
-                <Line
-                  type="monotone"
-                  dataKey="outsideAmount"
-                  name="Outside Amount"
-                  stroke="#f97316"
-                  activeDot={{ r: 8 }}
-                  strokeWidth={2}
-                />
+                <Line type="monotone" dataKey="outsideAmount" name="Outside Amount" stroke="#f97316" activeDot={{ r: 6 }} strokeWidth={2} />
               )}
             </LineChart>
           ) : (
             <BarChart
               data={data}
-              margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+              margin={{ top: 5, right: 8, left: 0, bottom: 5 }}
               onClick={handleDataPointClick}
             >
               <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="period" />
-              <YAxis />
+              <XAxis
+                dataKey="period"
+                tickFormatter={formatXAxis}
+                tick={{ fontSize: 11 }}
+                interval="preserveStartEnd"
+              />
+              <YAxis
+                tickFormatter={formatYAxis}
+                tick={{ fontSize: 11 }}
+                width={40}
+              />
               <Tooltip content={<CustomTooltip />} />
               <Legend content={<CustomLegend />} />
               {!hiddenSeries.cashInflow && (
@@ -290,11 +276,7 @@ const FinancialGraph: React.FC<FinancialGraphProps> = ({ data, loading, error })
                 <Bar dataKey="profit" name="Profit" fill="#10b981" />
               )}
               {!hiddenSeries.outsideAmount && (
-                <Bar
-                  dataKey="outsideAmount"
-                  name="Outside Amount"
-                  fill="#f97316"
-                />
+                <Bar dataKey="outsideAmount" name="Outside Amount" fill="#f97316" />
               )}
             </BarChart>
           )}

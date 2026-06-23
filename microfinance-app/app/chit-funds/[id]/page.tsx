@@ -718,28 +718,28 @@ const ChitFundDetails = () => {
             <div className="p-4 sm:p-6">
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-5 sm:gap-6">
                 <div>
-                  <h3 className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1.5">Total Amount</h3>
-                  <p className="text-lg sm:text-xl font-semibold">{formatCurrency(chitFund.totalAmount)}</p>
+                  <h3 className="detail-label">Total Amount</h3>
+                  <p className="text-lg sm:text-xl font-semibold dark:text-theme-secondary">{formatCurrency(chitFund.totalAmount)}</p>
                 </div>
                 <div>
-                  <h3 className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1.5">
+                  <h3 className="detail-label">
                     {chitFund.chitFundType === 'Fixed' ? 'Monthly Contribution (2nd+)' : 'Monthly Contribution'}
                   </h3>
-                  <p className="text-lg sm:text-xl font-semibold">{formatCurrency(chitFund.monthlyContribution)}</p>
+                  <p className="text-lg sm:text-xl font-semibold dark:text-theme-secondary">{formatCurrency(chitFund.monthlyContribution)}</p>
                 </div>
                 {chitFund.chitFundType === 'Fixed' && chitFund.firstMonthContribution && (
                   <div>
-                    <h3 className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1.5">1st Month Contribution</h3>
-                    <p className="text-lg sm:text-xl font-semibold">{formatCurrency(chitFund.firstMonthContribution)}</p>
+                    <h3 className="detail-label">1st Month Contribution</h3>
+                    <p className="text-lg sm:text-xl font-semibold dark:text-theme-secondary">{formatCurrency(chitFund.firstMonthContribution)}</p>
                   </div>
                 )}
                 <div>
-                  <h3 className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1.5">Duration</h3>
-                  <p className="text-lg sm:text-xl font-semibold">{chitFund.duration} months</p>
+                  <h3 className="detail-label">Duration</h3>
+                  <p className="text-lg sm:text-xl font-semibold dark:text-theme-secondary">{chitFund.duration} months</p>
                 </div>
                 <div>
                   <h3
-                    className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1.5 flex items-center cursor-pointer"
+                    className="detail-label flex items-center cursor-pointer"
                     onClick={() => document.getElementById('chitfund-profit')?.classList.toggle('hidden')}
                   >
                     Total Profit
@@ -751,7 +751,7 @@ const ChitFundDetails = () => {
                 </div>
                 <div>
                   <h3
-                    className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1.5 flex items-center cursor-pointer"
+                    className="detail-label flex items-center cursor-pointer"
                     onClick={() => document.getElementById('chitfund-inflow')?.classList.toggle('hidden')}
                   >
                     Cash Inflow
@@ -763,7 +763,7 @@ const ChitFundDetails = () => {
                 </div>
                 <div>
                   <h3
-                    className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1.5 flex items-center cursor-pointer"
+                    className="detail-label flex items-center cursor-pointer"
                     onClick={() => document.getElementById('chitfund-outflow')?.classList.toggle('hidden')}
                   >
                     Cash Outflow
@@ -776,7 +776,7 @@ const ChitFundDetails = () => {
                 {outsideAmount > 0 && (
                   <div>
                     <h3
-                      className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1.5 flex items-center cursor-pointer"
+                      className="detail-label flex items-center cursor-pointer"
                       onClick={() => document.getElementById('chitfund-outside')?.classList.toggle('hidden')}
                     >
                       Outside Amount
@@ -788,26 +788,26 @@ const ChitFundDetails = () => {
                   </div>
                 )}
                 <div>
-                  <h3 className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1.5">Members (Auctioned/Total)</h3>
-                  <p className="text-lg sm:text-xl font-semibold">
+                  <h3 className="detail-label">Members (Auctioned/Total)</h3>
+                  <p className="text-lg sm:text-xl font-semibold dark:text-theme-secondary">
                     {auctionsLoading ? '…' : auctions.length} / {chitFund.membersCount}
                   </p>
                 </div>
                 <div>
-                  <h3 className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1.5">Next Auction Date</h3>
-                  <p className="text-lg sm:text-xl font-semibold">{formatDate(chitFund.nextAuctionDate)}</p>
+                  <h3 className="detail-label">Next Auction Date</h3>
+                  <p className="text-lg sm:text-xl font-semibold dark:text-theme-secondary">{formatDate(chitFund.nextAuctionDate)}</p>
                 </div>
                 <div>
-                  <h3 className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1.5">Start Date</h3>
-                  <p className="text-lg sm:text-xl font-semibold">{formatDate(chitFund.startDate)}</p>
+                  <h3 className="detail-label">Start Date</h3>
+                  <p className="text-lg sm:text-xl font-semibold dark:text-theme-secondary">{formatDate(chitFund.startDate)}</p>
                 </div>
                 <div>
-                  <h3 className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1.5">Expected End Date</h3>
-                  <p className="text-lg sm:text-xl font-semibold">{calculateEndDate(chitFund.startDate, chitFund.duration)}</p>
+                  <h3 className="detail-label">Expected End Date</h3>
+                  <p className="text-lg sm:text-xl font-semibold dark:text-theme-secondary">{calculateEndDate(chitFund.startDate, chitFund.duration)}</p>
                 </div>
                 <div>
-                  <h3 className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1.5">Chit Fund Type</h3>
-                  <p className="text-lg sm:text-xl font-semibold">{chitFund.chitFundType || 'Auction'}</p>
+                  <h3 className="detail-label">Chit Fund Type</h3>
+                  <p className="text-lg sm:text-xl font-semibold dark:text-theme-secondary">{chitFund.chitFundType || 'Auction'}</p>
                 </div>
               </div>
             </div>
@@ -817,7 +817,7 @@ const ChitFundDetails = () => {
           {chitFund.chitFundType === 'Fixed' && chitFund.fixedAmounts && chitFund.fixedAmounts.length > 0 && (
             <div className="themed-card overflow-hidden">
               <div className="p-4 sm:p-6 border-b">
-                <h2 className="text-lg sm:text-xl font-semibold">Fixed Amounts by Month</h2>
+                <h2 className="text-lg sm:text-xl font-semibold dark:text-theme-secondary">Fixed Amounts by Month</h2>
                 <p className="text-sm text-gray-500 mt-1">Predefined auction amounts for each month</p>
               </div>
               <div className="p-4 sm:p-6">
@@ -836,7 +836,7 @@ const ChitFundDetails = () => {
           {/* Next Payout */}
           {auctionsLoading || membersLoading ? (
             <div className="themed-card overflow-hidden">
-              <div className="p-4 sm:p-6 border-b"><h2 className="text-lg sm:text-xl font-semibold">Next Payout</h2></div>
+              <div className="p-4 sm:p-6 border-b"><h2 className="text-lg sm:text-xl font-semibold dark:text-theme-secondary">Next Payout</h2></div>
               <div className="p-4 sm:p-6 animate-pulse space-y-3">
                 <div className="h-4 bg-gray-200 rounded w-1/4"></div>
                 <div className="h-6 bg-gray-200 rounded w-1/2"></div>
@@ -846,7 +846,7 @@ const ChitFundDetails = () => {
             </div>
           ) : (
             <div className="themed-card overflow-hidden">
-              <div className="p-4 sm:p-6 border-b"><h2 className="text-lg sm:text-xl font-semibold">Next Payout</h2></div>
+              <div className="p-4 sm:p-6 border-b"><h2 className="text-lg sm:text-xl font-semibold dark:text-theme-secondary">Next Payout</h2></div>
               <div className="p-4 sm:p-6">
                 {chitFund.status === 'Completed' ? (
                   <p className="text-center text-gray-500">This chit fund has been completed.</p>
@@ -857,12 +857,12 @@ const ChitFundDetails = () => {
                 ) : (
                   <div className="grid grid-cols-2 gap-5">
                     <div>
-                      <h3 className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1.5">Receiver</h3>
-                      <p className="text-lg sm:text-xl font-semibold">{(chitFund as any).nextPayoutReceiver}</p>
+                      <h3 className="detail-label">Receiver</h3>
+                      <p className="text-lg sm:text-xl font-semibold dark:text-theme-secondary">{(chitFund as any).nextPayoutReceiver}</p>
                     </div>
                     <div>
-                      <h3 className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1.5">Estimated Amount</h3>
-                      <p className="text-lg sm:text-xl font-semibold">
+                      <h3 className="detail-label">Estimated Amount</h3>
+                      <p className="text-lg sm:text-xl font-semibold dark:text-theme-secondary">
                         {(chitFund as any).finalPayout ? formatCurrency((chitFund as any).finalPayout) : 'To be determined'}
                       </p>
                     </div>
@@ -879,7 +879,7 @@ const ChitFundDetails = () => {
         <div className="space-y-4 sm:space-y-6">
           {contributionsLoading ? (
             <div className="themed-card overflow-hidden">
-              <div className="p-4 sm:p-6 border-b"><h2 className="text-lg sm:text-xl font-semibold">Contributions Overview</h2></div>
+              <div className="p-4 sm:p-6 border-b"><h2 className="text-lg sm:text-xl font-semibold dark:text-theme-secondary">Contributions Overview</h2></div>
               <div className="p-4 sm:p-6 animate-pulse space-y-3">
                 <div className="h-4 bg-gray-200 rounded w-3/4"></div>
                 <div className="h-4 bg-gray-200 rounded w-1/2"></div>
@@ -899,7 +899,7 @@ const ChitFundDetails = () => {
           {contributionsLoading ? (
             <div className="themed-card overflow-hidden">
               <div className="p-4 sm:p-6 border-b flex justify-between items-center">
-                <h2 className="text-lg sm:text-xl font-semibold">Outstanding Balances</h2>
+                <h2 className="text-lg sm:text-xl font-semibold dark:text-theme-secondary">Outstanding Balances</h2>
                 <div className="animate-pulse h-6 bg-gray-200 rounded-full w-20"></div>
               </div>
               <div className="p-4 sm:p-6 animate-pulse space-y-3">
@@ -910,7 +910,7 @@ const ChitFundDetails = () => {
           ) : membersWithBalance.length > 0 ? (
             <div className="themed-card overflow-hidden">
               <div className="p-4 sm:p-6 border-b flex justify-between items-center">
-                <h2 className="text-lg sm:text-xl font-semibold">Outstanding Balances</h2>
+                <h2 className="text-lg sm:text-xl font-semibold dark:text-theme-secondary">Outstanding Balances</h2>
                 <span className="px-3 py-1 bg-red-100 text-red-800 rounded-full text-sm font-semibold">{formatCurrency(totalBalance)}</span>
               </div>
               <div className="p-4 sm:p-6">
@@ -945,7 +945,7 @@ const ChitFundDetails = () => {
       {activeTab === "auctions" && (
         <div className="themed-card overflow-hidden">
           <div className="p-4 sm:p-6 border-b flex flex-wrap items-center justify-between gap-2">
-            <h2 className="text-lg sm:text-xl font-semibold">Auction History</h2>
+            <h2 className="text-lg sm:text-xl font-semibold dark:text-theme-secondary">Auction History</h2>
             {chitFund.status === 'Active' && (
               <Link href={`/chit-funds/${chitFund.id}/auctions`} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-300 text-sm">
                 Conduct Next Auction

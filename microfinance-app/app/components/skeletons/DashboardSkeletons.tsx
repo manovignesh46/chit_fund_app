@@ -120,7 +120,7 @@ export function StatsOverviewSkeleton() {
     <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 gap-4 sm:gap-6 mb-6 sm:mb-8">
       {Array.from({ length: 3 }).map((_, index) => (
         <div key={index} className="dark-card rounded-lg shadow-md p-4 sm:p-6 flex flex-col items-center">
-          <div className="bg-gray-300 text-white rounded-full w-12 h-12 flex items-center justify-center mb-4">
+          <div className="bg-gray-300 dark:bg-surface-hover rounded-full w-12 h-12 flex items-center justify-center mb-4">
             <SkeletonLoader height="1.5rem" width="1.5rem" borderRadius="9999px" />
           </div>
           <SkeletonLoader height="0.875rem" width="60%" />
@@ -205,7 +205,7 @@ export function UpcomingEventsSkeleton() {
       <SkeletonLoader height="1.5rem" width="12rem" className="mb-2 sm:mb-4" />
       <div className="space-y-4">
         {Array.from({ length: 3 }).map((_, index) => (
-          <div key={index} className="border-l-4 pl-4" style={{ borderColor: '#e5e7eb' }}>
+          <div key={index} className="border-l-4 pl-4 border-gray-200 dark:border-surface-border">
             <SkeletonLoader height="1.25rem" width="80%" className="mb-1" />
             <SkeletonLoader height="0.875rem" width="40%" className="mb-1" />
             <SkeletonLoader height="1.25rem" width="5rem" borderRadius="9999px" />

@@ -1051,41 +1051,41 @@ const LoanDetailPage = () => {
           <div className="p-4 sm:p-6">
             <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5 sm:gap-6">
               <div>
-                <h3 className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1.5">Loan Amount</h3>
-                <p className="text-lg sm:text-xl font-semibold">{formatCurrency(loan.amount)}</p>
+                <h3 className="detail-label">Loan Amount</h3>
+                <p className="text-lg sm:text-xl font-semibold dark:text-theme-secondary">{formatCurrency(loan.amount)}</p>
               </div>
               <div>
-                <h3 className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1.5">Remaining Balance</h3>
-                <p className="text-lg sm:text-xl font-semibold">{formatCurrency(loan.remainingAmount)}</p>
+                <h3 className="detail-label">Remaining Balance</h3>
+                <p className="text-lg sm:text-xl font-semibold dark:text-theme-secondary">{formatCurrency(loan.remainingAmount)}</p>
               </div>
               <div>
-                <h3 className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1.5">Overdue</h3>
+                <h3 className="detail-label">Overdue</h3>
                 <p className={`text-lg sm:text-xl font-semibold ${loan.missedPayments > 0 ? "text-red-600" : "text-green-600"}`}>
                   {loan.missedPayments > 0 ? `${loan.missedPayments} ${loan.missedPayments === 1 ? "payment" : "payments"}` : "None"}
                 </p>
               </div>
               {loan.loanType === "Reducing Balance" ? (
                 <div>
-                  <h3 className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1.5">Interest Rate (%)</h3>
-                  <p className="text-lg sm:text-xl font-semibold">{loan.interestPercentage}%</p>
+                  <h3 className="detail-label">Interest Rate (%)</h3>
+                  <p className="text-lg sm:text-xl font-semibold dark:text-theme-secondary">{loan.interestPercentage}%</p>
                 </div>
               ) : (
                 loan.repaymentType === "Monthly" && (
                   <div>
-                    <h3 className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1.5">Interest Amount</h3>
-                    <p className="text-lg sm:text-xl font-semibold">{formatCurrency(loan.interestRate)}</p>
+                    <h3 className="detail-label">Interest Amount</h3>
+                    <p className="text-lg sm:text-xl font-semibold dark:text-theme-secondary">{formatCurrency(loan.interestRate)}</p>
                   </div>
                 )
               )}
               {loan.repaymentType === "Monthly" && (
                 <div>
-                  <h3 className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1.5">Document Charge</h3>
-                  <p className="text-lg sm:text-xl font-semibold">{formatCurrency(loan.documentCharge || 0)}</p>
+                  <h3 className="detail-label">Document Charge</h3>
+                  <p className="text-lg sm:text-xl font-semibold dark:text-theme-secondary">{formatCurrency(loan.documentCharge || 0)}</p>
                 </div>
               )}
               <div>
                 <h3
-                  className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1.5 flex items-center cursor-pointer"
+                  className="detail-label flex items-center cursor-pointer"
                   onClick={() => {
                     document.getElementById("loan-profit")?.classList.toggle("hidden");
                     document.getElementById("loan-profit-explanation")?.classList.toggle("hidden");
@@ -1106,30 +1106,30 @@ const LoanDetailPage = () => {
                 </div>
               </div>
               <div>
-                <h3 className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1.5">Installment Amount</h3>
-                <p className="text-lg sm:text-xl font-semibold">
+                <h3 className="detail-label">Installment Amount</h3>
+                <p className="text-lg sm:text-xl font-semibold dark:text-theme-secondary">
                   {loan.loanType === "Reducing Balance" ? "Dynamic" : formatCurrency(loan.installmentAmount || 0)}
                 </p>
               </div>
               <div>
-                <h3 className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1.5">Loan Type</h3>
-                <p className="text-lg sm:text-xl font-semibold">{loan.loanType}</p>
+                <h3 className="detail-label">Loan Type</h3>
+                <p className="text-lg sm:text-xl font-semibold dark:text-theme-secondary">{loan.loanType}</p>
               </div>
               <div>
-                <h3 className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1.5">Duration</h3>
-                <p className="text-lg sm:text-xl font-semibold">{loan.duration} {loan.loanType === "Weekly" ? "weeks" : "months"}</p>
+                <h3 className="detail-label">Duration</h3>
+                <p className="text-lg sm:text-xl font-semibold dark:text-theme-secondary">{loan.duration} {loan.loanType === "Weekly" ? "weeks" : "months"}</p>
               </div>
               <div>
-                <h3 className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1.5">Disbursement Date</h3>
-                <p className="text-lg sm:text-xl font-semibold">{formatDate(loan.disbursementDate)}</p>
+                <h3 className="detail-label">Disbursement Date</h3>
+                <p className="text-lg sm:text-xl font-semibold dark:text-theme-secondary">{formatDate(loan.disbursementDate)}</p>
               </div>
               <div>
-                <h3 className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1.5">Next Payment Date</h3>
-                <p className="text-lg sm:text-xl font-semibold">{formatDate(loan.nextPaymentDate)}</p>
+                <h3 className="detail-label">Next Payment Date</h3>
+                <p className="text-lg sm:text-xl font-semibold dark:text-theme-secondary">{formatDate(loan.nextPaymentDate)}</p>
               </div>
               <div>
-                <h3 className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1.5">End Date</h3>
-                <p className="text-lg sm:text-xl font-semibold">
+                <h3 className="detail-label">End Date</h3>
+                <p className="text-lg sm:text-xl font-semibold dark:text-theme-secondary">
                   {formatDate(calculateEndDate(loan.disbursementDate, loan.duration, loan.loanType))}
                 </p>
               </div>
@@ -1141,7 +1141,7 @@ const LoanDetailPage = () => {
       {activeTab === "payment-schedule" && (
         <div className="themed-card overflow-hidden">
           <div className="p-4 sm:p-6 border-b flex flex-wrap items-center justify-between gap-2">
-            <h2 className="text-lg sm:text-xl font-semibold">Payment Schedule</h2>
+            <h2 className="text-lg sm:text-xl font-semibold dark:text-theme-secondary">Payment Schedule</h2>
             <Link href={`/loans/${id}/repayments`} className="text-blue-600 hover:text-blue-800 text-sm">
               View All Repayments
             </Link>

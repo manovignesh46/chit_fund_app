@@ -50,48 +50,48 @@
 
   html.dark,
   .dark {
-    /* ── Surfaces ── */
-    --color-surface: #0d0f14;
-    --color-surface-sidebar: #111318;
-    --color-surface-card: #161b26;
-    --color-surface-elevated: #1c2230;
-    --color-surface-hover: #222836;
-    --color-surface-border: #2a3040;
+    /* ── Surfaces — warmer neutral, more distinct layers ── */
+    --color-surface: #0f1117;
+    --color-surface-sidebar: #141720;
+    --color-surface-card: #1c2032;
+    --color-surface-elevated: #242840;
+    --color-surface-hover: #2a2f47;
+    --color-surface-border: #32384f;
 
-    /* ── Text ── */
-    --color-text-primary: #f3f4f6;
-    --color-text-secondary: #d1d5db;
-    --color-text-muted: #9ca3af;
-    --color-text-heading: #f3f4f6;
+    /* ── Text — softer to reduce eye strain ── */
+    --color-text-primary: #dce3ef;
+    --color-text-secondary: #8b96ad;
+    --color-text-muted: #5c6478;
+    --color-text-heading: #edf0f7;
 
     /* ── Semantic brand / interactive ── */
-    --color-primary: #3b82f6;          /* blue-500 (brighter on dark) */
-    --color-primary-hover: #2563eb;    /* blue-600 */
-    --color-primary-light: rgba(59, 130, 246, 0.12);
-    --color-primary-border: rgba(59, 130, 246, 0.3);
+    --color-primary: #60a5fa;          /* blue-400 (reads better on dark than blue-500) */
+    --color-primary-hover: #3b82f6;    /* blue-500 */
+    --color-primary-light: rgba(96, 165, 250, 0.12);
+    --color-primary-border: rgba(96, 165, 250, 0.28);
 
-    /* ── Semantic status ── */
-    --color-success: #22c55e;          /* green-500 */
-    --color-success-light: rgba(16, 185, 129, 0.12);
-    --color-success-border: rgba(16, 185, 129, 0.3);
-    --color-danger: #ef4444;           /* red-500   */
-    --color-danger-light: rgba(239, 68, 68, 0.12);
-    --color-danger-border: rgba(239, 68, 68, 0.3);
-    --color-warning: #f59e0b;          /* amber-500 */
-    --color-warning-light: rgba(245, 158, 11, 0.12);
-    --color-warning-border: rgba(245, 158, 11, 0.3);
+    /* ── Semantic status — unified emerald, softer red/amber ── */
+    --color-success: #34d399;          /* emerald-400 */
+    --color-success-light: rgba(52, 211, 153, 0.12);
+    --color-success-border: rgba(52, 211, 153, 0.28);
+    --color-danger: #f87171;           /* red-400 */
+    --color-danger-light: rgba(248, 113, 113, 0.12);
+    --color-danger-border: rgba(248, 113, 113, 0.28);
+    --color-warning: #fbbf24;          /* amber-400 */
+    --color-warning-light: rgba(251, 191, 36, 0.12);
+    --color-warning-border: rgba(251, 191, 36, 0.28);
 
     /* ── Overlay ── */
     --color-overlay: rgba(0, 0, 0, 0.6);
 
     /* ── Tables ── */
-    --color-table-head: rgba(28, 34, 48, 0.5);
-    --color-table-border: rgba(42, 48, 64, 0.6);
-    --color-table-row-alt: rgba(22, 27, 38, 0.55);
-    --color-table-foot: rgba(28, 34, 48, 0.85);
+    --color-table-head: rgba(36, 40, 64, 0.7);
+    --color-table-border: rgba(50, 56, 79, 0.7);
+    --color-table-row-alt: rgba(28, 32, 50, 0.6);
+    --color-table-foot: rgba(36, 40, 64, 0.9);
 
     /* ── Scrollbar ── */
-    --color-scrollbar-track: #111318;
-    --color-scrollbar-thumb: #3a4258;
+    --color-scrollbar-track: #141720;
+    --color-scrollbar-thumb: #3d4460;
   }
 }

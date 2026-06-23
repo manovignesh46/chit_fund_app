@@ -31,33 +31,33 @@
   /* Dark overrides */
   html.dark .metric-row,
   .dark .metric-row {
-    background-color: rgba(28, 34, 48, 0.6);
+    background-color: rgba(36, 40, 64, 0.7);
     background-image: none;
   }
 
   html.dark .metric-row-blue,
   .dark .metric-row-blue {
-    background-color: rgba(59, 130, 246, 0.08);
+    background-color: rgba(96, 165, 250, 0.08);
     background-image: none;
   }
 
   html.dark .metric-row-green,
   .dark .metric-row-green {
-    background-color: rgba(16, 185, 129, 0.08);
+    background-color: rgba(52, 211, 153, 0.08);
     background-image: none;
   }
 
   html.dark .metric-row-red,
   .dark .metric-row-red {
-    background-color: rgba(239, 68, 68, 0.08);
+    background-color: rgba(248, 113, 113, 0.08);
     background-image: none;
   }
 
   html.dark .metric-row-highlight,
   .dark .metric-row-highlight {
-    background-color: rgba(59, 130, 246, 0.10);
+    background-color: rgba(96, 165, 250, 0.10);
     background-image: none;
-    border-color: rgba(59, 130, 246, 0.2);
+    border-color: rgba(96, 165, 250, 0.22);
   }
 
   /* List item rows */
@@ -67,12 +67,12 @@
 
   html.dark .list-item-row,
   .dark .list-item-row {
-    background-color: rgba(28, 34, 48, 0.5);
+    background-color: rgba(36, 40, 64, 0.6);
   }
 
   html.dark .list-item-row:hover,
   .dark .list-item-row:hover {
-    background-color: rgba(34, 40, 54, 1);
+    background-color: rgba(42, 47, 71, 1);
   }
 
   /* Progress track */
@@ -82,6 +82,6 @@
 
   html.dark .progress-track,
   .dark .progress-track {
-    background-color: rgba(42, 48, 64, 1);
+    background-color: rgba(50, 56, 79, 1);
   }
 }

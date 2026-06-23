@@ -27,4 +27,24 @@
   html.dark .page-title {
     @apply text-theme-heading;
   }
+
+  /* Detail field label — uppercase muted label above a value */
+  .detail-label {
+    @apply text-xs font-medium text-gray-500 uppercase tracking-wider mb-1.5;
+  }
+
+  .dark .detail-label,
+  html.dark .detail-label {
+    @apply text-theme-muted;
+  }
+
+  /* Detail field value — the number/text below a label */
+  .detail-value {
+    @apply text-lg font-semibold text-gray-900;
+  }
+
+  .dark .detail-value,
+  html.dark .detail-value {
+    @apply text-theme-secondary;
+  }
 }
