@@ -71,6 +71,60 @@ export async function notifyOtherAdmins(params: NotifyParams): Promise<void> {
   }
 }
 
+export async function notifyAllOrgUsers(params: {
+  orgOwnerId: number;
+  actorId: number;
+  type: string;
+  title: string;
+  message: string;
+  link?: string;
+}): Promise<void> {
+  try {
+    const recipients = await prisma.user.findMany({
+      where: {
+        role: { in: ['admin', 'partner'] },
+        OR: [
+          { id: params.orgOwnerId },
+          { dataOwnerId: params.orgOwnerId },
+        ],
+      },
+      select: { id: true },
+    });
+
+    if (recipients.length === 0) return;
+
+    const createdNotifications = await Promise.all(
+      recipients.map((recipient) =>
+        prisma.notification.create({
+          data: {
+            userId: recipient.id,
+            actorId: params.actorId,
+            type: params.type,
+            title: params.title,
+            message: params.message,
+            link: params.link ?? null,
+          },
+          include: {
+            actor: { select: { id: true, name: true } },
+          },
+        })
+      )
+    );
+
+    for (const notification of createdNotifications) {
+      const unreadCount = await prisma.notification.count({
+        where: { userId: notification.userId, read: false },
+      });
+      pushNotificationEvent(notification.userId, 'notification', {
+        notification,
+        unreadCount,
+      });
+    }
+  } catch (error) {
+    console.error('Failed to create org notifications:', error);
+  }
+}
+
 export async function getActorName(actorId: number): Promise<string> {
   const user = await prisma.user.findUnique({
     where: { id: actorId },

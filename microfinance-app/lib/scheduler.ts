@@ -5,6 +5,7 @@ import cron from 'node-cron';
 let monthlyEmailTask: any = null;
 let weeklyEmailTask: any = null;
 let dbBackupTask: any = null;
+let loanDueReminderTask: any = null;
 
 // Function to start the monthly email scheduler
 export function startMonthlyEmailScheduler() {
@@ -182,11 +183,80 @@ export function stopMonthlyDbBackupScheduler() {
   }
 }
 
+// Internal function to trigger loan due reminders
+async function sendLoanDueReminders() {
+  try {
+    const baseUrl = process.env.NEXTAUTH_URL || process.env.VERCEL_URL || 'http://localhost:3001';
+    const internalKey = process.env.INTERNAL_API_KEY || 'default-internal-key';
+
+    const response = await fetch(`${baseUrl}/api/scheduled/loan-due-reminder`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${internalKey}`,
+      },
+    });
+
+    if (response.ok) {
+      const result = await response.json();
+      console.log('Loan due reminders sent:', result);
+    } else {
+      const error = await response.text();
+      console.error('Failed to send loan due reminders:', error);
+    }
+  } catch (error) {
+    console.error('Error in loan due reminder task:', error);
+  }
+}
+
+// Function to manually trigger loan due reminders (for testing)
+export async function triggerLoanDueReminderNow() {
+  console.log('Manually triggering loan due reminders...');
+  await sendLoanDueReminders();
+}
+
+// Function to start the loan due reminder scheduler (runs daily)
+export function startLoanDueReminderScheduler() {
+  try {
+    if (loanDueReminderTask) {
+      loanDueReminderTask.stop();
+      loanDueReminderTask = null;
+    }
+
+    const hour = parseInt(process.env.LOAN_DUE_REMINDER_HOUR || '9', 10);
+    const timezone = process.env.LOAN_DUE_REMINDER_TIMEZONE || 'Asia/Kolkata';
+
+    const cronExpression = `0 ${hour} * * *`;
+
+    console.log(`Setting up loan due reminder scheduler:`);
+    console.log(`- Schedule: ${cronExpression} (${timezone})`);
+
+    loanDueReminderTask = cron.schedule(cronExpression, async () => {
+      console.log('Running loan due reminder task...');
+      await sendLoanDueReminders();
+    }, { timezone });
+
+    console.log('Loan due reminder scheduler started successfully');
+  } catch (error) {
+    console.error('Error starting loan due reminder scheduler:', error);
+  }
+}
+
+// Function to stop the loan due reminder scheduler
+export function stopLoanDueReminderScheduler() {
+  if (loanDueReminderTask) {
+    loanDueReminderTask.stop();
+    loanDueReminderTask = null;
+    console.log('Loan due reminder scheduler stopped');
+  }
+}
+
 // Function to start all schedulers
 export function startAllSchedulers() {
   startMonthlyEmailScheduler();
   startWeeklyEmailScheduler();
   startMonthlyDbBackupScheduler();
+  startLoanDueReminderScheduler();
 }
 
 // Function to stop all schedulers
@@ -194,6 +264,7 @@ export function stopAllSchedulers() {
   stopMonthlyEmailScheduler();
   stopWeeklyEmailScheduler();
   stopMonthlyDbBackupScheduler();
+  stopLoanDueReminderScheduler();
 }
 
 // Function to get scheduler status
