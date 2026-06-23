@@ -66,6 +66,9 @@ const ChitFundDetails = () => {
   const [outsideAmount, setOutsideAmount] = useState<number>(0);
   const [isExporting, setIsExporting] = useState(false);
 
+  // Tab state
+  const [activeTab, setActiveTab] = useState<"overview" | "contributions" | "auctions">("overview");
+
   // For deletion
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -552,7 +555,8 @@ const ChitFundDetails = () => {
 
   return (
     <div className="page-container">
-      <div className="flex flex-row flex-wrap items-center justify-between gap-2 mb-6 sm:mb-8">
+      {/* Page header: title + action buttons */}
+      <div className="flex flex-row flex-wrap items-center justify-between gap-2 mb-4 sm:mb-6">
         <h1 className="page-title">Chit Fund Overview</h1>
         <div className="flex flex-row flex-wrap gap-1 sm:gap-2 w-auto items-center">
           <button
@@ -560,22 +564,19 @@ const ChitFundDetails = () => {
             aria-label="Delete Chit Fund"
             className="p-2 rounded-lg text-sm sm:text-base transition duration-300 flex items-center justify-center bg-red-600 text-white hover:bg-red-700 sm:px-4 sm:py-2"
           >
-            {/* Dustbin icon: icon-only on mobile, icon+text on desktop (Heroicons solid Trash) */}
             <svg className="h-5 w-5 block sm:hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-      <path fill="currentColor" d="M6 7h12M9 7V4a1 1 0 011-1h4a1 1 0 011 1v3m2 0v13a2 2 0 01-2 2H8a2 2 0 01-2-2V7h12z" />
-    </svg>
-    <span className="hidden sm:inline-flex items-center">
-      <svg className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path fill="currentColor" d="M6 7h12M9 7V4a1 1 0 011-1h4a1 1 0 011 1v3m2 0v13a2 2 0 01-2 2H8a2 2 0 01-2-2V7h12z" />
-      </svg>
-      Delete
-    </span>
-  </button>
-          {/* Edit Button: icon only on mobile, icon+text on desktop */}
+              <path fill="currentColor" d="M6 7h12M9 7V4a1 1 0 011-1h4a1 1 0 011 1v3m2 0v13a2 2 0 01-2 2H8a2 2 0 01-2-2V7h12z" />
+            </svg>
+            <span className="hidden sm:inline-flex items-center">
+              <svg className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path fill="currentColor" d="M6 7h12M9 7V4a1 1 0 011-1h4a1 1 0 011 1v3m2 0v13a2 2 0 01-2 2H8a2 2 0 01-2-2V7h12z" />
+              </svg>
+              Delete
+            </span>
+          </button>
           <Link href={`/chit-funds/${chitFund?.id || ''}/edit`} aria-label="Edit Chit Fund"
             className="p-2 rounded-lg text-sm sm:text-base transition duration-300 flex items-center justify-center bg-yellow-500 text-white hover:bg-yellow-600 sm:px-4 sm:py-2"
           >
-            {/* PencilSquare icon: icon-only on mobile, icon+text on desktop */}
             <svg className="h-5 w-5 block sm:hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path fill="currentColor" d="M16.862 3.487a2.25 2.25 0 113.182 3.182l-9.193 9.193a2.25 2.25 0 01-.708.471l-3.25 1.3a.75.75 0 01-.97-.97l1.3-3.25a2.25 2.25 0 01.471-.708l9.193-9.193zM19.5 6.75L17.25 4.5" />
             </svg>
@@ -586,360 +587,310 @@ const ChitFundDetails = () => {
               Edit
             </span>
           </Link>
-          {/* Back Button: icon only on mobile, icon+text on desktop */}
           <Link href="/chit-funds" aria-label="Back to Chit Funds"
-            className="p-2 rounded-lg text-sm sm:text-base transition duration-300 flex items-center justify-center btn-neutral sm:px-4 sm:py-2">
-            <svg className="h-5 w-5 block sm:hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7"></path></svg>
+            className="p-2 rounded-lg text-sm sm:text-base transition duration-300 flex items-center justify-center btn-neutral sm:px-4 sm:py-2"
+          >
+            <svg className="h-5 w-5 block sm:hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" />
+            </svg>
             <span className="hidden sm:inline-flex items-center">
-              <svg className="h-5 w-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7"></path></svg>
+              <svg className="h-5 w-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" />
+              </svg>
               Back
             </span>
           </Link>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-        <div className="lg:col-span-2">
-          <div className="themed-card overflow-hidden">
-            <div className="p-6 border-b">
-              <div className="flex justify-between items-start">
-                <h2 className="text-xl font-semibold">Chit Fund Overview</h2>
-                <div className="flex items-center space-x-3">
-                  <div className="text-right flex flex-col items-end">
-                    <div className="text-sm text-gray-500">Current Month</div>
-                    <div className="flex items-center">
-                      <div className="text-xl font-bold text-green-700 mr-2">
-                        {calculateCurrentMonth(chitFund.startDate)} <span className="text-sm text-gray-500">/ {chitFund.duration}</span>
-                      </div>
-                      {chitFund.currentMonth !== calculateCurrentMonth(chitFund.startDate) && (
-                        <button
-                          onClick={handleUpdateCurrentMonth}
-                          className="text-xs px-2 py-1 bg-green-100 text-green-800 rounded hover:bg-green-200 transition-colors"
-                          title="Update current month based on start date"
-                        >
-                          Update
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                  <span className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm font-semibold">
-                    {chitFund.status}
-                  </span>
-                </div>
+      {/* Chit fund summary — always visible */}
+      <div className="themed-card p-4 sm:p-5 mb-4 sm:mb-6">
+        {/* Row 1: name + month + status */}
+        <div className="flex items-start justify-between gap-3">
+          <h2 className="text-xl sm:text-2xl font-semibold truncate flex-1 min-w-0">{chitFund.name}</h2>
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <div className="text-right">
+              <div className="text-xs text-gray-500 uppercase tracking-wider">Current Month</div>
+              <div className="flex items-center gap-1.5 mt-0.5 justify-end">
+                <span className="text-lg font-bold text-green-700">
+                  {calculateCurrentMonth(chitFund.startDate)}{' '}
+                  <span className="text-sm text-gray-500 font-normal">/ {chitFund.duration}</span>
+                </span>
+                {chitFund.currentMonth !== calculateCurrentMonth(chitFund.startDate) && (
+                  <button
+                    onClick={handleUpdateCurrentMonth}
+                    className="text-xs px-2 py-1 bg-green-100 text-green-800 rounded hover:bg-green-200 transition-colors"
+                  >
+                    Update
+                  </button>
+                )}
               </div>
             </div>
-            <div className="p-6">
-              {/* Responsive: 2 details per row on mobile, more on larger screens */}
-              <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-2 gap-6">
+            <span className={`px-3 py-1 rounded-full text-sm font-semibold whitespace-nowrap ${
+              chitFund.status === 'Active' ? 'bg-blue-100 text-blue-800' :
+              chitFund.status === 'Completed' ? 'bg-gray-100 text-gray-700' :
+              'bg-yellow-100 text-yellow-800'
+            }`}>
+              {chitFund.status}
+            </span>
+          </div>
+        </div>
+        {/* Row 2: action pills — full width, always horizontal */}
+        <div className="flex flex-row flex-wrap gap-2 mt-3">
+          <Link href={`/chit-funds/${chitFund.id}/members`}
+            className="inline-flex items-center px-3 py-1 text-xs font-medium rounded-full bg-blue-50 text-blue-700 hover:bg-blue-100 dark:bg-blue-900/30 dark:text-blue-300 transition-colors whitespace-nowrap">
+            Manage Members
+          </Link>
+          <Link href={`/chit-funds/${chitFund.id}/contributions`}
+            className="inline-flex items-center px-3 py-1 text-xs font-medium rounded-full bg-green-50 text-green-700 hover:bg-green-100 dark:bg-green-900/30 dark:text-green-300 transition-colors whitespace-nowrap">
+            Manage Contributions
+          </Link>
+          {chitFund.status === 'Active' && (
+            <Link href={`/chit-funds/${chitFund.id}/auctions`}
+              className="inline-flex items-center px-3 py-1 text-xs font-medium rounded-full bg-purple-50 text-purple-700 hover:bg-purple-100 dark:bg-purple-900/30 dark:text-purple-300 transition-colors whitespace-nowrap">
+              Conduct Auction
+            </Link>
+          )}
+        </div>
+      </div>
+
+      {/* Tab navigation */}
+      <div className="border-b border-gray-200 dark:border-surface-border mb-4 sm:mb-6">
+        <nav className="flex gap-0 -mb-px overflow-x-auto" aria-label="Chit fund tabs">
+          {(["overview", "contributions", "auctions"] as const).map((tab) => {
+            const labels = {
+              "overview": "Overview",
+              "contributions": "Contributions",
+              "auctions": "Auctions",
+            };
+            const isActive = activeTab === tab;
+            return (
+              <button
+                key={tab}
+                onClick={() => setActiveTab(tab)}
+                className={`flex-shrink-0 px-4 sm:px-6 py-3 text-sm font-medium border-b-2 transition-colors duration-150 whitespace-nowrap focus:outline-none ${
+                  isActive
+                    ? "border-green-600 text-green-700 dark:text-green-400 dark:border-green-400"
+                    : "border-transparent text-gray-500 dark:text-theme-muted hover:text-gray-700 dark:hover:text-theme-secondary hover:border-gray-300"
+                }`}
+              >
+                {labels[tab]}
+              </button>
+            );
+          })}
+        </nav>
+      </div>
+
+      {/* Overview tab */}
+      {activeTab === "overview" && (
+        <div className="space-y-4 sm:space-y-6">
+          {/* Main details */}
+          <div className="themed-card overflow-hidden">
+            <div className="p-4 sm:p-6">
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-5 sm:gap-6">
                 <div>
-                  <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-2">Total Amount</h3>
-                  <p className="text-xl font-semibold">{formatCurrency(chitFund.totalAmount)}</p>
+                  <h3 className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1.5">Total Amount</h3>
+                  <p className="text-lg sm:text-xl font-semibold">{formatCurrency(chitFund.totalAmount)}</p>
                 </div>
                 <div>
-                  <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-2">
-                    {chitFund.chitFundType === 'Fixed' ? 'Monthly Contribution (2nd month onwards)' : 'Monthly Contribution'}
+                  <h3 className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1.5">
+                    {chitFund.chitFundType === 'Fixed' ? 'Monthly Contribution (2nd+)' : 'Monthly Contribution'}
                   </h3>
-                  <p className="text-xl font-semibold">{formatCurrency(chitFund.monthlyContribution)}</p>
+                  <p className="text-lg sm:text-xl font-semibold">{formatCurrency(chitFund.monthlyContribution)}</p>
                 </div>
                 {chitFund.chitFundType === 'Fixed' && chitFund.firstMonthContribution && (
                   <div>
-                    <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-2">1st Month Contribution</h3>
-                    <p className="text-xl font-semibold">{formatCurrency(chitFund.firstMonthContribution)}</p>
+                    <h3 className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1.5">1st Month Contribution</h3>
+                    <p className="text-lg sm:text-xl font-semibold">{formatCurrency(chitFund.firstMonthContribution)}</p>
                   </div>
                 )}
                 <div>
-                  <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-2">Duration</h3>
-                  <p className="text-xl font-semibold">{chitFund.duration} months</p>
+                  <h3 className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1.5">Duration</h3>
+                  <p className="text-lg sm:text-xl font-semibold">{chitFund.duration} months</p>
                 </div>
                 <div>
                   <h3
-                    className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-2 flex items-center cursor-pointer"
-                    onClick={() => {
-                      const profitElement = document.getElementById('chitfund-profit');
-                      if (profitElement) {
-                        profitElement.classList.toggle('hidden');
-                      }
-                    }}
+                    className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1.5 flex items-center cursor-pointer"
+                    onClick={() => document.getElementById('chitfund-profit')?.classList.toggle('hidden')}
                   >
                     Total Profit
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
                   </h3>
-                  <p id="chitfund-profit" className="text-xl font-semibold text-green-600 hidden">
-                    {formatCurrency(totalProfit)}
-                  </p>
+                  <p id="chitfund-profit" className="text-lg sm:text-xl font-semibold text-green-600 hidden">{formatCurrency(totalProfit)}</p>
                 </div>
                 <div>
                   <h3
-                    className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-2 flex items-center cursor-pointer"
-                    onClick={() => {
-                      const inflowElement = document.getElementById('chitfund-inflow');
-                      if (inflowElement) {
-                        inflowElement.classList.toggle('hidden');
-                      }
-                    }}
+                    className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1.5 flex items-center cursor-pointer"
+                    onClick={() => document.getElementById('chitfund-inflow')?.classList.toggle('hidden')}
                   >
                     Cash Inflow
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
                   </h3>
-                  <p id="chitfund-inflow" className="text-xl font-semibold text-blue-600 hidden">
-                    {formatCurrency(cashInflow)}
-                  </p>
+                  <p id="chitfund-inflow" className="text-lg sm:text-xl font-semibold text-blue-600 hidden">{formatCurrency(cashInflow)}</p>
                 </div>
                 <div>
                   <h3
-                    className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-2 flex items-center cursor-pointer"
-                    onClick={() => {
-                      const outflowElement = document.getElementById('chitfund-outflow');
-                      if (outflowElement) {
-                        outflowElement.classList.toggle('hidden');
-                      }
-                    }}
+                    className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1.5 flex items-center cursor-pointer"
+                    onClick={() => document.getElementById('chitfund-outflow')?.classList.toggle('hidden')}
                   >
                     Cash Outflow
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
                   </h3>
-                  <p id="chitfund-outflow" className="text-xl font-semibold text-red-600 hidden">
-                    {formatCurrency(cashOutflow)}
-                  </p>
+                  <p id="chitfund-outflow" className="text-lg sm:text-xl font-semibold text-red-600 hidden">{formatCurrency(cashOutflow)}</p>
                 </div>
                 {outsideAmount > 0 && (
                   <div>
                     <h3
-                      className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-2 flex items-center cursor-pointer"
-                      onClick={() => {
-                        const outsideElement = document.getElementById('chitfund-outside');
-                        if (outsideElement) {
-                          outsideElement.classList.toggle('hidden');
-                        }
-                      }}
+                      className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1.5 flex items-center cursor-pointer"
+                      onClick={() => document.getElementById('chitfund-outside')?.classList.toggle('hidden')}
                     >
                       Outside Amount
                       <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                       </svg>
                     </h3>
-                    <p id="chitfund-outside" className="text-xl font-semibold text-orange-600 hidden">
-                      {formatCurrency(outsideAmount)}
-                    </p>
+                    <p id="chitfund-outside" className="text-lg sm:text-xl font-semibold text-orange-600 hidden">{formatCurrency(outsideAmount)}</p>
                   </div>
                 )}
                 <div>
-                  <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-2">Members</h3>
-                  <p className="text-xl font-semibold">{chitFund.membersCount}</p>
-                </div>
-
-                <div>
-                  <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-2">Next Auction Date</h3>
-                  <p className="text-xl font-semibold">{formatDate(chitFund.nextAuctionDate)}</p>
+                  <h3 className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1.5">Members (Auctioned/Total)</h3>
+                  <p className="text-lg sm:text-xl font-semibold">
+                    {auctionsLoading ? '…' : auctions.length} / {chitFund.membersCount}
+                  </p>
                 </div>
                 <div>
-                  <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-2">Start Date</h3>
-                  <p className="text-xl font-semibold">{formatDate(chitFund.startDate)}</p>
+                  <h3 className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1.5">Next Auction Date</h3>
+                  <p className="text-lg sm:text-xl font-semibold">{formatDate(chitFund.nextAuctionDate)}</p>
                 </div>
                 <div>
-                  <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-2">Expected End Date</h3>
-                  <p className="text-xl font-semibold">{calculateEndDate(chitFund.startDate, chitFund.duration)}</p>
+                  <h3 className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1.5">Start Date</h3>
+                  <p className="text-lg sm:text-xl font-semibold">{formatDate(chitFund.startDate)}</p>
                 </div>
                 <div>
-                  <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-2">Chit Fund Type</h3>
-                  <p className="text-xl font-semibold">{chitFund.chitFundType || 'Auction'}</p>
+                  <h3 className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1.5">Expected End Date</h3>
+                  <p className="text-lg sm:text-xl font-semibold">{calculateEndDate(chitFund.startDate, chitFund.duration)}</p>
+                </div>
+                <div>
+                  <h3 className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1.5">Chit Fund Type</h3>
+                  <p className="text-lg sm:text-xl font-semibold">{chitFund.chitFundType || 'Auction'}</p>
                 </div>
               </div>
             </div>
           </div>
 
-          {/* Fixed Amounts Section - Only show when Fixed type is selected */}
+          {/* Fixed Amounts - only for Fixed type */}
           {chitFund.chitFundType === 'Fixed' && chitFund.fixedAmounts && chitFund.fixedAmounts.length > 0 && (
-            <div className="themed-card overflow-hidden mt-6">
-              <div className="p-6 border-b">
-                <h2 className="text-xl font-semibold">Fixed Amounts by Month</h2>
+            <div className="themed-card overflow-hidden">
+              <div className="p-4 sm:p-6 border-b">
+                <h2 className="text-lg sm:text-xl font-semibold">Fixed Amounts by Month</h2>
                 <p className="text-sm text-gray-500 mt-1">Predefined auction amounts for each month</p>
               </div>
-              <div className="p-6">
-                <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
-                  {chitFund.fixedAmounts
-                    .sort((a, b) => a.month - b.month)
-                    .map((fixedAmount) => (
-                      <div key={fixedAmount.month} className="bg-gray-50 dark:bg-surface-elevated rounded-lg p-4 border">
-                        <div className="text-center">
-                          <h3 className="text-sm font-medium text-gray-500 mb-1">Month {fixedAmount.month}</h3>
-                          <p className="text-lg font-semibold text-blue-600">{formatCurrency(fixedAmount.amount)}</p>
-                        </div>
-                      </div>
-                    ))}
+              <div className="p-4 sm:p-6">
+                <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-3 sm:gap-4">
+                  {chitFund.fixedAmounts.sort((a, b) => a.month - b.month).map((fixedAmount) => (
+                    <div key={fixedAmount.month} className="bg-gray-50 dark:bg-surface-elevated rounded-lg p-3 sm:p-4 border text-center">
+                      <h3 className="text-xs font-medium text-gray-500 mb-1">Month {fixedAmount.month}</h3>
+                      <p className="text-base sm:text-lg font-semibold text-blue-600">{formatCurrency(fixedAmount.amount)}</p>
+                    </div>
+                  ))}
                 </div>
               </div>
             </div>
           )}
 
-          <div className="themed-card overflow-hidden mt-6">
-            <div className="p-6 border-b">
-              <h2 className="text-xl font-semibold">Auction History</h2>
-            </div>
-            <div className="table-shell">
-              <table className="min-w-[700px] w-full divide-y divide-surface-border text-xs sm:text-sm">
-                <thead className="bg-gray-50 dark:bg-surface-elevated">
-                  <tr>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-theme-muted uppercase tracking-wider">
-                      Month
-                    </th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-theme-muted uppercase tracking-wider">
-                      Date
-                    </th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-theme-muted uppercase tracking-wider">
-                      Winner
-                    </th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-theme-muted uppercase tracking-wider">
-                      Amount
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {auctions.map((auction) => (
-                    <tr key={auction.id} className="hover:bg-gray-50 dark:hover:bg-surface-hover">
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900 dark:text-theme-primary">{auction.month}</div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900 dark:text-theme-primary">{formatDate(auction.date)}</div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm font-medium text-blue-600">{auction.winner?.globalMember?.name || `Member ID: ${auction.winnerId}`}</div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900 dark:text-theme-primary">{formatCurrency(auction.amount)}</div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            {chitFund.status === 'Active' && (
-              <div className="p-6 border-t">
-                <Link href={`/chit-funds/${chitFund.id}/auctions`} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-300">
-                  Conduct Next Auction
-                </Link>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Contributions Overview - Show when contributions are loaded */}
-        {contributionsLoading ? (
-          <div className="themed-card overflow-hidden mt-6">
-            <div className="p-6 border-b">
-              <h2 className="text-xl font-semibold">Contributions Overview</h2>
-            </div>
-            <div className="p-6">
-              <div className="animate-pulse">
-                <div className="h-4 bg-gray-200 rounded w-3/4 mb-4"></div>
-                <div className="h-4 bg-gray-200 rounded w-1/2 mb-4"></div>
-                <div className="h-4 bg-gray-200 rounded w-2/3"></div>
-              </div>
-            </div>
-          </div>
-        ) : (
-          <ChitFundContributionsOverview
-            chitFundId={chitFund.id}
-            contributionsByMonth={contributionsByMonth}
-            showAll={true}
-            onViewMore={() => window.location.href = `/chit-funds/${chitFund.id}/contributions`}
-          />
-        )}
-
-          {/* Next Payout Section - Show when auctions and members are loaded */}
+          {/* Next Payout */}
           {auctionsLoading || membersLoading ? (
-            <div className="themed-card overflow-hidden mt-6">
-              <div className="p-6 border-b">
-                <h2 className="text-xl font-semibold">Next Payout</h2>
-              </div>
-              <div className="p-6">
-                <div className="animate-pulse">
-                  <div className="h-4 bg-gray-200 rounded w-1/4 mb-2"></div>
-                  <div className="h-6 bg-gray-200 rounded w-1/2 mb-4"></div>
-                  <div className="h-4 bg-gray-200 rounded w-1/4 mb-2"></div>
-                  <div className="h-6 bg-gray-200 rounded w-1/3"></div>
-                </div>
+            <div className="themed-card overflow-hidden">
+              <div className="p-4 sm:p-6 border-b"><h2 className="text-lg sm:text-xl font-semibold">Next Payout</h2></div>
+              <div className="p-4 sm:p-6 animate-pulse space-y-3">
+                <div className="h-4 bg-gray-200 rounded w-1/4"></div>
+                <div className="h-6 bg-gray-200 rounded w-1/2"></div>
+                <div className="h-4 bg-gray-200 rounded w-1/4"></div>
+                <div className="h-6 bg-gray-200 rounded w-1/3"></div>
               </div>
             </div>
           ) : (
-            <div className="themed-card overflow-hidden mt-6">
-              <div className="p-6 border-b">
-                <h2 className="text-xl font-semibold">Next Payout</h2>
-              </div>
-              <div className="p-6">
+            <div className="themed-card overflow-hidden">
+              <div className="p-4 sm:p-6 border-b"><h2 className="text-lg sm:text-xl font-semibold">Next Payout</h2></div>
+              <div className="p-4 sm:p-6">
                 {chitFund.status === 'Completed' ? (
-                  <div className="text-center text-gray-500">
-                    <p>This chit fund has been completed.</p>
-                  </div>
+                  <p className="text-center text-gray-500">This chit fund has been completed.</p>
                 ) : chitFund.currentMonth >= chitFund.duration ? (
-                  <div className="text-center text-gray-500">
-                    <p>All payouts have been distributed.</p>
-                  </div>
+                  <p className="text-center text-gray-500">All payouts have been distributed.</p>
                 ) : !(chitFund as any).nextPayoutReceiver ? (
-                  <div className="text-center text-gray-500">
-                    <p>No eligible members for next payout.</p>
-                  </div>
+                  <p className="text-center text-gray-500">No eligible members for next payout.</p>
                 ) : (
-                  <>
-                    <div className="mb-4">
-                      <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-2">Receiver</h3>
-                      <p className="text-xl font-semibold">{(chitFund as any).nextPayoutReceiver}</p>
+                  <div className="grid grid-cols-2 gap-5">
+                    <div>
+                      <h3 className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1.5">Receiver</h3>
+                      <p className="text-lg sm:text-xl font-semibold">{(chitFund as any).nextPayoutReceiver}</p>
                     </div>
                     <div>
-                      <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-2">Estimated Amount</h3>
-                      <p className="text-xl font-semibold">{(chitFund as any).finalPayout ? formatCurrency((chitFund as any).finalPayout) : 'To be determined'}</p>
+                      <h3 className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1.5">Estimated Amount</h3>
+                      <p className="text-lg sm:text-xl font-semibold">
+                        {(chitFund as any).finalPayout ? formatCurrency((chitFund as any).finalPayout) : 'To be determined'}
+                      </p>
                     </div>
-                  </>
+                  </div>
                 )}
               </div>
             </div>
           )}
+        </div>
+      )}
 
-          {/* Outstanding Balances Section - Show when contributions are loaded */}
+      {/* Contributions tab */}
+      {activeTab === "contributions" && (
+        <div className="space-y-4 sm:space-y-6">
           {contributionsLoading ? (
-            <div className="themed-card overflow-hidden mt-6">
-              <div className="p-6 border-b">
-                <div className="flex justify-between items-center">
-                  <h2 className="text-xl font-semibold">Outstanding Balances</h2>
-                  <div className="animate-pulse">
-                    <div className="h-6 bg-gray-200 rounded-full w-20"></div>
-                  </div>
-                </div>
-              </div>
-              <div className="p-6">
-                <div className="animate-pulse space-y-4">
-                  <div className="h-4 bg-gray-200 rounded w-3/4"></div>
-                  <div className="h-4 bg-gray-200 rounded w-1/2"></div>
-                  <div className="h-4 bg-gray-200 rounded w-2/3"></div>
-                </div>
+            <div className="themed-card overflow-hidden">
+              <div className="p-4 sm:p-6 border-b"><h2 className="text-lg sm:text-xl font-semibold">Contributions Overview</h2></div>
+              <div className="p-4 sm:p-6 animate-pulse space-y-3">
+                <div className="h-4 bg-gray-200 rounded w-3/4"></div>
+                <div className="h-4 bg-gray-200 rounded w-1/2"></div>
+                <div className="h-4 bg-gray-200 rounded w-2/3"></div>
               </div>
             </div>
-          ) : membersWithBalance.length > 0 && (
-            <div className="themed-card overflow-hidden mt-6">
-              <div className="p-6 border-b">
-                <div className="flex justify-between items-center">
-                  <h2 className="text-xl font-semibold">Outstanding Balances</h2>
-                  <span className="px-3 py-1 bg-red-100 text-red-800 rounded-full text-sm font-semibold">
-                    {formatCurrency(totalBalance)}
-                  </span>
-                </div>
+          ) : (
+            <ChitFundContributionsOverview
+              chitFundId={chitFund.id}
+              contributionsByMonth={contributionsByMonth}
+              showAll={true}
+              onViewMore={() => window.location.href = `/chit-funds/${chitFund.id}/contributions`}
+            />
+          )}
+
+          {/* Outstanding Balances */}
+          {contributionsLoading ? (
+            <div className="themed-card overflow-hidden">
+              <div className="p-4 sm:p-6 border-b flex justify-between items-center">
+                <h2 className="text-lg sm:text-xl font-semibold">Outstanding Balances</h2>
+                <div className="animate-pulse h-6 bg-gray-200 rounded-full w-20"></div>
               </div>
-              <div className="p-6">
+              <div className="p-4 sm:p-6 animate-pulse space-y-3">
+                <div className="h-4 bg-gray-200 rounded w-3/4"></div>
+                <div className="h-4 bg-gray-200 rounded w-1/2"></div>
+              </div>
+            </div>
+          ) : membersWithBalance.length > 0 ? (
+            <div className="themed-card overflow-hidden">
+              <div className="p-4 sm:p-6 border-b flex justify-between items-center">
+                <h2 className="text-lg sm:text-xl font-semibold">Outstanding Balances</h2>
+                <span className="px-3 py-1 bg-red-100 text-red-800 rounded-full text-sm font-semibold">{formatCurrency(totalBalance)}</span>
+              </div>
+              <div className="p-4 sm:p-6">
                 <ul className="divide-y divide-surface-border">
                   {membersWithBalance.map((member) => (
                     <li key={member.id} className="py-3">
                       <div className="flex justify-between items-center mb-1">
                         <p className="text-sm font-medium text-gray-900 dark:text-theme-primary">{member.name}</p>
-                        <div className="text-sm font-semibold text-red-600">
-                          {formatCurrency(member.totalBalance)}
-                        </div>
+                        <span className="text-sm font-semibold text-red-600">{formatCurrency(member.totalBalance)}</span>
                       </div>
                       <div className="flex flex-wrap gap-2 mt-2">
                         {member.months.map((monthData, index) => (
@@ -953,35 +904,59 @@ const ChitFundDetails = () => {
                 </ul>
               </div>
             </div>
+          ) : (
+            <div className="themed-card p-4 sm:p-6 text-center text-gray-500">
+              <p>No outstanding balances.</p>
+            </div>
           )}
-        {/* </div> */}
-      </div>
-
-      {/* Actions Section */}
-      <div className="themed-card overflow-hidden mt-6">
-        <div className="p-6 border-b">
-          <h2 className="text-xl font-semibold">Actions</h2>
         </div>
-        <div className="p-6 grid grid-cols-3 gap-4">
-          <Link href={`/chit-funds/${chitFund.id}/members`} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-300">
-            Manage Members
-          </Link>
-          <Link href={`/chit-funds/${chitFund.id}/contributions`} className="btn-primary">
-            Manage Contributions
-          </Link>
-          {chitFund.status === 'Active' && (
-            <Link href={`/chit-funds/${chitFund.id}/auctions`} className="btn-primary">
-              Conduct Auction
-            </Link>
+      )}
+
+      {/* Auctions tab */}
+      {activeTab === "auctions" && (
+        <div className="themed-card overflow-hidden">
+          <div className="p-4 sm:p-6 border-b flex flex-wrap items-center justify-between gap-2">
+            <h2 className="text-lg sm:text-xl font-semibold">Auction History</h2>
+            {chitFund.status === 'Active' && (
+              <Link href={`/chit-funds/${chitFund.id}/auctions`} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-300 text-sm">
+                Conduct Next Auction
+              </Link>
+            )}
+          </div>
+          {auctionsLoading ? (
+            <div className="p-4 sm:p-6 animate-pulse space-y-3">
+              <div className="h-4 bg-gray-200 rounded w-full"></div>
+              <div className="h-4 bg-gray-200 rounded w-3/4"></div>
+              <div className="h-4 bg-gray-200 rounded w-1/2"></div>
+            </div>
+          ) : auctions.length === 0 ? (
+            <div className="p-4 sm:p-6 text-center text-gray-500">No auctions conducted yet.</div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="min-w-[500px] w-full divide-y divide-surface-border text-xs sm:text-sm">
+                <thead className="bg-gray-50 dark:bg-surface-elevated">
+                  <tr>
+                    <th scope="col" className="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-theme-muted uppercase tracking-wider">Month</th>
+                    <th scope="col" className="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-theme-muted uppercase tracking-wider">Date</th>
+                    <th scope="col" className="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-theme-muted uppercase tracking-wider">Winner</th>
+                    <th scope="col" className="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-theme-muted uppercase tracking-wider">Amount</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {auctions.map((auction) => (
+                    <tr key={auction.id} className="hover:bg-gray-50 dark:hover:bg-surface-hover">
+                      <td className="px-4 sm:px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-theme-primary">{auction.month}</td>
+                      <td className="px-4 sm:px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-theme-primary">{formatDate(auction.date)}</td>
+                      <td className="px-4 sm:px-6 py-4 whitespace-nowrap text-sm font-medium text-blue-600">{auction.winner?.globalMember?.name || `Member ID: ${auction.winnerId}`}</td>
+                      <td className="px-4 sm:px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-theme-primary">{formatCurrency(auction.amount)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           )}
-
-          <DeleteButton
-            onClick={handleDeleteChitFund}
-          >
-            Delete Chit Fund
-          </DeleteButton>
         </div>
-      </div>
+      )}
 
       {/* Delete Confirmation Modal */}
       {showDeleteModal && (

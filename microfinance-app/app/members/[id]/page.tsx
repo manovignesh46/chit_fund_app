@@ -73,6 +73,9 @@ export default function MemberDetailPage() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
+  // Tab state
+  const [activeTab, setActiveTab] = useState<"details" | "chit-funds" | "loans">("details");
+
   useEffect(() => {
     const fetchMember = async () => {
       try {
@@ -226,7 +229,8 @@ export default function MemberDetailPage() {
 
   return (
     <div className="page-container">
-      <div className="flex flex-row flex-wrap items-center justify-between gap-2 mb-6 sm:mb-8">
+      {/* Page header */}
+      <div className="flex flex-row flex-wrap items-center justify-between gap-2 mb-4 sm:mb-6">
         <h1 className="page-title">Member Information</h1>
         <div className="flex flex-row flex-wrap gap-1 sm:gap-2 w-auto items-center">
           <button
@@ -235,17 +239,14 @@ export default function MemberDetailPage() {
             className="p-2 rounded-lg text-sm sm:text-base transition duration-300 flex items-center justify-center bg-red-600 text-white hover:bg-red-700 sm:px-4 sm:py-2 disabled:opacity-50 disabled:cursor-not-allowed"
             disabled={isDeleting}
           >
-            {/* Dustbin icon: icon-only on mobile, icon+text on desktop */}
-            <svg className="h-5 w-5 block sm:hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 7h12M9 7V4a1 1 0 011-1h4a1 1 0 011 1v3m2 0v13a2 2 0 01-2 2H8a2 2 0 01-2-2V7h12z" /></svg>
+            <svg className="h-5 w-5 block sm:hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 7h12M9 7V4a1 1 0 011-1h4a1 1 0 011 1v3m2 0v13a2 2 0 01-2 2H8a2 2 0 01-2-2V7h12z" /></svg>
             <span className="hidden sm:inline-flex items-center">
-              <svg className="h-5 w-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 7h12M9 7V4a1 1 0 011-1h4a1 1 0 011 1v3m2 0v13a2 2 0 01-2 2H8a2 2 0 01-2-2V7h12z" /></svg>
+              <svg className="h-5 w-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 7h12M9 7V4a1 1 0 011-1h4a1 1 0 011 1v3m2 0v13a2 2 0 01-2 2H8a2 2 0 01-2-2V7h12z" /></svg>
               {isDeleting ? 'Deleting...' : 'Delete'}
             </span>
           </button>
-          {/* Edit Button: icon only on mobile, icon+text on desktop */}
           <Link href={`/members/${member.id}/edit`} aria-label="Edit Member"
             className="p-2 rounded-lg text-sm sm:text-base transition duration-300 flex items-center justify-center bg-yellow-500 text-white hover:bg-yellow-600 sm:px-4 sm:py-2">
-            {/* PencilSquare icon: icon-only on mobile, icon+text on desktop */}
             <svg className="h-5 w-5 block sm:hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path fill="currentColor" d="M16.862 3.487a2.25 2.25 0 113.182 3.182l-9.193 9.193a2.25 2.25 0 01-.708.471l-3.25 1.3a.75.75 0 01-.97-.97l1.3-3.25a2.25 2.25 0 01.471-.708l9.193-9.193zM19.5 6.75L17.25 4.5" />
             </svg>
@@ -256,238 +257,215 @@ export default function MemberDetailPage() {
               Edit
             </span>
           </Link>
-          {/* Back Button: icon only on mobile, icon+text on desktop */}
           <Link href="/members" aria-label="Back to Members"
             className="p-2 rounded-lg text-sm sm:text-base transition duration-300 flex items-center justify-center btn-neutral sm:px-4 sm:py-2">
-            <svg className="h-5 w-5 block sm:hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7"></path></svg>
+            <svg className="h-5 w-5 block sm:hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" /></svg>
             <span className="hidden sm:inline-flex items-center">
-              <svg className="h-5 w-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7"></path></svg>
+              <svg className="h-5 w-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" /></svg>
               Back
             </span>
           </Link>
         </div>
       </div>
 
-      {/* Member Details */}
-      <div className="themed-card p-4 sm:p-6 mb-8">
-        <h2 className="section-heading mb-4">Member Details</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
+      {/* Member summary — always visible */}
+      <div className="themed-card p-4 sm:p-5 mb-4 sm:mb-6">
+        <div className="flex items-start justify-between gap-3">
           <div>
-            <p className="text-gray-700 dark:text-theme-secondary text-xs sm:text-sm">Name</p>
-            <p className="text-base sm:text-lg font-semibold">{member.name}</p>
+            <h2 className="text-xl sm:text-2xl font-semibold">{member.name}</h2>
+            <p className="text-gray-500 dark:text-theme-secondary text-sm mt-0.5">{member.contact}</p>
           </div>
-          <div>
-            <p className="text-gray-700 dark:text-theme-secondary text-xs sm:text-sm">Contact</p>
-            <p className="text-base sm:text-lg">{member.contact}</p>
-          </div>
-          <div>
-            <p className="text-gray-700 dark:text-theme-secondary text-xs sm:text-sm">Email</p>
-            <p className="text-base sm:text-lg">{member.email || '-'}</p>
-          </div>
-          <div>
-            <p className="text-gray-700 dark:text-theme-secondary text-xs sm:text-sm">Address</p>
-            <p className="text-base sm:text-lg">{member.address || '-'}</p>
-          </div>
-          <div>
-            <p className="text-gray-700 dark:text-theme-secondary text-xs sm:text-sm">Member Since</p>
-            <p className="text-base sm:text-lg">{formatDate(member.createdAt)}</p>
+          <div className="flex flex-wrap gap-3 text-right">
+            <div>
+              <div className="text-xs text-gray-500 uppercase tracking-wider">Chit Funds</div>
+              <div className="text-lg font-bold text-blue-600">{member._count.chitFundMembers}</div>
+            </div>
+            <div>
+              <div className="text-xs text-gray-500 uppercase tracking-wider">Loans</div>
+              <div className="text-lg font-bold text-green-600">{member._count.loans}</div>
+            </div>
           </div>
         </div>
-        {member.notes && (
-          <div className="mt-6">
-            <p className="text-gray-700 dark:text-theme-secondary text-xs sm:text-sm">Notes</p>
-            <p className="text-base sm:text-lg mt-1 p-3 bg-gray-50 dark:bg-surface-elevated rounded">{member.notes}</p>
-          </div>
-        )}
       </div>
 
-      {/* Chit Funds */}
-      <div className="themed-card p-4 sm:p-6 mb-8">
-        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 mb-4">
-          <h2 className="section-heading">Chit Funds ({member._count.chitFundMembers})</h2>
-          <Link href={`/members/${member.id}/assign-chit-fund`} className="text-blue-600 hover:text-blue-900 text-xs sm:text-sm">
-            + Assign to Chit Fund
-          </Link>
+      {/* Tab navigation */}
+      <div className="border-b border-gray-200 dark:border-surface-border mb-4 sm:mb-6">
+        <nav className="flex gap-0 -mb-px overflow-x-auto" aria-label="Member tabs">
+          {(["details", "chit-funds", "loans"] as const).map((tab) => {
+            const labels = {
+              "details": "Member Details",
+              "chit-funds": `Chit Funds (${member._count.chitFundMembers})`,
+              "loans": `Loans (${member._count.loans})`,
+            };
+            const isActive = activeTab === tab;
+            return (
+              <button
+                key={tab}
+                onClick={() => setActiveTab(tab)}
+                className={`flex-shrink-0 px-4 sm:px-6 py-3 text-sm font-medium border-b-2 transition-colors duration-150 whitespace-nowrap focus:outline-none ${
+                  isActive
+                    ? "border-green-600 text-green-700 dark:text-green-400 dark:border-green-400"
+                    : "border-transparent text-gray-500 dark:text-theme-muted hover:text-gray-700 dark:hover:text-theme-secondary hover:border-gray-300"
+                }`}
+              >
+                {labels[tab]}
+              </button>
+            );
+          })}
+        </nav>
+      </div>
+
+      {/* Member Details tab */}
+      {activeTab === "details" && (
+        <div className="themed-card p-4 sm:p-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
+            <div>
+              <p className="text-gray-500 dark:text-theme-secondary text-xs uppercase tracking-wider mb-1">Name</p>
+              <p className="text-base sm:text-lg font-semibold">{member.name}</p>
+            </div>
+            <div>
+              <p className="text-gray-500 dark:text-theme-secondary text-xs uppercase tracking-wider mb-1">Contact</p>
+              <p className="text-base sm:text-lg">{member.contact}</p>
+            </div>
+            <div>
+              <p className="text-gray-500 dark:text-theme-secondary text-xs uppercase tracking-wider mb-1">Email</p>
+              <p className="text-base sm:text-lg">{member.email || '-'}</p>
+            </div>
+            <div>
+              <p className="text-gray-500 dark:text-theme-secondary text-xs uppercase tracking-wider mb-1">Address</p>
+              <p className="text-base sm:text-lg">{member.address || '-'}</p>
+            </div>
+            <div>
+              <p className="text-gray-500 dark:text-theme-secondary text-xs uppercase tracking-wider mb-1">Member Since</p>
+              <p className="text-base sm:text-lg">{formatDate(member.createdAt)}</p>
+            </div>
+          </div>
+          {member.notes && (
+            <div className="mt-6">
+              <p className="text-gray-500 dark:text-theme-secondary text-xs uppercase tracking-wider mb-1">Notes</p>
+              <p className="text-base sm:text-lg mt-1 p-3 bg-gray-50 dark:bg-surface-elevated rounded">{member.notes}</p>
+            </div>
+          )}
         </div>
-        {member.chitFundMembers.length === 0 ? (
-          <p className="text-gray-500 text-center py-4 text-xs sm:text-sm">This member is not part of any chit funds yet.</p>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-surface-border text-xs sm:text-sm">
-              <thead className="bg-gray-50 dark:bg-surface-elevated">
-                <tr>
-                  <th scope="col" className="px-2 py-2 sm:px-6 sm:py-3 text-left text-xs font-medium text-gray-500 dark:text-theme-muted uppercase tracking-wider">
-                    Chit Fund
-                  </th>
-                  <th scope="col" className="px-2 py-2 sm:px-6 sm:py-3 text-left text-xs font-medium text-gray-500 dark:text-theme-muted uppercase tracking-wider">
-                    Status
-                  </th>
-                  <th scope="col" className="px-2 py-2 sm:px-6 sm:py-3 text-left text-xs font-medium text-gray-500 dark:text-theme-muted uppercase tracking-wider">
-                    Progress
-                  </th>
-                  <th scope="col" className="px-2 py-2 sm:px-6 sm:py-3 text-left text-xs font-medium text-gray-500 dark:text-theme-muted uppercase tracking-wider">
-                    Contribution
-                  </th>
-                  <th scope="col" className="px-2 py-2 sm:px-6 sm:py-3 text-left text-xs font-medium text-gray-500 dark:text-theme-muted uppercase tracking-wider">
-                    Missed Contributions
-                  </th>
-                  <th scope="col" className="px-2 py-2 sm:px-6 sm:py-3 text-left text-xs font-medium text-gray-500 dark:text-theme-muted uppercase tracking-wider">
-                    Pending Amount
-                  </th>
-                  <th scope="col" className="px-2 py-2 sm:px-6 sm:py-3 text-left text-xs font-medium text-gray-500 dark:text-theme-muted uppercase tracking-wider">
-                    Join Date
-                  </th>
-                  <th scope="col" className="px-2 py-2 sm:px-6 sm:py-3 text-left text-xs font-medium text-gray-500 dark:text-theme-muted uppercase tracking-wider">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {member.chitFundMembers.map((membership) => (
-                  <tr key={membership.id} className="hover:bg-gray-50 dark:hover:bg-surface-hover">
-                    <td className="px-2 py-2 sm:px-6 sm:py-4 whitespace-nowrap">
-                      <div className="text-sm font-medium text-blue-600">{membership.chitFund.name}</div>
-                    </td>
-                    <td className="px-2 py-2 sm:px-6 sm:py-4 whitespace-nowrap">
-                      <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                        membership.chitFund.status === 'Active' ? 'bg-green-100 text-green-800' :
-                        membership.chitFund.status === 'Completed' ? 'bg-blue-100 text-blue-800' :
-                        'bg-yellow-100 text-yellow-800'
-                      }`}>
-                        {membership.chitFund.status}
-                      </span>
-                    </td>
-                    <td className="px-2 py-2 sm:px-6 sm:py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900 dark:text-theme-primary">
+      )}
+
+      {/* Chit Funds tab */}
+      {activeTab === "chit-funds" && (
+        <div className="themed-card overflow-hidden">
+          <div className="p-4 sm:p-6 border-b flex flex-wrap items-center justify-between gap-2">
+            <h2 className="text-lg sm:text-xl font-semibold">Chit Funds ({member._count.chitFundMembers})</h2>
+            <Link href={`/members/${member.id}/assign-chit-fund`} className="text-blue-600 hover:text-blue-900 text-sm">
+              + Assign to Chit Fund
+            </Link>
+          </div>
+          {member.chitFundMembers.length === 0 ? (
+            <p className="text-gray-500 text-center py-8 text-sm">This member is not part of any chit funds yet.</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-surface-border text-xs sm:text-sm">
+                <thead className="bg-gray-50 dark:bg-surface-elevated">
+                  <tr>
+                    {['Chit Fund', 'Status', 'Progress', 'Contribution', 'Missed', 'Pending Amount', 'Join Date', 'Actions'].map((h) => (
+                      <th key={h} scope="col" className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-theme-muted uppercase tracking-wider whitespace-nowrap">{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {member.chitFundMembers.map((membership) => (
+                    <tr key={membership.id} className="hover:bg-gray-50 dark:hover:bg-surface-hover">
+                      <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-sm font-medium text-blue-600">{membership.chitFund.name}</td>
+                      <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap">
+                        <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                          membership.chitFund.status === 'Active' ? 'bg-green-100 text-green-800' :
+                          membership.chitFund.status === 'Completed' ? 'bg-blue-100 text-blue-800' :
+                          'bg-yellow-100 text-yellow-800'
+                        }`}>{membership.chitFund.status}</span>
+                      </td>
+                      <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-sm text-gray-900 dark:text-theme-primary">
                         Month {membership.chitFund.currentMonth} of {membership.chitFund.duration}
-                      </div>
-                    </td>
-                    <td className="px-2 py-2 sm:px-6 sm:py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900 dark:text-theme-primary">{formatCurrency(membership.contribution)}</div>
-                    </td>
-                    <td className="px-2 py-2 sm:px-6 sm:py-4 whitespace-nowrap">
-                      <div className={`text-sm ${(membership.missedContributions ?? 0) > 0 ? 'text-red-600 font-semibold' : 'text-gray-900 dark:text-theme-primary'}`}>
-                        {membership.missedContributions ?? 0}
-                      </div>
-                    </td>
-                    <td className="px-2 py-2 sm:px-6 sm:py-4 whitespace-nowrap">
-                      <div className={`text-sm ${(membership.pendingAmount ?? 0) > 0 ? 'text-red-600 font-semibold' : 'text-gray-900 dark:text-theme-primary'}`}>
-                        {formatCurrency(membership.pendingAmount ?? 0)}
-                      </div>
-                    </td>
-                    <td className="px-2 py-2 sm:px-6 sm:py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900 dark:text-theme-primary">{formatDate(membership.joinDate)}</div>
-                    </td>
-                    <td className="px-2 py-2 sm:px-6 sm:py-4 whitespace-nowrap text-sm font-medium">
-                      <Link href={`/chit-funds/${membership.chitFund.id}/members/${membership.id}/contributions`} className="text-blue-600 hover:text-blue-900 flex items-center" aria-label="View Contributions">
-                        {/* Icon only on mobile, icon+text on desktop */}
-                        <svg className="h-5 w-5 block sm:hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7"></path></svg>
-                        <span className="hidden sm:inline-flex items-center">
-                          <svg className="h-5 w-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7"></path></svg>
+                      </td>
+                      <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-sm text-gray-900 dark:text-theme-primary">{formatCurrency(membership.contribution)}</td>
+                      <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap">
+                        <span className={`text-sm ${(membership.missedContributions ?? 0) > 0 ? 'text-red-600 font-semibold' : 'text-gray-900 dark:text-theme-primary'}`}>
+                          {membership.missedContributions ?? 0}
+                        </span>
+                      </td>
+                      <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap">
+                        <span className={`text-sm ${(membership.pendingAmount ?? 0) > 0 ? 'text-red-600 font-semibold' : 'text-gray-900 dark:text-theme-primary'}`}>
+                          {formatCurrency(membership.pendingAmount ?? 0)}
+                        </span>
+                      </td>
+                      <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-sm text-gray-900 dark:text-theme-primary">{formatDate(membership.joinDate)}</td>
+                      <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-sm font-medium">
+                        <Link href={`/chit-funds/${membership.chitFund.id}/members/${membership.id}/contributions`} className="text-blue-600 hover:text-blue-900">
                           View Contributions
-                        </span>
-                      </Link>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
-
-      {/* Loans */}
-      <div className="themed-card p-4 sm:p-6 mb-8">
-        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 mb-4">
-          <h2 className="section-heading">Loans ({member._count.loans})</h2>
-          <Link href={`/loans/new?borrowerId=${member.id}`} className="text-blue-600 hover:text-blue-900 text-xs sm:text-sm">
-            + Create New Loan
-          </Link>
+                        </Link>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
-        {member.loans.length === 0 ? (
-          <p className="text-gray-500 text-center py-4 text-xs sm:text-sm">This member has no loans yet.</p>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-surface-border text-xs sm:text-sm">
-              <thead className="bg-gray-50 dark:bg-surface-elevated">
-                <tr>
-                  <th scope="col" className="px-2 py-2 sm:px-6 sm:py-3 text-left text-xs font-medium text-gray-500 dark:text-theme-muted uppercase tracking-wider">
-                    Loan Type
-                  </th>
-                  <th scope="col" className="px-2 py-2 sm:px-6 sm:py-3 text-left text-xs font-medium text-gray-500 dark:text-theme-muted uppercase tracking-wider">
-                    Amount
-                  </th>
-                  <th scope="col" className="px-2 py-2 sm:px-6 sm:py-3 text-left text-xs font-medium text-gray-500 dark:text-theme-muted uppercase tracking-wider">
-                    Remaining
-                  </th>
-                  <th scope="col" className="px-2 py-2 sm:px-6 sm:py-3 text-left text-xs font-medium text-gray-500 dark:text-theme-muted uppercase tracking-wider">
-                    Overdue Amount
-                  </th>
-                  <th scope="col" className="px-2 py-2 sm:px-6 sm:py-3 text-left text-xs font-medium text-gray-500 dark:text-theme-muted uppercase tracking-wider">
-                    Missed Payments
-                  </th>
-                  <th scope="col" className="px-2 py-2 sm:px-6 sm:py-3 text-left text-xs font-medium text-gray-500 dark:text-theme-muted uppercase tracking-wider">
-                    Status
-                  </th>
-                  <th scope="col" className="px-2 py-2 sm:px-6 sm:py-3 text-left text-xs font-medium text-gray-500 dark:text-theme-muted uppercase tracking-wider">
-                    Disbursement Date
-                  </th>
-                  <th scope="col" className="px-2 py-2 sm:px-6 sm:py-3 text-left text-xs font-medium text-gray-500 dark:text-theme-muted uppercase tracking-wider">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {member.loans.map((loan) => (
-                  <tr key={loan.id} className="hover:bg-gray-50 dark:hover:bg-surface-hover">
-                    <td className="px-2 py-2 sm:px-6 sm:py-4 whitespace-nowrap">
-                      <div className="text-sm font-medium text-blue-600">{loan.loanType}</div>
-                    </td>
-                    <td className="px-2 py-2 sm:px-6 sm:py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900 dark:text-theme-primary">{formatCurrency(loan.amount)}</div>
-                    </td>
-                    <td className="px-2 py-2 sm:px-6 sm:py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900 dark:text-theme-primary">{formatCurrency(loan.remainingAmount)}</div>
-                    </td>
-                    <td className="px-2 py-2 sm:px-6 sm:py-4 whitespace-nowrap">
-                      <div className={`text-sm ${loan.overdueAmount > 0 ? 'text-red-600 font-semibold' : 'text-gray-900 dark:text-theme-primary'}`}>
-                        {formatCurrency(loan.overdueAmount || 0)}
-                      </div>
-                    </td>
-                    <td className="px-2 py-2 sm:px-6 sm:py-4 whitespace-nowrap">
-                      <div className={`text-sm ${loan.missedPayments > 0 ? 'text-red-600 font-semibold' : 'text-gray-900 dark:text-theme-primary'}`}>
-                        {loan.missedPayments || 0}
-                      </div>
-                    </td>
-                    <td className="px-2 py-2 sm:px-6 sm:py-4 whitespace-nowrap">
-                      <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                        loan.status === 'Active' ? 'bg-green-100 text-green-800' :
-                        loan.status === 'Completed' ? 'bg-blue-100 text-blue-800' :
-                        'bg-red-100 text-red-800'
-                      }`}>
-                        {loan.status}
-                      </span>
-                    </td>
-                    <td className="px-2 py-2 sm:px-6 sm:py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900 dark:text-theme-primary">{formatDate(loan.disbursementDate)}</div>
-                    </td>
-                    <td className="px-2 py-2 sm:px-6 sm:py-4 whitespace-nowrap text-sm font-medium">
-                      <Link href={`/loans/${loan.id}`} className="text-blue-600 hover:text-blue-900 flex items-center" aria-label="View Details">
-                        {/* Icon only on mobile, icon+text on desktop */}
-                        <svg className="h-5 w-5 block sm:hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7"></path></svg>
-                        <span className="hidden sm:inline-flex items-center">
-                          <svg className="h-5 w-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7"></path></svg>
-                          View Details
-                        </span>
-                      </Link>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+      )}
+
+      {/* Loans tab */}
+      {activeTab === "loans" && (
+        <div className="themed-card overflow-hidden">
+          <div className="p-4 sm:p-6 border-b flex flex-wrap items-center justify-between gap-2">
+            <h2 className="text-lg sm:text-xl font-semibold">Loans ({member._count.loans})</h2>
+            <Link href={`/loans/new?borrowerId=${member.id}`} className="text-blue-600 hover:text-blue-900 text-sm">
+              + Create New Loan
+            </Link>
           </div>
-        )}
-      </div>
+          {member.loans.length === 0 ? (
+            <p className="text-gray-500 text-center py-8 text-sm">This member has no loans yet.</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-surface-border text-xs sm:text-sm">
+                <thead className="bg-gray-50 dark:bg-surface-elevated">
+                  <tr>
+                    {['Loan Type', 'Amount', 'Remaining', 'Overdue Amount', 'Missed Payments', 'Status', 'Disbursement Date', 'Actions'].map((h) => (
+                      <th key={h} scope="col" className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-theme-muted uppercase tracking-wider whitespace-nowrap">{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {member.loans.map((loan) => (
+                    <tr key={loan.id} className="hover:bg-gray-50 dark:hover:bg-surface-hover">
+                      <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-sm font-medium text-blue-600">{loan.loanType}</td>
+                      <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-sm text-gray-900 dark:text-theme-primary">{formatCurrency(loan.amount)}</td>
+                      <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-sm text-gray-900 dark:text-theme-primary">{formatCurrency(loan.remainingAmount)}</td>
+                      <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap">
+                        <span className={`text-sm ${loan.overdueAmount > 0 ? 'text-red-600 font-semibold' : 'text-gray-900 dark:text-theme-primary'}`}>
+                          {formatCurrency(loan.overdueAmount || 0)}
+                        </span>
+                      </td>
+                      <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap">
+                        <span className={`text-sm ${loan.missedPayments > 0 ? 'text-red-600 font-semibold' : 'text-gray-900 dark:text-theme-primary'}`}>
+                          {loan.missedPayments || 0}
+                        </span>
+                      </td>
+                      <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap">
+                        <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                          loan.status === 'Active' ? 'bg-green-100 text-green-800' :
+                          loan.status === 'Completed' ? 'bg-blue-100 text-blue-800' :
+                          'bg-red-100 text-red-800'
+                        }`}>{loan.status}</span>
+                      </td>
+                      <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-sm text-gray-900 dark:text-theme-primary">{formatDate(loan.disbursementDate)}</td>
+                      <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-sm font-medium">
+                        <Link href={`/loans/${loan.id}`} className="text-blue-600 hover:text-blue-900">View Details</Link>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Delete Confirmation Modal */}
       {showDeleteModal && (

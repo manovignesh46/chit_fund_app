@@ -82,6 +82,8 @@ export default function DashboardPage() {
 
   // Using FinancialDataPoint from the API
 
+  const [activeTab, setActiveTab] = useState<"overview" | "collections" | "activities" | "events">("overview");
+
   const [dashboardData, setDashboardData] = useState<DashboardData>({
     totalCashInflow: 0,
     totalCashOutflow: 0,
@@ -247,286 +249,237 @@ export default function DashboardPage() {
         </div>
       ) : (
         <>
-          {/* Balance Summary and Partner Balances - Moved to Top */}
-          <div className="grid grid-cols-1 gap-4 sm:gap-6 mb-6 sm:mb-8 md:grid-cols-2">
-            {/* Balance Summary Card - Cash Flow */}
-            <div className="dark-card p-4 sm:p-6">
-              <h2 className="card-title">
-                Cash Flow Summary
-              </h2>
-              <div className="space-y-4">
+          {/* Tab navigation */}
+          <div className="border-b border-gray-200 dark:border-surface-border mb-4 sm:mb-6">
+            <nav className="flex gap-0 -mb-px overflow-x-auto" aria-label="Dashboard tabs">
+              {(["overview", "collections", "activities", "events"] as const).map((tab) => {
+                const labels = {
+                  overview: "Overview",
+                  collections: "Monthly Collections",
+                  activities: `Recent Activities${dashboardData.totalActivities ? ` (${dashboardData.totalActivities})` : ""}`,
+                  events: `Upcoming Events${dashboardData.totalUpcomingEvents ? ` (${dashboardData.totalUpcomingEvents})` : ""}`,
+                };
+                const isActive = activeTab === tab;
+                return (
+                  <button
+                    key={tab}
+                    onClick={() => setActiveTab(tab)}
+                    className={`flex-shrink-0 px-4 sm:px-6 py-3 text-sm font-medium border-b-2 transition-colors duration-150 whitespace-nowrap focus:outline-none ${
+                      isActive
+                        ? "border-green-600 text-green-700 dark:text-green-400 dark:border-green-400"
+                        : "border-transparent text-gray-500 dark:text-theme-muted hover:text-gray-700 dark:hover:text-theme-secondary hover:border-gray-300"
+                    }`}
+                  >
+                    {labels[tab]}
+                  </button>
+                );
+              })}
+            </nav>
+          </div>
 
-                <div className="metric-row-blue">
-                  <div className="flex items-center">
-                    <div className="w-9 h-9 rounded-lg bg-gray-100 dark:bg-surface-elevated flex items-center justify-center mr-3">
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
-                      </svg>
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-600 dark:text-gray-300 font-medium">Invested Amount</p>
-                      <p className="text-xs text-gray-400 dark:text-gray-500">Total recorded transactions</p>
-                    </div>
-                  </div>
-                  <p className="text-lg font-bold text-blue-600 dark:text-blue-400">
-                    {formatCurrency(dashboardData.investedAmount || 0)}
-                  </p>
-                </div>
-                <div className="metric-row-green">
-                  <div className="flex items-center">
-                    <div className="w-9 h-9 rounded-lg bg-green-50 dark:bg-surface-elevated flex items-center justify-center mr-3">
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-green-600 dark:text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 11l5-5m0 0l5 5m-5-5v12" />
-                      </svg>
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-600 dark:text-gray-300 font-medium">Cash Inflow</p>
-                      <p className="text-xs text-gray-400 dark:text-gray-500">Loan repayments + Chit contributions</p>
-                    </div>
-                  </div>
-                  <p className="text-lg font-bold text-green-600 dark:text-green-400">
-                    {formatCurrency(dashboardData.totalCashInflow)}
-                  </p>
-                </div>
-
-                <div className="metric-row-red">
-                  <div className="flex items-center">
-                    <div className="w-9 h-9 rounded-lg bg-red-50 dark:bg-surface-elevated flex items-center justify-center mr-3">
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-red-600 dark:text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 13l-5 5m0 0l-5-5m5 5V6" />
-                      </svg>
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-600 dark:text-gray-300 font-medium">Cash Outflow</p>
-                      <p className="text-xs text-gray-400 dark:text-gray-500">Loan disbursements + Auction payouts</p>
-                    </div>
-                  </div>
-                  <p className="text-lg font-bold text-red-600 dark:text-red-400">
-                    {formatCurrency(dashboardData.totalCashOutflow)}
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            <div className="dark-card p-4 sm:p-6">
-              <h2 className="card-title">
-                Partner-wise Balance
-              </h2>
-              
-              <div className="metric-row-highlight">
-                <div className="flex items-center">
-                  <div className="w-9 h-9 rounded-lg bg-gray-100 dark:bg-surface-elevated flex items-center justify-center mr-3">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-600 dark:text-gray-300 font-semibold">Total Balance</p>
-                    <p className="text-xs text-gray-400 dark:text-gray-500">Sum of all partners</p>
-                  </div>
-                </div>
-                <p className={`text-xl font-bold ${balanceSummary && balanceSummary.totalBalance >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
-                  {balanceSummary ? formatCurrency(balanceSummary.totalBalance) : formatCurrency(0)}
-                </p>
-              </div>
-
-              {partnerBalances.length === 0 ? (
-                <div className="text-center py-8 text-gray-500">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 mx-auto mb-2 text-gray-300 dark:text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-                  </svg>
-                  <p>No partners found</p>
-                </div>
-              ) : (
-                <div className="space-y-3 max-h-64 overflow-y-auto">
-                  {partnerBalances.map((partner) => (
-                    <div key={partner.id} className="list-item-row gap-4">
-                      <div className="flex items-center min-w-0 flex-1">
+          {/* ── Overview tab ── */}
+          {activeTab === "overview" && (
+            <div className="space-y-6">
+              {/* Cash Flow + Partner Balance */}
+              <div className="grid grid-cols-1 gap-4 sm:gap-6 md:grid-cols-2">
+                <div className="dark-card p-4 sm:p-6">
+                  <h2 className="card-title">Cash Flow Summary</h2>
+                  <div className="space-y-4">
+                    <div className="metric-row-blue">
+                      <div className="flex items-center">
                         <div className="w-9 h-9 rounded-lg bg-gray-100 dark:bg-surface-elevated flex items-center justify-center mr-3">
-                          <span className="text-sm font-bold text-gray-700 dark:text-gray-200">
-                            {partner.name.substring(0, 2).toUpperCase()}
-                          </span>
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
+                          </svg>
                         </div>
                         <div>
-                          <p className="text-sm font-medium text-gray-700 dark:text-gray-200">{partner.name}</p>
-                          <p className="text-xs text-gray-400 dark:text-gray-500">
-                            {partner.balance >= 0 ? 'Credit balance' : 'Debit balance'}
-                          </p>
+                          <p className="text-sm text-gray-600 dark:text-gray-300 font-medium">Invested Amount</p>
+                          <p className="text-xs text-gray-400 dark:text-gray-500">Total recorded transactions</p>
                         </div>
                       </div>
-                      <div className="text-right flex-shrink-0 ml-4">
-                        <p className={`text-base font-bold ${partner.balance >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
-                          {formatCurrency(Math.abs(partner.balance))}
-                        </p>
-                        {partner.balance >= 0 ? (
-                          <span className="text-xs text-green-500 flex items-center justify-end">
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 11l5-5m0 0l5 5m-5-5v12" />
-                            </svg>
-                            CR
-                          </span>
-                        ) : (
-                          <span className="text-xs text-red-500 flex items-center justify-end">
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 13l-5 5m0 0l-5-5m5 5V6" />
-                            </svg>
-                            DR
-                          </span>
-                        )}
+                      <p className="text-lg font-bold text-blue-600 dark:text-blue-400">{formatCurrency(dashboardData.investedAmount || 0)}</p>
+                    </div>
+                    <div className="metric-row-green">
+                      <div className="flex items-center">
+                        <div className="w-9 h-9 rounded-lg bg-green-50 dark:bg-surface-elevated flex items-center justify-center mr-3">
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-green-600 dark:text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 11l5-5m0 0l5 5m-5-5v12" />
+                          </svg>
+                        </div>
+                        <div>
+                          <p className="text-sm text-gray-600 dark:text-gray-300 font-medium">Cash Inflow</p>
+                          <p className="text-xs text-gray-400 dark:text-gray-500">Loan repayments + Chit contributions</p>
+                        </div>
+                      </div>
+                      <p className="text-lg font-bold text-green-600 dark:text-green-400">{formatCurrency(dashboardData.totalCashInflow)}</p>
+                    </div>
+                    <div className="metric-row-red">
+                      <div className="flex items-center">
+                        <div className="w-9 h-9 rounded-lg bg-red-50 dark:bg-surface-elevated flex items-center justify-center mr-3">
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-red-600 dark:text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 13l-5 5m0 0l-5-5m5 5V6" />
+                          </svg>
+                        </div>
+                        <div>
+                          <p className="text-sm text-gray-600 dark:text-gray-300 font-medium">Cash Outflow</p>
+                          <p className="text-xs text-gray-400 dark:text-gray-500">Loan disbursements + Auction payouts</p>
+                        </div>
+                      </div>
+                      <p className="text-lg font-bold text-red-600 dark:text-red-400">{formatCurrency(dashboardData.totalCashOutflow)}</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="dark-card p-4 sm:p-6">
+                  <h2 className="card-title">Partner-wise Balance</h2>
+                  <div className="metric-row-highlight">
+                    <div className="flex items-center">
+                      <div className="w-9 h-9 rounded-lg bg-gray-100 dark:bg-surface-elevated flex items-center justify-center mr-3">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                      </div>
+                      <div>
+                        <p className="text-sm text-gray-600 dark:text-gray-300 font-semibold">Total Balance</p>
+                        <p className="text-xs text-gray-400 dark:text-gray-500">Sum of all partners</p>
                       </div>
                     </div>
-                  ))}
+                    <p className={`text-xl font-bold ${balanceSummary && balanceSummary.totalBalance >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                      {balanceSummary ? formatCurrency(balanceSummary.totalBalance) : formatCurrency(0)}
+                    </p>
+                  </div>
+                  {partnerBalances.length === 0 ? (
+                    <div className="text-center py-8 text-gray-500">
+                      <p>No partners found</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-3 max-h-64 overflow-y-auto">
+                      {partnerBalances.map((partner) => (
+                        <div key={partner.id} className="list-item-row gap-4">
+                          <div className="flex items-center min-w-0 flex-1">
+                            <div className="w-9 h-9 rounded-lg bg-gray-100 dark:bg-surface-elevated flex items-center justify-center mr-3">
+                              <span className="text-sm font-bold text-gray-700 dark:text-gray-200">{partner.name.substring(0, 2).toUpperCase()}</span>
+                            </div>
+                            <div>
+                              <p className="text-sm font-medium text-gray-700 dark:text-gray-200">{partner.name}</p>
+                              <p className="text-xs text-gray-400 dark:text-gray-500">{partner.balance >= 0 ? 'Credit balance' : 'Debit balance'}</p>
+                            </div>
+                          </div>
+                          <div className="text-right flex-shrink-0 ml-4">
+                            <p className={`text-base font-bold ${partner.balance >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                              {formatCurrency(Math.abs(partner.balance))}
+                            </p>
+                            {partner.balance >= 0 ? (
+                              <span className="text-xs text-green-500 flex items-center justify-end">
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 11l5-5m0 0l5 5m-5-5v12" /></svg>
+                                CR
+                              </span>
+                            ) : (
+                              <span className="text-xs text-red-500 flex items-center justify-end">
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 13l-5 5m0 0l-5-5m5 5V6" /></svg>
+                                DR
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Financial Overview */}
+              <div className="grid grid-cols-2 gap-4 sm:gap-6 md:grid-cols-3">
+                <div className="dark-card p-4 sm:p-6">
+                  <p className="text-sm font-medium text-gray-500 dark:text-theme-muted mb-1">Outstanding Loans</p>
+                  <p className="text-2xl font-bold text-gray-900 dark:text-theme-heading">{formatCurrency(dashboardData.outsideAmountBreakdown.loanRemainingAmount)}</p>
+                  <p className="text-xs text-gray-400 mt-1">Pending loan repayments</p>
+                </div>
+                <div className="dark-card p-4 sm:p-6">
+                  <p className="text-sm font-medium text-gray-500 dark:text-theme-muted mb-1">Outstanding Chit Funds</p>
+                  <p className="text-2xl font-bold text-gray-900 dark:text-theme-heading">{formatCurrency(dashboardData.outsideAmountBreakdown.chitFundOutsideAmount)}</p>
+                  <p className="text-xs text-gray-400 mt-1">Pending or over-disbursed</p>
+                </div>
+                <div className="dark-card p-4 sm:p-6">
+                  <button
+                    className="flex items-center gap-1 text-sm font-medium text-gray-500 dark:text-theme-muted mb-1 w-full text-left"
+                    onClick={() => setShowProfit(!showProfit)}
+                  >
+                    Total Profit
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  </button>
+                  {showProfit ? (
+                    <p className="text-2xl font-bold text-green-600 dark:text-green-400">{formatCurrency(dashboardData.totalProfit)}</p>
+                  ) : (
+                    <p className="text-2xl font-bold text-gray-300 dark:text-theme-muted tracking-widest">• • •</p>
+                  )}
+                </div>
+              </div>
+
+              {/* Profit Breakdown */}
+              {showProfit && (
+                <div className="grid grid-cols-2 gap-4 sm:gap-6">
+                  <div className="dark-card p-4 sm:p-6">
+                    <p className="text-sm font-medium text-gray-500 dark:text-theme-muted mb-1">Loan Profit</p>
+                    <p className="text-2xl font-bold text-gray-900 dark:text-theme-heading">{formatCurrency(dashboardData.loanProfit)}</p>
+                    <p className="text-xs text-gray-400 mt-1">From interest and document charges</p>
+                  </div>
+                  <div className="dark-card p-4 sm:p-6">
+                    <p className="text-sm font-medium text-gray-500 dark:text-theme-muted mb-1">Chit Fund Profit</p>
+                    <p className="text-2xl font-bold text-gray-900 dark:text-theme-heading">{formatCurrency(dashboardData.chitFundProfit)}</p>
+                    <p className="text-xs text-gray-400 mt-1">From auction commissions</p>
+                  </div>
                 </div>
               )}
-            </div>
-          </div>
 
-          {/* Financial Overview */}
-          <div className="grid grid-cols-2 gap-4 sm:gap-6 mb-6 sm:mb-8 md:grid-cols-3">
-            <div className="dark-card p-4 sm:p-6">
-              <p className="text-sm font-medium text-gray-500 dark:text-theme-muted mb-1">Outstanding Loans</p>
-              <p className="text-2xl font-bold text-gray-900 dark:text-theme-heading">
-                {formatCurrency(dashboardData.outsideAmountBreakdown.loanRemainingAmount)}
-              </p>
-              <p className="text-xs text-gray-400 mt-1">Pending loan repayments</p>
-            </div>
-            <div className="dark-card p-4 sm:p-6">
-              <p className="text-sm font-medium text-gray-500 dark:text-theme-muted mb-1">Outstanding Chit Funds</p>
-              <p className="text-2xl font-bold text-gray-900 dark:text-theme-heading">
-                {formatCurrency(dashboardData.outsideAmountBreakdown.chitFundOutsideAmount)}
-              </p>
-              <p className="text-xs text-gray-400 mt-1">Pending or over-disbursed</p>
-            </div>
-            <div className="dark-card p-4 sm:p-6">
-              <button
-                className="flex items-center gap-1 text-sm font-medium text-gray-500 dark:text-theme-muted mb-1 w-full text-left"
-                onClick={() => setShowProfit(!showProfit)}
-              >
-                Total Profit
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              </button>
-              {showProfit ? (
-                <p className="text-2xl font-bold text-green-600 dark:text-green-400">{formatCurrency(dashboardData.totalProfit)}</p>
-              ) : (
-                <p className="text-2xl font-bold text-gray-300 dark:text-theme-muted tracking-widest">• • •</p>
-              )}
-            </div>
-          </div>
-
-          {/* Profit Breakdown */}
-          {showProfit && (
-            <div className="grid grid-cols-2 gap-4 sm:gap-6 mb-6 sm:mb-8">
-              <div className="dark-card p-4 sm:p-6">
-                <p className="text-sm font-medium text-gray-500 dark:text-theme-muted mb-1">Loan Profit</p>
-                <p className="text-2xl font-bold text-gray-900 dark:text-theme-heading">{formatCurrency(dashboardData.loanProfit)}</p>
-                <p className="text-xs text-gray-400 mt-1">From interest and document charges</p>
-              </div>
-              <div className="dark-card p-4 sm:p-6">
-                <p className="text-sm font-medium text-gray-500 dark:text-theme-muted mb-1">Chit Fund Profit</p>
-                <p className="text-2xl font-bold text-gray-900 dark:text-theme-heading">{formatCurrency(dashboardData.chitFundProfit)}</p>
-                <p className="text-xs text-gray-400 mt-1">From auction commissions</p>
+              {/* Stats */}
+              <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 gap-4 sm:gap-6">
+                {stats.map((stat, index) => (
+                  <div
+                    key={index}
+                    className={`dark-card p-4 sm:p-6 ${stats.length % 2 !== 0 && index === stats.length - 1 ? "col-span-2 md:col-span-1" : ""}`}
+                  >
+                    <p className="text-3xl font-bold text-gray-900 dark:text-theme-heading">{stat.value}</p>
+                    <p className="text-sm text-gray-500 dark:text-theme-muted mt-1">{stat.label}</p>
+                  </div>
+                ))}
               </div>
             </div>
           )}
 
-          {/* Business ROI Card */}
-          {/* <div className="grid grid-cols-1 gap-4 sm:gap-6 mb-6 sm:mb-8 md:grid-cols-2 lg:grid-cols-3">
-            <BusinessROICard
-              totalProfit={dashboardData.totalProfit}
-              investedAmount={dashboardData.investedAmount || 0}
-            />
-            <CollectionHealthCard />
-            <CapitalUtilizationCard
-              totalOutstanding={
-                dashboardData.outsideAmountBreakdown.loanRemainingAmount + 
-                dashboardData.outsideAmountBreakdown.chitFundOutsideAmount
-              }
-              investedAmount={dashboardData.investedAmount || 0}
-            />
-          </div> */}
+          {/* ── Monthly Collections tab ── */}
+          {activeTab === "collections" && (
+            <CurrentMonthCollections />
+          )}
 
-          {/* Current Month Collections */}
-          <CurrentMonthCollections />
-
-          {/* Stats Overview */}
-          <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 gap-4 sm:gap-6 mb-6 sm:mb-8">
-            {stats.map((stat, index) => (
-              <div
-                key={index}
-                className={`dark-card p-4 sm:p-6 ${
-                  stats.length % 2 !== 0 && index === stats.length - 1
-                    ? "col-span-2 md:col-span-1"
-                    : ""
-                }`}
-              >
-                <p className="text-3xl font-bold text-gray-900 dark:text-theme-heading">{stat.value}</p>
-                <p className="text-sm text-gray-500 dark:text-theme-muted mt-1">{stat.label}</p>
-              </div>
-            ))}
-          </div>
-
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
-            {/* Recent Activities */}
-            <div className="lg:col-span-2 dark-card p-2 sm:p-6">
-              <h2 className="section-heading mb-2 sm:mb-4">
-                Recent Activities
-              </h2>
+          {/* ── Recent Activities tab ── */}
+          {activeTab === "activities" && (
+            <div className="dark-card p-4 sm:p-6">
               {dashboardData.recentActivities.length === 0 ? (
-                <p className="text-gray-500 text-center py-4">
-                  No recent activities found.
-                </p>
+                <p className="text-gray-500 text-center py-4">No recent activities found.</p>
               ) : (
                 <div className="space-y-4">
                   {dashboardData.recentActivities.map((activity: Activity) => {
-                    // Generate link based on entity type
                     let activityLink = "#";
-                    if (activity.entityType === "loan" && activity.entityId) {
-                      activityLink = `/loans/${activity.entityId}`;
-                    } else if (
-                      activity.entityType === "chitFund" &&
-                      activity.entityId
-                    ) {
-                      activityLink = `/chit-funds/${activity.entityId}`;
-                    }
-
+                    if (activity.entityType === "loan" && activity.entityId) activityLink = `/loans/${activity.entityId}`;
+                    else if (activity.entityType === "chitFund" && activity.entityId) activityLink = `/chit-funds/${activity.entityId}`;
                     return (
                       <Link
                         href={activityLink}
                         key={activity.id}
-                        className="block border-l-4 pl-4 border-gray-200 dark:border-surface-border hover:bg-gray-50 dark:hover:bg-surface-hover transition-colors duration-200 pb-4 rounded-r-lg"
-                        style={{
-                          borderColor:
-                            activity.type === "Chit Fund"
-                              ? "#3b82f6"
-                              : "#10b981",
-                        }}
+                        className="block border-l-4 pl-4 hover:bg-gray-50 dark:hover:bg-surface-hover transition-colors duration-200 pb-4 rounded-r-lg"
+                        style={{ borderColor: activity.type === "Chit Fund" ? "#3b82f6" : "#10b981" }}
                       >
                         <div className="flex justify-between">
-                          <span
-                            className={`px-2 py-1 rounded-full text-xs ${
-                              activity.type === "Chit Fund"
-                                ? "badge-blue"
-                                : "badge-green"
-                            }`}
-                          >
-                            {activity.type}
-                          </span>
-                          <span className="text-gray-500 text-sm">
-                            {activity.date}
-                          </span>
+                          <span className={`px-2 py-1 rounded-full text-xs ${activity.type === "Chit Fund" ? "badge-blue" : "badge-green"}`}>{activity.type}</span>
+                          <span className="text-gray-500 text-sm">{activity.date}</span>
                         </div>
-                        <h3 className="font-semibold mt-1 text-gray-900 dark:text-theme-heading">
-                          {activity.action}
-                        </h3>
-                        <p className="text-gray-600 dark:text-gray-400 text-sm">
-                          {activity.details}
-                        </p>
+                        <h3 className="font-semibold mt-1 text-gray-900 dark:text-theme-heading">{activity.action}</h3>
+                        <p className="text-gray-600 dark:text-gray-400 text-sm">{activity.details}</p>
                         {activity.amount && (
-                          <p className="text-gray-700 dark:text-gray-300 text-sm font-medium mt-1">
-                            Amount: {formatCurrency(activity.amount)}
-                          </p>
+                          <p className="text-gray-700 dark:text-gray-300 text-sm font-medium mt-1">Amount: {formatCurrency(activity.amount)}</p>
                         )}
                       </Link>
                     );
@@ -534,125 +487,46 @@ export default function DashboardPage() {
                 </div>
               )}
               <div className="mt-6 text-center">
-                {dashboardData.totalActivities &&
-                dashboardData.totalActivities > 3 ? (
-                  <Link
-                    href="/activities"
-                    className="inline-flex items-center justify-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-300"
-                  >
-                    <span>
-                      View All {dashboardData.totalActivities} Activities
-                    </span>
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      className="h-4 w-4 ml-2"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M9 5l7 7-7 7"
-                      />
-                    </svg>
-                  </Link>
-                ) : (
-                  <Link
-                    href="/activities"
-                    className="inline-flex items-center justify-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-300"
-                  >
-                    <span>View All Activities</span>
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      className="h-4 w-4 ml-2"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M9 5l7 7-7 7"
-                      />
-                    </svg>
-                  </Link>
-                )}
+                <Link href="/activities" className="inline-flex items-center justify-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-300">
+                  <span>{dashboardData.totalActivities && dashboardData.totalActivities > 3 ? `View All ${dashboardData.totalActivities} Activities` : "View All Activities"}</span>
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 ml-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
+                </Link>
               </div>
             </div>
+          )}
 
-            {/* Upcoming Events */}
-            <div className="dark-card p-2 sm:p-6">
-              <h2 className="section-heading mb-2 sm:mb-4">
-                Upcoming Events
-              </h2>
-              {!dashboardData.upcomingEvents ||
-              dashboardData.upcomingEvents.length === 0 ? (
-                <p className="text-gray-500 text-center py-4">
-                  No upcoming events found.
-                </p>
+          {/* ── Upcoming Events tab ── */}
+          {activeTab === "events" && (
+            <div className="dark-card p-4 sm:p-6">
+              {!dashboardData.upcomingEvents || dashboardData.upcomingEvents.length === 0 ? (
+                <p className="text-gray-500 text-center py-4">No upcoming events found.</p>
               ) : (
                 <div className="space-y-4">
                   {dashboardData.upcomingEvents.map((event: Event) => {
-                    // Generate link based on entity type
                     let eventLink = "#";
-                    if (event.entityType === "loan" && event.entityId) {
-                      eventLink = `/loans/${event.entityId}`;
-                    } else if (
-                      event.entityType === "chitFund" &&
-                      event.entityId
-                    ) {
-                      eventLink = `/chit-funds/${event.entityId}`;
-                    }
-
+                    if (event.entityType === "loan" && event.entityId) eventLink = `/loans/${event.entityId}`;
+                    else if (event.entityType === "chitFund" && event.entityId) eventLink = `/chit-funds/${event.entityId}`;
                     return (
                       <Link
                         href={eventLink}
                         key={event.id}
                         className={`block border-l-4 pl-4 hover:bg-gray-50 dark:hover:bg-surface-hover transition-colors duration-200 rounded-r-lg ${
-                          event.isDueTomorrow
-                            ? "bg-yellow-50 dark:bg-yellow-900 dark:bg-opacity-20 rounded-r p-2"
-                            : ""
+                          event.isDueTomorrow ? "bg-yellow-50 dark:bg-yellow-900 dark:bg-opacity-20 p-2" : ""
                         }`}
-                        style={{
-                          borderColor:
-                            event.type === "Chit Fund" ? "#3b82f6" : "#10b981",
-                        }}
+                        style={{ borderColor: event.type === "Chit Fund" ? "#3b82f6" : "#10b981" }}
                       >
                         <h3 className="font-semibold text-gray-900 dark:text-theme-heading">{event.title}</h3>
                         <p className="text-gray-600 dark:text-gray-400 text-sm">{event.date}</p>
                         {event.dueAmount !== undefined && (
-                          <p className="text-gray-700 dark:text-gray-300 text-sm font-medium mt-1">
-                            Amount: {formatCurrency(event.dueAmount)}
-                          </p>
+                          <p className="text-gray-700 dark:text-gray-300 text-sm font-medium mt-1">Amount: {formatCurrency(event.dueAmount)}</p>
                         )}
                         <div className="flex flex-wrap gap-2 mt-1">
-                          <span
-                            className={`inline-block px-2 py-1 rounded-full text-xs ${
-                              event.type === "Chit Fund"
-                                ? "badge-blue"
-                                : "badge-green"
-                            }`}
-                          >
-                            {event.type}
-                          </span>
-                          {event.isDueTomorrow && (
-                            <span className="badge-amber" title="This event is due tomorrow">
-                              Due Tomorrow
-                            </span>
-                          )}
-                          {event.status === "Paid" && (
-                            <span className="badge-paid" title="This payment has been made">
-                              Paid
-                            </span>
-                          )}
-                          {event.status === "Overdue" && (
-                            <span className="badge-overdue" title="This payment is overdue">
-                              Overdue
-                            </span>
-                          )}
+                          <span className={`inline-block px-2 py-1 rounded-full text-xs ${event.type === "Chit Fund" ? "badge-blue" : "badge-green"}`}>{event.type}</span>
+                          {event.isDueTomorrow && <span className="badge-amber">Due Tomorrow</span>}
+                          {event.status === "Paid" && <span className="badge-paid">Paid</span>}
+                          {event.status === "Overdue" && <span className="badge-overdue">Overdue</span>}
                         </div>
                       </Link>
                     );
@@ -660,55 +534,15 @@ export default function DashboardPage() {
                 </div>
               )}
               <div className="mt-6 text-center">
-                {dashboardData.totalUpcomingEvents &&
-                dashboardData.totalUpcomingEvents > 3 ? (
-                  <Link
-                    href="/calendar"
-                    className="inline-flex items-center justify-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-300"
-                  >
-                    <span>
-                      View All {dashboardData.totalUpcomingEvents} Events
-                    </span>
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      className="h-4 w-4 ml-2"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M9 5l7 7-7 7"
-                      />
-                    </svg>
-                  </Link>
-                ) : (
-                  <Link
-                    href="/calendar"
-                    className="inline-flex items-center justify-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-300"
-                  >
-                    <span>View Full Calendar</span>
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      className="h-4 w-4 ml-2"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M9 5l7 7-7 7"
-                      />
-                    </svg>
-                  </Link>
-                )}
+                <Link href="/calendar" className="inline-flex items-center justify-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-300">
+                  <span>{dashboardData.totalUpcomingEvents && dashboardData.totalUpcomingEvents > 3 ? `View All ${dashboardData.totalUpcomingEvents} Events` : "View Full Calendar"}</span>
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 ml-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
+                </Link>
               </div>
             </div>
-          </div>
+          )}
         </>
       )}
     </div>
