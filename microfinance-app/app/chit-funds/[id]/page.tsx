@@ -1,7 +1,7 @@
 // @ts-nocheck
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { ChitFund, ChitFundMember, Auction, Contribution } from '../../../lib/interfaces';
@@ -184,14 +184,43 @@ const ChitFundDetails = () => {
       }
     };
 
-    // Start all API calls
+    // Fetch core data needed for summary bar + overview tab
     if (id) {
       fetchChitFundDetails();
       fetchMembers();
       fetchAuctions();
-      fetchContributions();
+      // fetchContributions is deferred — see lazy useEffect below
     }
   }, [id]);
+
+  // Lazy-load contributions only when the contributions tab is first opened
+  const contributionsInitialized = useRef(false);
+  useEffect(() => {
+    if (activeTab === 'contributions' && !contributionsInitialized.current && id) {
+      contributionsInitialized.current = true;
+      const fetchContributions = async () => {
+        try {
+          setContributionsLoading(true);
+          const contributionsResponse = await fetch(`/api/chit-funds/consolidated?action=contributions&id=${id}&page=1&pageSize=1000`);
+          if (!contributionsResponse.ok) throw new Error('Failed to fetch contributions');
+          const contributionsData = await contributionsResponse.json();
+          const contributionsArray = contributionsData.contributions && Array.isArray(contributionsData.contributions)
+            ? contributionsData.contributions
+            : (Array.isArray(contributionsData) ? contributionsData : []);
+          setContributions(contributionsArray);
+          const allContributionsArray = contributionsData.allContributions && Array.isArray(contributionsData.allContributions)
+            ? contributionsData.allContributions
+            : contributionsArray;
+          setAllContributions(allContributionsArray);
+        } catch (error) {
+          console.error('Error fetching contributions:', error);
+        } finally {
+          setContributionsLoading(false);
+        }
+      };
+      fetchContributions();
+    }
+  }, [activeTab, id]);
 
   // Calculate contributions by month when data is available
   useEffect(() => {

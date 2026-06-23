@@ -1,7 +1,7 @@
 // @ts-nocheck
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { dashboardAPI } from "../../lib/api";
 import { DashboardSkeleton } from "../components/skeletons/DashboardSkeletons";
@@ -108,20 +108,12 @@ export default function DashboardPage() {
   const [error, setError] = useState<string | null>(null);
   const [showProfit, setShowProfit] = useState(false);
 
+  // Fetch main summary on mount — needed for tab label counts (activities, events)
   useEffect(() => {
-    // Fetch dashboard data and partner balances from the API
     const fetchDashboardData = async () => {
       try {
         setLoading(true);
-        console.log("Fetching dashboard data...");
-
-        // Fetch dashboard summary
         const data = await dashboardAPI.getSummary();
-
-        console.log("Fetched dashboard data:", data);
-        console.log("Loan profit from API:", data.profit?.loans);
-
-        // Map API response to dashboard data structure
         setDashboardData({
           totalCashInflow: data.cashInflow || 0,
           totalCashOutflow: data.cashOutflow || 0,
@@ -131,10 +123,8 @@ export default function DashboardPage() {
           totalOutsideAmount: data.outsideAmount || 0,
           investedAmount: data.investedAmount || 0,
           outsideAmountBreakdown: {
-            loanRemainingAmount:
-              data.outsideAmountBreakdown?.loanRemainingAmount || 0,
-            chitFundOutsideAmount:
-              data.outsideAmountBreakdown?.chitFundOutsideAmount || 0,
+            loanRemainingAmount: data.outsideAmountBreakdown?.loanRemainingAmount || 0,
+            chitFundOutsideAmount: data.outsideAmountBreakdown?.chitFundOutsideAmount || 0,
           },
           activeChitFunds: data.counts?.activeChitFunds || 0,
           totalMembers: data.counts?.members || 0,
@@ -143,42 +133,40 @@ export default function DashboardPage() {
           upcomingEvents: data.upcomingEvents || [],
           totalUpcomingEvents: data.totalUpcomingEvents || 0,
         });
-
-        console.log("Dashboard data after setting:", {
-          loanProfit: data.profit?.loans,
-          chitFundProfit: data.profit?.chitFunds,
-          totalProfit: data.profit?.total,
-        });
-
-        // Fetch balance summary for accurate total balance
-        const balanceSummaryResponse = await fetch('/api/balance/summary');
-        if (balanceSummaryResponse.ok) {
-          const balanceSummaryData = await balanceSummaryResponse.json();
-          setBalanceSummary(balanceSummaryData);
-          console.log("Balance summary:", balanceSummaryData);
-        }
-
-        // Fetch partner balances for the Partner Balances card
-        const partnersResponse = await fetch('/api/partners?includeBalances=true');
-        if (partnersResponse.ok) {
-          const partnersData = await partnersResponse.json();
-          setPartnerBalances(partnersData.partners || []);
-        }
-
         setError(null);
       } catch (err: any) {
         console.error("Error fetching dashboard data:", err);
-        setError(
-          err.message ||
-            "Failed to load dashboard data. Please try again later."
-        );
+        setError(err.message || "Failed to load dashboard data. Please try again later.");
       } finally {
         setLoading(false);
       }
     };
-
     fetchDashboardData();
   }, []);
+
+  // Lazy-load balance/partner data only when Overview tab is first opened
+  const balancesInitialized = useRef(false);
+  useEffect(() => {
+    if (activeTab === "overview" && !balancesInitialized.current) {
+      balancesInitialized.current = true;
+      const fetchBalances = async () => {
+        try {
+          const [balanceRes, partnersRes] = await Promise.all([
+            fetch('/api/balance/summary'),
+            fetch('/api/partners?includeBalances=true'),
+          ]);
+          if (balanceRes.ok) setBalanceSummary(await balanceRes.json());
+          if (partnersRes.ok) {
+            const d = await partnersRes.json();
+            setPartnerBalances(d.partners || []);
+          }
+        } catch (err) {
+          console.error("Error fetching balances:", err);
+        }
+      };
+      fetchBalances();
+    }
+  }, [activeTab]);
 
   // Create stats array from dashboard data
   const stats = [

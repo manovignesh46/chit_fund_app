@@ -1,7 +1,7 @@
 // @ts-nocheck
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { Loan, Repayment, PaymentSchedule } from "../../../lib/interfaces";
@@ -168,8 +168,10 @@ const LoanDetailPage = () => {
       // Add a small delay before refreshing data
       await new Promise((resolve) => setTimeout(resolve, 500));
 
-      // Refresh loan details to get updated overdue amount and missed payments
+      // Refresh loan details and payment schedules
       await fetchLoanDetails();
+      schedulesInitialized.current = true;
+      await fetchPaymentSchedules();
     } catch (error) {
       console.error("Payment recording failed:", error);
       setScheduleError(
@@ -302,9 +304,6 @@ const LoanDetailPage = () => {
       });
 
       setLoan(combinedData);
-
-      // Fetch payment schedules
-      await fetchPaymentSchedules();
     } catch (error) {
       console.error("Error fetching loan details:", error);
     } finally {
@@ -318,12 +317,21 @@ const LoanDetailPage = () => {
     }
   }, [id]);
 
-  // Fetch payment schedules when page or page size changes
+  // Lazy-load payment schedules: fetch only when the tab is first opened,
+  // then re-fetch when pagination changes while the tab is active.
+  const schedulesInitialized = useRef(false);
   useEffect(() => {
-    if (id && !loading) {
+    if (activeTab === "payment-schedule" && !schedulesInitialized.current && id && !loading) {
+      schedulesInitialized.current = true;
       fetchPaymentSchedules();
     }
-  }, [id, currentPage, pageSize]);
+  }, [activeTab, id, loading]);
+
+  useEffect(() => {
+    if (schedulesInitialized.current && id) {
+      fetchPaymentSchedules();
+    }
+  }, [currentPage, pageSize]);
 
   // Format currency
   const formatCurrency = (amount: number): string => {
@@ -1328,6 +1336,8 @@ const LoanDetailPage = () => {
             loanId={parseInt(id as string)}
             onSuccess={() => {
               fetchLoanDetails();
+              schedulesInitialized.current = true;
+              fetchPaymentSchedules();
               setActiveTab("payment-schedule");
               window.scrollTo({ top: 0, behavior: "smooth" });
             }}
