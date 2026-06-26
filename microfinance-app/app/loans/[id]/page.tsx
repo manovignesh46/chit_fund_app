@@ -1199,7 +1199,8 @@ const LoanDetailPage = () => {
                     const isDueTomorrow = dueDate.getTime() === tomorrow.getTime();
                     const gracePeriodDate = new Date(dueDate);
                     gracePeriodDate.setDate(gracePeriodDate.getDate() + 3);
-                    const isOverdue = dueDate < today && today >= gracePeriodDate && (schedule.status === "Pending" || schedule.status === "Overdue");
+                    const isOverdue = dueDate < today && today >= gracePeriodDate && (schedule.status === "Pending" || schedule.status === "Overdue") && loan.status !== "Completed";
+                    const isSettled = loan.status === "Completed" && schedule.status !== "Paid" && schedule.status !== "Interest Only" && schedule.status !== "InterestOnly";
 
                     return (
                       <tr key={schedule.id} className={`hover:bg-gray-50 dark:hover:bg-surface-hover ${isOverdue ? "table-row-overdue" : isDueTomorrow ? "table-row-due-soon" : ""}`}>
@@ -1225,6 +1226,7 @@ const LoanDetailPage = () => {
                         <td className="px-4 sm:px-6 py-4 whitespace-nowrap">
                           <div className="flex flex-col space-y-1">
                             <span className={`px-2 py-1 text-xs font-semibold rounded-full w-fit ${
+                              isSettled ? "bg-gray-100 text-gray-500 dark:bg-surface-elevated dark:text-theme-muted" :
                               schedule.status === "Paid" ? "bg-green-100 text-green-800" :
                               schedule.status === "Pending" ? (isOverdue ? "bg-red-100 text-red-800" : "bg-yellow-100 text-yellow-800") :
                               schedule.status === "Overdue" ? "bg-red-100 text-red-800" :
@@ -1232,7 +1234,7 @@ const LoanDetailPage = () => {
                               (schedule.status === "Interest Only" || schedule.status === "InterestOnly") ? "bg-blue-100 text-blue-800" :
                               "bg-gray-100 text-gray-900 dark:text-theme-primary"
                             }`}>
-                              {isOverdue ? "Overdue" : schedule.status}
+                              {isSettled ? "Settled" : isOverdue ? "Overdue" : schedule.status}
                             </span>
                             {isDueTomorrow && (
                               <span className="px-2 py-1 text-xs font-semibold rounded-full bg-yellow-100 text-yellow-800 border border-yellow-200 w-fit">Due Tomorrow</span>
@@ -1242,7 +1244,7 @@ const LoanDetailPage = () => {
                         {loan.loanType !== "Reducing Balance" && (
                           <td className="px-4 sm:px-6 py-4 whitespace-nowrap">
                             <div className="flex flex-wrap gap-1.5">
-                              {(schedule.status === "Pending" || schedule.status === "Missed") && (
+                              {(schedule.status === "Pending" || schedule.status === "Missed") && !isSettled && (
                                 <>
                                   <button
                                     onClick={() => handleRecordPayment(schedule.period, "Paid")}

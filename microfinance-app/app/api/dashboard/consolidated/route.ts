@@ -1762,14 +1762,15 @@ async function getEventsForMonth(userId: number, year: number, month: number) {
         },
       }),
 
-      // Get all active loans to check their payment schedules
+      // Get all active and completed loans to check their payment schedules
       prisma.loan.findMany({
         where: {
-          status: 'Active',
+          status: { in: ['Active', 'Completed'] },
           createdById: userId,
         },
         select: {
           id: true,
+          status: true,
           disbursementDate: true,
           duration: true,
           repaymentType: true,
@@ -1856,15 +1857,22 @@ async function getEventsForMonth(userId: number, year: number, month: number) {
         const isPaid = !!repayment && repayment.paidDate;
         const paymentType = repayment ? repayment.paymentType : null;
 
-        // Check if the due date is in the specified month
-        const isInMonth = dueDate >= startDate && dueDate <= endDate;
+        // For completed loans: use actual paidDate so the event appears in the
+        // month the money was truly collected, not when it was scheduled.
+        // For active loans: use the calculated dueDate (existing behaviour).
+        const eventDate = (loan.status === 'Completed' && isPaid)
+          ? new Date(repayment.paidDate)
+          : dueDate;
 
-        // Only process events that are in the specified month
-        if (isInMonth) {
-          const dueDateNormalized = new Date(dueDate);
-          dueDateNormalized.setHours(0, 0, 0, 0);
-          const isDueTomorrow = dueDateNormalized.getTime() === tomorrow.getTime();
-          const isPastDue = dueDateNormalized < today;
+        const isInMonth = eventDate >= startDate && eventDate <= endDate;
+
+        // For completed loans only show periods that were actually paid (in this month).
+        // For active loans show all periods whose due date falls in this month.
+        if (isInMonth && (loan.status === 'Active' || isPaid)) {
+          const eventDateNormalized = new Date(eventDate);
+          eventDateNormalized.setHours(0, 0, 0, 0);
+          const isDueTomorrow = eventDateNormalized.getTime() === tomorrow.getTime();
+          const isPastDue = eventDateNormalized < today;
 
           // Determine status for the event
           let status = null;
@@ -1891,9 +1899,9 @@ async function getEventsForMonth(userId: number, year: number, month: number) {
           const eventObj: any = {
             id: `schedule-${loan.id}-${period}`,
             title: `${borrowerName} Loan Payment (Period ${period})`,
-            date: formatDate(dueDate),
+            date: formatDate(eventDate),
             type: 'Loan',
-            rawDate: dueDate,
+            rawDate: eventDate,
             isDueTomorrow: isDueTomorrow,
             entityId: loan.id,
             entityType: 'loan',

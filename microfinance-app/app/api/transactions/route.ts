@@ -45,7 +45,7 @@ export async function GET(request: NextRequest) {
 
     // Validate pagination parameters
     const validPage = page > 0 ? page : 1;
-    const validPageSize = pageSize > 0 && pageSize <= 100 ? pageSize : 10;
+    const validPageSize = pageSize > 0 && pageSize <= 1000 ? pageSize : 10;
     const skip = (validPage - 1) * validPageSize;
 
     // Build where clause using common utility
