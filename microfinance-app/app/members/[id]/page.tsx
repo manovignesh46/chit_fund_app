@@ -1,7 +1,8 @@
 // @ts-nocheck
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { useTabSwipe } from '../../hooks/useTabSwipe';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { memberAPI } from '../../../lib/api';
@@ -75,6 +76,8 @@ export default function MemberDetailPage() {
 
   // Tab state
   const [activeTab, setActiveTab] = useState<"details" | "chit-funds" | "loans">("details");
+  const tabSwipeRef = useRef<HTMLDivElement>(null);
+  useTabSwipe(tabSwipeRef, ["details", "chit-funds", "loans"] as const, activeTab, setActiveTab);
 
   useEffect(() => {
     const fetchMember = async () => {
@@ -288,6 +291,7 @@ export default function MemberDetailPage() {
         </div>
       </div>
 
+      <div ref={tabSwipeRef}>
       {/* Tab navigation */}
       <div className="border-b border-gray-200 dark:border-surface-border mb-4 sm:mb-6">
         <nav className="flex gap-0 -mb-px overflow-x-auto" aria-label="Member tabs">
@@ -466,6 +470,7 @@ export default function MemberDetailPage() {
           )}
         </div>
       )}
+      </div>
 
       {/* Delete Confirmation Modal */}
       {showDeleteModal && (

@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
+import { useTabSwipe } from "../hooks/useTabSwipe";
 import { memberAPI, loanAPI, chitFundAPI } from "../../lib/api";
 import TransactionList from "../components/TransactionList";
 import DateFilter from "../components/DateFilter";
@@ -18,6 +19,8 @@ import {
 
 export default function TransactionsPage() {
   const [activeTab, setActiveTab] = useState("summary" as "summary" | "history" | "record-transactions");
+  const tabSwipeRef = useRef(null);
+  useTabSwipe(tabSwipeRef, ["summary", "history", "record-transactions"] as const, activeTab, setActiveTab);
   const [refreshList, setRefreshList] = useState(false);
   const { selectedPartner, partners, refreshPartners } = usePartner();
   const [partnersWithBalances, setPartnersWithBalances] = useState([] as { id: number; name: string; isActive: boolean; createdAt: string; balance?: number }[]);
@@ -213,6 +216,7 @@ export default function TransactionsPage() {
         </div>
       </div>
 
+      <div ref={tabSwipeRef}>
       {/* Tab navigation */}
       <div className="border-b border-gray-200 dark:border-surface-border mb-4 sm:mb-6">
         <nav className="flex gap-0 -mb-px overflow-x-auto" aria-label="Transaction tabs">
@@ -417,6 +421,7 @@ export default function TransactionsPage() {
           <TransactionForm onSuccess={fetchPartnersWithBalances} />
         </div>
       )}
+      </div>
 
       {/* Email Export Modal */}
       <EmailExportModal

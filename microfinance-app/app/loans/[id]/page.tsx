@@ -2,6 +2,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useTabSwipe } from "../../hooks/useTabSwipe";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { Loan, Repayment, PaymentSchedule } from "../../../lib/interfaces";
@@ -56,6 +57,8 @@ const LoanDetailPage = () => {
 
   // Tab state
   const [activeTab, setActiveTab] = useState<"loan-details" | "payment-schedule" | "record-payment">("loan-details");
+  const tabSwipeRef = useRef<HTMLDivElement>(null);
+  useTabSwipe(tabSwipeRef, ["loan-details", "payment-schedule", "record-payment"] as const, activeTab, setActiveTab);
 
   // Fetch payment schedules
   const fetchPaymentSchedules = async () => {
@@ -1018,6 +1021,7 @@ const LoanDetailPage = () => {
         </div>
       </div>
 
+      <div ref={tabSwipeRef}>
       {/* Tab navigation */}
       <div className="border-b border-gray-200 dark:border-surface-border mb-4 sm:mb-6">
         <nav className="flex gap-0 -mb-px overflow-x-auto" aria-label="Loan tabs">
@@ -1345,6 +1349,7 @@ const LoanDetailPage = () => {
           />
         </div>
       )}
+      </div>
 
       {/* Delete Confirmation Modal */}
       {showDeleteModal && (

@@ -2,6 +2,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
+import { useTabSwipe } from "../hooks/useTabSwipe";
 import Link from "next/link";
 import { dashboardAPI } from "../../lib/api";
 import { DashboardSkeleton } from "../components/skeletons/DashboardSkeletons";
@@ -146,6 +147,8 @@ export default function DashboardPage() {
 
   // Lazy-load balance/partner data only when Overview tab is first opened
   const balancesInitialized = useRef(false);
+  const tabSwipeRef = useRef<HTMLDivElement>(null);
+  useTabSwipe(tabSwipeRef, ["overview", "collections", "activities", "events"] as const, activeTab, setActiveTab);
   useEffect(() => {
     if (activeTab === "overview" && !balancesInitialized.current) {
       balancesInitialized.current = true;
@@ -236,7 +239,7 @@ export default function DashboardPage() {
           <p>{error}</p>
         </div>
       ) : (
-        <>
+        <div ref={tabSwipeRef}>
           {/* Tab navigation */}
           <div className="border-b border-gray-200 dark:border-surface-border mb-4 sm:mb-6">
             <nav className="flex gap-0 -mb-px overflow-x-auto" aria-label="Dashboard tabs">
@@ -531,7 +534,7 @@ export default function DashboardPage() {
               </div>
             </div>
           )}
-        </>
+        </div>
       )}
     </div>
   );
