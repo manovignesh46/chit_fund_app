@@ -5,6 +5,7 @@ import React, { useState, useEffect, ChangeEvent, FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { usePartner } from '../../contexts/PartnerContext';
+import { invalidateDashboardCache } from '../../../lib/dashboardCache';
 
 // Define interfaces for global member
 interface GlobalMember {
@@ -339,6 +340,7 @@ export default function NewLoanPage() {
       console.log('Loan created successfully:', data);
 
       // Redirect to loans page after successful submission
+      invalidateDashboardCache();
       router.push('/loans');
     } catch (error) {
       console.error('Error creating loan:', error);

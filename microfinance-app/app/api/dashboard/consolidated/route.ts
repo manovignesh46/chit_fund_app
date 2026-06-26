@@ -423,6 +423,9 @@ async function getSummary(request: NextRequest, currentUserId: number) {
       investedAmount: netInvestedAmount,
       outsideAmount,
       outsideAmountBreakdown,
+      // Loan-specific flow breakdown (clear view: given vs collected back)
+      loanDisbursed: totalMetrics.loanOutflow,
+      repaymentInflow: totalMetrics.repaymentInflow,
       profit: {
         total: totalProfit,
         loans: totalMetrics.loanProfit,

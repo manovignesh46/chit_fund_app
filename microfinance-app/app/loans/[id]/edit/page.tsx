@@ -5,6 +5,7 @@ import React, { useState, useEffect, ChangeEvent, FormEvent } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { loanAPI } from '../../../../lib/api';
+import { invalidateDashboardCache } from '../../../../../lib/dashboardCache';
 
 // Define interfaces for form data and errors
 interface LoanFormData {
@@ -287,6 +288,7 @@ export default function EditLoanPage() {
       await loanAPI.update(numericId, loanData);
 
       // Redirect to loan details page after successful update
+      invalidateDashboardCache();
       router.push(`/loans/${id}`);
     } catch (error) {
       console.error('Error updating loan:', error);

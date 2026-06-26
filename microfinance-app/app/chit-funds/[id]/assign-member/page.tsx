@@ -5,6 +5,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { memberAPI } from '../../../../lib/api';
+import { invalidateDashboardCache } from '../../../../../lib/dashboardCache';
 
 interface GlobalMember {
   id: number;
@@ -131,6 +132,7 @@ export default function AssignMemberPage() {
       }
 
       // Redirect back to members page
+      invalidateDashboardCache();
       router.push(`/chit-funds/${chitFundId}/members`);
     } catch (error: any) {
       console.error('Error assigning member to chit fund:', error);

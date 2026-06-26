@@ -5,6 +5,7 @@ import React from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import RepaymentForm from '../../../../components/loans/RepaymentForm';
+import { invalidateDashboardCache } from '../../../../../lib/dashboardCache';
 
 export default function NewRepaymentPage() {
   const params = useParams();
@@ -12,6 +13,7 @@ export default function NewRepaymentPage() {
   const id = params.id;
 
   const handleSuccess = () => {
+    invalidateDashboardCache();
     router.push(`/loans/${id}`);
   };
 

@@ -4,6 +4,7 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
+import { invalidateDashboardCache } from '../../../lib/dashboardCache';
 
 export default function NewChitFundPage() {
   const router = useRouter();
@@ -245,6 +246,7 @@ export default function NewChitFundPage() {
       console.log('Chit fund created successfully:', data);
 
       // Redirect to chit funds page after successful submission
+      invalidateDashboardCache();
       router.push('/chit-funds');
     } catch (error) {
       console.error('Error creating chit fund:', error);

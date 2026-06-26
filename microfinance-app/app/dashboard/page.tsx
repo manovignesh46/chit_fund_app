@@ -5,11 +5,16 @@ import React, { useState, useEffect, useRef } from "react";
 import { useTabSwipe } from "../hooks/useTabSwipe";
 import Link from "next/link";
 import { dashboardAPI } from "../../lib/api";
-import { DashboardSkeleton } from "../components/skeletons/DashboardSkeletons";
+import { DashboardSkeleton, TrendsSkeleton } from "../components/skeletons/DashboardSkeletons";
+import { loadDashboardCache, saveDashboardCache } from "../../lib/dashboardCache";
 import CurrentMonthCollections from "../components/CurrentMonthCollections";
 import BusinessROICard from "../components/BusinessROICard";
 import CollectionHealthCard from "../components/CollectionHealthCard";
 import CapitalUtilizationCard from "../components/CapitalUtilizationCard";
+import MonthlyFlowCard from "../components/MonthlyFlowCard";
+import YieldMetricsCard from "../components/YieldMetricsCard";
+import LoanProfitCard from "../components/LoanProfitCard";
+import ChitFundMonthlyProfitCard from "../components/ChitFundMonthlyProfitCard";
 import {
   UserGroupIcon,
   PlusCircleIcon,
@@ -75,6 +80,8 @@ export default function DashboardPage() {
     totalMembers: number;
     activeLoans: number;
     investedAmount?: number; // Recorded amount transactions
+    loanDisbursed?: number;  // Total principal ever given out
+    repaymentInflow?: number; // Total loan EMIs collected
     recentActivities: Activity[];
     upcomingEvents: Event[];
     totalUpcomingEvents?: number; // Total count of upcoming events
@@ -83,9 +90,9 @@ export default function DashboardPage() {
 
   // Using FinancialDataPoint from the API
 
-  const [activeTab, setActiveTab] = useState<"overview" | "collections" | "activities" | "events">("overview");
+  const [activeTab, setActiveTab] = useState<"overview" | "trends" | "collections" | "activities" | "events">("overview");
 
-  const [dashboardData, setDashboardData] = useState<DashboardData>({
+  const emptyDashboardData: DashboardData = {
     totalCashInflow: 0,
     totalCashOutflow: 0,
     totalProfit: 0,
@@ -93,53 +100,71 @@ export default function DashboardPage() {
     chitFundProfit: 0,
     totalOutsideAmount: 0,
     investedAmount: 0,
-    outsideAmountBreakdown: {
-      loanRemainingAmount: 0,
-      chitFundOutsideAmount: 0,
-    },
+    loanDisbursed: 0,
+    repaymentInflow: 0,
+    outsideAmountBreakdown: { loanRemainingAmount: 0, chitFundOutsideAmount: 0 },
     activeChitFunds: 0,
     totalMembers: 0,
     activeLoans: 0,
     recentActivities: [],
     upcomingEvents: [],
-  });
+  };
+
+  const [dashboardData, setDashboardData] = useState<DashboardData>(emptyDashboardData);
   const [balanceSummary, setBalanceSummary] = useState<BalanceSummaryData | null>(null);
   const [partnerBalances, setPartnerBalances] = useState<PartnerBalance[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isStale, setIsStale] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showProfit, setShowProfit] = useState(false);
 
-  // Fetch main summary on mount — needed for tab label counts (activities, events)
+  const applyApiData = (data: any): DashboardData => ({
+    totalCashInflow: data.cashInflow || 0,
+    totalCashOutflow: data.cashOutflow || 0,
+    totalProfit: data.profit?.total || 0,
+    loanProfit: data.profit?.loans || 0,
+    chitFundProfit: data.profit?.chitFunds || 0,
+    totalOutsideAmount: data.outsideAmount || 0,
+    investedAmount: data.investedAmount || 0,
+    loanDisbursed: data.loanDisbursed || 0,
+    repaymentInflow: data.repaymentInflow || 0,
+    outsideAmountBreakdown: {
+      loanRemainingAmount: data.outsideAmountBreakdown?.loanRemainingAmount || 0,
+      chitFundOutsideAmount: data.outsideAmountBreakdown?.chitFundOutsideAmount || 0,
+    },
+    activeChitFunds: data.counts?.activeChitFunds || 0,
+    totalMembers: data.counts?.members || 0,
+    activeLoans: data.counts?.activeLoans || 0,
+    recentActivities: data.recentActivities || [],
+    upcomingEvents: data.upcomingEvents || [],
+    totalUpcomingEvents: data.totalUpcomingEvents || 0,
+  });
+
+  // On mount (client only): load cache immediately to skip the skeleton,
+  // then always fetch fresh data in the background.
   useEffect(() => {
+    const cached = loadDashboardCache();
+    if (cached) {
+      setDashboardData(cached);
+      setLoading(false);
+      setIsStale(true);
+    }
+
     const fetchDashboardData = async () => {
       try {
-        setLoading(true);
         const data = await dashboardAPI.getSummary();
-        setDashboardData({
-          totalCashInflow: data.cashInflow || 0,
-          totalCashOutflow: data.cashOutflow || 0,
-          totalProfit: data.profit?.total || 0,
-          loanProfit: data.profit?.loans || 0,
-          chitFundProfit: data.profit?.chitFunds || 0,
-          totalOutsideAmount: data.outsideAmount || 0,
-          investedAmount: data.investedAmount || 0,
-          outsideAmountBreakdown: {
-            loanRemainingAmount: data.outsideAmountBreakdown?.loanRemainingAmount || 0,
-            chitFundOutsideAmount: data.outsideAmountBreakdown?.chitFundOutsideAmount || 0,
-          },
-          activeChitFunds: data.counts?.activeChitFunds || 0,
-          totalMembers: data.counts?.members || 0,
-          activeLoans: data.counts?.activeLoans || 0,
-          recentActivities: data.recentActivities || [],
-          upcomingEvents: data.upcomingEvents || [],
-          totalUpcomingEvents: data.totalUpcomingEvents || 0,
-        });
+        const parsed = applyApiData(data);
+        setDashboardData(parsed);
+        saveDashboardCache(parsed);
         setError(null);
       } catch (err: any) {
         console.error("Error fetching dashboard data:", err);
-        setError(err.message || "Failed to load dashboard data. Please try again later.");
+        if (!cached) {
+          setError(err.message || "Failed to load dashboard data. Please try again later.");
+        }
       } finally {
         setLoading(false);
+        setIsStale(false);
       }
     };
     fetchDashboardData();
@@ -147,8 +172,16 @@ export default function DashboardPage() {
 
   // Lazy-load balance/partner data only when Overview tab is first opened
   const balancesInitialized = useRef(false);
+  // Lazy-load trends tab: keep mounted once visited so cards don't re-fetch
+  const [trendsInitialized, setTrendsInitialized] = useState(false);
   const tabSwipeRef = useRef<HTMLDivElement>(null);
-  useTabSwipe(tabSwipeRef, ["overview", "collections", "activities", "events"] as const, activeTab, setActiveTab);
+  useTabSwipe(tabSwipeRef, ["overview", "trends", "collections", "activities", "events"] as const, activeTab, setActiveTab);
+  useEffect(() => {
+    if (activeTab === "trends" && !trendsInitialized) {
+      setTrendsInitialized(true);
+    }
+  }, [activeTab, trendsInitialized]);
+
   useEffect(() => {
     if (activeTab === "overview" && !balancesInitialized.current) {
       balancesInitialized.current = true;
@@ -202,7 +235,18 @@ export default function DashboardPage() {
   return (
     <div className="page-container">
       <div className="flex flex-row flex-wrap items-center justify-between gap-3 mb-6 sm:mb-8">
-        <h1 className="page-title">Dashboard</h1>
+        <div className="flex items-center gap-2">
+          <h1 className="page-title">Dashboard</h1>
+          {isStale && (
+            <span className="text-xs text-gray-400 dark:text-gray-500 flex items-center gap-1 animate-pulse">
+              <svg className="h-3 w-3 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+              </svg>
+              Refreshing…
+            </span>
+          )}
+        </div>
         <div className="flex flex-row flex-wrap items-center gap-2 w-auto">
           <Link
             href="/members"
@@ -243,9 +287,10 @@ export default function DashboardPage() {
           {/* Tab navigation */}
           <div className="border-b border-gray-200 dark:border-surface-border mb-4 sm:mb-6">
             <nav className="flex gap-0 -mb-px overflow-x-auto" aria-label="Dashboard tabs">
-              {(["overview", "collections", "activities", "events"] as const).map((tab) => {
+              {(["overview", "trends", "collections", "activities", "events"] as const).map((tab) => {
                 const labels = {
                   overview: "Overview",
+                  trends: "Trends",
                   collections: "Monthly Collections",
                   activities: `Recent Activities${dashboardData.totalActivities ? ` (${dashboardData.totalActivities})` : ""}`,
                   events: `Upcoming Events${dashboardData.totalUpcomingEvents ? ` (${dashboardData.totalUpcomingEvents})` : ""}`,
@@ -436,6 +481,51 @@ export default function DashboardPage() {
                     <p className="text-sm text-gray-500 dark:text-theme-muted mt-1">{stat.label}</p>
                   </div>
                 ))}
+              </div>
+
+            </div>
+          )}
+
+          {/* ── Trends tab ── placeholder until cards mount for the first time */}
+          {activeTab === "trends" && !trendsInitialized && <TrendsSkeleton />}
+
+          {/* rendered once initialized, hidden when inactive so cards don't re-fetch */}
+          {trendsInitialized && (
+            <div className={activeTab !== "trends" ? "hidden" : "space-y-6"}>
+              <MonthlyFlowCard />
+
+              <div className="grid grid-cols-1 gap-4 sm:gap-6 md:grid-cols-2">
+                <CollectionHealthCard />
+                <BusinessROICard
+                  totalProfit={dashboardData.totalProfit}
+                  investedAmount={dashboardData.investedAmount || 0}
+                />
+              </div>
+
+              <div className="grid grid-cols-1 gap-4 sm:gap-6 md:grid-cols-2">
+                <LoanProfitCard
+                  loanDisbursed={dashboardData.loanDisbursed || 0}
+                  repaymentInflow={dashboardData.repaymentInflow || 0}
+                  loanOutstanding={dashboardData.outsideAmountBreakdown.loanRemainingAmount}
+                  loanProfit={dashboardData.loanProfit}
+                />
+                <YieldMetricsCard
+                  totalProfit={dashboardData.totalProfit}
+                  loanProfit={dashboardData.loanProfit}
+                  chitFundProfit={dashboardData.chitFundProfit}
+                  investedAmount={dashboardData.investedAmount || 0}
+                  loanDisbursed={dashboardData.loanDisbursed || 0}
+                  loanOutstanding={dashboardData.outsideAmountBreakdown.loanRemainingAmount}
+                  totalCashInflow={dashboardData.totalCashInflow}
+                />
+              </div>
+
+              <div className="grid grid-cols-1 gap-4 sm:gap-6 md:grid-cols-2">
+                <ChitFundMonthlyProfitCard />
+                <CapitalUtilizationCard
+                  totalOutstanding={dashboardData.totalOutsideAmount}
+                  investedAmount={dashboardData.investedAmount || 0}
+                />
               </div>
             </div>
           )}

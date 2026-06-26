@@ -2,6 +2,90 @@ import { NextRequest, NextResponse } from "next/server";
 import prisma from "../../../../lib/prisma";
 import { getCurrentUserId } from "../../../../lib/auth";
 
+// Compute aggregations for a single date window given pre-fetched loan/chit data.
+function computeAggregations(
+  allLoans: any[],
+  allChitFunds: any[],
+  repaymentMap: Map<string, number>,
+  contributionMap: Map<string, number>,
+  startDate: Date,
+  endDate: Date
+) {
+  let expectedLoanRepayment = 0;
+  const periodsInRange = new Set<string>();
+
+  for (const loan of allLoans) {
+    const installment = loan.installmentAmount || 0;
+    const loanTermEnd = new Date(loan.disbursementDate);
+    let paymentDate = new Date(loan.disbursementDate);
+    let period = 1;
+
+    if (loan.repaymentType === "Weekly") {
+      loanTermEnd.setDate(loanTermEnd.getDate() + (loan.duration || 0) * 7);
+      paymentDate.setDate(paymentDate.getDate() + 7);
+      while (paymentDate <= endDate && paymentDate <= loanTermEnd) {
+        if (paymentDate >= startDate) {
+          expectedLoanRepayment += installment;
+          periodsInRange.add(`${loan.id}-${period}`);
+        }
+        paymentDate.setDate(paymentDate.getDate() + 7);
+        period++;
+      }
+    } else {
+      loanTermEnd.setMonth(loanTermEnd.getMonth() + (loan.duration || 0));
+      paymentDate.setMonth(paymentDate.getMonth() + 1);
+      while (paymentDate <= endDate && paymentDate <= loanTermEnd) {
+        if (paymentDate >= startDate) {
+          expectedLoanRepayment += installment;
+          periodsInRange.add(`${loan.id}-${period}`);
+        }
+        paymentDate.setMonth(paymentDate.getMonth() + 1);
+        period++;
+      }
+    }
+  }
+
+  const actualLoanRepayment = [...periodsInRange].reduce(
+    (sum, key) => sum + (repaymentMap.get(key) || 0),
+    0
+  );
+
+  let expectedChitContribution = 0;
+  const chitMonthsInRange = new Set<string>();
+
+  for (const cf of allChitFunds) {
+    const contribution = cf.monthlyContribution || 0;
+    const membersCount = cf.members.length;
+    const chitTermEnd = new Date(cf.startDate);
+    chitTermEnd.setMonth(chitTermEnd.getMonth() + (cf.duration || 0));
+    let paymentDate = new Date(cf.startDate);
+    let month = 1;
+
+    while (paymentDate <= endDate && paymentDate < chitTermEnd && month <= cf.duration) {
+      if (paymentDate >= startDate) {
+        expectedChitContribution += contribution * membersCount;
+        chitMonthsInRange.add(`${cf.id}-${month}`);
+      }
+      paymentDate.setMonth(paymentDate.getMonth() + 1);
+      month++;
+    }
+  }
+
+  const actualChitContribution = [...chitMonthsInRange].reduce(
+    (sum, key) => sum + (contributionMap.get(key) || 0),
+    0
+  );
+
+  return {
+    expectedLoanRepayment,
+    actualLoanRepayment,
+    expectedChitContribution,
+    actualChitContribution,
+    totalExpectedAmount: expectedLoanRepayment + expectedChitContribution,
+    totalActualAmount: actualLoanRepayment + actualChitContribution,
+  };
+}
+
 export async function GET(request: NextRequest) {
   try {
     const currentUserId = await getCurrentUserId(request);
@@ -10,189 +94,157 @@ export async function GET(request: NextRequest) {
     }
 
     const searchParams = request.nextUrl.searchParams;
+
+    // ── Batch mode: ?months=N ──────────────────────────────────────────────
+    const monthsParam = searchParams.get("months");
+    if (monthsParam) {
+      const monthsCount = Math.max(1, parseInt(monthsParam, 10) || 6);
+      const now = new Date();
+
+      const monthRanges = Array.from({ length: monthsCount }, (_, i) => {
+        const d = new Date(now.getFullYear(), now.getMonth() - (monthsCount - 1 - i), 1);
+        const start = new Date(d.getFullYear(), d.getMonth(), 1);
+        const end = new Date(d.getFullYear(), d.getMonth() + 1, 0, 23, 59, 59, 999);
+        const label =
+          d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear()
+            ? "This month"
+            : d.toLocaleString("default", { month: "short" }) +
+              (d.getFullYear() !== now.getFullYear()
+                ? ` '${String(d.getFullYear()).slice(2)}`
+                : "");
+        return { start, end, label };
+      });
+
+      const overallStart = monthRanges[0].start;
+      const overallEnd = monthRanges[monthRanges.length - 1].end;
+
+      // Fetch all data once for the full window
+      const [completedLoans, activeLoans, allChitFunds] = await Promise.all([
+        prisma.loan.findMany({
+          where: {
+            createdById: currentUserId,
+            status: "Completed",
+            repayments: { some: { paidDate: { gte: overallStart, lte: overallEnd } } },
+          },
+        }),
+        prisma.loan.findMany({
+          where: {
+            createdById: currentUserId,
+            status: "Active",
+            disbursementDate: { lte: overallEnd },
+          },
+        }),
+        prisma.chitFund.findMany({
+          where: {
+            createdById: currentUserId,
+            OR: [
+              { status: "Active", startDate: { lte: overallEnd } },
+              { status: "Completed", startDate: { lte: overallEnd } },
+            ],
+          },
+          include: { members: true },
+        }),
+      ]);
+
+      const allLoans = [...activeLoans, ...completedLoans];
+
+      const [allRepayments, allContributions] = await Promise.all([
+        prisma.repayment.findMany({
+          where: { createdById: currentUserId, loanId: { in: allLoans.map((l) => l.id) } },
+          select: { loanId: true, period: true, amount: true },
+        }),
+        prisma.contribution.findMany({
+          where: {
+            createdById: currentUserId,
+            chitFundId: { in: allChitFunds.map((cf) => cf.id) },
+          },
+          select: { chitFundId: true, month: true, amount: true },
+        }),
+      ]);
+
+      // Build lookup maps
+      const repaymentMap = new Map<string, number>();
+      for (const r of allRepayments) {
+        const k = `${r.loanId}-${r.period}`;
+        repaymentMap.set(k, (repaymentMap.get(k) || 0) + r.amount);
+      }
+      const contributionMap = new Map<string, number>();
+      for (const c of allContributions) {
+        const k = `${c.chitFundId}-${c.month}`;
+        contributionMap.set(k, (contributionMap.get(k) || 0) + c.amount);
+      }
+
+      const months = monthRanges.map(({ start, end, label }) => ({
+        label,
+        ...computeAggregations(allLoans, allChitFunds, repaymentMap, contributionMap, start, end),
+      }));
+
+      return NextResponse.json({ months });
+    }
+
+    // ── Single-window mode: ?startDate=…&endDate=… ─────────────────────────
     const startDate = new Date(searchParams.get("startDate") || "");
     const endDate = new Date(searchParams.get("endDate") || "");
 
-    // First, get loans that were completed during the period by checking their repayments
-    const completedLoansInPeriod = await prisma.loan.findMany({
-      where: {
-        createdById: currentUserId,
-        status: "Completed",
-        repayments: {
-          some: {
-            paidDate: {
-              gte: startDate,
-              lte: endDate,
-            },
-          },
+    const [completedLoansInPeriod, activeLoans, allChitFunds] = await Promise.all([
+      prisma.loan.findMany({
+        where: {
+          createdById: currentUserId,
+          status: "Completed",
+          repayments: { some: { paidDate: { gte: startDate, lte: endDate } } },
         },
-      },
-    });
-
-    // Get currently active loans
-    const activeLoans = await prisma.loan.findMany({
-      where: {
-        createdById: currentUserId,
-        status: "Active",
-        disbursementDate: {
-          lte: endDate,
+      }),
+      prisma.loan.findMany({
+        where: {
+          createdById: currentUserId,
+          status: "Active",
+          disbursementDate: { lte: endDate },
         },
-      },
-    });
-
-    // Combine both active and completed loans
-    const allRelevantLoans = [...activeLoans, ...completedLoansInPeriod];
-
-    // Calculate which loan periods fall within the selected date range for each loan
-    let expectedLoanRepaymentTotal = 0;
-    const periodsInRange = new Set<string>(); // Format: "loanId-period"
-
-    allRelevantLoans.forEach((loan) => {
-      const periodStart = new Date(startDate);
-      const periodEnd = new Date(endDate);
-      const installment = loan.installmentAmount || 0;
-
-      // Calculate the loan's final due date based on its duration
-      const loanTermEnd = new Date(loan.disbursementDate);
-
-      // Start iterating from the first payment date
-      let paymentDate = new Date(loan.disbursementDate);
-      let currentPeriod = 1;
-
-      if (loan.repaymentType === "Weekly") {
-        loanTermEnd.setDate(loanTermEnd.getDate() + (loan.duration || 0) * 7);
-        paymentDate.setDate(paymentDate.getDate() + 7); // First payment is 1 week after disbursement
-
-        while (paymentDate <= periodEnd && paymentDate <= loanTermEnd) {
-          if (paymentDate >= periodStart) {
-            expectedLoanRepaymentTotal += installment;
-            periodsInRange.add(`${loan.id}-${currentPeriod}`);
-          }
-          // Move to the next week
-          paymentDate.setDate(paymentDate.getDate() + 7);
-          currentPeriod++;
-        }
-      } else {
-        // Assume Monthly
-        loanTermEnd.setMonth(loanTermEnd.getMonth() + (loan.duration || 0));
-        paymentDate.setMonth(paymentDate.getMonth() + 1); // First payment is 1 month after disbursement
-
-        while (paymentDate <= periodEnd && paymentDate <= loanTermEnd) {
-          if (paymentDate >= periodStart) {
-            expectedLoanRepaymentTotal += installment;
-            periodsInRange.add(`${loan.id}-${currentPeriod}`);
-          }
-          // Move to the next month
-          paymentDate.setMonth(paymentDate.getMonth() + 1);
-          currentPeriod++;
-        }
-      }
-    });
-
-    // Get actual loan repayments by joining with Repayment table
-    // Filter by period instead of payment date
-    const repayments = await prisma.repayment.findMany({
-      where: {
-        createdById: currentUserId,
-        loanId: {
-          in: allRelevantLoans.map(loan => loan.id),
+      }),
+      prisma.chitFund.findMany({
+        where: {
+          createdById: currentUserId,
+          OR: [
+            { status: "Active", startDate: { lte: endDate } },
+            { status: "Completed", startDate: { lte: endDate } },
+          ],
         },
-      },
-      select: {
-        loanId: true,
-        period: true,
-        amount: true,
-      },
-    });
+        include: { members: true },
+      }),
+    ]);
 
-    // Sum only repayments whose periods fall in the date range
-    const actualLoanRepaymentAmount = repayments
-      .filter(repayment => periodsInRange.has(`${repayment.loanId}-${repayment.period}`))
-      .reduce((sum, repayment) => sum + repayment.amount, 0);
+    const allLoans = [...activeLoans, ...completedLoansInPeriod];
 
-    // Get chit funds that were active or completed during the period
-    const activeChitFunds = await prisma.chitFund.findMany({
-      where: {
-        createdById: currentUserId,
-        OR: [
-          {
-            status: "Active",
-            startDate: {
-              lte: endDate,
-            },
-          },
-          {
-            status: "Completed",
-            startDate: {
-              lte: endDate,
-            },
-          },
-        ],
-      },
-      include: {
-        members: true,
-      },
-    });
+    const [repayments, contributions] = await Promise.all([
+      prisma.repayment.findMany({
+        where: { createdById: currentUserId, loanId: { in: allLoans.map((l) => l.id) } },
+        select: { loanId: true, period: true, amount: true },
+      }),
+      prisma.contribution.findMany({
+        where: { createdById: currentUserId, chitFundId: { in: allChitFunds.map((cf) => cf.id) } },
+        select: { chitFundId: true, month: true, amount: true },
+      }),
+    ]);
 
-    // Calculate which chit months fall within the selected date range for each chit fund
-    let expectedChitContributionTotal = 0;
-    const chitMonthsInRange = new Set<string>(); // Format: "chitFundId-month"
+    const repaymentMap = new Map<string, number>();
+    for (const r of repayments) {
+      const k = `${r.loanId}-${r.period}`;
+      repaymentMap.set(k, (repaymentMap.get(k) || 0) + r.amount);
+    }
+    const contributionMap = new Map<string, number>();
+    for (const c of contributions) {
+      const k = `${c.chitFundId}-${c.month}`;
+      contributionMap.set(k, (contributionMap.get(k) || 0) + c.amount);
+    }
 
-    activeChitFunds.forEach((chitFund) => {
-      const periodStart = new Date(startDate);
-      const periodEnd = new Date(endDate);
-      const contribution = chitFund.monthlyContribution || 0;
-      const membersCount = chitFund.members.length;
-
-      // Calculate the chit's final payment date
-      const chitTermEnd = new Date(chitFund.startDate);
-      chitTermEnd.setMonth(chitTermEnd.getMonth() + (chitFund.duration || 0));
-
-      // Start from the first contribution date
-      let paymentDate = new Date(chitFund.startDate);
-      let currentMonth = 1;
-
-      while (paymentDate <= periodEnd && paymentDate < chitTermEnd && currentMonth <= chitFund.duration) {
-        if (paymentDate >= periodStart) {
-          expectedChitContributionTotal += contribution * membersCount;
-          chitMonthsInRange.add(`${chitFund.id}-${currentMonth}`);
-        }
-        // Move to the next month's contribution date
-        paymentDate.setMonth(paymentDate.getMonth() + 1);
-        currentMonth++;
-      }
-    });
-
-    // Get actual chit fund contributions by joining with Contribution table
-    // Filter by month instead of payment date
-    const contributions = await prisma.contribution.findMany({
-      where: {
-        createdById: currentUserId,
-        chitFundId: {
-          in: activeChitFunds.map(cf => cf.id),
-        },
-      },
-      select: {
-        chitFundId: true,
-        month: true,
-        amount: true,
-      },
-    });
-
-    // Sum only contributions whose months fall in the date range
-    const actualChitContributionAmount = contributions
-      .filter(contribution => chitMonthsInRange.has(`${contribution.chitFundId}-${contribution.month}`))
-      .reduce((sum, contribution) => sum + contribution.amount, 0);
-
-    // Prepare response
-    const response = {
-      expectedLoanRepayment: expectedLoanRepaymentTotal,
-      actualLoanRepayment: actualLoanRepaymentAmount,
-      expectedChitContribution: expectedChitContributionTotal,
-      actualChitContribution: actualChitContributionAmount,
-      totalExpectedAmount: expectedLoanRepaymentTotal + expectedChitContributionTotal,
-      totalActualAmount: actualLoanRepaymentAmount + actualChitContributionAmount,
-    };
+    const response = computeAggregations(
+      allLoans,
+      allChitFunds,
+      repaymentMap,
+      contributionMap,
+      startDate,
+      endDate
+    );
 
     return NextResponse.json(response);
   } catch (error) {

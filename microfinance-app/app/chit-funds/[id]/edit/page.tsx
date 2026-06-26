@@ -6,6 +6,7 @@ import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { ChitFund } from '../../../../lib/interfaces';
 import { chitFundAPI } from '../../../../lib/api';
+import { invalidateDashboardCache } from '../../../../../lib/dashboardCache';
 
 export default function EditChitFundPage() {
   const params = useParams();
@@ -217,6 +218,7 @@ export default function EditChitFundPage() {
       await chitFundAPI.update(Number(id), dataToSend);
 
       // Redirect to chit fund details page after successful update
+      invalidateDashboardCache();
       router.push(`/chit-funds/${id}`);
     } catch (error: any) {
       console.error('Error updating chit fund:', error);
