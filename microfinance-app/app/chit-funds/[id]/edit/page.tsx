@@ -6,7 +6,7 @@ import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { ChitFund } from '../../../../lib/interfaces';
 import { chitFundAPI } from '../../../../lib/api';
-import { invalidateDashboardCache } from '../../../../../lib/dashboardCache';
+import { invalidateDashboardCache } from '../../../../lib/dashboardCache';
 
 export default function EditChitFundPage() {
   const params = useParams();

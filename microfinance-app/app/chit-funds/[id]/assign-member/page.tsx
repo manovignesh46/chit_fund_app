@@ -5,7 +5,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { memberAPI } from '../../../../lib/api';
-import { invalidateDashboardCache } from '../../../../../lib/dashboardCache';
+import { invalidateDashboardCache } from '../../../../lib/dashboardCache';
 
 interface GlobalMember {
   id: number;
