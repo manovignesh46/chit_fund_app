@@ -4,8 +4,13 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import Link from 'next/link';
 import { apiGet, apiPost, apiDelete } from '../../../lib/apiUtils';
-import { formatCurrency } from '../../../lib/formatUtils';
 import PageSectionHeader from '../../components/layout/PageSectionHeader';
+import { getFundMonthCalendarDate } from '../../../lib/monthlyAggregations';
+
+function formatFundCalendarMonth(startDate: string, fundMonth: number): string {
+  const d = getFundMonthCalendarDate(startDate, fundMonth);
+  return d.toLocaleString('default', { month: 'long', year: 'numeric' });
+}
 
 interface ChitFundOption {
   id: number;
@@ -20,6 +25,17 @@ interface Booking {
   month: number;
   memberId: number;
   memberName: string;
+  isPlanned?: boolean;
+}
+
+interface CompletedAuction {
+  id: number;
+  month: number;
+  memberId: number;
+  memberName: string;
+  amount: number;
+  date: string;
+  isPlanned: false;
 }
 
 interface Member {
@@ -32,8 +48,14 @@ export default function AuctionBookingsPage() {
   const [chitFunds, setChitFunds] = useState<ChitFundOption[]>([]);
   const [selectedFundId, setSelectedFundId] = useState<string>('');
   const [bookings, setBookings] = useState<Booking[]>([]);
+  const [completedAuctions, setCompletedAuctions] = useState<CompletedAuction[]>([]);
   const [members, setMembers] = useState<Member[]>([]);
-  const [fundMeta, setFundMeta] = useState<{ duration: number; currentMonth: number; name: string } | null>(null);
+  const [fundMeta, setFundMeta] = useState<{
+    duration: number;
+    currentMonth: number;
+    name: string;
+    startDate: string;
+  } | null>(null);
   const [loadingFunds, setLoadingFunds] = useState(true);
   const [loadingBookings, setLoadingBookings] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -63,6 +85,7 @@ export default function AuctionBookingsPage() {
   useEffect(() => {
     if (!selectedFundId) {
       setBookings([]);
+      setCompletedAuctions([]);
       setMembers([]);
       setFundMeta(null);
       return;
@@ -77,6 +100,7 @@ export default function AuctionBookingsPage() {
           'Failed to load bookings'
         );
         setBookings(data.bookings || []);
+        setCompletedAuctions(data.completedAuctions || []);
         setMembers(data.members || []);
         setFundMeta(data.chitFund);
       } catch (err: any) {
@@ -88,29 +112,43 @@ export default function AuctionBookingsPage() {
     fetchBookings();
   }, [selectedFundId]);
 
-  const bookedMemberIds = useMemo(
-    () => new Set(bookings.map((b) => b.memberId)),
-    [bookings]
-  );
+  const assignedMemberIds = useMemo(() => {
+    const ids = new Set<number>();
+    for (const b of bookings) ids.add(b.memberId);
+    for (const a of completedAuctions) ids.add(a.memberId);
+    return ids;
+  }, [bookings, completedAuctions]);
 
   const bookingsByMonth = useMemo(() => {
     if (!fundMeta) return [];
-    const map = new Map<number, Booking[]>();
+    const map = new Map<
+      number,
+      { planned: Booking[]; completed: CompletedAuction[] }
+    >();
     for (let m = 1; m <= fundMeta.duration; m++) {
-      map.set(m, []);
+      map.set(m, { planned: [], completed: [] });
     }
     for (const b of bookings) {
-      const list = map.get(b.month) || [];
-      list.push(b);
-      map.set(b.month, list);
+      const entry = map.get(b.month) || { planned: [], completed: [] };
+      entry.planned.push(b);
+      map.set(b.month, entry);
     }
-    return Array.from(map.entries()).map(([month, monthBookings]) => ({
+    for (const a of completedAuctions) {
+      const entry = map.get(a.month) || { planned: [], completed: [] };
+      entry.completed.push(a);
+      map.set(a.month, entry);
+    }
+    return Array.from(map.entries()).map(([month, { planned, completed }]) => ({
       month,
-      bookings: monthBookings,
+      planned,
+      completed,
     }));
-  }, [bookings, fundMeta]);
+  }, [bookings, completedAuctions, fundMeta]);
 
-  const availableMembers = members.filter((m) => !bookedMemberIds.has(m.id));
+  const availableMembers = members.filter((m) => !assignedMemberIds.has(m.id));
+  const totalAssigned = assignedMemberIds.size;
+  const plannedCount = bookings.length;
+  const completedCount = completedAuctions.length;
 
   const handleAddBooking = async (month: number) => {
     if (!selectedMemberId || !selectedFundId) return;
@@ -154,7 +192,7 @@ export default function AuctionBookingsPage() {
     <div className="container mx-auto px-4 py-8">
       <PageSectionHeader
         title="Auction Booking"
-        subtitle="Plan future auction winners in advance. Each member can be booked in only one month."
+        subtitle="Plan future auction winners. Green tags are completed auctions; blue tags are planned bookings you can edit."
         actions={
           <Link
             href="/chit-funds/projection"
@@ -201,8 +239,18 @@ export default function AuctionBookingsPage() {
         <>
           <div className="mb-4 flex flex-wrap items-center gap-4 text-sm text-gray-600 dark:text-theme-secondary">
             <span>
-              <strong>{bookings.length}</strong> of <strong>{members.length}</strong> members booked
+              <strong>{totalAssigned}</strong> of <strong>{members.length}</strong> members assigned
             </span>
+            {completedCount > 0 && (
+              <span>
+                <strong>{completedCount}</strong> completed auction{completedCount !== 1 ? 's' : ''}
+              </span>
+            )}
+            {plannedCount > 0 && (
+              <span>
+                <strong>{plannedCount}</strong> planned booking{plannedCount !== 1 ? 's' : ''}
+              </span>
+            )}
             <span>
               <strong>{availableMembers.length}</strong> unassigned
             </span>
@@ -210,40 +258,75 @@ export default function AuctionBookingsPage() {
 
           <div className="themed-card overflow-hidden">
             <div className="table-shell">
-              <table className="w-full min-w-[600px] divide-y divide-surface-border text-sm">
+              <table className="w-full min-w-[680px] divide-y divide-surface-border text-sm">
                 <thead className="bg-gray-50 dark:bg-surface-elevated">
                   <tr>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Month</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Booked Member(s)</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
+                    <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 dark:text-theme-muted uppercase w-28">
+                      Due Month
+                    </th>
+                    <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 dark:text-theme-muted uppercase">
+                      Calendar Month
+                    </th>
+                    <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 dark:text-theme-muted uppercase">
+                      Booked / Won
+                    </th>
+                    <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 dark:text-theme-muted uppercase">
+                      Actions
+                    </th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-surface-border">
-                  {bookingsByMonth.map(({ month, bookings: monthBookings }) => {
+                  {bookingsByMonth.map(({ month, planned, completed }) => {
                     const isPast = month < fundMeta.currentMonth;
                     const isCurrent = month === fundMeta.currentMonth;
+                    const calendarLabel = formatFundCalendarMonth(fundMeta.startDate, month);
+                    const now = new Date();
+                    const calDate = getFundMonthCalendarDate(fundMeta.startDate, month);
+                    const isCalendarCurrent =
+                      calDate.getFullYear() === now.getFullYear() &&
+                      calDate.getMonth() === now.getMonth();
+                    const hasAny = planned.length > 0 || completed.length > 0;
+
                     return (
                       <tr
                         key={month}
                         className={`hover:bg-gray-50 dark:hover:bg-surface-hover ${
-                          isCurrent ? 'bg-blue-50/50 dark:bg-blue-900/10' : ''
+                          isCurrent ? 'bg-blue-50/50 dark:bg-blue-900/20' : ''
                         }`}
                       >
-                        <td className="px-4 py-3 whitespace-nowrap">
-                          <span className="font-medium">Month {month}</span>
+                        <td className="px-3 py-3 whitespace-nowrap">
+                          <span className="font-medium text-gray-900 dark:text-theme-primary">
+                            {month}
+                          </span>
                           {isCurrent && (
                             <span className="ml-2 text-xs text-blue-600 dark:text-blue-400">(current)</span>
                           )}
                           {isPast && (
-                            <span className="ml-2 text-xs text-gray-400">(past)</span>
+                            <span className="ml-2 text-xs text-gray-400 dark:text-theme-muted">(past)</span>
                           )}
                         </td>
-                        <td className="px-4 py-3">
-                          {monthBookings.length === 0 ? (
-                            <span className="text-gray-400 italic">Unbooked</span>
+                        <td className="px-3 py-3 whitespace-nowrap text-gray-700 dark:text-theme-secondary">
+                          {calendarLabel}
+                          {isCalendarCurrent && (
+                            <span className="ml-1 text-xs text-blue-600 dark:text-blue-400">(now)</span>
+                          )}
+                        </td>
+                        <td className="px-3 py-3">
+                          {!hasAny ? (
+                            <span className="text-gray-400 dark:text-theme-muted italic">Unbooked</span>
                           ) : (
                             <div className="flex flex-wrap gap-2">
-                              {monthBookings.map((b) => (
+                              {completed.map((a) => (
+                                <span
+                                  key={`auction-${a.id}`}
+                                  className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200 text-xs"
+                                  title="Completed auction — recorded on Auctions page"
+                                >
+                                  {a.memberName}
+                                  <span className="text-green-600/70 dark:text-green-400/70">(won)</span>
+                                </span>
+                              ))}
+                              {planned.map((b) => (
                                 <span
                                   key={b.id}
                                   className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200 text-xs"
@@ -254,7 +337,7 @@ export default function AuctionBookingsPage() {
                                     onClick={() => handleRemoveBooking(b.id)}
                                     disabled={saving}
                                     className="ml-1 text-blue-600 hover:text-red-600 disabled:opacity-50"
-                                    title="Remove booking"
+                                    title="Remove planned booking"
                                   >
                                     ×
                                   </button>
@@ -263,7 +346,7 @@ export default function AuctionBookingsPage() {
                             </div>
                           )}
                         </td>
-                        <td className="px-4 py-3">
+                        <td className="px-3 py-3">
                           {addingMonth === month ? (
                             <div className="flex items-center gap-2">
                               <select

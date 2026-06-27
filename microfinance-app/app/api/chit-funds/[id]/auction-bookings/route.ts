@@ -11,6 +11,12 @@ async function getAuthorizedChitFund(chitFundId: number, userId: number) {
     where: { id: chitFundId, createdById: userId },
     include: {
       members: { include: { globalMember: true } },
+      auctions: {
+        include: {
+          winner: { include: { globalMember: true } },
+        },
+        orderBy: [{ month: 'asc' }, { id: 'asc' }],
+      },
       auctionBookings: {
         include: {
           member: { include: { globalMember: true } },
@@ -44,6 +50,17 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       month: b.month,
       memberId: b.memberId,
       memberName: b.member.globalMember.name,
+      isPlanned: true,
+    }));
+
+    const completedAuctions = chitFund.auctions.map((a) => ({
+      id: a.id,
+      month: a.month,
+      memberId: a.winnerId,
+      memberName: a.winner.globalMember.name,
+      amount: a.amount,
+      date: a.date,
+      isPlanned: false,
     }));
 
     const members = chitFund.members.map((m) => ({
@@ -59,8 +76,10 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         duration: chitFund.duration,
         currentMonth: chitFund.currentMonth,
         status: chitFund.status,
+        startDate: chitFund.startDate,
       },
       bookings,
+      completedAuctions,
       members,
     });
   } catch (error) {
@@ -92,7 +111,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
     const chitFund = await prisma.chitFund.findFirst({
       where: { id: chitFundId, createdById: currentUserId },
-      include: { members: true, auctionBookings: true },
+      include: { members: true, auctionBookings: true, auctions: true },
     });
 
     if (!chitFund) {
@@ -116,6 +135,16 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json(
         {
           error: `Member is already booked for month ${existingBooking.month}. Remove that booking first or move them.`,
+        },
+        { status: 409 }
+      );
+    }
+
+    const existingAuction = chitFund.auctions.find((a) => a.winnerId === memberId);
+    if (existingAuction) {
+      return NextResponse.json(
+        {
+          error: `Member already won an auction in month ${existingAuction.month} and cannot be booked again.`,
         },
         { status: 409 }
       );
