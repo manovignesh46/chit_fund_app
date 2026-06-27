@@ -40,16 +40,89 @@ export interface ConsolidatedProjectionRow {
   totalAuctionPayout: number;
   net: number;
   cumulativeBalance: number;
+  isCurrentMonth?: boolean;
+  /** actual = completed auctions; booked = planned bookings */
+  payoutSource?: 'actual' | 'booked';
   /** Payout breakdown by fund name for tooltips/detail */
   auctionPayoutDetails?: { fundName: string; amount: number; bookedCount: number }[];
-  /** Members booked for auction payout in this calendar month */
+  /** Members booked or actual winners for auction payout in this calendar month */
   bookedMembers?: {
     fundId: number;
     fundName: string;
     memberName: string;
     fundMonth: number;
     payoutAmount: number;
+    isActual?: boolean;
   }[];
+}
+
+export interface ActualAuctionRecord {
+  chitFundId: number;
+  fundName: string;
+  amount: number;
+  date: Date | string;
+  memberName: string;
+  fundMonth: number;
+}
+
+export interface ConsolidatedProjectionOptions {
+  actualAuctions?: ActualAuctionRecord[];
+  openingBalance?: number;
+  simulation?: ConsolidatedSimulationOptions;
+}
+
+function isCurrentCalendarMonth(
+  year: number,
+  month: number,
+  now = new Date()
+): boolean {
+  return year === now.getFullYear() && month === now.getMonth() + 1;
+}
+
+function getActualAuctionsForCalendarMonth(
+  actualAuctions: ActualAuctionRecord[],
+  year: number,
+  month: number
+): ActualAuctionRecord[] {
+  return actualAuctions.filter((a) => {
+    const d = new Date(a.date);
+    return isDateInCalendarMonth(d, year, month);
+  });
+}
+
+function buildActualPayoutDetails(
+  actuals: ActualAuctionRecord[]
+): { total: number; details: { fundName: string; amount: number; bookedCount: number }[]; members: ConsolidatedProjectionRow['bookedMembers'] } {
+  const byFund = new Map<string, { amount: number; count: number }>();
+  const members: NonNullable<ConsolidatedProjectionRow['bookedMembers']> = [];
+
+  for (const a of actuals) {
+    const existing = byFund.get(a.fundName) || { amount: 0, count: 0 };
+    existing.amount += a.amount;
+    existing.count += 1;
+    byFund.set(a.fundName, existing);
+
+    members.push({
+      fundId: a.chitFundId,
+      fundName: a.fundName,
+      memberName: a.memberName,
+      fundMonth: a.fundMonth,
+      payoutAmount: a.amount,
+      isActual: true,
+    });
+  }
+
+  const details = [...byFund.entries()].map(([fundName, { amount, count }]) => ({
+    fundName,
+    amount,
+    bookedCount: count,
+  }));
+
+  return {
+    total: actuals.reduce((s, a) => s + a.amount, 0),
+    details,
+    members,
+  };
 }
 
 export function computeAuctionPayoutForCalendarMonth(
@@ -152,17 +225,20 @@ function getSimulatedChitExtra(
 export function computeConsolidatedProjection(
   loans: LoanForAggregation[],
   chitFunds: (ChitFundWithBookings & { name?: string })[],
-  simulation?: ConsolidatedSimulationOptions
+  options: ConsolidatedProjectionOptions = {}
 ): ConsolidatedProjectionRow[] {
+  const { actualAuctions = [], openingBalance = 0, simulation } = options;
   const now = new Date();
   const rangeStart = new Date(now.getFullYear(), now.getMonth(), 1);
   const rangeEnd = getProjectionEndDate(chitFunds);
   const calendarMonths = generateCalendarMonths(rangeStart, rangeEnd);
 
   const rows: ConsolidatedProjectionRow[] = [];
-  let cumulativeBalance = 0;
+  let cumulativeBalance = openingBalance;
 
   for (const cal of calendarMonths) {
+    const isCurrent = isCurrentCalendarMonth(cal.year, cal.month, now);
+
     const expectedLoanRepayments = computeExpectedLoanRepayment(
       loans,
       cal.start,
@@ -183,17 +259,45 @@ export function computeConsolidatedProjection(
     const totalExpectedCollection =
       expectedLoanRepayments + expectedChitContributions;
 
-    const { total: totalAuctionPayout, details: auctionPayoutDetails } =
-      computeAuctionPayoutForCalendarMonth(chitFunds, cal.year, cal.month);
+    let totalAuctionPayout: number;
+    let auctionPayoutDetails: ConsolidatedProjectionRow['auctionPayoutDetails'];
+    let bookedMembers: ConsolidatedProjectionRow['bookedMembers'];
+    let payoutSource: 'actual' | 'booked';
 
-    const bookedMembers = getBookedMembersForCalendarMonth(
-      chitFunds,
-      cal.year,
-      cal.month
-    );
+    if (isCurrent) {
+      const actuals = getActualAuctionsForCalendarMonth(
+        actualAuctions,
+        cal.year,
+        cal.month
+      );
+      const actualPayout = buildActualPayoutDetails(actuals);
+      totalAuctionPayout = actualPayout.total;
+      auctionPayoutDetails = actualPayout.details;
+      bookedMembers = actualPayout.members;
+      payoutSource = 'actual';
+    } else {
+      const booked = computeAuctionPayoutForCalendarMonth(
+        chitFunds,
+        cal.year,
+        cal.month
+      );
+      totalAuctionPayout = booked.total;
+      auctionPayoutDetails = booked.details;
+      bookedMembers = getBookedMembersForCalendarMonth(
+        chitFunds,
+        cal.year,
+        cal.month
+      );
+      payoutSource = 'booked';
+    }
 
     const net = totalExpectedCollection - totalAuctionPayout;
-    cumulativeBalance += net;
+
+    if (isCurrent) {
+      cumulativeBalance = openingBalance;
+    } else {
+      cumulativeBalance += net;
+    }
 
     rows.push({
       year: cal.year,
@@ -205,6 +309,8 @@ export function computeConsolidatedProjection(
       totalAuctionPayout,
       net,
       cumulativeBalance,
+      isCurrentMonth: isCurrent,
+      payoutSource,
       auctionPayoutDetails,
       bookedMembers,
     });
@@ -216,14 +322,26 @@ export function computeConsolidatedProjection(
 export function computeBaselineAndSimulated(
   loans: LoanForAggregation[],
   chitFunds: (ChitFundWithBookings & { name?: string })[],
-  simulation?: ConsolidatedSimulationOptions
+  options: {
+    actualAuctions?: ActualAuctionRecord[];
+    openingBalance?: number;
+    simulation?: ConsolidatedSimulationOptions;
+  } = {}
 ): {
   projection: ConsolidatedProjectionRow[];
   simulatedProjection: ConsolidatedProjectionRow[] | null;
 } {
-  const projection = computeConsolidatedProjection(loans, chitFunds);
+  const { actualAuctions = [], openingBalance = 0, simulation } = options;
+  const projection = computeConsolidatedProjection(loans, chitFunds, {
+    actualAuctions,
+    openingBalance,
+  });
   const simulatedProjection = simulation
-    ? computeConsolidatedProjection(loans, chitFunds, simulation)
+    ? computeConsolidatedProjection(loans, chitFunds, {
+        actualAuctions,
+        openingBalance,
+        simulation,
+      })
     : null;
   return { projection, simulatedProjection };
 }

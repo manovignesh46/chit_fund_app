@@ -40,6 +40,8 @@ interface ProjectionRow {
   totalAuctionPayout: number;
   net: number;
   cumulativeBalance: number;
+  isCurrentMonth?: boolean;
+  payoutSource?: 'actual' | 'booked';
   auctionPayoutDetails?: PayoutDetail[];
   bookedMembers?: BookedMember[];
 }
@@ -56,6 +58,7 @@ export default function ChitFundProjectionPage() {
   const [simulateCalendarKey, setSimulateCalendarKey] = useState<string>('');
   const [simulatedContribution, setSimulatedContribution] = useState<string>('');
   const [expandedMonthKey, setExpandedMonthKey] = useState<string | null>(null);
+  const [openingBalance, setOpeningBalance] = useState<number | null>(null);
 
   const fetchProjection = async (simParams?: {
     fundId: string;
@@ -82,6 +85,7 @@ export default function ChitFundProjectionPage() {
       setProjection(data.projection || []);
       setSimulatedProjection(data.simulatedProjection || null);
       setChitFunds(data.chitFunds || []);
+      setOpeningBalance(data.openingBalance ?? null);
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -244,6 +248,13 @@ export default function ChitFundProjectionPage() {
               differences vs baseline are highlighted.
             </div>
           )}
+          {openingBalance !== null && (
+            <div className="px-4 py-2 border-b border-surface-border text-xs text-gray-500 dark:text-theme-muted">
+              Current month cumulative balance is anchored to your actual cash balance (
+              {formatCurrency(openingBalance)}). Completed auction payouts this month are deducted
+              from the payout column. Future months project from that starting point.
+            </div>
+          )}
           <div className="px-4 py-2 border-b border-surface-border text-xs text-gray-500">
             Click a calendar month to see booked auction winners.
           </div>
@@ -382,7 +393,9 @@ export default function ChitFundProjectionPage() {
                         <td colSpan={colSpan} className="px-6 py-4 border-t border-gray-200 dark:border-surface-border">
                           <div className="rounded-lg border border-gray-200 dark:border-surface-border bg-white dark:bg-surface-card p-4">
                             <div className="text-xs font-semibold text-gray-600 dark:text-theme-secondary uppercase tracking-wide mb-3">
-                              Booked auction winners — {row.label}
+                              {row.payoutSource === 'actual'
+                                ? `Completed auction payouts — ${row.label}`
+                                : `Booked auction winners — ${row.label}`}
                             </div>
                             {hasBookings ? (
                               <div className="overflow-x-auto">
@@ -417,7 +430,9 @@ export default function ChitFundProjectionPage() {
                               </div>
                             ) : (
                               <p className="text-sm text-gray-500 dark:text-theme-muted italic">
-                                No members booked for this month.
+                                {row.payoutSource === 'actual'
+                                  ? 'No completed auction payouts this month.'
+                                  : 'No members booked for this month.'}
                               </p>
                             )}
                           </div>

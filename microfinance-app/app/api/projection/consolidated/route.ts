@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '../../../../lib/prisma';
 import { getCurrentUserId } from '../../../../lib/auth';
+import { getCurrentTotalBalance } from '../../../../lib/balanceCalculator';
 import { computeBaselineAndSimulated } from '../../../../lib/consolidatedProjection';
 
 export async function GET(request: NextRequest) {
@@ -16,36 +17,50 @@ export async function GET(request: NextRequest) {
     const simulateFromMonth = searchParams.get('simulateFromMonth');
     const simulatedContribution = searchParams.get('simulatedContribution');
 
-    const [activeLoans, activeChitFunds] = await Promise.all([
-      prisma.loan.findMany({
-        where: {
-          createdById: currentUserId,
-          status: 'Active',
-        },
-        select: {
-          id: true,
-          installmentAmount: true,
-          disbursementDate: true,
-          duration: true,
-          repaymentType: true,
-        },
-      }),
-      prisma.chitFund.findMany({
-        where: {
-          createdById: currentUserId,
-          status: 'Active',
-        },
-        include: {
-          members: true,
-          fixedAmounts: true,
-          auctionBookings: {
-            include: {
-              member: { include: { globalMember: true } },
+    const [activeLoans, activeChitFunds, openingBalance, completedAuctions] =
+      await Promise.all([
+        prisma.loan.findMany({
+          where: {
+            createdById: currentUserId,
+            status: 'Active',
+          },
+          select: {
+            id: true,
+            installmentAmount: true,
+            disbursementDate: true,
+            duration: true,
+            repaymentType: true,
+          },
+        }),
+        prisma.chitFund.findMany({
+          where: {
+            createdById: currentUserId,
+            status: 'Active',
+          },
+          include: {
+            members: true,
+            fixedAmounts: true,
+            auctionBookings: {
+              include: {
+                member: { include: { globalMember: true } },
+              },
             },
           },
-        },
-      }),
-    ]);
+        }),
+        getCurrentTotalBalance(currentUserId),
+        prisma.auction.findMany({
+          where: {
+            chitFund: {
+              createdById: currentUserId,
+              status: 'Active',
+            },
+          },
+          include: {
+            chitFund: { select: { id: true, name: true } },
+            winner: { include: { globalMember: true } },
+          },
+        }),
+      ]);
 
     let simulation;
     if (simulateFundId && simulateFromYear && simulateFromMonth) {
@@ -86,15 +101,25 @@ export async function GET(request: NextRequest) {
       })),
     }));
 
+    const actualAuctions = completedAuctions.map((a) => ({
+      chitFundId: a.chitFundId,
+      fundName: a.chitFund.name,
+      amount: a.amount,
+      date: a.date,
+      memberName: a.winner.globalMember.name,
+      fundMonth: a.month,
+    }));
+
     const { projection, simulatedProjection } = computeBaselineAndSimulated(
       activeLoans,
       chitFundsInput,
-      simulation
+      { actualAuctions, openingBalance, simulation }
     );
 
     return NextResponse.json({
       projection,
       simulatedProjection,
+      openingBalance,
       chitFunds: activeChitFunds.map((f) => ({
         id: f.id,
         name: f.name,
