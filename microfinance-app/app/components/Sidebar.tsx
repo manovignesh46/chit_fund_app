@@ -241,6 +241,15 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, onOpen }) => {
       )
     },
     {
+      name: 'Auction Booking',
+      href: '/chit-funds/projection',
+      icon: (
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+        </svg>
+      )
+    },
+    {
       name: 'Loans',
       href: '/loans',
       icon: (
@@ -314,9 +323,15 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, onOpen }) => {
     },
   ];
 
-  const isActive = (href: string) => {
+  const isActive = (href: string, name?: string) => {
     if (href === '/dashboard') {
       return pathname === href;
+    }
+    if (name === 'Auction Booking') {
+      return (
+        pathname.startsWith('/chit-funds/projection') ||
+        pathname.startsWith('/chit-funds/auction-bookings')
+      );
     }
     return pathname.startsWith(href);
   };
@@ -393,14 +408,14 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, onOpen }) => {
                   onClick={handleNavClick}
                   className={`
                     flex items-center ${isExpanded ? 'px-3' : 'px-2'} py-2.5 text-sm font-medium rounded-lg transition-colors duration-200 relative group
-                    ${isActive(item.href)
+                    ${isActive(item.href, item.name)
                       ? 'nav-active'
                       : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-surface-hover dark:hover:text-gray-200'
                     }
                   `}
                   title={!isExpanded ? item.name : ''}
                 >
-                  <span className={`${isExpanded ? 'mr-3' : 'lg:mx-auto mr-3'} ${isActive(item.href) ? 'text-blue-600 dark:text-blue-400' : 'text-gray-400 dark:text-gray-500'}`}>
+                  <span className={`${isExpanded ? 'mr-3' : 'lg:mx-auto mr-3'} ${isActive(item.href, item.name) ? 'text-blue-600 dark:text-blue-400' : 'text-gray-400 dark:text-gray-500'}`}>
                     {item.icon}
                   </span>
                   <span className={`whitespace-nowrap ${isExpanded ? 'block' : 'lg:hidden block'}`}>

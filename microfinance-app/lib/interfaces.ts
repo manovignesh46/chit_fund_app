@@ -114,6 +114,19 @@ export interface Auction {
 }
 
 /**
+ * Planned auction booking (forward-looking, separate from actual auctions)
+ */
+export interface AuctionBooking {
+  id: number;
+  chitFundId: number;
+  month: number;
+  memberId: number;
+  memberName?: string;
+  createdAt?: Date | string;
+  updatedAt?: Date | string;
+}
+
+/**
  * Chit Fund Fixed Amount interface
  */
 export interface ChitFundFixedAmount {

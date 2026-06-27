@@ -57,6 +57,7 @@ model ChitFund {
   fixedAmounts           ChitFundFixedAmount[]
   contributions          Contribution[]
   members                Member[]
+  auctionBookings        AuctionBooking[]
 
   @@index([createdById])
 }
@@ -88,10 +89,11 @@ model Member {
   contribution   Float
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
-  auctions       Auction[]
-  contributions  Contribution[]
-  chitFund       ChitFund       @relation(fields: [chitFundId], references: [id], map: "Member_chitFundId_fkey")
-  globalMember   GlobalMember   @relation(fields: [globalMemberId], references: [id], map: "Member_globalMemberId_fkey")
+  auctions        Auction[]
+  contributions   Contribution[]
+  auctionBookings AuctionBooking[]
+  chitFund        ChitFund       @relation(fields: [chitFundId], references: [id], map: "Member_chitFundId_fkey")
+  globalMember    GlobalMember   @relation(fields: [globalMemberId], references: [id], map: "Member_globalMemberId_fkey")
 
   @@index([chitFundId])
   @@index([globalMemberId])
@@ -165,6 +167,22 @@ model Auction {
   @@index([disbursed_by_id])
   @@index([entered_by_id])
   @@index([transactionId])
+}
+
+model AuctionBooking {
+  id         Int      @id @default(autoincrement())
+  chitFundId Int
+  month      Int
+  memberId   Int
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  chitFund ChitFund @relation(fields: [chitFundId], references: [id], onDelete: Cascade)
+  member   Member   @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  @@unique([chitFundId, memberId])
+  @@index([chitFundId])
+  @@index([chitFundId, month])
 }
 
 model ChitFundFixedAmount {
