@@ -94,25 +94,25 @@ export default function PendingChitsModal({ isOpen, onClose, chitFunds, month, y
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-16 w-16 mx-auto text-gray-300 mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
-                <p className="text-gray-500 text-lg">No pending chit fund contributions</p>
-                <p className="text-gray-400 text-sm mt-1">All contributions are up to date for this period!</p>
+                <p className="text-gray-500 dark:text-theme-secondary text-lg">No pending chit fund contributions</p>
+                <p className="text-gray-400 dark:text-theme-muted text-sm mt-1">All contributions are up to date for this period!</p>
               </div>
             ) : (
               <>
                 {/* Summary */}
-                <div className="mb-4 bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <div className="mb-4 bg-blue-50 dark:bg-surface-elevated border border-blue-200 dark:border-surface-border rounded-lg p-4">
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-sm text-gray-700 dark:text-theme-secondary">Chit Funds with Pending</p>
-                      <p className="text-2xl font-bold text-blue-600">{chitFunds.length}</p>
+                      <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">{chitFunds.length}</p>
                     </div>
                     <div>
                       <p className="text-sm text-gray-700 dark:text-theme-secondary">Members with Pending</p>
-                      <p className="text-2xl font-bold text-purple-600">{totalPendingMembers}</p>
+                      <p className="text-2xl font-bold text-purple-600 dark:text-purple-400">{totalPendingMembers}</p>
                     </div>
                     <div className="text-right">
                       <p className="text-sm text-gray-700 dark:text-theme-secondary">Total Pending Amount</p>
-                      <p className="text-2xl font-bold text-orange-600">{formatCurrency(totalPendingAmount)}</p>
+                      <p className="text-2xl font-bold text-orange-600 dark:text-orange-400">{formatCurrency(totalPendingAmount)}</p>
                     </div>
                   </div>
                 </div>
@@ -120,27 +120,27 @@ export default function PendingChitsModal({ isOpen, onClose, chitFunds, month, y
                 {/* Chit Funds List */}
                 <div className="space-y-4 max-h-96 overflow-y-auto">
                   {chitFunds.map((chitFund) => (
-                    <div key={chitFund.id} className="border-2 border-blue-200 rounded-lg p-4 bg-blue-50">
+                    <div key={chitFund.id} className="border-2 border-blue-200 dark:border-surface-border rounded-lg p-4 bg-blue-50 dark:bg-surface-elevated">
                       {/* Chit Fund Header */}
-                      <div className="mb-3 pb-3 border-b border-blue-300">
+                      <div className="mb-3 pb-3 border-b border-blue-300 dark:border-surface-border">
                         <div className="flex items-start justify-between mb-2">
                           <div>
-                            <h4 className="text-lg font-bold text-blue-800">{chitFund.name}</h4>
+                            <h4 className="text-lg font-bold text-blue-800 dark:text-blue-400">{chitFund.name}</h4>
                             <p className="text-sm text-gray-700 dark:text-theme-secondary">{chitFund.frequency} Contributions</p>
                           </div>
                           <div className="text-right">
-                            <p className="text-xs text-gray-500">Chit Fund Pending</p>
-                            <p className="text-xl font-bold text-orange-600">{formatCurrency(chitFund.totalPendingAmount)}</p>
+                            <p className="text-xs text-gray-500 dark:text-theme-muted">Chit Fund Pending</p>
+                            <p className="text-xl font-bold text-orange-600 dark:text-orange-400">{formatCurrency(chitFund.totalPendingAmount)}</p>
                           </div>
                         </div>
-                        
+
                         <div className="grid grid-cols-2 gap-2 text-sm">
                           <div className="themed-card p-2 rounded">
-                            <p className="text-xs text-gray-500">Total Amount</p>
+                            <p className="text-xs text-gray-500 dark:text-theme-muted">Total Amount</p>
                             <p className="font-semibold text-gray-700 dark:text-theme-secondary">{formatCurrency(chitFund.totalAmount)}</p>
                           </div>
                           <div className="themed-card p-2 rounded">
-                            <p className="text-xs text-gray-500">Installment Amount</p>
+                            <p className="text-xs text-gray-500 dark:text-theme-muted">Installment Amount</p>
                             <p className="font-semibold text-gray-700 dark:text-theme-secondary">{formatCurrency(chitFund.installmentAmount)}</p>
                           </div>
                         </div>
@@ -153,21 +153,21 @@ export default function PendingChitsModal({ isOpen, onClose, chitFunds, month, y
                           {chitFund.pendingMembers.map((member, index) => (
                             <div key={index} className="themed-card border border-gray-200 dark:border-surface-border rounded p-3 flex items-center justify-between hover:shadow-sm transition">
                               <div className="flex items-center">
-                                <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center mr-3">
-                                  <span className="text-sm font-bold text-blue-700">
+                                <div className="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900/40 flex items-center justify-center mr-3">
+                                  <span className="text-sm font-bold text-blue-700 dark:text-blue-300">
                                     {member.memberName.substring(0, 2).toUpperCase()}
                                   </span>
                                 </div>
                                 <div>
                                   <p className="font-semibold text-gray-900 dark:text-theme-primary">{member.memberName}</p>
-                                  <p className="text-xs text-gray-500">
+                                  <p className="text-xs text-gray-500 dark:text-theme-muted">
                                     {member.pendingPeriods} {chitFund.frequency === 'Weekly' ? 'weeks' : 'months'} pending
                                   </p>
                                 </div>
                               </div>
                               <div className="text-right">
-                                <p className="text-xs text-gray-500">Pending Amount</p>
-                                <p className="text-base font-bold text-orange-600">{formatCurrency(member.pendingAmount)}</p>
+                                <p className="text-xs text-gray-500 dark:text-theme-muted">Pending Amount</p>
+                                <p className="text-base font-bold text-orange-600 dark:text-orange-400">{formatCurrency(member.pendingAmount)}</p>
                               </div>
                             </div>
                           ))}

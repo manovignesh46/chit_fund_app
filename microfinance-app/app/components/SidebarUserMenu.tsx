@@ -8,9 +8,10 @@ import { authAPI } from '../../lib/api';
 
 interface SidebarUserMenuProps {
   showDetails: boolean;
+  onClose: () => void;
 }
 
-export default function SidebarUserMenu({ showDetails }: SidebarUserMenuProps) {
+export default function SidebarUserMenu({ showDetails, onClose }: SidebarUserMenuProps) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -66,7 +67,10 @@ export default function SidebarUserMenu({ showDetails }: SidebarUserMenuProps) {
         <div className="absolute bottom-full left-0 mb-2 w-48 bg-white dark:bg-surface-elevated border border-gray-200 dark:border-surface-border rounded-lg shadow-lg py-1 z-50">
           <Link
             href="/settings"
-            onClick={() => setMenuOpen(false)}
+            onClick={() => {
+              setMenuOpen(false);
+              if (window.innerWidth < 1024) onClose();
+            }}
             className="flex items-center gap-2.5 px-3 py-2.5 text-sm text-gray-700 dark:text-theme-secondary hover:bg-gray-100 dark:hover:bg-surface-hover hover:text-gray-900 dark:hover:text-theme-primary transition-colors"
           >
             <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">

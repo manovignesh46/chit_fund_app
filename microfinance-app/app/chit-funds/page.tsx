@@ -611,7 +611,7 @@ export default function ChitFundsPage() {
                       </div>
                     </td>
                     <td className="whitespace-nowrap">
-                      <div className="text-sm font-medium text-white">{fund.name}</div>
+                      <div className="text-sm font-medium text-gray-900 dark:text-theme-primary">{fund.name}</div>
                     </td>
                     <td className="whitespace-nowrap">
                       <div className="text-sm">{formatCurrency(fund.totalAmount)}</div>

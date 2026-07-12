@@ -12,6 +12,7 @@ interface LayoutProps {
 const Layout: React.FC<LayoutProps> = ({ children }) => {
   const pathname = usePathname();
   const isMessagesPage = pathname === '/messages';
+  const isLoginPage = pathname === '/login';
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarExpanded, setSidebarExpanded] = useState(false);
 
@@ -48,6 +49,10 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
       window.removeEventListener('sidebarExpansion', handleSidebarExpansion as EventListener);
     };
   }, []);
+
+  if (isLoginPage) {
+    return <>{children}</>;
+  }
 
   return (
     <div className="flex h-screen overflow-hidden bg-gray-50 dark:bg-surface">

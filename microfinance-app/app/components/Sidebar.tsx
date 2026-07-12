@@ -434,7 +434,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, onOpen }) => {
 
         {/* Profile - bottom left */}
         <div className={`border-t border-gray-200 dark:border-surface-border bg-gray-50 dark:bg-transparent flex-shrink-0 ${isExpanded || !isDesktop ? 'p-3' : 'p-2'}`}>
-          <SidebarUserMenu showDetails={isExpanded || !isDesktop} />
+          <SidebarUserMenu showDetails={isExpanded || !isDesktop} onClose={onClose} />
         </div>
       </div>
     </>

@@ -759,30 +759,30 @@ export default function ChitFundAuctionsPage() {
             <div className="bg-gray-50 dark:bg-surface-elevated p-4 rounded-lg mb-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <p className="text-sm text-gray-500">Month</p>
-                  <p className="text-md font-semibold">Month {selectedAuction.month}</p>
+                  <p className="text-sm text-gray-500 dark:text-theme-muted">Month</p>
+                  <p className="text-md font-semibold text-gray-900 dark:text-theme-primary">Month {selectedAuction.month}</p>
                 </div>
                 <div>
-                  <p className="text-sm text-gray-500">Winner</p>
-                  <p className="text-md font-semibold">{selectedAuction.winner?.globalMember?.name || `Member ID: ${selectedAuction.winnerId}`}</p>
+                  <p className="text-sm text-gray-500 dark:text-theme-muted">Winner</p>
+                  <p className="text-md font-semibold text-gray-900 dark:text-theme-primary">{selectedAuction.winner?.globalMember?.name || `Member ID: ${selectedAuction.winnerId}`}</p>
                 </div>
               </div>
             </div>
 
             <div className="mb-4">
-              <h3 className="text-lg font-semibold mb-2">Auction Information</h3>
+              <h3 className="text-lg font-semibold mb-2 text-gray-900 dark:text-theme-heading">Auction Information</h3>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <p className="text-sm text-gray-500">Amount</p>
-                  <p className="text-md font-semibold">{formatCurrency(selectedAuction.amount)}</p>
+                  <p className="text-sm text-gray-500 dark:text-theme-muted">Amount</p>
+                  <p className="text-md font-semibold text-gray-900 dark:text-theme-primary">{formatCurrency(selectedAuction.amount)}</p>
                 </div>
                 <div>
-                  <p className="text-sm text-gray-500">Date</p>
-                  <p className="text-md font-semibold">{formatDate(selectedAuction.date)}</p>
+                  <p className="text-sm text-gray-500 dark:text-theme-muted">Date</p>
+                  <p className="text-md font-semibold text-gray-900 dark:text-theme-primary">{formatDate(selectedAuction.date)}</p>
                 </div>
                 <div>
-                  <p className="text-sm text-gray-500">Discount</p>
-                  <p className="text-md font-semibold text-green-600">
+                  <p className="text-sm text-gray-500 dark:text-theme-muted">Discount</p>
+                  <p className="text-md font-semibold text-green-600 dark:text-green-400">
                     {formatCurrency(chitFund.totalAmount - selectedAuction.amount)}
                     ({Math.round((1 - selectedAuction.amount / chitFund.totalAmount) * 100)}%)
                   </p>
@@ -792,30 +792,30 @@ export default function ChitFundAuctionsPage() {
 
             {(selectedAuction.lowestBid || selectedAuction.highestBid || selectedAuction.numberOfBidders || selectedAuction.notes) && (
               <div className="mb-4">
-                <h3 className="text-lg font-semibold mb-2">Additional Details</h3>
+                <h3 className="text-lg font-semibold mb-2 text-gray-900 dark:text-theme-heading">Additional Details</h3>
                 <div className="space-y-2">
                   {selectedAuction.numberOfBidders && (
                     <div>
-                      <p className="text-sm text-gray-500">Number of Bidders</p>
-                      <p className="text-md">{selectedAuction.numberOfBidders}</p>
+                      <p className="text-sm text-gray-500 dark:text-theme-muted">Number of Bidders</p>
+                      <p className="text-md text-gray-900 dark:text-theme-primary">{selectedAuction.numberOfBidders}</p>
                     </div>
                   )}
                   {selectedAuction.lowestBid && (
                     <div>
-                      <p className="text-sm text-gray-500">Lowest Bid</p>
-                      <p className="text-md">{formatCurrency(selectedAuction.lowestBid)}</p>
+                      <p className="text-sm text-gray-500 dark:text-theme-muted">Lowest Bid</p>
+                      <p className="text-md text-gray-900 dark:text-theme-primary">{formatCurrency(selectedAuction.lowestBid)}</p>
                     </div>
                   )}
                   {selectedAuction.highestBid && (
                     <div>
-                      <p className="text-sm text-gray-500">Highest Bid</p>
-                      <p className="text-md">{formatCurrency(selectedAuction.highestBid)}</p>
+                      <p className="text-sm text-gray-500 dark:text-theme-muted">Highest Bid</p>
+                      <p className="text-md text-gray-900 dark:text-theme-primary">{formatCurrency(selectedAuction.highestBid)}</p>
                     </div>
                   )}
                   {selectedAuction.notes && (
                     <div>
-                      <p className="text-sm text-gray-500">Notes</p>
-                      <p className="text-md whitespace-pre-line">{selectedAuction.notes}</p>
+                      <p className="text-sm text-gray-500 dark:text-theme-muted">Notes</p>
+                      <p className="text-md whitespace-pre-line text-gray-900 dark:text-theme-primary">{selectedAuction.notes}</p>
                     </div>
                   )}
                 </div>
