@@ -26,6 +26,7 @@ interface PaymentSchedule {
   period: number;
   dueDate: string;
   amount: number;
+  interestAmount?: number;
   status: string;
 }
 
@@ -131,13 +132,6 @@ export default function RepaymentForm({ loanId, onSuccess, onCancel, initialLoan
         setLoading(true);
         const data = await loanAPI.getById(loanId);
         setLoan(data);
-
-        if (data.installmentAmount) {
-          setFormData(prev => ({
-            ...prev,
-            amount: data.installmentAmount.toString()
-          }));
-        }
       } catch (error) {
         console.error('Error fetching loan details:', error);
       } finally {
@@ -148,6 +142,23 @@ export default function RepaymentForm({ loanId, onSuccess, onCancel, initialLoan
     fetchLoanDetails();
     fetchPendingSchedules();
   }, [loanId, initialLoan, fetchPendingSchedules]);
+
+  // Prefill the payment amount based on the selected schedule, the Interest
+  // Only toggle, and the loan type (Reducing Balance always defaults to interest-only).
+  useEffect(() => {
+    if (!formData.scheduleId || pendingSchedules.length === 0) return;
+
+    const schedule = pendingSchedules.find(s => s.id.toString() === formData.scheduleId);
+    if (!schedule) return;
+
+    const useInterestOnly = loan?.loanType === 'Reducing Balance' || formData.paymentType === 'INTEREST_ONLY';
+    const newAmount = useInterestOnly ? schedule.interestAmount : schedule.amount;
+
+    setFormData(prev => ({
+      ...prev,
+      amount: newAmount != null ? newAmount.toString() : prev.amount
+    }));
+  }, [formData.scheduleId, formData.paymentType, loan?.loanType, pendingSchedules]);
 
   // Update collector info when partner changes
   useEffect(() => {
@@ -214,10 +225,11 @@ export default function RepaymentForm({ loanId, onSuccess, onCancel, initialLoan
       await loanAPI.addRepayment(loanId, requestData);
       onSuccess();
       
-      // Reset form (except collector)
+      // Reset form (except collector); amount gets re-derived once the next
+      // schedule is auto-selected by fetchPendingSchedules below.
       setFormData(prev => ({
         ...prev,
-        amount: loan?.installmentAmount?.toString() || '',
+        amount: '',
         notes: '',
         scheduleId: ''
       }));

@@ -580,7 +580,8 @@ export function TransactionList(props: TransactionListProps & {
                     currentSortKey={sortConfig.key}
                     currentSortDirection={sortConfig.direction}
                     onSort={requestSort}
-                    className="px-4 py-2 text-right"
+                    className="px-4 py-2"
+                    align="right"
                   />
                   <SortableTableHeader
                     label="Partner Balance"
@@ -588,7 +589,8 @@ export function TransactionList(props: TransactionListProps & {
                     currentSortKey={sortConfig.key}
                     currentSortDirection={sortConfig.direction}
                     onSort={requestSort}
-                    className="px-4 py-2 text-right"
+                    className="px-4 py-2"
+                    align="right"
                   />
                   <SortableTableHeader
                     label="Total Balance"
@@ -596,7 +598,8 @@ export function TransactionList(props: TransactionListProps & {
                     currentSortKey={sortConfig.key}
                     currentSortDirection={sortConfig.direction}
                     onSort={requestSort}
-                    className="px-4 py-2 text-right"
+                    className="px-4 py-2"
+                    align="right"
                   />
                 </tr>
               </thead>

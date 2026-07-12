@@ -2,7 +2,6 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { useTabSwipe } from '../../hooks/useTabSwipe';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { ChitFund, ChitFundMember, Auction, Contribution } from '../../../lib/interfaces';
@@ -69,8 +68,6 @@ const ChitFundDetails = () => {
 
   // Tab state
   const [activeTab, setActiveTab] = useState<"overview" | "contributions" | "auctions">("overview");
-  const tabSwipeRef = useRef<HTMLDivElement>(null);
-  useTabSwipe(tabSwipeRef, ["overview", "contributions", "auctions"] as const, activeTab, setActiveTab);
 
   // For deletion
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -686,7 +683,7 @@ const ChitFundDetails = () => {
         </div>
       </div>
 
-      <div ref={tabSwipeRef}>
+      <div>
       {/* Tab navigation */}
       <div className="border-b border-gray-200 dark:border-surface-border mb-4 sm:mb-6">
         <nav className="flex gap-0 -mb-px overflow-x-auto" aria-label="Chit fund tabs">

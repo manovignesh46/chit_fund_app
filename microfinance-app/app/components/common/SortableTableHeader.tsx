@@ -11,6 +11,7 @@ interface SortableTableHeaderProps {
   currentSortDirection: SortDirection;
   onSort: (key: string) => void;
   className?: string;
+  align?: 'left' | 'center' | 'right';
 }
 
 export default function SortableTableHeader({
@@ -20,17 +21,25 @@ export default function SortableTableHeader({
   currentSortDirection,
   onSort,
   className = '',
+  align = 'left',
 }: SortableTableHeaderProps) {
   const isActive = currentSortKey === sortKey;
   const direction = isActive ? currentSortDirection : null;
 
+  const textAlignClass = align === 'right' ? 'text-right' : align === 'center' ? 'text-center' : 'text-left';
+  const justifyClass = align === 'right' ? 'justify-end' : align === 'center' ? 'justify-center' : 'justify-start';
+  // A caller-supplied padding class (e.g. to match its own <td> padding) must win outright —
+  // combining it with the default here would fall to Tailwind's stylesheet order, not intent.
+  const hasCustomPadding = /(?:^|\s)(?:p|px|py)-\d/.test(className);
+  const paddingClass = hasCustomPadding ? '' : 'px-2 sm:px-6 py-2 sm:py-3';
+
   return (
     <th
       scope="col"
-      className={`px-2 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 dark:text-theme-muted uppercase tracking-wider cursor-pointer hover:bg-gray-50 dark:hover:bg-surface-hover transition-colors ${className}`}
+      className={`${paddingClass} ${textAlignClass} text-xs font-medium text-gray-500 dark:text-theme-muted uppercase tracking-wider cursor-pointer hover:bg-gray-50 dark:hover:bg-surface-hover transition-colors ${className}`}
       onClick={() => onSort(sortKey)}
     >
-      <div className="flex items-center space-x-1">
+      <div className={`flex items-center ${justifyClass} space-x-1`}>
         <span>{label}</span>
         <div className="flex flex-col">
           {direction === 'asc' ? (

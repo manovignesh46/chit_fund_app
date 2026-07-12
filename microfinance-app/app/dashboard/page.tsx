@@ -2,7 +2,6 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
-import { useTabSwipe } from "../hooks/useTabSwipe";
 import Link from "next/link";
 import { dashboardAPI } from "../../lib/api";
 import { DashboardSkeleton, TrendsSkeleton } from "../components/skeletons/DashboardSkeletons";
@@ -174,8 +173,6 @@ export default function DashboardPage() {
   const balancesInitialized = useRef(false);
   // Lazy-load trends tab: keep mounted once visited so cards don't re-fetch
   const [trendsInitialized, setTrendsInitialized] = useState(false);
-  const tabSwipeRef = useRef<HTMLDivElement>(null);
-  useTabSwipe(tabSwipeRef, ["overview", "trends", "collections", "activities", "events"] as const, activeTab, setActiveTab);
   useEffect(() => {
     if (activeTab === "trends" && !trendsInitialized) {
       setTrendsInitialized(true);
@@ -283,7 +280,7 @@ export default function DashboardPage() {
           <p>{error}</p>
         </div>
       ) : (
-        <div ref={tabSwipeRef}>
+        <div>
           {/* Tab navigation */}
           <div className="border-b border-gray-200 dark:border-surface-border mb-4 sm:mb-6">
             <nav className="flex gap-0 -mb-px overflow-x-auto" aria-label="Dashboard tabs">
