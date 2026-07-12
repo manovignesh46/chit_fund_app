@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { formatCurrency, formatDate } from '../../lib/formatUtils';
 import { usePartner } from '../contexts/PartnerContext';
 import SortableTableHeader, { useSortableData } from './common/SortableTableHeader';
+import { TableSkeleton } from './skeletons/SkeletonLoader';
 
 interface Transaction {
   id: number;
@@ -173,7 +174,16 @@ export function TransactionList(props: TransactionListProps & {
     }
   }
 
-  if (loading) return <div>Loading transactions...</div>;
+  if (loading) {
+    return (
+      <div className="themed-card p-4">
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="text-xl font-bold">Recent Transactions</h2>
+        </div>
+        <TableSkeleton rows={pageSize} columns={7} />
+      </div>
+    );
+  }
   if (error) return <div className="text-red-600">{error}</div>;
 
   // Helper to determine Credit/Debit for Cr/Dt column

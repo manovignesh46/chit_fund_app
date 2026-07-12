@@ -11,28 +11,6 @@ interface HeaderProps {
   onMenuToggle: () => void;
 }
 
-const PAGE_TITLES: Record<string, string> = {
-  '/dashboard': 'Dashboard',
-  '/chit-funds': 'Chit Funds',
-  '/loans': 'Loans',
-  '/members': 'Members',
-  '/partners': 'Partners',
-  '/users': 'User Accounts',
-  '/transactions': 'Transactions',
-  '/financial-trends': 'Financial Trends',
-  '/calendar': 'Calendar',
-  '/activities': 'Activities',
-  '/messages': 'Messages',
-  '/notifications': 'Notifications',
-  '/settings': 'Settings',
-};
-
-function getPageTitle(pathname: string): string {
-  if (PAGE_TITLES[pathname]) return PAGE_TITLES[pathname];
-  const match = Object.entries(PAGE_TITLES).find(([path]) => pathname.startsWith(path + '/'));
-  return match ? match[1] : 'AM Fincorp';
-}
-
 export default function Header({ onMenuToggle }: HeaderProps) {
   const pathname = usePathname();
   const isLoginPage = pathname === '/login';
@@ -40,8 +18,6 @@ export default function Header({ onMenuToggle }: HeaderProps) {
   if (isLoginPage) {
     return null;
   }
-
-  const pageTitle = getPageTitle(pathname);
 
   return (
     <header className="sticky top-0 z-50 bg-white dark:bg-surface-sidebar border-b border-gray-200 dark:border-surface-border h-16 min-h-16 flex items-center flex-shrink-0">
@@ -57,10 +33,8 @@ export default function Header({ onMenuToggle }: HeaderProps) {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16" />
               </svg>
             </button>
-            {/* Mobile: show company name. Desktop: show current page title (sidebar provides brand context) */}
-            <h1 className="text-base font-semibold text-gray-900 dark:text-theme-heading">
-              <span className="lg:hidden">AM Fincorp</span>
-              <span className="hidden lg:inline">{pageTitle}</span>
+            <h1 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-theme-heading">
+              AM Fincorp
             </h1>
           </div>
 
