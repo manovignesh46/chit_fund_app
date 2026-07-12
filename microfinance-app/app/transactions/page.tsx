@@ -17,7 +17,7 @@ import {
 } from "../../lib/transactionFilterUtils";
 
 export default function TransactionsPage() {
-  const [activeTab, setActiveTab] = useState("summary" as "summary" | "history" | "record-transactions");
+  const [activeTab, setActiveTab] = useState("summary" as "summary" | "record-transactions");
   const [refreshList, setRefreshList] = useState(false);
   const { selectedPartner, partners, refreshPartners } = usePartner();
   const [partnersWithBalances, setPartnersWithBalances] = useState([] as { id: number; name: string; isActive: boolean; createdAt: string; balance?: number }[]);
@@ -217,8 +217,8 @@ export default function TransactionsPage() {
       {/* Tab navigation */}
       <div className="border-b border-gray-200 dark:border-surface-border mb-4 sm:mb-6">
         <nav className="flex gap-0 -mb-px overflow-x-auto" aria-label="Transaction tabs">
-          {(["summary", "history", "record-transactions"] as const).map((tab) => {
-            const labels = { summary: "Summary", history: "Transaction History", "record-transactions": "Record Transactions" };
+          {(["summary", "record-transactions"] as const).map((tab) => {
+            const labels = { summary: "Summary", "record-transactions": "Record Transactions" };
             const isActive = activeTab === tab;
             return (
               <button
@@ -283,12 +283,7 @@ export default function TransactionsPage() {
             endDate={endDate}
             refreshTrigger={refreshList}
           />
-        </div>
-      )}
 
-      {/* History tab */}
-      {activeTab === "history" && (
-        <div className="space-y-4">
           {/* Filters row */}
           <div className="themed-card p-4 sm:p-5 space-y-4">
             <div className="grid grid-cols-2 sm:flex sm:flex-row gap-3">

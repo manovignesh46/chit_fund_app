@@ -544,19 +544,11 @@ export function TransactionList(props: TransactionListProps & {
       ) : (
         <>
           <div className="overflow-x-auto w-full mb-6" style={{maxWidth: '85vw'}}>
-            <table className="w-full min-w-[1400px] divide-y divide-surface-border text-xs sm:text-sm">
+            <table className="w-full min-w-[1100px] divide-y divide-surface-border text-xs sm:text-sm">
               <thead className="bg-gray-50 dark:bg-surface-elevated">
                 <tr>
                   <SortableTableHeader
                     label="Date"
-                    sortKey="createdAt"
-                    currentSortKey={sortConfig.key}
-                    currentSortDirection={sortConfig.direction}
-                    onSort={requestSort}
-                    className="px-4 py-2"
-                  />
-                  <SortableTableHeader
-                    label="Payment Date"
                     sortKey="date"
                     currentSortKey={sortConfig.key}
                     currentSortDirection={sortConfig.direction}
@@ -573,7 +565,6 @@ export function TransactionList(props: TransactionListProps & {
                   />
                   <th className="px-4 py-2 text-left font-medium text-gray-500 uppercase tracking-wider">Member</th>
                   <th className="px-4 py-2 text-left font-medium text-gray-500 uppercase tracking-wider">Partner</th>
-                  <th className="px-4 py-2 text-center font-medium text-gray-500 uppercase tracking-wider">Cr/Dt</th>
                   <SortableTableHeader
                     label="Amount"
                     sortKey="amount"
@@ -619,25 +610,17 @@ export function TransactionList(props: TransactionListProps & {
                     }}
                   >
                     <td className="px-4 py-2 whitespace-nowrap relative">
-                      {formatDate(t.createdAt)}
-                    </td>
-                    <td className="px-4 py-2 whitespace-nowrap relative">
-                      {formatDate(t.date)}
+                      <div>{formatDate(t.date)}</div>
+                      {formatDate(t.createdAt) !== formatDate(t.date) && (
+                        <div className="text-[10px] text-gray-400 dark:text-theme-muted">
+                          Recorded {formatDate(t.createdAt)}
+                        </div>
+                      )}
                     </td>
                     <td className="px-4 py-2 whitespace-nowrap">{t.type.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}</td>
                     <td className="px-4 py-2 whitespace-nowrap">{extractMemberName(t.note)}</td>
                     <td className="px-4 py-2 whitespace-nowrap">{getPartnerName(t)}</td>
                     {/* Removed Entered By column */}
-                    <td className={
-                      `px-4 py-2 whitespace-nowrap text-center font-semibold ` +
-                      (getCrDr(t) === 'Credit'
-                        ? 'text-green-600 dark:text-emerald-400'
-                        : getCrDr(t) === 'Debit'
-                        ? 'text-red-600 dark:text-red-400'
-                        : 'text-blue-600 dark:text-blue-400')
-                    }>
-                      {getCrDr(t)}
-                    </td>
                     <td className={
                       `px-4 py-2 whitespace-nowrap text-right font-semibold ` +
                       (getCrDr(t) === 'Credit'
@@ -646,7 +629,8 @@ export function TransactionList(props: TransactionListProps & {
                         ? 'text-red-600 dark:text-red-400'
                         : 'text-blue-600 dark:text-blue-400')
                     }>
-                      {formatCurrency(t.amount)}
+                      <div>{formatCurrency(t.amount)}</div>
+                      <div className="text-[10px] font-normal uppercase tracking-wide">{getCrDr(t)}</div>
                     </td>
                     <td className="px-4 py-2 whitespace-nowrap text-right font-medium text-gray-900 dark:text-theme-primary">
                       {t.partnerBalance !== null && t.partnerBalance !== undefined 
