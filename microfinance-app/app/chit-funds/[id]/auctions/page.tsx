@@ -5,6 +5,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { apiGet, apiPost, apiDelete } from '../../../lib/apiUtils';
+import BackTitle from '../../../components/common/BackTitle';
 import { formatDate as formatDateUtil, formatCurrency as formatCurrencyUtil } from '../../../../lib/formatUtils';
 
 interface GlobalMember {
@@ -362,7 +363,7 @@ export default function ChitFundAuctionsPage() {
     <div className="container mx-auto px-4 py-8">
       <div className="flex justify-between items-center mb-6">
         <div>
-          <h1 className="page-title">Auctions</h1>
+          <BackTitle title="Auctions" href={`/chit-funds/${chitFundId}`} ariaLabel="Back to Chit Fund" />
           <p className="text-gray-700 dark:text-theme-secondary">
             Month {chitFund.currentMonth} of {chitFund.duration}
             <br />
@@ -375,10 +376,6 @@ export default function ChitFundAuctionsPage() {
           </p>
         </div>
         <div className="flex space-x-2 sm:space-x-4">
-          <Link href={`/chit-funds/${chitFundId}`} className="p-2 rounded-lg text-sm sm:text-base transition duration-300 flex items-center justify-center btn-neutral sm:px-4 sm:py-2">
-            <svg className="h-5 w-5 block sm:hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7"></path></svg>
-            <span className="hidden sm:inline-flex items-center"><svg className="h-5 w-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7"></path></svg>Back to Chit Fund</span>
-          </Link>
           <Link href={`/chit-funds/${chitFundId}/members`} className="p-2 rounded-lg text-sm sm:text-base transition duration-300 flex items-center justify-center bg-blue-600 text-white hover:bg-blue-700 sm:px-4 sm:py-2">
             <svg className="h-5 w-5 block sm:hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 20h5v-2a4 4 0 00-3-3.87M9 20H4v-2a4 4 0 013-3.87m9-4a4 4 0 10-8 0 4 4 0 008 0z" /></svg>
             <span className="hidden sm:inline-flex items-center"><svg className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 20h5v-2a4 4 0 00-3-3.87M9 20H4v-2a4 4 0 013-3.87m9-4a4 4 0 10-8 0 4 4 0 008 0z" /></svg>View Members</span>

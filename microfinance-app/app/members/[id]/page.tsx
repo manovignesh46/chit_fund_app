@@ -8,9 +8,9 @@ import { memberAPI } from '../../../lib/api';
 import {
 
   EditButton,
-  BackButton,
   ActionButtonGroup
 } from '../../components/buttons/ActionButtons';
+import BackTitle from '../../components/common/BackTitle';
 
 interface ChitFundMember {
   id: number;
@@ -231,7 +231,7 @@ export default function MemberDetailPage() {
     <div className="page-container">
       {/* Page header */}
       <div className="flex flex-row flex-wrap items-center justify-between gap-2 mb-4 sm:mb-6">
-        <h1 className="page-title">Member Information</h1>
+        <BackTitle title="Member Information" href="/members" ariaLabel="Back to Members" />
         <div className="flex flex-row flex-wrap gap-1 sm:gap-2 w-auto items-center">
           <button
             onClick={handleDeleteMember}
@@ -255,14 +255,6 @@ export default function MemberDetailPage() {
                 <path fill="currentColor" d="M16.862 3.487a2.25 2.25 0 113.182 3.182l-9.193 9.193a2.25 2.25 0 01-.708.471l-3.25 1.3a.75.75 0 01-.97-.97l1.3-3.25a2.25 2.25 0 01.471-.708l9.193-9.193zM19.5 6.75L17.25 4.5" />
               </svg>
               Edit
-            </span>
-          </Link>
-          <Link href="/members" aria-label="Back to Members"
-            className="p-2 rounded-lg text-sm sm:text-base transition duration-300 flex items-center justify-center btn-neutral sm:px-4 sm:py-2">
-            <svg className="h-5 w-5 block sm:hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" /></svg>
-            <span className="hidden sm:inline-flex items-center">
-              <svg className="h-5 w-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" /></svg>
-              Back
             </span>
           </Link>
         </div>

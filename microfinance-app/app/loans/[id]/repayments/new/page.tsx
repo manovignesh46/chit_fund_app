@@ -3,8 +3,8 @@
 
 import React from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import Link from 'next/link';
 import RepaymentForm from '../../../../components/loans/RepaymentForm';
+import BackTitle from '../../../../components/common/BackTitle';
 import { invalidateDashboardCache } from '../../../../../lib/dashboardCache';
 
 export default function NewRepaymentPage() {
@@ -26,13 +26,7 @@ export default function NewRepaymentPage() {
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="flex justify-between items-center mb-6">
-        <h1 className="page-title">Record Payment</h1>
-        <Link 
-          href={`/loans/${id}`} 
-          className="btn-neutral px-4 py-2 rounded-lg transition duration-300"
-        >
-          Back to Loan Details
-        </Link>
+        <BackTitle title="Record Payment" href={`/loans/${id}`} ariaLabel="Back to Loan Details" />
       </div>
 
       <div className="max-w-4xl mx-auto">

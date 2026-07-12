@@ -4,7 +4,7 @@ import React from 'react';
 
 interface PageSectionHeaderProps {
   icon?: React.ReactNode;
-  title: string;
+  title: React.ReactNode;
   subtitle?: string;
   actions?: React.ReactNode;
 }
@@ -19,7 +19,11 @@ export default function PageSectionHeader({ icon, title, subtitle, actions }: Pa
           </div>
         )}
         <div>
-          <h2 className="text-xl font-semibold text-gray-900 dark:text-theme-heading">{title}</h2>
+          {typeof title === 'string' ? (
+            <h2 className="text-xl font-semibold text-gray-900 dark:text-theme-heading">{title}</h2>
+          ) : (
+            title
+          )}
           {subtitle && <p className="text-sm text-gray-400 mt-0.5">{subtitle}</p>}
         </div>
       </div>

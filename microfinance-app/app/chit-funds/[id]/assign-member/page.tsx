@@ -5,6 +5,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { memberAPI } from '../../../../lib/api';
+import BackTitle from '../../../components/common/BackTitle';
 import { invalidateDashboardCache } from '../../../../lib/dashboardCache';
 
 interface GlobalMember {
@@ -198,15 +199,12 @@ export default function AssignMemberPage() {
     <div className="container mx-auto px-4 py-8">
       <div className="flex justify-between items-center mb-6">
         <div>
-          <h1 className="page-title">Assign Member to {chitFund.name}</h1>
+          <BackTitle title={`Assign Member to ${chitFund.name}`} href={`/chit-funds/${chitFundId}/members`} ariaLabel="Back to Members" />
           <p className="text-gray-700 dark:text-theme-secondary">
             Monthly Contribution: {formatCurrency(chitFund.monthlyContribution)} |
             Total Amount: {formatCurrency(chitFund.totalAmount)}
           </p>
         </div>
-        <Link href={`/chit-funds/${chitFundId}/members`} className="btn-neutral px-4 py-2 rounded-lg transition duration-300">
-          Back to Members
-        </Link>
       </div>
 
       <div className="themed-card p-6 mb-8">

@@ -6,6 +6,7 @@ import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { Loan, Repayment, PaginatedResponse } from '../../../../lib/interfaces';
 import { formatCurrency, formatDate } from '../../../../lib/formatUtils';
+import BackTitle from '../../../components/common/BackTitle';
 
 const RepaymentsPage = () => {
   const params = useParams();
@@ -278,7 +279,8 @@ const RepaymentsPage = () => {
 
   return (
     <div className="page-container">
-      <div className="flex items-center justify-between mb-6 sm:mb-8 gap-4 flex-row-reverse">
+      <div className="flex items-center justify-between mb-6 sm:mb-8 gap-4">
+        <BackTitle title="Repayment History" href={`/loans/${id}`} ariaLabel="Back to Loan Details" />
         <div className="flex flex-row gap-2 w-auto">
           {loan.status === 'Active' && (
             <Link href={`/loans/${id}/repayments/new`} className="btn-primary p-2 sm:px-4 sm:py-2">
@@ -291,17 +293,7 @@ const RepaymentsPage = () => {
               <span className="hidden sm:inline">Record New Payment</span>
             </Link>
           )}
-          <Link href={`/loans/${id}`} className="btn-neutral p-2 sm:px-4 sm:py-2 rounded-lg flex items-center justify-center">
-            <span className="block sm:hidden">
-              {/* Arrow Left Icon */}
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-              </svg>
-            </span>
-            <span className="hidden sm:inline">Back to Loan Details</span>
-          </Link>
         </div>
-        <h1 className="page-title">Repayment History</h1>
       </div>
 
       <div className="themed-card p-2 sm:p-6 overflow-x-auto mb-6">

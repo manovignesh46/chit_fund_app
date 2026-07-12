@@ -4,6 +4,7 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { formatDistanceToNow, format } from 'date-fns';
+import BackTitle from '../components/common/BackTitle';
 
 export default function NotificationsPage() {
   const router = useRouter();
@@ -97,20 +98,11 @@ export default function NotificationsPage() {
   return (
     <div className="w-full max-w-4xl mx-auto px-3 sm:px-4 py-3 sm:py-6 pb-[max(1rem,env(safe-area-inset-bottom))]">
       <div className="flex flex-col gap-3 mb-4 sm:mb-6">
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-theme-primary">Notifications</h1>
-            {unreadCount > 0 && (
-              <p className="text-sm text-gray-700 dark:text-theme-secondary mt-0.5">{unreadCount} unread</p>
-            )}
-          </div>
-          <button
-            type="button"
-            onClick={handleBack}
-            className="btn-neutral flex-shrink-0 px-3 py-2 text-sm rounded-lg min-h-[44px] flex items-center"
-          >
-            Back
-          </button>
+        <div className="min-w-0">
+          <BackTitle title="Notifications" onClick={handleBack} />
+          {unreadCount > 0 && (
+            <p className="text-sm text-gray-700 dark:text-theme-secondary mt-0.5">{unreadCount} unread</p>
+          )}
         </div>
         {unreadCount > 0 && (
           <button

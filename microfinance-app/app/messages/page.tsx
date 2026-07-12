@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef, useCallback, useLayoutEffect } from 'react';
 import Link from 'next/link';
 import { format, isToday, isYesterday } from 'date-fns';
-import { PaperAirplaneIcon, ChevronLeftIcon } from '@heroicons/react/24/solid';
+import { PaperAirplaneIcon } from '@heroicons/react/24/solid';
 
 interface Sender {
   id: number;
@@ -395,7 +395,9 @@ export default function MessagesPage() {
             className="rounded-full p-2 text-gray-700 dark:text-theme-secondary hover:bg-gray-50 dark:hover:bg-surface-hover sm:hidden"
             aria-label="Back"
           >
-            <ChevronLeftIcon className="h-5 w-5" />
+            <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" />
+            </svg>
           </Link>
           <div className="min-w-0 flex-1">
             <h1 className="text-base font-semibold text-gray-900 dark:text-theme-primary sm:text-xl">Team Chat</h1>

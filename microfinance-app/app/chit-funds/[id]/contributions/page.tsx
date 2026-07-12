@@ -5,6 +5,7 @@ import React, { useState, useEffect } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { apiGet, apiPost, apiPut, apiDelete } from "../../../lib/apiUtils";
+import BackTitle from "../../../components/common/BackTitle";
 import { formatDate as formatDateUtil, formatCurrency as formatCurrencyUtil } from "../../../../lib/formatUtils";
 
 interface GlobalMember {
@@ -79,9 +80,6 @@ export default function ChitFundContributionsPage() {
   const monthParam = searchParams.get('month');
   const [selectedMonth, setSelectedMonth] = useState<string>(monthParam || "all");
   const [selectedMember, setSelectedMember] = useState<string>("all");
-
-  // For view mode
-  const [viewMode, setViewMode] = useState("month");
 
   // For deletion
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -676,20 +674,12 @@ export default function ChitFundContributionsPage() {
     <div className="container mx-auto px-4 py-8">
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-6 gap-4">
         <div>
-          <h1 className="page-title">Contributions</h1>
+          <BackTitle title="Contributions" href={`/chit-funds/${chitFundId}`} ariaLabel="Back to Chit Fund" />
           <p className="text-gray-700 dark:text-theme-secondary text-sm sm:text-base">
             Month {chitFund.currentMonth} of {chitFund.duration} | Monthly Contribution: {formatCurrency(chitFund.monthlyContribution)}
           </p>
         </div>
         <div className="grid grid-cols-3 gap-2 w-full sm:w-auto sm:flex sm:space-x-4">
-          <Link
-            href={`/chit-funds/${chitFundId}`}
-            className="btn-neutral flex flex-col items-center justify-center p-2 rounded-lg sm:flex-row sm:px-4 sm:py-2 transition duration-300"
-            aria-label="Back to Chit Fund"
-          >
-            <svg className="h-6 w-6 sm:mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" /></svg>
-            <span className="hidden sm:inline">Back to Chit Fund</span>
-          </Link>
           <Link
             href={`/chit-funds/${chitFundId}/members`}
             className="flex flex-col items-center justify-center p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-300 sm:flex-row sm:px-4 sm:py-2"
@@ -708,24 +698,6 @@ export default function ChitFundContributionsPage() {
           </button>
         </div>
       </div>
-
-      {/* View Mode Toggle - Only show Back button when in member detail view */}
-      {memberDetail && (
-        <div className="themed-card p-4 mb-6">
-          <div className="flex justify-center space-x-4 mb-4">
-            <button
-              onClick={() => {
-                setSelectedMonth("all");
-                setMemberDetail(false);
-                setViewMode("month");
-              }}
-              className="px-4 py-2 rounded-lg transition duration-300 btn-neutral"
-            >
-              Back
-            </button>
-          </div>
-        </div>
-      )}
 
       {/* Contributions Table */}
       <div className="themed-card overflow-hidden mb-8">

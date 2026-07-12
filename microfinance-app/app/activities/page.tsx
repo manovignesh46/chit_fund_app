@@ -4,6 +4,7 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { formatCurrency } from '../../lib/formatUtils';
+import BackTitle from '../components/common/BackTitle';
 
 // Define activity interface
 interface Activity {
@@ -81,10 +82,7 @@ export default function ActivitiesPage() {
     return (
       <div className="container mx-auto px-4 py-8">
         <div className="flex justify-between items-center mb-6">
-          <h1 className="page-title">Recent Activities</h1>
-          <Link href="/dashboard" className="btn-neutral px-4 py-2 rounded-lg transition duration-300">
-            Back to Dashboard
-          </Link>
+          <BackTitle title="Recent Activities" href="/dashboard" ariaLabel="Back to Dashboard" />
         </div>
         <div className="themed-card p-6">
           <div className="animate-pulse">
@@ -105,10 +103,7 @@ export default function ActivitiesPage() {
     return (
       <div className="container mx-auto px-4 py-8">
         <div className="flex justify-between items-center mb-6">
-          <h1 className="page-title">Recent Activities</h1>
-          <Link href="/dashboard" className="btn-neutral px-4 py-2 rounded-lg transition duration-300">
-            Back to Dashboard
-          </Link>
+          <BackTitle title="Recent Activities" href="/dashboard" ariaLabel="Back to Dashboard" />
         </div>
         <div className="alert-error px-4 py-3 rounded">
           <p className="font-bold">Error</p>
@@ -121,21 +116,7 @@ export default function ActivitiesPage() {
   return (
     <div className="page-container">
       <div className="flex flex-row flex-wrap items-center justify-between gap-2 mb-6 sm:mb-8">
-        <h1 className="page-title">Recent Activities</h1>
-        <div className="flex flex-row flex-wrap gap-1 sm:gap-2 w-auto">
-          <Link href="/dashboard" className="p-2 rounded-lg text-sm sm:text-base transition duration-300 flex items-center justify-center btn-neutral sm:px-4 sm:py-2" aria-label="Back to Dashboard">
-            {/* ArrowLeft icon: icon-only on mobile, icon+text on desktop */}
-            <svg className="h-5 w-5 block sm:hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" />
-            </svg>
-            <span className="hidden sm:inline-flex items-center">
-              <svg className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" />
-              </svg>
-              Back to Dashboard
-            </span>
-          </Link>
-        </div>
+        <BackTitle title="Recent Activities" href="/dashboard" ariaLabel="Back to Dashboard" />
       </div>
 
       <div className="themed-card p-2 sm:p-6">

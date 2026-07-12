@@ -4,6 +4,7 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { dashboardAPI } from '../../lib/api';
+import BackTitle from '../components/common/BackTitle';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, addMonths, subMonths, parseISO } from 'date-fns';
 
 const formatCurrency = (amount: number | undefined) => {
@@ -583,23 +584,7 @@ export default function CalendarPage() {
       return isSameDay(event.rawDate, day);
     });
 
-  const backLink = (
-    <Link
-      href="/dashboard"
-      className={`${navBtnClass} sm:px-4 sm:py-2 flex items-center justify-center`}
-      aria-label="Back to Dashboard"
-    >
-      <svg className="h-5 w-5 block sm:hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" />
-      </svg>
-      <span className="hidden sm:inline-flex items-center">
-        <svg className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" />
-        </svg>
-        Back to Dashboard
-      </span>
-    </Link>
-  );
+  const backLink = <BackTitle title="Calendar" href="/dashboard" ariaLabel="Back to Dashboard" />;
 
   if (loading) {
     return (
@@ -635,7 +620,6 @@ export default function CalendarPage() {
   return (
     <div className="page-container">
       <div className="flex flex-row flex-wrap items-center justify-between gap-3 mb-6 sm:mb-8">
-        <h1 className="page-title">Calendar</h1>
         {backLink}
       </div>
 

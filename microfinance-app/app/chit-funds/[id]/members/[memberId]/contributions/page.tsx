@@ -5,6 +5,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { apiGet, apiPut } from '../../../../../../lib/apiUtils';
+import BackTitle from '../../../../../components/common/BackTitle';
 
 interface GlobalMember {
   id: number;
@@ -384,7 +385,7 @@ export default function MemberContributionsPage() {
     <div className="container mx-auto px-4 py-8">
       <div className="flex justify-between items-center mb-6">
         <div>
-          <h1 className="page-title">{member.globalMember.name}'s Contributions</h1>
+          <BackTitle title={`${member.globalMember.name}'s Contributions`} href={`/chit-funds/${chitFundId}/members`} ariaLabel="Back to Members" />
           <p className="text-gray-700 dark:text-theme-secondary">
             {chitFund.name} | Monthly Contribution: {formatCurrency(chitFund.monthlyContribution)}
           </p>
@@ -399,9 +400,6 @@ export default function MemberContributionsPage() {
           >
             {isExporting ? 'Exporting...' : 'Export Member Data'}
           </button>
-          <Link href={`/chit-funds/${chitFundId}/members`} className="btn-neutral px-4 py-2 rounded-lg transition duration-300">
-            Back to Members
-          </Link>
         </div>
       </div>
 

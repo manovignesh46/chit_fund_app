@@ -5,6 +5,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { memberAPI, chitFundAPI } from '../../../../lib/api';
+import BackTitle from '../../../components/common/BackTitle';
 
 interface GlobalMember {
   id: number;
@@ -184,10 +185,7 @@ export default function AssignChitFundPage() {
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="flex justify-between items-center mb-6">
-        <h1 className="page-title">Assign {member.name} to Chit Fund</h1>
-        <Link href={`/members/${memberId}`} className="btn-neutral px-4 py-2 rounded-lg transition duration-300">
-          Back to Member
-        </Link>
+        <BackTitle title={`Assign ${member.name} to Chit Fund`} href={`/members/${memberId}`} ariaLabel="Back to Member" />
       </div>
 
       <div className="themed-card p-6 mb-8">

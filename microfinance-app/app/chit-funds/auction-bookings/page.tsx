@@ -2,9 +2,9 @@
 'use client';
 
 import React, { useEffect, useState, useMemo } from 'react';
-import Link from 'next/link';
 import { apiGet, apiPost, apiDelete } from '../../../lib/apiUtils';
 import PageSectionHeader from '../../components/layout/PageSectionHeader';
+import BackTitle from '../../components/common/BackTitle';
 import { getFundMonthCalendarDate } from '../../../lib/monthlyAggregations';
 
 function formatFundCalendarMonth(startDate: string, fundMonth: number): string {
@@ -191,16 +191,8 @@ export default function AuctionBookingsPage() {
   return (
     <div className="container mx-auto px-4 py-8">
       <PageSectionHeader
-        title="Auction Booking"
+        title={<BackTitle title="Auction Booking" href="/chit-funds/projection" ariaLabel="Back to Projection" />}
         subtitle="Plan future auction winners. Green tags are completed auctions; blue tags are planned bookings you can edit."
-        actions={
-          <Link
-            href="/chit-funds/projection"
-            className="btn-neutral px-4 py-2 text-sm"
-          >
-            Back to Projection
-          </Link>
-        }
       />
 
       <div className="dark-card p-4 sm:p-6 mb-6">

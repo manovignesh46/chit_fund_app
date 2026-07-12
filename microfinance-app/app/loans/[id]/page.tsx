@@ -19,6 +19,7 @@ import {
   ActionButtonGroup,
 } from "../../components/buttons/ActionButtons";
 import RepaymentForm from "../../components/loans/RepaymentForm";
+import BackTitle from "../../components/common/BackTitle";
 
 const LoanDetailPage = () => {
   const params = useParams();
@@ -893,7 +894,7 @@ const LoanDetailPage = () => {
     <div className="page-container">
       {/* Page header: title + action buttons */}
       <div className="flex flex-row flex-wrap items-center justify-between gap-2 mb-4 sm:mb-6">
-        <h1 className="page-title">Loan Details</h1>
+        <BackTitle title="Loan Details" href="/loans" ariaLabel="Back to Loans" />
         <div className="flex flex-row flex-wrap gap-1 sm:gap-2 w-auto items-center">
           <button
             onClick={() => setShowDeleteModal(true)}
@@ -923,21 +924,6 @@ const LoanDetailPage = () => {
                 <path fill="currentColor" d="M16.862 3.487a2.25 2.25 0 113.182 3.182l-9.193 9.193a2.25 2.25 0 01-.708.471l-3.25 1.3a.75.75 0 01-.97-.97l1.3-3.25a2.25 2.25 0 01.471-.708l9.193-9.193zM19.5 6.75L17.25 4.5" />
               </svg>
               Edit
-            </span>
-          </Link>
-          <Link
-            href="/loans"
-            aria-label="Back to Loans"
-            className="p-2 rounded-lg text-sm sm:text-base transition duration-300 flex items-center justify-center btn-neutral sm:px-4 sm:py-2"
-          >
-            <svg className="h-5 w-5 block sm:hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" />
-            </svg>
-            <span className="hidden sm:inline-flex items-center">
-              <svg className="h-5 w-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" />
-              </svg>
-              Back
             </span>
           </Link>
         </div>

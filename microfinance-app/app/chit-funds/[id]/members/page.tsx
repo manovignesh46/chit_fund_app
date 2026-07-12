@@ -6,7 +6,8 @@ import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 // import { apiGet, apiPost, apiPut, apiDelete } from '../../../lib/apiUtils';
 import { apiGet, apiPost, apiPut, apiDelete } from '../../../lib/apiUtils';
-import { UserGroupIcon, PlusCircleIcon, ArrowUturnLeftIcon, DocumentArrowDownIcon, TrashIcon, UserPlusIcon, UsersIcon, BanknotesIcon } from '@heroicons/react/24/outline';
+import { UserGroupIcon, PlusCircleIcon, DocumentArrowDownIcon, TrashIcon, UserPlusIcon, UsersIcon, BanknotesIcon } from '@heroicons/react/24/outline';
+import BackTitle from '../../../components/common/BackTitle';
 import { formatDate as formatDateUtil, formatCurrency as formatCurrencyUtil } from '../../../../lib/formatUtils';
 
 interface GlobalMember {
@@ -819,20 +820,8 @@ export default function ChitFundMembersPage() {
   return (
     <div className="container w-full max-w-screen-xl mx-auto px-2 sm:px-4 py-4 sm:py-8">
       <div className="flex flex-row flex-wrap items-center justify-between gap-2 mb-6 sm:mb-8">
-        <h1 className="page-title break-words flex-shrink-0">Members</h1>
+        <BackTitle title="Members" href={`/chit-funds/${chitFundId}`} ariaLabel="Back to Chit Fund" className="break-words flex-shrink-0" />
         <div className="flex flex-row flex-wrap gap-1 sm:gap-2 w-auto">
-          {/* Back to Chit Fund */}
-          <Link
-            href={`/chit-funds/${chitFundId}`}
-            aria-label="Back to Chit Fund"
-            className="p-2 rounded-lg btn-neutral transition flex items-center justify-center sm:px-4 sm:py-2"
-          >
-            <ArrowUturnLeftIcon className="h-5 w-5 block sm:hidden" />
-            <span className="hidden sm:inline-flex items-center space-x-1 text-sm">
-              <ArrowUturnLeftIcon className="h-5 w-5 mr-1" />
-              <span>Back to Chit Fund</span>
-            </span>
-          </Link>
           {/* View Contributions */}
           <Link
             href={`/chit-funds/${chitFundId}/contributions`}

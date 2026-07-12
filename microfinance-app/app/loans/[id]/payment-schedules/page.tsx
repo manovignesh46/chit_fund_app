@@ -4,6 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { loanAPI } from '../../../../lib/api';
+import BackTitle from '../../../components/common/BackTitle';
 import { formatDate as formatDateUtil, formatCurrency as formatCurrencyUtil } from '../../../../lib/formatUtils';
 
 // Define interfaces
@@ -210,12 +211,7 @@ const PaymentSchedulesPage = () => {
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="flex justify-between items-center mb-6">
-        <h1 className="page-title">Payment Schedule</h1>
-        <div className="flex space-x-4">
-          <Link href={`/loans/${id}`} className="btn-neutral px-4 py-2 rounded-lg transition duration-300">
-            Back to Loan Details
-          </Link>
-        </div>
+        <BackTitle title="Payment Schedule" href={`/loans/${id}`} ariaLabel="Back to Loan Details" />
       </div>
 
       <div className="bg-blue-50 border-l-4 border-blue-500 p-4 mb-6 rounded-md">
