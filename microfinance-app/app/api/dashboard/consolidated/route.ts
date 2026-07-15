@@ -7,6 +7,7 @@ import {
   calculateTotalFinancialMetrics,
   createPeriodRange
 } from '../../../../lib/centralizedFinancialCalculations';
+import { autoUpdateCurrentMonths } from '../../../../lib/timeUtils';
 import { sendEmail, emailTemplates } from '../../../../lib/emailConfig';
 import * as XLSX from 'xlsx';
 import { getFinancialDataForExport as getCommonFinancialData, generateCommonExcelReport } from '../../../../lib/commonExportUtils';
@@ -30,6 +31,9 @@ export async function GET(request: NextRequest) {
         { status: 401 }
       );
     }
+
+    // Auto-update current month for all active chit funds and loans
+    await autoUpdateCurrentMonths(currentUserId);
 
     // Get the action from the query string
     const { searchParams } = new URL(request.url);

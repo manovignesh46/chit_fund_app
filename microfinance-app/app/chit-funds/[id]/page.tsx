@@ -412,62 +412,7 @@ const ChitFundDetails = () => {
     return formatDate(end.toISOString());
   };
 
-  // Calculate the current month based on start date
-  const calculateCurrentMonth = (startDate: string | Date): number => {
-    if (!startDate) return 1;
 
-    const start = typeof startDate === 'string' ? new Date(startDate) : startDate;
-    const now = new Date();
-
-    // If the start date is in the future, return 1
-    if (start > now) {
-      return 1;
-    }
-
-    // Calculate the difference in months
-    const diffYears = now.getFullYear() - start.getFullYear();
-    const diffMonths = now.getMonth() - start.getMonth();
-    let monthDiff = diffYears * 12 + diffMonths + 1; // +1 because we count the first month
-
-    // Adjust if we haven't reached the same day of the month yet
-    if (now.getDate() < start.getDate()) {
-      monthDiff--;
-    }
-
-    // Ensure the month is within the duration range
-    return Math.min(Math.max(1, monthDiff), chitFund?.duration || 1);
-  };
-
-  // Handle update current month
-  const handleUpdateCurrentMonth = async () => {
-    if (!chitFund) return;
-
-    try {
-      const calculatedMonth = calculateCurrentMonth(chitFund.startDate);
-
-      // Only update if the calculated month is different from the current month
-      if (chitFund.currentMonth !== calculatedMonth) {
-        const response = await fetch(`/api/chit-funds/consolidated?action=update&id=${chitFund.id}`, {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            currentMonth: calculatedMonth
-          }),
-        });
-
-        if (!response.ok) {
-          throw new Error('Failed to update current month');
-        }
-
-        // Refresh the page to show updated data
-        window.location.reload();
-      }
-    } catch (error) {
-      console.error('Error updating current month:', error);
-    }
-  };
 
   // Handle export chit fund
   const handleExportChitFund = async () => {
@@ -629,17 +574,9 @@ const ChitFundDetails = () => {
               <div className="text-xs text-gray-500 uppercase tracking-wider">Current Month</div>
               <div className="flex items-center gap-1.5 mt-0.5 justify-end">
                 <span className="text-lg font-bold text-green-700">
-                  {calculateCurrentMonth(chitFund.startDate)}{' '}
+                  {chitFund.currentMonth}{' '}
                   <span className="text-sm text-gray-500 font-normal">/ {chitFund.duration}</span>
                 </span>
-                {chitFund.currentMonth !== calculateCurrentMonth(chitFund.startDate) && (
-                  <button
-                    onClick={handleUpdateCurrentMonth}
-                    className="text-xs px-2 py-1 bg-green-100 text-green-800 rounded hover:bg-green-200 transition-colors"
-                  >
-                    Update
-                  </button>
-                )}
               </div>
             </div>
             <span className={`px-3 py-1 rounded-full text-sm font-semibold whitespace-nowrap ${

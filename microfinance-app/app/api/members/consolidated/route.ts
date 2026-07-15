@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import prisma from '../../../../lib/prisma';
 import { getCurrentUserId, getActorUserId } from '../../../../lib/auth';
 import { notifyOtherAdmins, getActorName } from '../../../../lib/notifications';
+import { updateOverdueAmountFromRepayments, calculateNextPaymentDate } from '../../../../lib/paymentSchedule';
 
 // Define extended types for the membership object
 interface ChitFundMembershipWithExtras {
@@ -20,6 +21,22 @@ interface ChitFundMembershipWithExtras {
   };
   missedContributions?: number;
   pendingAmount?: number;
+  pendingMonths?: number[];
+  partialMonths?: { month: number; balance: number }[];
+}
+
+// Define extended type for the loan object returned in member detail
+interface LoanWithExtras {
+  id: number;
+  loanType: string;
+  amount: number;
+  status: string;
+  disbursementDate: Date;
+  remainingAmount: number;
+  overdueAmount: number;
+  missedPayments: number;
+  installmentAmount: number;
+  nextPaymentDate: Date | null;
 }
 
 // Use ISR with a 5-minute revalidation period
@@ -267,6 +284,8 @@ async function getMemberDetail(request: NextRequest, id: number, currentUserId: 
             remainingAmount: true,
             overdueAmount: true,
             missedPayments: true,
+            installmentAmount: true,
+            nextPaymentDate: true,
           },
         },
         _count: {
@@ -314,31 +333,50 @@ async function getMemberDetail(request: NextRequest, id: number, currentUserId: 
         // Get all months that have contributions
         const contributedMonths = contributions.map(c => c.month);
 
-        // Count how many months from 1 to currentMonth are missing in contributedMonths
-        let missedContributions = 0;
+        // Collect which months from 1 to currentMonth have no contribution row
+        const pendingMonths: number[] = [];
         for (let month = 1; month <= currentMonth; month++) {
           if (!contributedMonths.includes(month)) {
-            missedContributions++;
+            pendingMonths.push(month);
           }
         }
+        const missedContributions = pendingMonths.length;
 
         // Calculate pending amount based on missed contributions and any balance from partial payments
         let pendingAmount = missedContributions * membership.contribution;
 
-        // Add any balance from partial payments
+        // Collect any balance from partial payments
+        const partialMonths: { month: number; balance: number }[] = [];
         for (const contribution of contributions) {
           if (contribution.balance > 0) {
             pendingAmount += contribution.balance;
+            partialMonths.push({ month: contribution.month, balance: contribution.balance });
           }
         }
 
         // Add these fields to the membership object
         membership.missedContributions = missedContributions;
         membership.pendingAmount = pendingAmount;
+        membership.pendingMonths = pendingMonths;
+        membership.partialMonths = partialMonths;
       } else {
         // For inactive chit funds, set to 0
         membership.missedContributions = 0;
         membership.pendingAmount = 0;
+        membership.pendingMonths = [];
+        membership.partialMonths = [];
+      }
+    }
+
+    // Refresh loan due details so the member page never shows stale overdue/next-due data
+    for (const loan of memberWithContributions.loans as LoanWithExtras[]) {
+      if (loan.status === 'Active') {
+        const overdueResult = await updateOverdueAmountFromRepayments(loan.id);
+        if (overdueResult) {
+          loan.overdueAmount = overdueResult.overdueAmount;
+          loan.missedPayments = overdueResult.missedPayments;
+        }
+        loan.nextPaymentDate = await calculateNextPaymentDate(loan.id);
       }
     }
 

@@ -8,6 +8,7 @@ import {
 } from "../../../../lib/paymentSchedule";
 import { TRANSACTION_TYPES_CONFIG } from "../../../../config/config";
 import { calculateTransactionBalance, getCurrentPartnerBalance, getCurrentTotalBalance, recalculateBalancesAfterDeletion } from "../../../../lib/balanceCalculator";
+import { autoUpdateCurrentMonths } from "../../../../lib/timeUtils";
 import { notifyOtherAdmins, getActorName } from "../../../../lib/notifications";
 
 /**
@@ -75,6 +76,9 @@ export async function GET(request: NextRequest) {
         { status: 401 }
       );
     }
+
+    // Auto-update current month for all active chit funds and loans
+    await autoUpdateCurrentMonths(currentUserId);
 
     // Route to the appropriate handler based on the action
     switch (action) {

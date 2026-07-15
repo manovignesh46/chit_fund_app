@@ -18,6 +18,8 @@ interface ChitFundMember {
   contribution: number;
   missedContributions?: number;
   pendingAmount?: number;
+  pendingMonths?: number[];
+  partialMonths?: { month: number; balance: number }[];
   chitFund: {
     id: number;
     name: string;
@@ -36,6 +38,8 @@ interface Loan {
   remainingAmount: number;
   overdueAmount: number;
   missedPayments: number;
+  installmentAmount?: number;
+  nextPaymentDate?: string | null;
 }
 
 interface GlobalMember {
@@ -382,11 +386,22 @@ export default function MemberDetailPage() {
                         <span className={`text-sm ${(membership.missedContributions ?? 0) > 0 ? 'text-red-600 font-semibold' : 'text-gray-900 dark:text-theme-primary'}`}>
                           {membership.missedContributions ?? 0}
                         </span>
+                        {(membership.pendingMonths?.length ?? 0) > 0 && (
+                          <div className="text-xs text-gray-400 dark:text-theme-muted mt-0.5">
+                            Months: {membership.pendingMonths!.join(', ')}
+                          </div>
+                        )}
                       </td>
                       <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap">
                         <span className={`text-sm ${(membership.pendingAmount ?? 0) > 0 ? 'text-red-600 font-semibold' : 'text-gray-900 dark:text-theme-primary'}`}>
                           {formatCurrency(membership.pendingAmount ?? 0)}
                         </span>
+                        {(membership.partialMonths?.length ?? 0) > 0 && (
+                          <div className="text-xs text-gray-400 dark:text-theme-muted mt-0.5">
+                            Incl. {formatCurrency(membership.partialMonths!.reduce((sum, p) => sum + p.balance, 0))} balance
+                            {' '}({membership.partialMonths!.map(p => `Month ${p.month}`).join(', ')})
+                          </div>
+                        )}
                       </td>
                       <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-sm text-gray-900 dark:text-theme-primary">{formatDate(membership.joinDate)}</td>
                       <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-sm font-medium">
@@ -419,7 +434,7 @@ export default function MemberDetailPage() {
               <table className="min-w-full divide-y divide-surface-border text-xs sm:text-sm">
                 <thead className="bg-gray-50 dark:bg-surface-elevated">
                   <tr>
-                    {['Loan Type', 'Amount', 'Remaining', 'Overdue Amount', 'Missed Payments', 'Status', 'Disbursement Date', 'Actions'].map((h) => (
+                    {['Loan Type', 'Amount', 'Remaining', 'Overdue Amount', 'Missed Payments', 'Next Due Date', 'Installment Amount', 'Status', 'Disbursement Date', 'Actions'].map((h) => (
                       <th key={h} scope="col" className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-theme-muted uppercase tracking-wider whitespace-nowrap">{h}</th>
                     ))}
                   </tr>
@@ -439,6 +454,18 @@ export default function MemberDetailPage() {
                         <span className={`text-sm ${loan.missedPayments > 0 ? 'text-red-600 font-semibold' : 'text-gray-900 dark:text-theme-primary'}`}>
                           {loan.missedPayments || 0}
                         </span>
+                      </td>
+                      <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap">
+                        {loan.nextPaymentDate ? (
+                          <span className={`text-sm ${loan.status === 'Active' && new Date(loan.nextPaymentDate) < new Date() ? 'text-red-600 font-semibold' : 'text-gray-900 dark:text-theme-primary'}`}>
+                            {formatDate(loan.nextPaymentDate)}
+                          </span>
+                        ) : (
+                          <span className="text-sm text-gray-500 dark:text-theme-muted">-</span>
+                        )}
+                      </td>
+                      <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-sm text-gray-900 dark:text-theme-primary">
+                        {loan.loanType === 'Reducing Balance' ? 'Dynamic' : formatCurrency(loan.installmentAmount || 0)}
                       </td>
                       <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap">
                         <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
