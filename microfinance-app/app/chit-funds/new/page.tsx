@@ -10,7 +10,16 @@ export default function NewChitFundPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const copyFromId = searchParams.get('copy');
+  const templateFromId = searchParams.get('template');
   const [isLoading, setIsLoading] = useState(false);
+  // Provenance: the template this fund is instantiated from (stamped on submit).
+  const [linkedTemplateId, setLinkedTemplateId] = useState<number | null>(null);
+  // Templates available to pick from in the on-page selector.
+  const [templates, setTemplates] = useState<any[]>([]);
+  // When a template is selected (via the dropdown or a ?template= link), financial/
+  // structural fields are locked to it (the template is the single source of truth).
+  // Only instance fields (name, start date, description) stay editable.
+  const isFromTemplate = linkedTemplateId != null;
   
   const [formData, setFormData] = useState({
     name: '',
@@ -72,6 +81,74 @@ export default function NewChitFundPage() {
 
     fetchChitFundData();
   }, [copyFromId]);
+
+  // Load the list of templates for the on-page selector.
+  useEffect(() => {
+    if (copyFromId) return; // template selector is hidden in copy mode
+    const loadTemplates = async () => {
+      try {
+        const res = await fetch('/api/chit-fund-templates/consolidated?action=list');
+        if (res.ok) {
+          const data = await res.json();
+          setTemplates(data.templates || []);
+        }
+      } catch (error) {
+        console.error('Error loading templates:', error);
+      }
+    };
+    loadTemplates();
+  }, [copyFromId]);
+
+  // Prefill the form's structural fields from a template and lock them. Leaves
+  // instance fields (name, startDate, description) untouched so a user who already
+  // typed a name doesn't lose it when picking a template.
+  const applyTemplate = async (templateId: number) => {
+    try {
+      const response = await fetch(`/api/chit-fund-templates/consolidated?action=detail&id=${templateId}`);
+      if (!response.ok) throw new Error('Failed to fetch template');
+      const data = await response.json();
+
+      setFormData((prev) => ({
+        ...prev,
+        totalAmount: data.totalAmount.toString(),
+        monthlyContribution: data.monthlyContribution.toString(),
+        firstMonthContribution: data.firstMonthContribution?.toString() || '',
+        duration: data.duration.toString(),
+        membersCount: data.membersCount.toString(),
+        chitFundType: data.chitFundType,
+      }));
+
+      if (data.chitFundType === 'Fixed' && data.fixedAmountsPattern) {
+        const fixedAmountsData: { [month: number]: string } = {};
+        Object.keys(data.fixedAmountsPattern).forEach((m) => {
+          fixedAmountsData[Number(m)] = data.fixedAmountsPattern[m].toString();
+        });
+        setFixedAmounts(fixedAmountsData);
+      } else {
+        setFixedAmounts({});
+      }
+
+      setLinkedTemplateId(data.id);
+    } catch (error) {
+      console.error('Error fetching template data:', error);
+      alert('Failed to load template data');
+    }
+  };
+
+  // Clear the selected template — unlock fields for manual entry.
+  const clearTemplate = () => {
+    setLinkedTemplateId(null);
+  };
+
+  // Deep-link support: /chit-funds/new?template=<id> pre-selects that template.
+  useEffect(() => {
+    if (!templateFromId) return;
+    (async () => {
+      setIsLoading(true);
+      await applyTemplate(Number(templateFromId));
+      setIsLoading(false);
+    })();
+  }, [templateFromId]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -226,6 +303,8 @@ export default function NewChitFundPage() {
       const dataToSend = {
         ...formData,
         fixedAmounts: formData.chitFundType === 'Fixed' ? fixedAmounts : undefined,
+        // Provenance link (nullable) — only set when instantiated from a template
+        templateId: linkedTemplateId ?? undefined,
       };
 
       // Make the actual API call to create a chit fund
@@ -272,16 +351,54 @@ export default function NewChitFundPage() {
     <div className="container mx-auto px-4 py-8">
       <div className="flex justify-between items-center mb-6">
         <h1 className="page-title">
-          {copyFromId ? 'Copy Chit Fund' : 'Create New Chit Fund'}
+          {isFromTemplate ? 'Create Chit Fund from Template' : copyFromId ? 'Copy Chit Fund' : 'Create New Chit Fund'}
         </h1>
         <Link href="/chit-funds" className="btn-neutral px-4 py-2 rounded-lg transition duration-300">
           Cancel
         </Link>
       </div>
 
+      {isFromTemplate && (
+        <div className="mb-6 rounded-lg border border-blue-200 bg-blue-50 dark:bg-blue-900/20 dark:border-blue-800 px-4 py-3 text-sm text-blue-800 dark:text-blue-300">
+          Financial fields are <strong>locked to the template</strong>. Enter only the name, start date, and (optionally) a
+          description. To change amounts, edit the template instead.
+        </div>
+      )}
+
       <div className="themed-card overflow-hidden">
         <form onSubmit={handleSubmit} className="p-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {!copyFromId && (
+              <div className="md:col-span-2">
+                <label htmlFor="templateSelect" className="block text-sm font-medium text-gray-700 dark:text-theme-secondary mb-1">
+                  Start from Template
+                </label>
+                <select
+                  id="templateSelect"
+                  value={linkedTemplateId ?? ''}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    if (!v) { clearTemplate(); } else { applyTemplate(Number(v)); }
+                  }}
+                  className="w-full px-4 py-2 border border-gray-200 dark:border-surface-border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                  <option value="">Blank — enter all details manually</option>
+                  {templates.map((t) => (
+                    <option key={t.id} value={t.id}>
+                      {t.name} · {t.chitFundType} · {t.duration} mo · ₹{t.totalAmount}
+                    </option>
+                  ))}
+                </select>
+                <p className="mt-1 text-xs text-gray-500">
+                  {isFromTemplate
+                    ? 'Financial fields are locked to the selected template. Choose "Blank" to enter them manually.'
+                    : templates.length === 0
+                      ? 'No templates yet — create one under Chit Fund Templates in the left nav.'
+                      : 'Pick a template to auto-fill and lock the financial fields.'}
+                </p>
+              </div>
+            )}
+
             <div className="md:col-span-2">
               <label htmlFor="name" className="block text-sm font-medium text-gray-700 dark:text-theme-secondary mb-1">
                 Chit Fund Name <span className="text-red-500">*</span>
@@ -314,9 +431,10 @@ export default function NewChitFundPage() {
                 onChange={handleChange}
                 min="1"
                 step="1"
+                readOnly={isFromTemplate}
                 className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
                   errors.totalAmount ? 'border-red-500' : 'border-gray-200 dark:border-surface-border'
-                }`}
+                } ${isFromTemplate ? 'bg-gray-100 dark:bg-gray-800 cursor-not-allowed' : ''}`}
                 placeholder="e.g., 1200000"
               />
               {errors.totalAmount && (
@@ -336,9 +454,10 @@ export default function NewChitFundPage() {
                 onChange={handleChange}
                 min="1"
                 max="60"
+                readOnly={isFromTemplate}
                 className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
                   errors.duration ? 'border-red-500' : 'border-gray-200 dark:border-surface-border'
-                }`}
+                } ${isFromTemplate ? 'bg-gray-100 dark:bg-gray-800 cursor-not-allowed' : ''}`}
                 placeholder="e.g., 1-60"
               />
               {errors.duration && (
@@ -355,7 +474,8 @@ export default function NewChitFundPage() {
                 name="chitFundType"
                 value={formData.chitFundType}
                 onChange={handleChange}
-                className="w-full px-4 py-2 border border-gray-200 dark:border-surface-border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                disabled={isFromTemplate}
+                className={`w-full px-4 py-2 border border-gray-200 dark:border-surface-border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${isFromTemplate ? 'bg-gray-100 dark:bg-gray-800 cursor-not-allowed' : ''}`}
               >
                 <option value="Auction">Auction</option>
                 <option value="Fixed">Fixed</option>
@@ -377,9 +497,10 @@ export default function NewChitFundPage() {
                 onChange={handleChange}
                 min="1"
                 max="50"
+                readOnly={isFromTemplate}
                 className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
                   errors.membersCount ? 'border-red-500' : 'border-gray-200 dark:border-surface-border'
-                }`}
+                } ${isFromTemplate ? 'bg-gray-100 dark:bg-gray-800 cursor-not-allowed' : ''}`}
                 placeholder="e.g., 20"
               />
               {errors.membersCount && (
@@ -400,9 +521,10 @@ export default function NewChitFundPage() {
                 onChange={handleChange}
                 min="1"
                 step="1"
+                readOnly={isFromTemplate}
                 className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
                   errors.monthlyContribution ? 'border-red-500' : 'border-gray-200 dark:border-surface-border'
-                }`}
+                } ${isFromTemplate ? 'bg-gray-100 dark:bg-gray-800 cursor-not-allowed' : ''}`}
                 placeholder="e.g., 10000"
               />
               {errors.monthlyContribution && (
@@ -430,9 +552,10 @@ export default function NewChitFundPage() {
                   onChange={handleChange}
                   min="1"
                   step="1"
+                  readOnly={isFromTemplate}
                   className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
                     errors.firstMonthContribution ? 'border-red-500' : 'border-gray-200 dark:border-surface-border'
-                  }`}
+                  } ${isFromTemplate ? 'bg-gray-100 dark:bg-gray-800 cursor-not-allowed' : ''}`}
                   placeholder="Auto-calculated from total amount"
                 />
                 {errors.firstMonthContribution && (
@@ -499,9 +622,10 @@ export default function NewChitFundPage() {
                           onChange={(e) => handleFixedAmountChange(month, e.target.value)}
                           min="1"
                           step="1"
+                          readOnly={isFromTemplate}
                           className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
                             errors[`fixedAmount${month}`] ? 'border-red-500' : 'border-gray-200 dark:border-surface-border'
-                          }`}
+                          } ${isFromTemplate ? 'bg-gray-100 dark:bg-gray-800 cursor-not-allowed' : ''}`}
                           placeholder={`e.g., ${40000 + (month - 1) * 5000}`}
                         />
                         {errors[`fixedAmount${month}`] && (

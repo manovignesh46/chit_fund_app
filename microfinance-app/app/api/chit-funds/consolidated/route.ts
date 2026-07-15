@@ -378,6 +378,10 @@ async function getChitFundDetail(request: NextRequest, id: number, currentUserId
           month: 'asc',
         },
       },
+      // Template provenance (name only) — for the "Template / Custom (Legacy)" label
+      template: {
+        select: { id: true, name: true },
+      },
       // Include contributions and auctions for financial calculations
       contributions: {
         select: {
@@ -805,6 +809,19 @@ async function createChitFund(request: NextRequest, currentUserId: number) {
     }
   }
 
+  // Optional: link this fund to a template (provenance pointer only — the fund keeps
+  // its own physical columns, so the template is never read at runtime).
+  let templateId: number | null = null;
+  if (body.templateId) {
+    const template = await prisma.chitFundTemplate.findUnique({
+      where: { id: Number(body.templateId) },
+    });
+    if (!template || template.createdById !== currentUserId) {
+      return NextResponse.json({ error: 'Invalid template' }, { status: 400 });
+    }
+    templateId = template.id;
+  }
+
   // Create the chit fund
   const chitFund = await prisma.chitFund.create({
     data: {
@@ -821,6 +838,8 @@ async function createChitFund(request: NextRequest, currentUserId: number) {
       chitFundType: body.chitFundType || 'Auction',
       // Set the creator
       createdById: currentUserId,
+      // Provenance link (nullable) — set only when instantiated from a template
+      templateId,
     }
   });
 

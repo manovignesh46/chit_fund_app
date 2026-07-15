@@ -91,6 +91,34 @@ async function fetchAPI<T>(
   }
 }
 
+// Chit Fund Template API functions (consolidated)
+export const chitFundTemplateAPI = {
+  getAll: (includeArchived = false) => {
+    let url = '/chit-fund-templates/consolidated?action=list';
+    if (includeArchived) url += '&includeArchived=true';
+    return fetchAPI<any>(url);
+  },
+
+  getById: (id: number) => fetchAPI<any>(`/chit-fund-templates/consolidated?action=detail&id=${id}`),
+
+  create: (data: any) => fetchAPI<any>('/chit-fund-templates/consolidated?action=create', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  }),
+
+  update: (id: number, data: any) => fetchAPI<any>(`/chit-fund-templates/consolidated?action=update&id=${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  }),
+
+  // Soft-archive by default; pass { hard: true } to attempt a permanent delete (409 if in use).
+  delete: (id: number, opts: { hard?: boolean } = {}) =>
+    fetchAPI<any>(`/chit-fund-templates/consolidated?action=delete&id=${id}${opts.hard ? '&hard=true' : ''}`, {
+      method: 'DELETE',
+      body: JSON.stringify({}),
+    }),
+};
+
 // Chit Fund API functions (consolidated)
 export const chitFundAPI = {
   getAll: (page = 1, pageSize = 10, status?: string) => {

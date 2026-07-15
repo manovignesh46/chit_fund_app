@@ -434,6 +434,10 @@ export default function ChitFundsPage() {
                 </button>
               </>
             )}
+            <Link href="/chit-fund-templates" className="btn-secondary">
+              <span className="hidden sm:inline">Templates</span>
+              <span className="sm:hidden">Tmpl</span>
+            </Link>
             <Link href="/chit-funds/new" className="btn-primary">
               <PlusCircleIcon className="h-4 w-4" />
               <span>Add Chit Fund</span>

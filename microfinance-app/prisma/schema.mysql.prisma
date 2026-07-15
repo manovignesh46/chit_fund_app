@@ -17,6 +17,7 @@ model User {
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
   chitFunds     ChitFund[]
+  chitFundTemplates ChitFundTemplate[]
   globalMembers GlobalMember[]
   loans         Loan[]
 }
@@ -38,13 +39,37 @@ model ChitFund {
   createdAt              DateTime           @default(now())
   updatedAt              DateTime           @updatedAt
   createdById            Int
+  templateId             Int?
   auctions            Auction[]
   createdBy           User               @relation(fields: [createdById], references: [id])
+  template            ChitFundTemplate?  @relation(fields: [templateId], references: [id])
   contributions       Contribution[]
   members             Member[]
   fixedAmounts        ChitFundFixedAmount[]
 
   @@index([createdById], map: "ChitFund_createdById_fkey")
+  @@index([templateId])
+}
+
+model ChitFundTemplate {
+  id                     Int        @id @default(autoincrement())
+  name                   String
+  description            String?
+  totalAmount            Float
+  monthlyContribution    Float
+  firstMonthContribution Float?
+  duration               Int
+  membersCount           Int
+  chitFundType           String     @default("Auction") // "Auction" | "Fixed"
+  fixedAmountsPattern    Json? // { "1": 40000, "2": 45000, ... } — Fixed type only
+  isArchived             Boolean    @default(false)
+  createdById            Int
+  createdAt              DateTime   @default(now())
+  updatedAt              DateTime   @updatedAt
+  createdBy              User       @relation(fields: [createdById], references: [id])
+  chitFunds              ChitFund[]
+
+  @@index([createdById])
 }
 
 model GlobalMember {

@@ -797,6 +797,18 @@ const ChitFundDetails = () => {
                   <h3 className="detail-label">Chit Fund Type</h3>
                   <p className="text-lg sm:text-xl font-semibold dark:text-theme-secondary">{chitFund.chitFundType || 'Auction'}</p>
                 </div>
+                <div>
+                  <h3 className="detail-label">Template</h3>
+                  <p className="text-lg sm:text-xl font-semibold dark:text-theme-secondary">
+                    {chitFund.template ? (
+                      <Link href={`/chit-fund-templates/${chitFund.template.id}`} className="text-blue-600 hover:underline">
+                        {chitFund.template.name}
+                      </Link>
+                    ) : (
+                      'Custom (Legacy)'
+                    )}
+                  </p>
+                </div>
               </div>
             </div>
           </div>
