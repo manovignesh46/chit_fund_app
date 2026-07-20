@@ -26,6 +26,7 @@ interface ChitFund {
   startDate: string;
   currentMonth: number;
   nextAuctionDate: string | null;
+  hasPendingContribution?: boolean;
   _count?: {
     members: number;
     auctions: number;
@@ -615,7 +616,15 @@ export default function ChitFundsPage() {
                       </div>
                     </td>
                     <td className="whitespace-nowrap">
-                      <div className="text-sm font-medium text-gray-900 dark:text-theme-primary">{fund.name}</div>
+                      <div className="flex items-center gap-2">
+                        {fund.hasPendingContribution && (
+                          <span
+                            className="inline-block h-2 w-2 rounded-full bg-red-500 dark:bg-red-400 flex-shrink-0"
+                            title="Pending contribution"
+                          />
+                        )}
+                        <div className="text-sm font-medium text-gray-900 dark:text-theme-primary">{fund.name}</div>
+                      </div>
                     </td>
                     <td className="whitespace-nowrap">
                       <div className="text-sm">{formatCurrency(fund.totalAmount)}</div>

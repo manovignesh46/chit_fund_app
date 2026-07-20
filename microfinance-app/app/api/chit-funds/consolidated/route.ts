@@ -314,46 +314,97 @@ async function getChitFundsList(request: NextRequest, currentUserId: number) {
     createdById: currentUserId
   };
 
-  if (status === 'Active') {
-    // Exclude completed chit funds (status may still be Active if not auto-updated)
-    where.status = 'Active';
-    where.currentMonth = {
-      lt: prisma.chitFund.fields.duration,
-    };
-  } else if (status === 'Completed') {
-    where.OR = [
-      { status: 'Completed' },
-      {
-        status: 'Active',
-        currentMonth: {
-          gte: prisma.chitFund.fields.duration,
-        },
-      },
-    ];
-  } else if (status) {
+  // 'Upcoming' (and any other status not handled below) is a plain lifecycle flag,
+  // so it can be filtered directly in the database.
+  if (status && status !== 'Active' && status !== 'Completed') {
     where.status = status;
   }
 
-  // Get total count for pagination with filter
-  const totalCount = await prisma.chitFund.count({
-    where
-  });
-
-  // Get paginated chit funds with filter
-  const chitFunds = await prisma.chitFund.findMany({
+  // 'Active'/'Completed' can't be filtered by the stored status field alone: duration
+  // and membersCount are independent in this app, so a fund can reach its last month
+  // (or have its status auto-flipped) before every member has actually received an
+  // auction payout or paid every contribution, and vice versa. Whether the fund is
+  // actually finished is the real signal, so fetch candidates and split them in JS.
+  const allMatching = await prisma.chitFund.findMany({
     where,
     include: {
       _count: {
-        select: { 
+        select: {
           members: true,
-          auctions: true 
+          auctions: true,
+          contributions: true,
         }
       }
     },
     orderBy: { createdAt: 'desc' },
-    skip,
-    take: validPageSize,
   });
+
+  // Sum of still-outstanding contribution balances, per chit fund (a contribution row
+  // with a partial balance whose balancePaymentStatus is 'Paid' has already been settled
+  // through a separate payment, so it doesn't count as outstanding).
+  const pendingBalanceByFund = new Map<number, number>();
+  if (allMatching.length > 0) {
+    const pendingBalances = await prisma.contribution.groupBy({
+      by: ['chitFundId'],
+      where: {
+        chitFundId: { in: allMatching.map(cf => cf.id) },
+        balance: { gt: 0 },
+        balancePaymentStatus: { not: 'Paid' },
+      },
+      _sum: { balance: true },
+    });
+    for (const row of pendingBalances) {
+      pendingBalanceByFund.set(row.chitFundId, row._sum.balance || 0);
+    }
+  }
+
+  // How many of the fund's months have actually started yet, by calendar date — mirrors
+  // the same month-visibility rule the Contributions tab uses, so "all caught up" here
+  // means the same thing it means there.
+  const visibleMonths = (cf: typeof allMatching[number]) => {
+    const start = new Date(cf.startDate);
+    const now = new Date();
+    let maxVisibleMonth = 0;
+    for (let month = 1; month <= cf.duration; month++) {
+      const monthStart = new Date(start);
+      monthStart.setMonth(monthStart.getMonth() + (month - 1));
+      monthStart.setDate(1);
+      if (monthStart <= now) {
+        maxVisibleMonth = month;
+      } else {
+        break;
+      }
+    }
+    return maxVisibleMonth;
+  };
+
+  // Compare against the actual number of Member rows added (_count.members), not the
+  // membersCount field — on older chit funds that field was left mirroring `duration`
+  // and doesn't reflect who was actually enrolled.
+  const isPayoutComplete = (cf: typeof allMatching[number]) =>
+    cf._count.members > 0 && cf._count.auctions >= cf._count.members;
+
+  const isContributionsComplete = (cf: typeof allMatching[number]) =>
+    cf._count.members > 0 &&
+    cf._count.contributions >= cf._count.members * visibleMonths(cf) &&
+    (pendingBalanceByFund.get(cf.id) || 0) <= 0;
+
+  const isFundComplete = (cf: typeof allMatching[number]) => isPayoutComplete(cf) && isContributionsComplete(cf);
+
+  let filtered = allMatching;
+  if (status === 'Active') {
+    filtered = allMatching.filter(cf => cf.status === 'Active' && !isFundComplete(cf));
+  } else if (status === 'Completed') {
+    filtered = allMatching.filter(cf => cf.status === 'Completed' || isFundComplete(cf));
+  }
+
+  const totalCount = filtered.length;
+  // hasPendingContribution flags rows for a list-page indicator dot — any contribution due
+  // so far (by calendar date) that hasn't been fully collected yet, not just the current month.
+  const chitFunds = filtered.slice(skip, skip + validPageSize).map(cf => ({
+    ...cf,
+    hasPendingContribution: !isContributionsComplete(cf),
+  }));
 
   return NextResponse.json({
     chitFunds,
@@ -1223,13 +1274,21 @@ async function addAuction(request: NextRequest, id: number, currentUserId: numbe
         },
       });
 
-      // 2. Update the chit fund's current month and mark completed when all months are done
+      // 2. Update the chit fund's current month, and mark completed only once every
+      // enrolled member has actually received an auction payout. Duration and the
+      // actual number of members are independent in this app (multiple auctions can
+      // share a month, and the membersCount field can go stale), so neither "month
+      // reached duration" nor the membersCount field reliably signals the fund is done.
       const auctionMonth = parseInt(body.month);
+      const [totalAuctions, totalMembers] = await Promise.all([
+        tx.auction.count({ where: { chitFundId: id } }),
+        tx.member.count({ where: { chitFundId: id } }),
+      ]);
       await tx.chitFund.update({
         where: { id },
         data: {
           currentMonth: auctionMonth,
-          ...(auctionMonth >= chitFund.duration && { status: 'Completed' }),
+          ...(totalMembers > 0 && totalAuctions >= totalMembers && { status: 'Completed' }),
         },
       });
 

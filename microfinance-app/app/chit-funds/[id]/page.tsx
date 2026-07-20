@@ -405,9 +405,9 @@ const ChitFundDetails = () => {
     const start = typeof startDate === 'string' ? new Date(startDate) : startDate;
     const end = new Date(start);
 
-    // For a 10-month chit fund starting on April 1, 2025, the end date should be February 1, 2026
-    // This is because the first month is April, and the 10th month is January (ending February 1)
-    end.setMonth(start.getMonth() + durationMonths);
+    // For a 10-month chit fund starting on April 1, 2025, month 1 is April and month 10
+    // (the last one) is January 2026, so the end date should be January 1, 2026.
+    end.setMonth(start.getMonth() + durationMonths - 1);
 
     return formatDate(end.toISOString());
   };
@@ -527,6 +527,10 @@ const ChitFundDetails = () => {
     );
   }
 
+  // Members who haven't won an auction yet - a fund can still have payouts left
+  // even after its status flips to 'Completed' when multiple auctions share the final month
+  const hasEligibleMembers = members.some(member => !auctions.some(auction => auction.winnerId === member.id));
+
   return (
     <div className="page-container">
       {/* Page header: title + action buttons */}
@@ -598,7 +602,7 @@ const ChitFundDetails = () => {
             className="inline-flex items-center px-3 py-1 text-xs font-medium rounded-full bg-green-50 text-green-700 hover:bg-green-100 dark:bg-green-900/30 dark:text-green-300 transition-colors whitespace-nowrap">
             Manage Contributions
           </Link>
-          {chitFund.status === 'Active' && (
+          {(chitFund.status === 'Active' || hasEligibleMembers) && (
             <Link href={`/chit-funds/${chitFund.id}/auctions`}
               className="inline-flex items-center px-3 py-1 text-xs font-medium rounded-full bg-purple-50 text-purple-700 hover:bg-purple-100 dark:bg-purple-900/30 dark:text-purple-300 transition-colors whitespace-nowrap">
               Conduct Auction
@@ -785,9 +789,9 @@ const ChitFundDetails = () => {
             <div className="themed-card overflow-hidden">
               <div className="p-4 sm:p-6 border-b"><h2 className="text-lg sm:text-xl font-semibold dark:text-theme-secondary">Next Payout</h2></div>
               <div className="p-4 sm:p-6">
-                {chitFund.status === 'Completed' ? (
+                {chitFund.status === 'Completed' && !hasEligibleMembers ? (
                   <p className="text-center text-gray-500">This chit fund has been completed.</p>
-                ) : chitFund.currentMonth >= chitFund.duration ? (
+                ) : chitFund.currentMonth >= chitFund.duration && !hasEligibleMembers ? (
                   <p className="text-center text-gray-500">All payouts have been distributed.</p>
                 ) : !(chitFund as any).nextPayoutReceiver ? (
                   <p className="text-center text-gray-500">No eligible members for next payout.</p>
@@ -883,7 +887,7 @@ const ChitFundDetails = () => {
         <div className="themed-card overflow-hidden">
           <div className="p-4 sm:p-6 border-b flex flex-wrap items-center justify-between gap-2">
             <h2 className="text-lg sm:text-xl font-semibold dark:text-theme-secondary">Auction History</h2>
-            {chitFund.status === 'Active' && (
+            {(chitFund.status === 'Active' || hasEligibleMembers) && (
               <Link href={`/chit-funds/${chitFund.id}/auctions`} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-300 text-sm">
                 Conduct Next Auction
               </Link>

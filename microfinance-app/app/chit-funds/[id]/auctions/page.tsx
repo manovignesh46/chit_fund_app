@@ -380,21 +380,19 @@ export default function ChitFundAuctionsPage() {
             <svg className="h-5 w-5 block sm:hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 20h5v-2a4 4 0 00-3-3.87M9 20H4v-2a4 4 0 013-3.87m9-4a4 4 0 10-8 0 4 4 0 008 0z" /></svg>
             <span className="hidden sm:inline-flex items-center"><svg className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 20h5v-2a4 4 0 00-3-3.87M9 20H4v-2a4 4 0 013-3.87m9-4a4 4 0 10-8 0 4 4 0 008 0z" /></svg>View Members</span>
           </Link>
-          {chitFund.status === 'Active' && (
-            eligibleMembers.length > 0 ? (
-              <button
-                onClick={() => setShowAddForm(true)}
-                className="btn-primary p-2 sm:px-4 sm:py-2"
-              >
-                <svg className="h-5 w-5 block sm:hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" /></svg>
-                <span className="hidden sm:inline-flex items-center"><svg className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" /></svg>Record Auction</span>
-              </button>
-            ) : (
-              <div className="p-2 rounded-lg text-sm sm:text-base bg-gray-300 text-gray-700 dark:text-theme-secondary cursor-not-allowed flex items-center justify-center sm:px-4 sm:py-2" title="All members have already won auctions">
-                <svg className="h-5 w-5 block sm:hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" /></svg>
-                <span className="hidden sm:inline-flex items-center"><svg className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" /></svg>Record Auction (No Eligible Members)</span>
-              </div>
-            )
+          {eligibleMembers.length > 0 ? (
+            <button
+              onClick={() => setShowAddForm(true)}
+              className="btn-primary p-2 sm:px-4 sm:py-2"
+            >
+              <svg className="h-5 w-5 block sm:hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" /></svg>
+              <span className="hidden sm:inline-flex items-center"><svg className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" /></svg>Record Auction</span>
+            </button>
+          ) : (
+            <div className="p-2 rounded-lg text-sm sm:text-base bg-gray-300 text-gray-700 dark:text-theme-secondary cursor-not-allowed flex items-center justify-center sm:px-4 sm:py-2" title="All members have already won auctions">
+              <svg className="h-5 w-5 block sm:hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" /></svg>
+              <span className="hidden sm:inline-flex items-center"><svg className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" /></svg>Record Auction (No Eligible Members)</span>
+            </div>
           )}
         </div>
       </div>
@@ -445,7 +443,7 @@ export default function ChitFundAuctionsPage() {
                     const auctionIndex = sameMonthAuctions.findIndex(a => a.id === auction.id) + 1;
 
                     return (
-                      <tr key={auction.id} className={`hover:bg-gray-50 dark:hover:bg-surface-hover ${isDuplicateMonth ? 'bg-yellow-50' : ''}`}>
+                      <tr key={auction.id} className={`hover:bg-gray-50 dark:hover:bg-surface-hover ${isDuplicateMonth ? 'bg-yellow-50 dark:bg-yellow-900/20' : ''}`}>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="text-sm text-gray-900 dark:text-theme-primary">
                             Month {auction.month}
