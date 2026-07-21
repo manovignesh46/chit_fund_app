@@ -59,9 +59,11 @@ export async function middleware(request: NextRequest) {
   }
 
   // Allow static files and public paths
-  if (pathname.startsWith('/_next') || 
-      pathname.startsWith('/public') || 
+  if (pathname.startsWith('/_next') ||
+      pathname.startsWith('/public') ||
       pathname === '/favicon.ico' ||
+      pathname === '/manifest.json' ||
+      pathname.startsWith('/icons/') ||
       publicPaths.some(path => pathname.startsWith(path))) {
     return response;
   }
@@ -106,6 +108,6 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    '/((?!_next/static|_next/image|favicon.ico|public).*)',
+    '/((?!_next/static|_next/image|favicon.ico|manifest.json|icons/|public).*)',
   ],
 };
