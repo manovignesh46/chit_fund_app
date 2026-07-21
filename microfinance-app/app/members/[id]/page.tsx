@@ -11,6 +11,7 @@ import {
   ActionButtonGroup
 } from '../../components/buttons/ActionButtons';
 import BackTitle from '../../components/common/BackTitle';
+import SwipeableTabs from '../../components/SwipeableTabs';
 
 interface ChitFundMember {
   id: number;
@@ -312,8 +313,13 @@ export default function MemberDetailPage() {
         </nav>
       </div>
 
-      {/* Member Details tab */}
-      {activeTab === "details" && (
+      {/* Tab panels (swipeable on mobile) */}
+      <SwipeableTabs
+        tabs={["details", "chit-funds", "loans"] as const}
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
+      >
+        {/* Details panel */}
         <div className="themed-card p-4 sm:p-6">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
             <div>
@@ -344,10 +350,8 @@ export default function MemberDetailPage() {
             </div>
           )}
         </div>
-      )}
 
-      {/* Chit Funds tab */}
-      {activeTab === "chit-funds" && (
+        {/* Chit Funds panel */}
         <div className="themed-card overflow-hidden">
           <div className="p-4 sm:p-6 border-b flex flex-wrap items-center justify-between gap-2">
             <h2 className="text-lg sm:text-xl font-semibold">Chit Funds ({member._count.chitFundMembers})</h2>
@@ -416,10 +420,8 @@ export default function MemberDetailPage() {
             </div>
           )}
         </div>
-      )}
 
-      {/* Loans tab */}
-      {activeTab === "loans" && (
+        {/* Loans panel */}
         <div className="themed-card overflow-hidden">
           <div className="p-4 sm:p-6 border-b flex flex-wrap items-center justify-between gap-2">
             <h2 className="text-lg sm:text-xl font-semibold">Loans ({member._count.loans})</h2>
@@ -485,7 +487,7 @@ export default function MemberDetailPage() {
             </div>
           )}
         </div>
-      )}
+      </SwipeableTabs>
       </div>
 
       {/* Delete Confirmation Modal */}

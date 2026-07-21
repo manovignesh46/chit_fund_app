@@ -9,6 +9,7 @@ import TransactionSummary from "../components/TransactionSummary";
 import MonthlyAggregationsCard from "../components/MonthlyAggregationsCard";
 import PartnerBalanceCard from "../components/partners/PartnerBalanceCard";
 import TransactionForm from "../components/TransactionForm";
+import SwipeableTabs from "../components/SwipeableTabs";
 import { usePartner } from "../contexts/PartnerContext";
 import { TRANSACTION_TYPES_CONFIG } from "../../config/config";
 import {
@@ -237,8 +238,13 @@ export default function TransactionsPage() {
         </nav>
       </div>
 
-      {/* Summary tab */}
-      {activeTab === "summary" && (
+      {/* Tab panels (swipeable on mobile) */}
+      <SwipeableTabs
+        tabs={["summary", "record-transactions"] as const}
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
+      >
+        {/* Summary panel */}
         <div className="space-y-4 sm:space-y-6">
           {/* Balance cards: Total + per-partner */}
           <div>
@@ -404,15 +410,13 @@ export default function TransactionsPage() {
             endDate={endDate}
           />
         </div>
-      )}
 
-      {/* Record Transactions tab */}
-      {activeTab === "record-transactions" && (
+        {/* Record Transactions panel */}
         <div className="themed-card p-4 sm:p-6 max-w-xl">
           <h2 className="text-lg font-semibold mb-4">Record Manual Transaction</h2>
           <TransactionForm onSuccess={fetchPartnersWithBalances} />
         </div>
-      )}
+      </SwipeableTabs>
       </div>
 
       {/* Email Export Modal */}

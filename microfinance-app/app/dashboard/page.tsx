@@ -14,6 +14,7 @@ import MonthlyFlowCard from "../components/MonthlyFlowCard";
 import YieldMetricsCard from "../components/YieldMetricsCard";
 import LoanProfitCard from "../components/LoanProfitCard";
 import ChitFundMonthlyProfitCard from "../components/ChitFundMonthlyProfitCard";
+import SwipeableTabs from "../components/SwipeableTabs";
 import {
   UserGroupIcon,
   PlusCircleIcon,
@@ -310,8 +311,13 @@ export default function DashboardPage() {
             </nav>
           </div>
 
-          {/* ── Overview tab ── */}
-          {activeTab === "overview" && (
+          {/* Tab panels (swipeable on mobile) */}
+          <SwipeableTabs
+            tabs={["overview", "trends", "collections", "activities", "events"] as const}
+            activeTab={activeTab}
+            onTabChange={setActiveTab}
+          >
+            {/* Overview panel */}
             <div className="space-y-6">
               {/* Cash Flow + Partner Balance */}
               <div className="grid grid-cols-1 gap-4 sm:gap-6 md:grid-cols-2">
@@ -481,14 +487,13 @@ export default function DashboardPage() {
               </div>
 
             </div>
-          )}
 
-          {/* ── Trends tab ── placeholder until cards mount for the first time */}
-          {activeTab === "trends" && !trendsInitialized && <TrendsSkeleton />}
-
-          {/* rendered once initialized, hidden when inactive so cards don't re-fetch */}
-          {trendsInitialized && (
-            <div className={activeTab !== "trends" ? "hidden" : "space-y-6"}>
+            {/* Trends panel — skeleton until first activated, then cards persist */}
+            <div className="space-y-6">
+              {!trendsInitialized ? (
+                <TrendsSkeleton />
+              ) : (
+                <>
               <MonthlyFlowCard />
 
               <div className="grid grid-cols-1 gap-4 sm:gap-6 md:grid-cols-2">
@@ -524,16 +529,14 @@ export default function DashboardPage() {
                   investedAmount={dashboardData.investedAmount || 0}
                 />
               </div>
+                </>
+              )}
             </div>
-          )}
 
-          {/* ── Monthly Collections tab ── */}
-          {activeTab === "collections" && (
+            {/* Collections panel */}
             <CurrentMonthCollections />
-          )}
 
-          {/* ── Recent Activities tab ── */}
-          {activeTab === "activities" && (
+            {/* Activities panel */}
             <div className="dark-card p-4 sm:p-6">
               {dashboardData.recentActivities.length === 0 ? (
                 <p className="text-gray-500 text-center py-4">No recent activities found.</p>
@@ -573,10 +576,8 @@ export default function DashboardPage() {
                 </Link>
               </div>
             </div>
-          )}
 
-          {/* ── Upcoming Events tab ── */}
-          {activeTab === "events" && (
+            {/* Events panel */}
             <div className="dark-card p-4 sm:p-6">
               {!dashboardData.upcomingEvents || dashboardData.upcomingEvents.length === 0 ? (
                 <p className="text-gray-500 text-center py-4">No upcoming events found.</p>
@@ -620,7 +621,7 @@ export default function DashboardPage() {
                 </Link>
               </div>
             </div>
-          )}
+          </SwipeableTabs>
         </div>
       )}
     </div>

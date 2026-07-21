@@ -20,6 +20,7 @@ import {
 } from "../../components/buttons/ActionButtons";
 import RepaymentForm from "../../components/loans/RepaymentForm";
 import BackTitle from "../../components/common/BackTitle";
+import SwipeableTabs from "../../components/SwipeableTabs";
 
 const LoanDetailPage = () => {
   const params = useParams();
@@ -672,8 +673,13 @@ const LoanDetailPage = () => {
         </nav>
       </div>
 
-      {/* Tab panels */}
-      {activeTab === "loan-details" && (
+      {/* Tab panels (swipeable on mobile) */}
+      <SwipeableTabs
+        tabs={["loan-details", "payment-schedule", "record-payment"] as const}
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
+      >
+        {/* Loan details panel */}
         <div className="themed-card overflow-hidden">
           <div className="p-4 sm:p-6">
             <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5 sm:gap-6">
@@ -763,9 +769,8 @@ const LoanDetailPage = () => {
             </div>
           </div>
         </div>
-      )}
 
-      {activeTab === "payment-schedule" && (
+        {/* Payment schedule panel */}
         <div className="themed-card overflow-hidden">
           <div className="p-4 sm:p-6 border-b flex flex-wrap items-center justify-between gap-2">
             <h2 className="text-lg sm:text-xl font-semibold dark:text-theme-secondary">Payment Schedule</h2>
@@ -957,9 +962,8 @@ const LoanDetailPage = () => {
             </div>
           )}
         </div>
-      )}
 
-      {activeTab === "record-payment" && (
+        {/* Record payment panel */}
         <div>
           <RepaymentForm
             loanId={parseInt(id as string)}
@@ -973,7 +977,7 @@ const LoanDetailPage = () => {
             initialLoan={loan}
           />
         </div>
-      )}
+      </SwipeableTabs>
       </div>
 
       {/* Delete Confirmation Modal */}

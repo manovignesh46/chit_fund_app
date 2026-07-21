@@ -21,6 +21,7 @@ ExportButton,
   ActionButtonGroup
 } from '../../components/buttons/ActionButtons';
 import BackTitle from '../../components/common/BackTitle';
+import SwipeableTabs from '../../components/SwipeableTabs';
 
 // Define Member type
 type Member = ChitFundMember;
@@ -639,8 +640,13 @@ const ChitFundDetails = () => {
         </nav>
       </div>
 
-      {/* Overview tab */}
-      {activeTab === "overview" && (
+      {/* Tab panels (swipeable on mobile) */}
+      <SwipeableTabs
+        tabs={["overview", "contributions", "auctions"] as const}
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
+      >
+        {/* Overview panel */}
         <div className="space-y-4 sm:space-y-6">
           {/* Main details */}
           <div className="themed-card overflow-hidden">
@@ -813,10 +819,8 @@ const ChitFundDetails = () => {
             </div>
           )}
         </div>
-      )}
 
-      {/* Contributions tab */}
-      {activeTab === "contributions" && (
+        {/* Contributions panel */}
         <div className="space-y-4 sm:space-y-6">
           {contributionsLoading ? (
             <div className="themed-card overflow-hidden">
@@ -880,10 +884,8 @@ const ChitFundDetails = () => {
             </div>
           )}
         </div>
-      )}
 
-      {/* Auctions tab */}
-      {activeTab === "auctions" && (
+        {/* Auctions panel */}
         <div className="themed-card overflow-hidden">
           <div className="p-4 sm:p-6 border-b flex flex-wrap items-center justify-between gap-2">
             <h2 className="text-lg sm:text-xl font-semibold dark:text-theme-secondary">Auction History</h2>
@@ -926,7 +928,7 @@ const ChitFundDetails = () => {
             </div>
           )}
         </div>
-      )}
+      </SwipeableTabs>
       </div>
 
       {/* Delete Confirmation Modal */}
