@@ -312,6 +312,11 @@ export const authAPI = {
     method: 'POST',
     body: JSON.stringify(data),
   }),
+
+  changePassword: (data: { currentPassword: string; newPassword: string }) => fetchAPI<any>('/user?action=change-password', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  }),
 };
 
 // Define the financial data point type

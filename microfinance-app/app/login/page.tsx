@@ -4,6 +4,7 @@
 import React, { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { authAPI } from '../../lib/api';
+import PasswordInput from '../components/ui/PasswordInput';
 
 function LoginForm() {
   const [username, setUsername] = useState('');
@@ -101,10 +102,9 @@ function LoginForm() {
             <label htmlFor="password" className="block text-sm font-medium text-gray-700 dark:text-theme-secondary mb-1">
               Password
             </label>
-            <input
+            <PasswordInput
               id="password"
               name="password"
-              type="password"
               autoComplete="current-password"
               required
               className="appearance-none relative block w-full px-3 py-2 border border-gray-200 dark:border-surface-border placeholder-gray-500 text-gray-900 dark:text-theme-primary rounded-lg focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"

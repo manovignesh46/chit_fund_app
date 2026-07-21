@@ -8,7 +8,8 @@ function partnerEmail(partnerName: string, adminEmail: string): string {
 
 /**
  * Ensures each active business partner has a login account linked to the primary admin.
- * Uses the same password hash as the primary admin.
+ * New accounts start with the primary admin's password hash as a default; existing
+ * accounts are left untouched so self-service or admin-set passwords stick.
  */
 export async function ensurePartnerLoginUsers(): Promise<{
   primaryAdminId: number;
@@ -38,10 +39,8 @@ export async function ensurePartnerLoginUsers(): Promise<{
     });
 
     if (existingUser) {
-      await prisma.user.update({
-        where: { id: existingUser.id },
-        data: { password: primaryAdmin.password },
-      });
+      // Already linked to this partner — leave their password alone so that
+      // password changes (self-service or admin-set) aren't overwritten on every login.
       existing.push(partner.name);
       continue;
     }

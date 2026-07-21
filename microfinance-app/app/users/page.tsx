@@ -3,6 +3,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { authAPI } from '../../lib/api';
+import PasswordInput from '../components/ui/PasswordInput';
 
 interface Partner {
   id: number;
@@ -201,8 +202,7 @@ export default function UsersPage() {
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-theme-secondary mb-1">Password</label>
-                <input
-                  type="password"
+                <PasswordInput
                   required
                   minLength={8}
                   value={formData.password}

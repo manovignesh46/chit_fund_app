@@ -17,17 +17,16 @@ async function main() {
     
     console.log('JWT_SECRET is set:', jwtSecret.substring(0, 3) + '...' + jwtSecret.substring(jwtSecret.length - 3));
     
-    // Get admin credentials from environment variables
+    // Admin email identifies which account to test against (password isn't
+    // needed here — this script only checks JWT signing/verification, not login).
     const adminEmail = process.env.ADMIN_EMAIL;
-    const adminPassword = process.env.ADMIN_PASSWORD;
-    
-    if (!adminEmail || !adminPassword) {
-      throw new Error('Admin email and password must be set in the .env file');
+
+    if (!adminEmail) {
+      throw new Error('Admin email must be set in the .env file');
     }
-    
+
     console.log(`Admin email is set: ${adminEmail}`);
-    console.log(`Admin password is set: ${adminPassword.substring(0, 3) + '...'}`);
-    
+
     // Check if admin user exists in the database
     const user = await prisma.user.findUnique({
       where: { email: adminEmail },
