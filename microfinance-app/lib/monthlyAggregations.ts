@@ -203,6 +203,20 @@ export interface CalendarMonth {
   end: Date;
 }
 
+/** Label a calendar month as "This month" (if current) or "Month Year". */
+export function formatCalendarMonthLabel(
+  year: number,
+  month: number,
+  now: Date = new Date()
+): string {
+  const isCurrent = year === now.getFullYear() && month === now.getMonth() + 1;
+  if (isCurrent) return 'This month';
+  return new Date(year, month - 1, 1).toLocaleString('default', {
+    month: 'long',
+    year: 'numeric',
+  });
+}
+
 /** Generate calendar months from start (inclusive) to end (inclusive), by month. */
 export function generateCalendarMonths(from: Date, to: Date): CalendarMonth[] {
   const months: CalendarMonth[] = [];
@@ -214,18 +228,10 @@ export function generateCalendarMonths(from: Date, to: Date): CalendarMonth[] {
   while (y < endY || (y === endY && m <= endM)) {
     const start = new Date(y, m, 1);
     const end = new Date(y, m + 1, 0, 23, 59, 59, 999);
-    const now = new Date();
-    const isCurrent =
-      y === now.getFullYear() && m === now.getMonth();
     months.push({
       year: y,
       month: m + 1,
-      label: isCurrent
-        ? 'This month'
-        : start.toLocaleString('default', {
-            month: 'long',
-            year: 'numeric',
-          }),
+      label: formatCalendarMonthLabel(y, m + 1),
       start,
       end,
     });

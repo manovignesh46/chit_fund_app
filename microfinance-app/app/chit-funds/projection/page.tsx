@@ -28,6 +28,7 @@ interface BookedMember {
   memberName: string;
   fundMonth: number;
   payoutAmount: number;
+  isActual?: boolean;
 }
 
 interface ProjectionRow {
@@ -41,7 +42,6 @@ interface ProjectionRow {
   net: number;
   cumulativeBalance: number;
   isCurrentMonth?: boolean;
-  payoutSource?: 'actual' | 'booked';
   auctionPayoutDetails?: PayoutDetail[];
   bookedMembers?: BookedMember[];
 }
@@ -149,12 +149,20 @@ export default function ChitFundProjectionPage() {
         title="Consolidated Cash Flow Projection"
         subtitle="Calendar-month view across all loans and chit funds — one shared pool of funds."
         actions={
-          <Link
-            href="/chit-funds/auction-bookings"
-            className="btn-primary px-4 py-2 text-sm"
-          >
-            Edit Bookings
-          </Link>
+          <div className="flex items-center gap-2">
+            <Link
+              href="/chit-funds/auction-history"
+              className="btn-neutral px-4 py-2 text-sm"
+            >
+              Auction History
+            </Link>
+            <Link
+              href="/chit-funds/auction-bookings"
+              className="btn-primary px-4 py-2 text-sm"
+            >
+              Edit Bookings
+            </Link>
+          </div>
         }
       />
 
@@ -302,6 +310,11 @@ export default function ChitFundProjectionPage() {
                   const rowKey = `${row.year}-${row.month}`;
                   const isExpanded = expandedMonthKey === rowKey;
                   const hasBookings = (row.bookedMembers?.length ?? 0) > 0;
+                  const pendingAmount = isCurrent
+                    ? (row.bookedMembers ?? [])
+                        .filter((b) => !b.isActual)
+                        .reduce((sum, b) => sum + b.payoutAmount, 0)
+                    : 0;
 
                   return (
                     <React.Fragment key={rowKey}>
@@ -346,10 +359,15 @@ export default function ChitFundProjectionPage() {
                         {formatCurrency(row.totalExpectedCollection)}
                       </td>
                       <td className="px-3 py-3 text-right text-red-600 dark:text-red-400">
-                        {row.totalAuctionPayout > 0 ? (
-                          formatCurrency(row.totalAuctionPayout)
-                        ) : (
-                          '—'
+                        {row.totalAuctionPayout > 0
+                          ? formatCurrency(row.totalAuctionPayout)
+                          : pendingAmount === 0
+                            ? '—'
+                            : null}
+                        {isCurrent && pendingAmount > 0 && (
+                          <span className="block text-xs font-normal text-blue-600 dark:text-blue-400">
+                            {formatCurrency(pendingAmount)} (pending)
+                          </span>
                         )}
                       </td>
                       <td
@@ -388,16 +406,32 @@ export default function ChitFundProjectionPage() {
                         </td>
                       )}
                     </tr>
-                    {isExpanded && (
+                    {isExpanded && (() => {
+                      const members = row.bookedMembers ?? [];
+                      const paidCount = members.filter((b) => b.isActual).length;
+                      const pendingCount = members.length - paidCount;
+                      const sortedMembers = [...members].sort(
+                        (a, b) => Number(b.isActual) - Number(a.isActual)
+                      );
+                      const heading = isCurrent
+                        ? paidCount > 0 && pendingCount > 0
+                          ? `Auction payouts — ${paidCount} paid, ${pendingCount} booked (${row.label})`
+                          : paidCount > 0
+                            ? `Completed auction payouts — ${row.label}`
+                            : `Booked auction winners — ${row.label}`
+                        : `Booked auction winners — ${row.label}`;
+                      const emptyText = isCurrent
+                        ? 'No auction winners recorded or booked for this month.'
+                        : 'No members booked for this month.';
+
+                      return (
                       <tr className="bg-gray-50 dark:bg-surface-elevated">
                         <td colSpan={colSpan} className="px-6 py-4 border-t border-gray-200 dark:border-surface-border">
                           <div className="rounded-lg border border-gray-200 dark:border-surface-border bg-white dark:bg-surface-card p-4">
                             <div className="text-xs font-semibold text-gray-600 dark:text-theme-secondary uppercase tracking-wide mb-3">
-                              {row.payoutSource === 'actual'
-                                ? `Completed auction payouts — ${row.label}`
-                                : `Booked auction winners — ${row.label}`}
+                              {heading}
                             </div>
-                            {hasBookings ? (
+                            {sortedMembers.length > 0 ? (
                               <div className="overflow-x-auto">
                                 <table className="w-full text-sm">
                                   <thead>
@@ -405,11 +439,14 @@ export default function ChitFundProjectionPage() {
                                       <th className="pb-2 pr-4 font-medium">Chit Fund</th>
                                       <th className="pb-2 pr-4 font-medium">Member</th>
                                       <th className="pb-2 pr-4 font-medium">Fund Month</th>
+                                      {isCurrent && (
+                                        <th className="pb-2 pr-4 font-medium">Status</th>
+                                      )}
                                       <th className="pb-2 font-medium text-right">Payout</th>
                                     </tr>
                                   </thead>
                                   <tbody className="divide-y divide-gray-200 dark:divide-surface-border">
-                                    {row.bookedMembers!.map((b, i) => (
+                                    {sortedMembers.map((b, i) => (
                                       <tr key={`${b.fundId}-${b.memberName}-${i}`}>
                                         <td className="py-2 pr-4 text-gray-900 dark:text-theme-primary">
                                           {b.fundName}
@@ -420,6 +457,19 @@ export default function ChitFundProjectionPage() {
                                         <td className="py-2 pr-4 text-gray-600 dark:text-theme-muted">
                                           Month {b.fundMonth}
                                         </td>
+                                        {isCurrent && (
+                                          <td className="py-2 pr-4">
+                                            {b.isActual ? (
+                                              <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200 text-xs">
+                                                Paid
+                                              </span>
+                                            ) : (
+                                              <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200 text-xs">
+                                                Booked
+                                              </span>
+                                            )}
+                                          </td>
+                                        )}
                                         <td className="py-2 text-right text-red-600 dark:text-red-400">
                                           {formatCurrency(b.payoutAmount)}
                                         </td>
@@ -430,15 +480,14 @@ export default function ChitFundProjectionPage() {
                               </div>
                             ) : (
                               <p className="text-sm text-gray-500 dark:text-theme-muted italic">
-                                {row.payoutSource === 'actual'
-                                  ? 'No completed auction payouts this month.'
-                                  : 'No members booked for this month.'}
+                                {emptyText}
                               </p>
                             )}
                           </div>
                         </td>
                       </tr>
-                    )}
+                      );
+                    })()}
                     </React.Fragment>
                   );
                 })}

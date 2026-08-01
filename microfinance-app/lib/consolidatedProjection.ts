@@ -41,8 +41,6 @@ export interface ConsolidatedProjectionRow {
   net: number;
   cumulativeBalance: number;
   isCurrentMonth?: boolean;
-  /** actual = completed auctions; booked = planned bookings */
-  payoutSource?: 'actual' | 'booked';
   /** Payout breakdown by fund name for tooltips/detail */
   auctionPayoutDetails?: { fundName: string; amount: number; bookedCount: number }[];
   /** Members booked or actual winners for auction payout in this calendar month */
@@ -199,11 +197,33 @@ export function getBookedMembersForCalendarMonth(
         memberName: booking.memberName,
         fundMonth: booking.month,
         payoutAmount: prizePerWinner,
+        isActual: false,
       });
     }
   }
 
   return booked;
+}
+
+/**
+ * Booked members for a calendar month, excluding any booking whose fund+fund-month
+ * already has a recorded actual auction (a stale booking left over after the real
+ * payout was entered elsewhere, without the booking being removed).
+ */
+export function getPendingBookedMembersForCalendarMonth(
+  chitFunds: (ChitFundWithBookings & { name?: string })[],
+  year: number,
+  month: number,
+  actualAuctions: ActualAuctionRecord[]
+): ConsolidatedProjectionRow['bookedMembers'] {
+  const supersededKeys = new Set(
+    actualAuctions.map((a) => `${a.chitFundId}-${a.fundMonth}`)
+  );
+
+  const allBooked = getBookedMembersForCalendarMonth(chitFunds, year, month) || [];
+  return allBooked.filter(
+    (b) => !supersededKeys.has(`${b.fundId}-${b.fundMonth}`)
+  );
 }
 
 function getSimulatedChitExtra(
@@ -262,7 +282,6 @@ export function computeConsolidatedProjection(
     let totalAuctionPayout: number;
     let auctionPayoutDetails: ConsolidatedProjectionRow['auctionPayoutDetails'];
     let bookedMembers: ConsolidatedProjectionRow['bookedMembers'];
-    let payoutSource: 'actual' | 'booked';
 
     if (isCurrent) {
       const actuals = getActualAuctionsForCalendarMonth(
@@ -273,8 +292,14 @@ export function computeConsolidatedProjection(
       const actualPayout = buildActualPayoutDetails(actuals);
       totalAuctionPayout = actualPayout.total;
       auctionPayoutDetails = actualPayout.details;
-      bookedMembers = actualPayout.members;
-      payoutSource = 'actual';
+
+      const pendingBooked = getPendingBookedMembersForCalendarMonth(
+        chitFunds,
+        cal.year,
+        cal.month,
+        actualAuctions
+      ) || [];
+      bookedMembers = [...(actualPayout.members || []), ...pendingBooked];
     } else {
       const booked = computeAuctionPayoutForCalendarMonth(
         chitFunds,
@@ -288,7 +313,6 @@ export function computeConsolidatedProjection(
         cal.year,
         cal.month
       );
-      payoutSource = 'booked';
     }
 
     const net = totalExpectedCollection - totalAuctionPayout;
@@ -310,7 +334,6 @@ export function computeConsolidatedProjection(
       net,
       cumulativeBalance,
       isCurrentMonth: isCurrent,
-      payoutSource,
       auctionPayoutDetails,
       bookedMembers,
     });
