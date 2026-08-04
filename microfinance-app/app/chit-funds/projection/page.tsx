@@ -14,6 +14,21 @@ interface ChitFundOption {
   currentMonth: number;
   monthlyContribution: number;
   startDate: string;
+  totalMembers?: number;
+  unbookedCount?: number;
+  unbookedAmount?: number;
+}
+
+interface UnbookedLiability {
+  total: number;
+  totalMembers: number;
+  byFund: {
+    fundId: number;
+    fundName: string;
+    unbookedCount: number;
+    amount: number;
+    months: { fundMonth: number; amount: number }[];
+  }[];
 }
 
 interface PayoutDetail {
@@ -42,6 +57,8 @@ interface ProjectionRow {
   net: number;
   cumulativeBalance: number;
   isCurrentMonth?: boolean;
+  isPastMonth?: boolean;
+  isPastBalanceEstimated?: boolean;
   auctionPayoutDetails?: PayoutDetail[];
   bookedMembers?: BookedMember[];
 }
@@ -59,6 +76,7 @@ export default function ChitFundProjectionPage() {
   const [simulatedContribution, setSimulatedContribution] = useState<string>('');
   const [expandedMonthKey, setExpandedMonthKey] = useState<string | null>(null);
   const [openingBalance, setOpeningBalance] = useState<number | null>(null);
+  const [unbookedLiability, setUnbookedLiability] = useState<UnbookedLiability | null>(null);
 
   const fetchProjection = async (simParams?: {
     fundId: string;
@@ -86,6 +104,7 @@ export default function ChitFundProjectionPage() {
       setSimulatedProjection(data.simulatedProjection || null);
       setChitFunds(data.chitFunds || []);
       setOpeningBalance(data.openingBalance ?? null);
+      setUnbookedLiability(data.unbookedLiability ?? null);
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -106,12 +125,14 @@ export default function ChitFundProjectionPage() {
     }
   }, [simulateFundId, chitFunds]);
 
-  const calendarMonthOptions = projection.map((row) => ({
-    key: `${row.year}-${row.month}`,
-    label: row.label,
-    year: row.year,
-    month: row.month,
-  }));
+  const calendarMonthOptions = projection
+    .filter((row) => !row.isPastMonth)
+    .map((row) => ({
+      key: `${row.year}-${row.month}`,
+      label: row.label,
+      year: row.year,
+      month: row.month,
+    }));
 
   const applySimulation = () => {
     if (!simulateFundId || !simulateCalendarKey) return;
@@ -143,6 +164,32 @@ export default function ChitFundProjectionPage() {
 
   const colSpan = compareMode ? 8 : 7;
 
+  const totalUnbookedMembers = chitFunds.reduce(
+    (sum, f) => sum + (f.unbookedCount ?? 0),
+    0
+  );
+  const fundsWithUnbooked = chitFunds.filter((f) => (f.unbookedCount ?? 0) > 0);
+
+  // Last month's own pending entries are carried forward into "this month"
+  // so they're actually subtracted somewhere in the balance chain — exclude
+  // the past-month row here so those entries aren't summed twice.
+  const pendingForTotals = projection
+    .filter((row) => !row.isPastMonth)
+    .flatMap((row) => row.bookedMembers ?? [])
+    .filter((b) => !b.isActual);
+  const totalPendingPayout = pendingForTotals.reduce((sum, b) => sum + b.payoutAmount, 0);
+  const totalPendingCount = pendingForTotals.length;
+
+  const finalRow = projection.length > 0 ? projection[projection.length - 1] : null;
+
+  // Members with no booking yet never appear in any projection row, so their
+  // future payouts are missing from the cumulative balance entirely. Booked
+  // winners, by contrast, are already netted out month by month — subtracting
+  // them again here would double-count them.
+  const totalUnbookedPayout = unbookedLiability?.total ?? 0;
+  const balanceAfterAllAuctions =
+    (finalRow?.cumulativeBalance ?? 0) - totalUnbookedPayout;
+
   return (
     <div className="container mx-auto px-4 py-8">
       <PageSectionHeader
@@ -165,6 +212,87 @@ export default function ChitFundProjectionPage() {
           </div>
         }
       />
+
+      {!loading && projection.length > 0 && (
+        <div className="dark-card p-4 sm:p-6 mb-6">
+          <h3 className="text-sm font-semibold text-gray-700 dark:text-theme-secondary mb-3">
+            Auction Planning Summary
+          </h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="rounded-lg border border-surface-border p-3">
+              <div className="text-xs text-gray-500 dark:text-theme-muted mb-1">
+                Members Not Yet Booked
+              </div>
+              <div className="text-xl font-semibold text-gray-900 dark:text-theme-primary">
+                {totalUnbookedMembers}
+              </div>
+              {fundsWithUnbooked.length > 0 ? (
+                <div className="text-xs text-gray-400 dark:text-theme-muted mt-1">
+                  {fundsWithUnbooked.map((f) => `${f.name}: ${f.unbookedCount}`).join(', ')}
+                </div>
+              ) : (
+                <div className="text-xs text-gray-400 dark:text-theme-muted mt-1">
+                  Every member is booked or has won
+                </div>
+              )}
+            </div>
+            <div className="rounded-lg border border-surface-border p-3">
+              <div className="text-xs text-gray-500 dark:text-theme-muted mb-1">
+                Pending Auction Payouts (Booked)
+              </div>
+              <div className="text-xl font-semibold text-red-600 dark:text-red-400">
+                {formatCurrency(totalPendingPayout)}
+              </div>
+              <div className="text-xs text-gray-400 dark:text-theme-muted mt-1">
+                {totalPendingCount === 0
+                  ? 'Nothing still owed on booked winners'
+                  : `Owed to ${totalPendingCount} booked winner${totalPendingCount !== 1 ? 's' : ''} — already subtracted in the table below`}
+              </div>
+            </div>
+            <div className="rounded-lg border border-surface-border p-3">
+              <div className="text-xs text-gray-500 dark:text-theme-muted mb-1">
+                Expected Payouts — Not Yet Booked
+              </div>
+              <div className="text-xl font-semibold text-red-600 dark:text-red-400">
+                {formatCurrency(totalUnbookedPayout)}
+              </div>
+              <div className="text-xs text-gray-400 dark:text-theme-muted mt-1">
+                {totalUnbookedMembers === 0
+                  ? 'Every member is booked or has won'
+                  : `${totalUnbookedMembers} open slot${totalUnbookedMembers !== 1 ? 's' : ''} at each fund's predefined amounts — not in the table below`}
+              </div>
+              {(unbookedLiability?.byFund?.length ?? 0) > 0 && (
+                <div className="text-xs text-gray-400 dark:text-theme-muted mt-1">
+                  {unbookedLiability.byFund
+                    .map((f) => `${f.fundName}: ${formatCurrency(f.amount)}`)
+                    .join(', ')}
+                </div>
+              )}
+            </div>
+            <div className="rounded-lg border border-surface-border p-3">
+              <div className="text-xs text-gray-500 dark:text-theme-muted mb-1">
+                Balance After Settling All Auctions
+              </div>
+              <div
+                className={`text-xl font-semibold ${
+                  balanceAfterAllAuctions >= 0
+                    ? 'text-green-700 dark:text-green-300'
+                    : 'text-red-700 dark:text-red-300'
+                }`}
+              >
+                {finalRow ? formatCurrency(balanceAfterAllAuctions) : '—'}
+              </div>
+              <div className="text-xs text-gray-400 dark:text-theme-muted mt-1">
+                {finalRow
+                  ? totalUnbookedPayout > 0
+                    ? `By ${finalRow.label} — the ${formatCurrency(finalRow.cumulativeBalance)} closing balance below, less the not-yet-booked payouts`
+                    : `By ${finalRow.label} — what remains after paying every booked winner above`
+                  : ''}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="dark-card p-4 sm:p-6 mb-6">
         <h3 className="text-sm font-semibold text-gray-700 dark:text-theme-secondary mb-3">
@@ -258,9 +386,22 @@ export default function ChitFundProjectionPage() {
           )}
           {openingBalance !== null && (
             <div className="px-4 py-2 border-b border-surface-border text-xs text-gray-500 dark:text-theme-muted">
-              Current month cumulative balance is anchored to your actual cash balance (
-              {formatCurrency(openingBalance)}). Completed auction payouts this month are deducted
-              from the payout column. Future months project from that starting point.
+              {(() => {
+                const lastMonthRow = projection.find((r) => r.isPastMonth);
+                return lastMonthRow ? (
+                  <>
+                    Each month builds forward from last month's real closing balance (
+                    {formatCurrency(lastMonthRow.cumulativeBalance)}), adding that month's own
+                    projected activity — including auction winners booked but not yet paid — so
+                    you can see what will remain after those payouts go out.
+                  </>
+                ) : (
+                  <>
+                    This month starts from your actual cash balance (
+                    {formatCurrency(openingBalance)}) and projects forward from there.
+                  </>
+                );
+              })()}
             </div>
           )}
           <div className="px-4 py-2 border-b border-surface-border text-xs text-gray-500">
@@ -284,9 +425,15 @@ export default function ChitFundProjectionPage() {
                   </th>
                   <th className="px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase">
                     Auction Payout
+                    <span className="block normal-case font-normal text-[10px] text-gray-400 dark:text-theme-muted">
+                      (projected)
+                    </span>
                   </th>
                   <th className="px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase">
                     Net
+                    <span className="block normal-case font-normal text-[10px] text-gray-400 dark:text-theme-muted">
+                      (projected)
+                    </span>
                   </th>
                   <th className="px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase">
                     {compareMode ? 'Sim. Cumulative' : 'Cumulative Balance'}
@@ -307,10 +454,11 @@ export default function ChitFundProjectionPage() {
                   const now = new Date();
                   const isCurrent =
                     row.year === now.getFullYear() && row.month === now.getMonth() + 1;
+                  const isPastMonth = !!row.isPastMonth;
                   const rowKey = `${row.year}-${row.month}`;
                   const isExpanded = expandedMonthKey === rowKey;
                   const hasBookings = (row.bookedMembers?.length ?? 0) > 0;
-                  const pendingAmount = isCurrent
+                  const pendingAmount = isCurrent || isPastMonth
                     ? (row.bookedMembers ?? [])
                         .filter((b) => !b.isActual)
                         .reduce((sum, b) => sum + b.payoutAmount, 0)
@@ -338,6 +486,11 @@ export default function ChitFundProjectionPage() {
                           {isCurrent && (
                             <span className="text-xs text-blue-600">(current)</span>
                           )}
+                          {isPastMonth && (
+                            <span className="text-xs text-gray-400 dark:text-theme-muted">
+                              (last month)
+                            </span>
+                          )}
                           {hasBookings && (
                             <span className="text-xs text-gray-400 font-normal">
                               ({row.bookedMembers!.length} booked)
@@ -359,14 +512,10 @@ export default function ChitFundProjectionPage() {
                         {formatCurrency(row.totalExpectedCollection)}
                       </td>
                       <td className="px-3 py-3 text-right text-red-600 dark:text-red-400">
-                        {row.totalAuctionPayout > 0
-                          ? formatCurrency(row.totalAuctionPayout)
-                          : pendingAmount === 0
-                            ? '—'
-                            : null}
-                        {isCurrent && pendingAmount > 0 && (
-                          <span className="block text-xs font-normal text-blue-600 dark:text-blue-400">
-                            {formatCurrency(pendingAmount)} (pending)
+                        {row.totalAuctionPayout > 0 ? formatCurrency(row.totalAuctionPayout) : '—'}
+                        {(isCurrent || isPastMonth) && pendingAmount > 0 && (
+                          <span className="block text-xs font-normal text-gray-400 dark:text-theme-muted">
+                            ({formatCurrency(pendingAmount)} pending)
                           </span>
                         )}
                       </td>
@@ -389,6 +538,11 @@ export default function ChitFundProjectionPage() {
                         }`}
                       >
                         {formatCurrency(row.cumulativeBalance)}
+                        {isPastMonth && (
+                          <span className="block text-xs font-normal text-gray-400 dark:text-theme-muted">
+                            {row.isPastBalanceEstimated ? '(estimated)' : '(actual)'}
+                          </span>
+                        )}
                         {compareMode && cumDiff !== 0 && (
                           <span
                             className={`block text-xs ${
@@ -413,14 +567,14 @@ export default function ChitFundProjectionPage() {
                       const sortedMembers = [...members].sort(
                         (a, b) => Number(b.isActual) - Number(a.isActual)
                       );
-                      const heading = isCurrent
+                      const heading = isCurrent || isPastMonth
                         ? paidCount > 0 && pendingCount > 0
                           ? `Auction payouts — ${paidCount} paid, ${pendingCount} booked (${row.label})`
                           : paidCount > 0
                             ? `Completed auction payouts — ${row.label}`
                             : `Booked auction winners — ${row.label}`
                         : `Booked auction winners — ${row.label}`;
-                      const emptyText = isCurrent
+                      const emptyText = isCurrent || isPastMonth
                         ? 'No auction winners recorded or booked for this month.'
                         : 'No members booked for this month.';
 
@@ -439,7 +593,7 @@ export default function ChitFundProjectionPage() {
                                       <th className="pb-2 pr-4 font-medium">Chit Fund</th>
                                       <th className="pb-2 pr-4 font-medium">Member</th>
                                       <th className="pb-2 pr-4 font-medium">Fund Month</th>
-                                      {isCurrent && (
+                                      {(isCurrent || isPastMonth) && (
                                         <th className="pb-2 pr-4 font-medium">Status</th>
                                       )}
                                       <th className="pb-2 font-medium text-right">Payout</th>
@@ -457,7 +611,7 @@ export default function ChitFundProjectionPage() {
                                         <td className="py-2 pr-4 text-gray-600 dark:text-theme-muted">
                                           Month {b.fundMonth}
                                         </td>
-                                        {isCurrent && (
+                                        {(isCurrent || isPastMonth) && (
                                           <td className="py-2 pr-4">
                                             {b.isActual ? (
                                               <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200 text-xs">

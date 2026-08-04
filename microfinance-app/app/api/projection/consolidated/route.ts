@@ -2,7 +2,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import prisma from '../../../../lib/prisma';
 import { getCurrentUserId } from '../../../../lib/auth';
 import { getCurrentTotalBalance } from '../../../../lib/balanceCalculator';
-import { computeBaselineAndSimulated } from '../../../../lib/consolidatedProjection';
+import {
+  computeBaselineAndSimulated,
+  computeUnbookedAuctionLiability,
+} from '../../../../lib/consolidatedProjection';
 
 export async function GET(request: NextRequest) {
   try {
@@ -17,7 +20,10 @@ export async function GET(request: NextRequest) {
     const simulateFromMonth = searchParams.get('simulateFromMonth');
     const simulatedContribution = searchParams.get('simulatedContribution');
 
-    const [activeLoans, activeChitFunds, openingBalance, completedAuctions] =
+    const now = new Date();
+    const startOfCurrentMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
+    const [activeLoans, activeChitFunds, openingBalance, completedAuctions, pastMonthClosingBalance] =
       await Promise.all([
         prisma.loan.findMany({
           where: {
@@ -60,6 +66,7 @@ export async function GET(request: NextRequest) {
             winner: { include: { globalMember: true } },
           },
         }),
+        getCurrentTotalBalance(currentUserId, startOfCurrentMonth),
       ]);
 
     let simulation;
@@ -108,26 +115,46 @@ export async function GET(request: NextRequest) {
       date: a.date,
       memberName: a.winner.globalMember.name,
       fundMonth: a.month,
+      winnerId: a.winnerId,
     }));
 
     const { projection, simulatedProjection } = computeBaselineAndSimulated(
       activeLoans,
       chitFundsInput,
-      { actualAuctions, openingBalance, simulation }
+      { actualAuctions, openingBalance, pastMonthClosingBalance, simulation }
     );
 
-    return NextResponse.json({
-      projection,
-      simulatedProjection,
-      openingBalance,
-      chitFunds: activeChitFunds.map((f) => ({
+    // Single source of truth for both the unbooked head count and what those
+    // members will still cost, so the summary cards can never disagree.
+    const unbookedLiability = computeUnbookedAuctionLiability(
+      chitFundsInput,
+      actualAuctions
+    );
+    const liabilityByFundId = new Map(
+      unbookedLiability.byFund.map((f) => [f.fundId, f])
+    );
+
+    const chitFundsWithBookingStatus = activeChitFunds.map((f) => {
+      const liability = liabilityByFundId.get(f.id);
+      return {
         id: f.id,
         name: f.name,
         monthlyContribution: f.monthlyContribution,
         duration: f.duration,
         currentMonth: f.currentMonth,
         startDate: f.startDate,
-      })),
+        totalMembers: f.members.length,
+        unbookedCount: liability?.unbookedCount ?? 0,
+        unbookedAmount: liability?.amount ?? 0,
+      };
+    });
+
+    return NextResponse.json({
+      projection,
+      simulatedProjection,
+      openingBalance,
+      chitFunds: chitFundsWithBookingStatus,
+      unbookedLiability,
       simulation: simulation || null,
     });
   } catch (error) {
