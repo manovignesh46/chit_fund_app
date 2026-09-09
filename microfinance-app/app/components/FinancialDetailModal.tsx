@@ -1,7 +1,8 @@
 // @ts-nocheck
 'use client';
 
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { FinancialDataPoint } from '../../lib/api';
 
 interface FinancialDetailModalProps {
@@ -16,6 +17,11 @@ const FinancialDetailModal: React.FC<FinancialDetailModalProps> = ({
   periodData,
 }) => {
   const modalRef = useRef<HTMLDivElement>(null);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // Format currency
   const formatCurrency = (value: number) => {
@@ -53,11 +59,11 @@ const FinancialDetailModal: React.FC<FinancialDetailModalProps> = ({
     };
   }, [isOpen, onClose]);
 
-  if (!isOpen || !periodData) {
+  if (!isOpen || !periodData || !mounted) {
     return null;
   }
 
-  return (
+  return createPortal(
     <div className="modal-overlay flex items-start sm:items-center justify-center z-50 p-2 sm:p-4 overflow-y-auto">
       <div
         ref={modalRef}
@@ -301,7 +307,8 @@ const FinancialDetailModal: React.FC<FinancialDetailModalProps> = ({
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };
 

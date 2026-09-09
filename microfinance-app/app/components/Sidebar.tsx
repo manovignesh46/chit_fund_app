@@ -339,7 +339,16 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, onOpen }) => {
     if (name === 'Auction Booking') {
       return (
         pathname.startsWith('/chit-funds/projection') ||
-        pathname.startsWith('/chit-funds/auction-bookings')
+        pathname.startsWith('/chit-funds/auction-bookings') ||
+        pathname.startsWith('/chit-funds/auction-history')
+      );
+    }
+    if (name === 'Chit Funds') {
+      return (
+        pathname.startsWith('/chit-funds') &&
+        !pathname.startsWith('/chit-funds/projection') &&
+        !pathname.startsWith('/chit-funds/auction-bookings') &&
+        !pathname.startsWith('/chit-funds/auction-history')
       );
     }
     return pathname.startsWith(href);

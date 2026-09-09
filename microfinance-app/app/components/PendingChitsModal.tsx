@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { formatCurrency } from '../../lib/formatUtils';
 import { XMarkIcon } from '@heroicons/react/24/outline';
 
@@ -29,6 +30,12 @@ interface Props {
 }
 
 export default function PendingChitsModal({ isOpen, onClose, chitFunds, month, year }: Props) {
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   // Prevent body scroll when modal is open
   useEffect(() => {
     if (isOpen) {
@@ -59,12 +66,12 @@ export default function PendingChitsModal({ isOpen, onClose, chitFunds, month, y
     };
   }, [isOpen, onClose]);
 
-  if (!isOpen) return null;
+  if (!isOpen || !mounted) return null;
 
   const totalPendingAmount = chitFunds.reduce((sum, cf) => sum + cf.totalPendingAmount, 0);
   const totalPendingMembers = chitFunds.reduce((sum, cf) => sum + cf.pendingMembers.length, 0);
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-50 overflow-y-auto" aria-labelledby="modal-title" role="dialog" aria-modal="true">
       {/* Background overlay */}
       <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
@@ -192,6 +199,7 @@ export default function PendingChitsModal({ isOpen, onClose, chitFunds, month, y
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
