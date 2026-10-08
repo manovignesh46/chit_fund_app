@@ -75,7 +75,7 @@ export default function MonthlyFlowCard() {
         <span className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">Last 6 months</span>
       </div>
       <p className="text-xs text-gray-400 dark:text-gray-500 mb-5">
-        Loan EMIs collected + Chit fund contributions received
+        Cash collections: loan repayments include principal; chit contributions are member funds.
       </p>
 
       {/* Bars */}

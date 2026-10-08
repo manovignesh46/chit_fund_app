@@ -1,78 +1,28 @@
-// @ts-nocheck
 'use client';
 
-import React from 'react';
+interface BusinessROICardProps { loanProfit: number; investedAmount: number; }
 
-interface BusinessROICardProps {
-  totalProfit: number;
-  investedAmount: number;
-}
-
-/**
- * Business ROI Card Component
- * Displays Return on Investment (ROI) percentage with visual indicators
- */
-export default function BusinessROICard({ totalProfit, investedAmount }: BusinessROICardProps) {
-  // Calculate ROI percentage
-  const calculateROI = (): string => {
-    if (investedAmount === 0) return '0.0';
-    const roi = (totalProfit / investedAmount) * 100;
-    return roi.toFixed(1);
-  };
-
-  const roiPercentage = calculateROI();
-
-  // Format currency for tooltip
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat("en-IN", {
-      style: "currency",
-      currency: "INR",
-      maximumFractionDigits: 0,
-    }).format(amount);
-  };
-
+export default function BusinessROICard({ loanProfit, investedAmount }: BusinessROICardProps) {
+  const roi = investedAmount > 0 ? `${((loanProfit / investedAmount) * 100).toFixed(1)}%` : '—';
+  const currency = (amount: number) => new Intl.NumberFormat('en-IN', {
+    style: 'currency', currency: 'INR', maximumFractionDigits: 0,
+  }).format(amount);
   return (
-    <div className="themed-card p-4 sm:p-6">
-      <h2 className="text-lg sm:text-xl font-semibold text-gray-700 dark:text-theme-secondary mb-2">
-        Business ROI
-      </h2>
-      
-      {/* ROI Percentage with trending up icon */}
-      <div className="flex items-center gap-2 mb-2">
-        <p className="text-3xl sm:text-4xl font-bold text-green-600">
-          {roiPercentage}%
-        </p>
-        <svg 
-          xmlns="http://www.w3.org/2000/svg" 
-          className="h-6 w-6 sm:h-8 sm:w-8 text-green-600" 
-          fill="none" 
-          viewBox="0 0 24 24" 
-          stroke="currentColor"
-        >
-          <path 
-            strokeLinecap="round" 
-            strokeLinejoin="round" 
-            strokeWidth={2} 
-            d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" 
-          />
-        </svg>
+    <div className="dark-card p-4 sm:p-6">
+      <div className="flex justify-between gap-3 mb-3">
+        <h3 className="card-title">Loan Return on Owner Capital</h3>
+        <span className="text-xs text-gray-400">All-time</span>
       </div>
-
-      {/* Subtitle */}
-      <p className="text-sm sm:text-base font-medium text-gray-500 mb-3">
-        Return on Capital
+      <p className={`text-3xl font-bold ${loanProfit < 0 ? 'text-red-600' : 'text-green-600 dark:text-green-400'}`}>{roi}</p>
+      <p className="text-sm text-gray-500 mt-3">Interest and document charges ÷ net recorded owner capital.</p>
+      <div className="mt-4 space-y-2 text-sm text-gray-600 dark:text-gray-300">
+        <p>Loan income: {currency(loanProfit)}</p>
+        <p>Net owner capital: {currency(investedAmount)}</p>
+      </div>
+      <p className="text-xs text-gray-500 mt-4">
+        Chit commission is excluded. This is a cumulative ratio, not an annual return.
+        {investedAmount <= 0 && ' Return is unavailable without positive recorded capital.'}
       </p>
-
-      {/* Tooltip/Caption */}
-      <div className="bg-green-50 rounded-lg p-3 border border-green-100">
-        <p className="text-xs sm:text-sm text-gray-700 dark:text-theme-secondary">
-          💡 Net profit earned per ₹100 invested
-        </p>
-        <div className="mt-2 text-xs text-gray-500">
-          <p>Profit: {formatCurrency(totalProfit)}</p>
-          <p>Invested: {formatCurrency(investedAmount)}</p>
-        </div>
-      </div>
     </div>
   );
 }

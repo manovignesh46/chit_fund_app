@@ -7,6 +7,8 @@ interface LoanProfitCardProps {
   loanDisbursed: number;    // total principal given out (all-time)
   repaymentInflow: number;  // total EMIs collected back
   loanOutstanding: number;  // still pending recovery
+  interestIncome?: number;
+  documentCharges?: number;
   loanProfit: number;       // interest + document charges earned
 }
 
@@ -15,6 +17,8 @@ export default function LoanProfitCard({
   repaymentInflow,
   loanOutstanding,
   loanProfit,
+  interestIncome,
+  documentCharges,
 }: LoanProfitCardProps) {
   const fmtCur = (n: number) =>
     new Intl.NumberFormat('en-IN', {
@@ -74,9 +78,9 @@ export default function LoanProfitCard({
       ),
     },
     {
-      label: 'Profit Earned',
+      label: 'Loan Income',
       value: fmtCur(loanProfit),
-      sub: `Yield: ${yieldPct}% on disbursed capital`,
+      sub: `Cumulative income / disbursed: ${yieldPct}%`,
       color: 'text-green-600 dark:text-green-400',
       icon: (
         <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -91,11 +95,11 @@ export default function LoanProfitCard({
       <div className="flex items-start justify-between mb-4">
         <div>
           <h2 className="card-title">Loan Portfolio</h2>
-          <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">Principal flow + profit earned</p>
+          <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">Principal flow, interest and document charges</p>
         </div>
         {loanDisbursed > 0 && (
           <span className="text-xs font-semibold px-2 py-1 rounded-full bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400">
-            {yieldPct}% yield
+            {yieldPct}% cumulative
           </span>
         )}
       </div>
@@ -116,6 +120,17 @@ export default function LoanProfitCard({
           </div>
         ))}
       </div>
+
+      <dl className="mt-4 pt-3 border-t border-gray-200 dark:border-surface-border space-y-2 text-sm">
+        <div className="flex justify-between gap-3">
+          <dt className="text-gray-500">Interest income</dt>
+          <dd className="font-semibold text-gray-900 dark:text-theme-heading">{interestIncome === undefined ? '—' : fmtCur(interestIncome)}</dd>
+        </div>
+        <div className="flex justify-between gap-3">
+          <dt className="text-gray-500">Document charges</dt>
+          <dd className="font-semibold text-gray-900 dark:text-theme-heading">{documentCharges === undefined ? '—' : fmtCur(documentCharges)}</dd>
+        </div>
+      </dl>
 
       {/* Recovery progress bar */}
       {loanDisbursed > 0 && (

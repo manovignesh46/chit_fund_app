@@ -81,6 +81,8 @@ export default function DashboardPage() {
     activeLoans: number;
     investedAmount?: number; // Recorded amount transactions
     loanDisbursed?: number;  // Total principal ever given out
+    loanInterestIncome?: number;
+    loanDocumentCharges?: number;
     repaymentInflow?: number; // Total loan EMIs collected
     recentActivities: Activity[];
     upcomingEvents: Event[];
@@ -128,6 +130,8 @@ export default function DashboardPage() {
     investedAmount: data.investedAmount || 0,
     loanDisbursed: data.loanDisbursed || 0,
     repaymentInflow: data.repaymentInflow || 0,
+    loanInterestIncome: data.loanInterestIncome,
+    loanDocumentCharges: data.loanDocumentCharges,
     outsideAmountBreakdown: {
       loanRemainingAmount: data.outsideAmountBreakdown?.loanRemainingAmount || 0,
       chitFundOutsideAmount: data.outsideAmountBreakdown?.chitFundOutsideAmount || 0,
@@ -494,41 +498,54 @@ export default function DashboardPage() {
                 <TrendsSkeleton />
               ) : (
                 <>
-              <MonthlyFlowCard />
+                  <section aria-labelledby="chit-trends-title" className="space-y-4">
+                    <div>
+                      <h2 id="chit-trends-title" className="text-xl font-semibold text-gray-900 dark:text-theme-heading">Chit Fund</h2>
+                      <p className="text-sm text-gray-500">Member-funded rotation. Earnings come from payout commission.</p>
+                    </div>
+                    <div className="grid grid-cols-1 gap-4 sm:gap-6 md:grid-cols-2">
+                      <ChitFundMonthlyProfitCard />
+                      <CollectionHealthCard business="chit" />
+                    </div>
+                  </section>
 
-              <div className="grid grid-cols-1 gap-4 sm:gap-6 md:grid-cols-2">
-                <CollectionHealthCard />
-                <BusinessROICard
-                  totalProfit={dashboardData.totalProfit}
-                  investedAmount={dashboardData.investedAmount || 0}
-                />
-              </div>
+                  <section aria-labelledby="loan-trends-title" className="space-y-4">
+                    <div>
+                      <h2 id="loan-trends-title" className="text-xl font-semibold text-gray-900 dark:text-theme-heading">Loans</h2>
+                      <p className="text-sm text-gray-500">Invested capital earns interest and document charges.</p>
+                    </div>
+                    <div className="grid grid-cols-1 gap-4 sm:gap-6 md:grid-cols-2">
+                      <LoanProfitCard
+                        loanDisbursed={dashboardData.loanDisbursed || 0}
+                        repaymentInflow={dashboardData.repaymentInflow || 0}
+                        loanOutstanding={dashboardData.outsideAmountBreakdown.loanRemainingAmount}
+                        loanProfit={dashboardData.loanProfit}
+                        interestIncome={dashboardData.loanInterestIncome}
+                        documentCharges={dashboardData.loanDocumentCharges}
+                      />
+                      <CollectionHealthCard business="loan" />
+                      <BusinessROICard loanProfit={dashboardData.loanProfit} investedAmount={dashboardData.investedAmount || 0} />
+                      <CapitalUtilizationCard
+                        loanOutstanding={dashboardData.outsideAmountBreakdown.loanRemainingAmount}
+                        investedAmount={dashboardData.investedAmount || 0}
+                      />
+                    </div>
+                  </section>
 
-              <div className="grid grid-cols-1 gap-4 sm:gap-6 md:grid-cols-2">
-                <LoanProfitCard
-                  loanDisbursed={dashboardData.loanDisbursed || 0}
-                  repaymentInflow={dashboardData.repaymentInflow || 0}
-                  loanOutstanding={dashboardData.outsideAmountBreakdown.loanRemainingAmount}
-                  loanProfit={dashboardData.loanProfit}
-                />
-                <YieldMetricsCard
-                  totalProfit={dashboardData.totalProfit}
-                  loanProfit={dashboardData.loanProfit}
-                  chitFundProfit={dashboardData.chitFundProfit}
-                  investedAmount={dashboardData.investedAmount || 0}
-                  loanDisbursed={dashboardData.loanDisbursed || 0}
-                  loanOutstanding={dashboardData.outsideAmountBreakdown.loanRemainingAmount}
-                  totalCashInflow={dashboardData.totalCashInflow}
-                />
-              </div>
-
-              <div className="grid grid-cols-1 gap-4 sm:gap-6 md:grid-cols-2">
-                <ChitFundMonthlyProfitCard />
-                <CapitalUtilizationCard
-                  totalOutstanding={dashboardData.totalOutsideAmount}
-                  investedAmount={dashboardData.investedAmount || 0}
-                />
-              </div>
+                  <section aria-labelledby="business-trends-title" className="space-y-4">
+                    <div>
+                      <h2 id="business-trends-title" className="text-xl font-semibold text-gray-900 dark:text-theme-heading">Business &amp; Capital</h2>
+                      <p className="text-sm text-gray-500">Combined earnings, with member collections kept separate from income.</p>
+                    </div>
+                    <div className="grid grid-cols-1 gap-4 sm:gap-6 md:grid-cols-2">
+                      <YieldMetricsCard
+                        loanProfit={dashboardData.loanProfit}
+                        chitFundProfit={dashboardData.chitFundProfit}
+                        investedAmount={dashboardData.investedAmount || 0}
+                      />
+                      <MonthlyFlowCard />
+                    </div>
+                  </section>
                 </>
               )}
             </div>

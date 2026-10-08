@@ -1,6 +1,8 @@
 // @ts-nocheck
 'use client';
 
+import type { calculateChitCommissionTrends } from '../../lib/chitCommission';
+
 import React, { useEffect, useState } from 'react';
 
 interface MonthEntry {
@@ -12,17 +14,20 @@ interface MonthEntry {
 
 export default function ChitFundMonthlyProfitCard() {
   const [data, setData] = useState<MonthEntry[]>([]);
+  const [summary, setSummary] = useState<ReturnType<typeof calculateChitCommissionTrends>['summary'] | null>(null);
+  const [error, setError] = useState(false);
   const [loading, setLoading] = useState(true);
   const [activeTooltip, setActiveTooltip] = useState<number | null>(null);
 
   useEffect(() => {
     fetch('/api/chit-funds/monthly-profit?months=6')
-      .then((r) => (r.ok ? r.json() : null))
+      .then((r) => { if (!r.ok) throw new Error('Commission request failed'); return r.json(); })
       .then((res) => {
-        setData(res?.months ?? []);
+        setData(res.months);
+        setSummary(res.summary);
         setLoading(false);
       })
-      .catch(() => setLoading(false));
+      .catch(() => { setError(true); setLoading(false); });
   }, []);
 
   const fmtFull = (n: number) =>
@@ -56,7 +61,14 @@ export default function ChitFundMonthlyProfitCard() {
     );
   }
 
-  const maxValue = Math.max(...data.map((d) => d.commission), 1);
+  if (error) return (
+    <div className="dark-card p-4 sm:p-6">
+      <h3 className="card-title">Chit Fund Commission</h3>
+      <p role="alert" className="text-sm text-red-600 mt-3">Unable to load commission. Refresh to try again.</p>
+    </div>
+  );
+
+  const maxValue = Math.max(...data.map((d) => Math.abs(d.commission)), 1);
   const totalCommission = data.reduce((s, d) => s + d.commission, 0);
   const bestMonth = data.reduce(
     (best, d) => (d.commission > (best?.commission ?? 0) ? d : best),
@@ -70,18 +82,18 @@ export default function ChitFundMonthlyProfitCard() {
         <span className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">Last 6 months</span>
       </div>
       <p className="text-xs text-gray-400 dark:text-gray-500 mb-1">
-        Per-month auction commission — (member contributions) minus (payout to winner)
+        Commission from completed payouts, using each fund’s contribution rules.
       </p>
       <p className="text-xs text-amber-600 dark:text-amber-400 mb-5">
-        No personal investment needed; commission comes from the auction discount
+        Member collections fund the rotation. Commission depends on the fixed payout amount; no chit ROI.
       </p>
 
-      {data.every((d) => d.commission === 0) ? (
-        <p className="text-center text-gray-400 text-sm py-6">No auction data in last 6 months</p>
+      {data.every((d) => d.auctionCount === 0) ? (
+        <p className="text-center text-gray-400 text-sm py-6">No completed payouts in the last 6 months</p>
       ) : (
         <div className="space-y-3">
           {data.map((month, i) => {
-            const pct = maxValue ? (month.commission / maxValue) * 100 : 0;
+            const pct = maxValue ? (Math.abs(month.commission) / maxValue) * 100 : 0;
             const isCurrentMonth = i === data.length - 1;
             const isBest = bestMonth?.key === month.key && month.commission > 0;
 
@@ -106,7 +118,7 @@ export default function ChitFundMonthlyProfitCard() {
                   <div className="flex-1 h-5 bg-gray-100 dark:bg-surface-elevated rounded overflow-hidden">
                     <div
                       className={`h-full transition-all duration-700 ease-out rounded ${
-                        isBest ? 'bg-blue-600 dark:bg-blue-500' : 'bg-blue-400 dark:bg-blue-500/70'
+                        month.commission < 0 ? 'bg-red-500' : isBest ? 'bg-blue-600 dark:bg-blue-500' : 'bg-blue-400 dark:bg-blue-500/70'
                       }`}
                       style={{ width: `${pct}%` }}
                     />
@@ -114,12 +126,12 @@ export default function ChitFundMonthlyProfitCard() {
 
                   <span
                     className={`text-xs w-14 shrink-0 font-medium ${
-                      month.commission > 0
+                      month.commission < 0 ? 'text-red-600' : month.commission > 0
                         ? 'text-blue-600 dark:text-blue-400'
                         : 'text-gray-400 dark:text-gray-500'
                     }`}
                   >
-                    {month.commission > 0 ? fmt(month.commission) : '—'}
+                    {month.commission !== 0 ? fmt(month.commission) : '—'}
                   </span>
                 </div>
 
@@ -130,10 +142,10 @@ export default function ChitFundMonthlyProfitCard() {
                     {month.auctionCount > 0 ? (
                       <>
                         <p className="text-blue-300">Commission: {fmtFull(month.commission)}</p>
-                        <p className="text-gray-400">{month.auctionCount} auction{month.auctionCount > 1 ? 's' : ''} conducted</p>
+                        <p className="text-gray-400">{month.auctionCount} payout{month.auctionCount > 1 ? 's' : ''} completed</p>
                       </>
                     ) : (
-                      <p className="text-gray-400">No auctions this month</p>
+                      <p className="text-gray-400">No payouts this month</p>
                     )}
                   </div>
                 )}
@@ -142,6 +154,27 @@ export default function ChitFundMonthlyProfitCard() {
           })}
         </div>
       )}
+
+      {summary && (
+        <dl className="mt-5 pt-4 border-t border-gray-200 dark:border-surface-border space-y-2 text-sm">
+          {[
+            ['All-time payout commission', fmtFull(summary.commission)],
+            ['Expected remaining commission', summary.expectedRemainingCommission === null ? 'Unavailable' : fmtFull(summary.expectedRemainingCommission)],
+            ['Member collections received', fmtFull(summary.collections)],
+            ['Payouts completed', fmtFull(summary.payouts)],
+            ['Collections less payouts', fmtFull(summary.collectionPayoutBalance)],
+          ].map(([label, value]) => (
+            <div key={label} className="flex justify-between gap-3">
+              <dt className="text-gray-500">{label}</dt>
+              <dd className="font-semibold text-gray-900 dark:text-theme-heading">{value}</dd>
+            </div>
+          ))}
+        </dl>
+      )}
+      <p className="text-xs text-gray-500 mt-3">
+        Remaining commission is projected from recorded fixed schedules, assuming one payout per remaining fund month.
+        Collections less payouts is a cash movement balance, not additional profit or cash available for loans.
+      </p>
 
       {/* Summary footer */}
       <div className="mt-5 pt-4 border-t border-gray-200 dark:border-surface-border flex flex-wrap items-center justify-between gap-2">

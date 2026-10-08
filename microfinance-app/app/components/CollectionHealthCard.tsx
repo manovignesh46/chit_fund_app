@@ -17,7 +17,8 @@ interface AggregationData {
  * Displays collection rate with a circular progress bar
  * Fetches current month's collection data automatically
  */
-export default function CollectionHealthCard() {
+export default function CollectionHealthCard({ business }: { business: 'loan' | 'chit' }) {
+  const title = business === 'loan' ? 'Loan Collections' : 'Chit Fund Collections';
   const [data, setData] = useState<AggregationData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -35,7 +36,7 @@ export default function CollectionHealthCard() {
 
         // Format dates as YYYY-MM-DD
         const formatDate = (date: Date) => {
-          return date.toISOString().split('T')[0];
+          return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
         };
 
         const response = await fetch(
@@ -59,10 +60,13 @@ export default function CollectionHealthCard() {
     fetchCurrentMonthCollections();
   }, []);
 
+  const expected = business === 'loan' ? data?.expectedLoanRepayment ?? 0 : data?.expectedChitContribution ?? 0;
+  const collected = business === 'loan' ? data?.actualLoanRepayment ?? 0 : data?.actualChitContribution ?? 0;
+
   // Calculate collection rate percentage
   const calculateCollectionRate = (): number => {
-    if (!data || data.totalExpectedAmount === 0) return 0;
-    return (data.totalActualAmount / data.totalExpectedAmount) * 100;
+    if (!data || expected === 0) return 0;
+    return (collected / expected) * 100;
   };
 
   const collectionRate = calculateCollectionRate();
@@ -71,21 +75,21 @@ export default function CollectionHealthCard() {
   const getColor = (rate: number): { stroke: string; text: string; bg: string } => {
     if (rate < 50) {
       return {
-        stroke: '#EF4444', // Red
-        text: 'text-red-600',
-        bg: 'bg-red-50'
+        stroke: 'var(--color-danger)',
+        text: 'text-danger',
+        bg: 'bg-danger-light'
       };
     } else if (rate >= 50 && rate <= 80) {
       return {
-        stroke: '#F59E0B', // Yellow/Amber
-        text: 'text-yellow-600',
-        bg: 'bg-yellow-50'
+        stroke: 'var(--color-warning)',
+        text: 'text-warning',
+        bg: 'bg-warning-light'
       };
     } else {
       return {
-        stroke: '#10B981', // Green
-        text: 'text-green-600',
-        bg: 'bg-green-50'
+        stroke: 'var(--color-success)',
+        text: 'text-success',
+        bg: 'bg-success-light'
       };
     }
   };
@@ -97,7 +101,7 @@ export default function CollectionHealthCard() {
   const strokeWidth = 12;
   const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
-  const offset = circumference - (collectionRate / 100) * circumference;
+  const offset = circumference - (Math.min(Math.max(collectionRate, 0), 100) / 100) * circumference;
 
   // Format currency
   const formatCurrency = (amount: number) => {
@@ -111,15 +115,15 @@ export default function CollectionHealthCard() {
   if (loading) {
     return (
       <div className="themed-card p-4 sm:p-6 animate-pulse">
-        <div className="h-6 bg-gray-200 rounded w-3/4 mx-auto mb-4"></div>
+        <div className="h-6 bg-gray-200 dark:bg-surface-elevated rounded w-3/4 mx-auto mb-4"></div>
         <div className="flex justify-center mb-4">
-          <div className="w-48 h-48 bg-gray-200 rounded-full"></div>
+          <div className="w-48 h-48 bg-gray-200 dark:bg-surface-elevated rounded-full"></div>
         </div>
-        <div className="h-4 bg-gray-200 rounded w-2/3 mx-auto mb-4"></div>
+        <div className="h-4 bg-gray-200 dark:bg-surface-elevated rounded w-2/3 mx-auto mb-4"></div>
         <div className="space-y-2">
-          <div className="h-3 bg-gray-200 rounded"></div>
-          <div className="h-3 bg-gray-200 rounded"></div>
-          <div className="h-3 bg-gray-200 rounded"></div>
+          <div className="h-3 bg-gray-200 dark:bg-surface-elevated rounded"></div>
+          <div className="h-3 bg-gray-200 dark:bg-surface-elevated rounded"></div>
+          <div className="h-3 bg-gray-200 dark:bg-surface-elevated rounded"></div>
         </div>
       </div>
     );
@@ -129,10 +133,10 @@ export default function CollectionHealthCard() {
     return (
       <div className="themed-card p-4 sm:p-6">
         <h2 className="text-lg font-semibold text-gray-700 dark:text-theme-secondary mb-2 text-center">
-          Collection Health
+          {title}
         </h2>
         <div className="alert-error rounded-lg p-3">
-          <p className="text-sm text-red-600">{error}</p>
+          <p className="text-sm text-danger">{error}</p>
         </div>
       </div>
     );
@@ -143,7 +147,7 @@ export default function CollectionHealthCard() {
   return (
     <div className="themed-card p-4 sm:p-6">
       <h2 className="text-lg sm:text-xl font-semibold text-gray-700 dark:text-theme-secondary mb-4 text-center">
-        Collection Health
+        {title}
       </h2>
 
       {/* Circular Progress Bar */}
@@ -159,7 +163,7 @@ export default function CollectionHealthCard() {
               cx={size / 2}
               cy={size / 2}
               r={radius}
-              stroke="#E5E7EB"
+              stroke="var(--color-surface-border)"
               strokeWidth={strokeWidth}
               fill="none"
             />
@@ -181,16 +185,16 @@ export default function CollectionHealthCard() {
           {/* Center text - percentage */}
           <div className="absolute inset-0 flex flex-col items-center justify-center">
             <span className={`text-4xl sm:text-5xl font-bold ${colors.text}`}>
-              {collectionRate.toFixed(1)}%
+              {expected > 0 ? `${collectionRate.toFixed(1)}%` : '—'}
             </span>
-            <span className="text-xs text-gray-500 mt-1">collected</span>
+            <span className="text-xs text-theme-secondary mt-1">collected</span>
           </div>
         </div>
       </div>
 
       {/* Label */}
       <p className="text-sm sm:text-base font-medium text-gray-700 dark:text-theme-secondary text-center mb-4">
-        Monthly Recovery Status
+        Current month collection status
       </p>
 
       {/* Collection Details */}
@@ -198,19 +202,19 @@ export default function CollectionHealthCard() {
         <div className="flex justify-between items-center text-sm">
           <span className="text-gray-700 dark:text-theme-secondary">Expected:</span>
           <span className="font-semibold text-gray-900 dark:text-theme-primary">
-            {formatCurrency(data.totalExpectedAmount)}
+            {formatCurrency(expected)}
           </span>
         </div>
         <div className="flex justify-between items-center text-sm">
           <span className="text-gray-700 dark:text-theme-secondary">Collected:</span>
           <span className={`font-semibold ${colors.text}`}>
-            {formatCurrency(data.totalActualAmount)}
+            {formatCurrency(collected)}
           </span>
         </div>
         <div className="flex justify-between items-center text-sm pt-2 border-t border-gray-200 dark:border-surface-border">
           <span className="text-gray-700 dark:text-theme-secondary">Pending:</span>
           <span className="font-semibold text-gray-900 dark:text-theme-primary">
-            {formatCurrency(data.totalExpectedAmount - data.totalActualAmount)}
+            {formatCurrency(Math.max(0, expected - collected))}
           </span>
         </div>
       </div>
@@ -218,7 +222,7 @@ export default function CollectionHealthCard() {
       {/* Status indicator */}
       <div className="mt-4 text-center">
         <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${colors.bg} ${colors.text}`}>
-          {collectionRate < 50 ? '⚠️ Needs Attention' :
+          {expected === 0 ? 'No collections scheduled' : collectionRate < 50 ? '⚠️ Needs Attention' :
            collectionRate <= 80 ? '⚡ Fair Progress' :
            '✅ Excellent Performance'}
         </span>
