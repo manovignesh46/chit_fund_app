@@ -326,8 +326,16 @@ export default function ChitFundContributionsPage() {
 
       console.log("API Response:", responseData);
 
-      // Update the contributions list
-      setContributions([...contributions, responseData]);
+      // Use the saved record to update both the list and monthly payment summaries.
+      // Match the API's newest-month/newest-payment ordering without reloading.
+      const addSavedContribution = (previous: Contribution[]) =>
+        [...previous, responseData].sort(
+          (a, b) =>
+            b.month - a.month ||
+            new Date(b.paidDate).getTime() - new Date(a.paidDate).getTime()
+        );
+      setContributions(addSavedContribution);
+      setAllContributions(addSavedContribution);
 
       // Reset form
       setNewContribution({
@@ -340,9 +348,6 @@ export default function ChitFundContributionsPage() {
         actualBalancePaymentDate: "",
       });
       setShowAddForm(false);
-
-      // Refresh the page to get updated data
-      window.location.reload();
     } catch (error: any) {
       console.error("Error adding contribution:", error);
       setFormErrors({

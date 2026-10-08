@@ -105,6 +105,106 @@ interface ModalRow {
   date: string;
 }
 
+type PendingKind = 'loan_repayment' | 'chit_contribution';
+
+interface PendingRow {
+  key: string;
+  member: string;
+  description: string;
+  amount: number;
+  periods: number;
+  href: string;
+}
+
+function PendingMembersModal({ kind, month, onClose }: {
+  kind: PendingKind; month: Date; onClose: () => void;
+}) {
+  const [rows, setRows] = useState<PendingRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [retry, setRetry] = useState(0);
+  const start = format(startOfMonth(month), 'yyyy-MM-dd');
+  const end = format(endOfMonth(month), 'yyyy-MM-dd');
+
+  useEffect(() => {
+    const controller = new AbortController();
+    const load = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const endpoint = kind === 'loan_repayment' ? 'pending-loans' : 'pending-chits';
+        const response = await fetch(`/api/transactions/${endpoint}?startDate=${start}&endDate=${end}`, {
+          signal: controller.signal,
+          cache: 'no-store',
+        });
+        if (!response.ok) throw new Error('Unable to load pending members. Please try again.');
+        const data = await response.json();
+        if (controller.signal.aborted) return;
+        setRows(kind === 'loan_repayment'
+          ? (data.pendingLoans ?? []).map((loan: any) => ({
+              key: `loan-${loan.id}`,
+              member: loan.borrowerName,
+              description: `${loan.loanType} · Loan #${loan.id}`,
+              amount: loan.pendingAmount,
+              periods: loan.pendingPeriods,
+              href: `/loans/${loan.id}/repayments`,
+            }))
+          : (data.pendingChitFunds ?? []).flatMap((fund: any) => fund.pendingMembers.map((member: any) => ({
+              key: `chit-${fund.id}-${member.memberId}`,
+              member: member.memberName,
+              description: `${fund.name} · Month ${(member.pendingMonths ?? []).join(', ')}`,
+              amount: member.pendingAmount,
+              periods: member.pendingPeriods,
+              href: `/chit-funds/${fund.id}/contributions?month=${member.pendingMonths[0]}`,
+            }))));
+      } catch (err) {
+        if (!controller.signal.aborted) setError(err instanceof Error ? err.message : 'Unable to load pending members.');
+      } finally {
+        if (!controller.signal.aborted) setLoading(false);
+      }
+    };
+    load();
+    return () => controller.abort();
+  }, [kind, start, end, retry]);
+
+  return (
+    <ModalShell title={`Pending ${MODAL_CONFIG[kind].title} — ${format(month, 'MMMM yyyy')}`} onClose={onClose}>
+      {loading ? (
+        <p className="p-5 text-sm text-gray-500 dark:text-theme-muted" role="status">Loading pending members…</p>
+      ) : error ? (
+        <div className="p-5">
+          <p className="text-sm text-red-600 dark:text-red-400" role="alert">{error}</p>
+          <button type="button" className="btn-neutral mt-3" onClick={() => setRetry((value) => value + 1)}>Retry</button>
+        </div>
+      ) : rows.length === 0 ? (
+        <p className="p-5 text-sm text-gray-500 dark:text-theme-muted text-center">No pending payments for this month.</p>
+      ) : (
+        <div className="p-5">
+          <div className="flex flex-wrap justify-between gap-2 mb-3 text-sm font-semibold text-gray-700 dark:text-theme-secondary">
+            <span>{rows.length} pending {rows.length === 1 ? 'entry' : 'entries'}</span>
+            <span className="text-orange-600 dark:text-orange-400">{formatCurrency(rows.reduce((sum, row) => sum + row.amount, 0))} outstanding</span>
+          </div>
+          <p className="text-xs text-gray-500 dark:text-theme-muted mb-4">Payments scheduled this month with an unpaid balance, including partial payments.</p>
+          <ul className="divide-y divide-gray-100 dark:divide-surface-border">
+            {rows.map((row) => (
+              <li key={row.key}>
+                <Link href={row.href} className="flex items-start justify-between gap-3 py-3 hover:bg-gray-50 dark:hover:bg-surface-elevated rounded">
+                  <div className="min-w-0">
+                    <div className="font-medium text-blue-600 dark:text-blue-400 break-words">{row.member}</div>
+                    <div className="text-xs text-gray-500 dark:text-theme-muted mt-1">{row.description}</div>
+                    <div className="text-xs text-gray-500 dark:text-theme-muted">{row.periods} {row.periods === 1 ? 'payment' : 'payments'} pending</div>
+                  </div>
+                  <span className="font-semibold text-orange-600 dark:text-orange-400 whitespace-nowrap">{formatCurrency(row.amount)}</span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </ModalShell>
+  );
+}
+
 function ModalShell({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
@@ -114,10 +214,10 @@ function ModalShell({ title, onClose, children }: { title: string; onClose: () =
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50" onClick={onClose}>
-      <div className="themed-card w-full sm:max-w-lg max-h-[80vh] flex flex-col rounded-t-2xl sm:rounded-2xl overflow-hidden" onClick={(e) => e.stopPropagation()}>
+      <div role="dialog" aria-modal="true" aria-label={title} className="themed-card w-full sm:max-w-lg max-h-[80vh] flex flex-col rounded-t-2xl sm:rounded-2xl overflow-hidden" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200 dark:border-surface-elevated">
           <h3 className="text-base font-semibold text-gray-900 dark:text-theme-heading">{title}</h3>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
+          <button type="button" aria-label="Close dialog" onClick={onClose} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
@@ -270,11 +370,13 @@ function MonthlyStatsCards({
   monthLabel,
   onOpenModal,
   onOpenSummary,
+  onOpenPending,
 }: {
   stats: MonthStats;
   monthLabel: string;
   onOpenModal: (kind: ModalKind) => void;
   onOpenSummary: () => void;
+  onOpenPending: (kind: PendingKind) => void;
 }) {
   const loanRate = collectionRate(stats.actualLoanRepayment, stats.expectedLoanRepayment);
   const chitRate = collectionRate(stats.actualChitContribution, stats.expectedChitContribution);
@@ -307,6 +409,10 @@ function MonthlyStatsCards({
             </div>
           </div>
           <CollectionBar rate={loanRate} />
+          <button type="button" className="text-left text-xs font-semibold text-orange-600 dark:text-orange-400 hover:underline mt-1" aria-label="View pending loan members"
+            onClick={(event) => { event.stopPropagation(); onOpenPending('loan_repayment'); }}>
+            View pending members →
+          </button>
         </StatCard>
 
         {/* Chit Contributions */}
@@ -328,6 +434,10 @@ function MonthlyStatsCards({
             </div>
           </div>
           <CollectionBar rate={chitRate} />
+          <button type="button" className="text-left text-xs font-semibold text-orange-600 dark:text-orange-400 hover:underline mt-1" aria-label="View pending chit members"
+            onClick={(event) => { event.stopPropagation(); onOpenPending('chit_contribution'); }}>
+            View pending members →
+          </button>
         </StatCard>
 
         {/* Loan Disbursements */}
@@ -433,6 +543,7 @@ export default function CalendarPage() {
   const [monthStats, setMonthStats] = useState<MonthStats | null>(null);
   const [statsLoading, setStatsLoading] = useState(true);
   const [activeModal, setActiveModal] = useState<ModalKind | null>(null);
+  const [pendingKind, setPendingKind] = useState<PendingKind | null>(null);
   const [modalRows, setModalRows] = useState<ModalRow[]>([]);
   const [modalLoading, setModalLoading] = useState(false);
   const [showSummaryModal, setShowSummaryModal] = useState(false);
@@ -766,6 +877,7 @@ export default function CalendarPage() {
           monthLabel={format(currentMonth, 'MMMM yyyy')}
           onOpenModal={openModal}
           onOpenSummary={() => setShowSummaryModal(true)}
+          onOpenPending={setPendingKind}
         />
       ) : null}
 
@@ -784,6 +896,14 @@ export default function CalendarPage() {
           loading={modalLoading}
           onClose={() => setActiveModal(null)}
           emptyText={MODAL_CONFIG[activeModal].emptyText}
+        />
+      )}
+      {pendingKind && (
+        <PendingMembersModal
+          key={`${pendingKind}-${format(currentMonth, 'yyyy-MM')}`}
+          kind={pendingKind}
+          month={currentMonth}
+          onClose={() => setPendingKind(null)}
         />
       )}
     </div>

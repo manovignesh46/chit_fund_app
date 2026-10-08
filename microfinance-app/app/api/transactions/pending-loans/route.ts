@@ -13,6 +13,11 @@ export async function GET(request: NextRequest) {
     const startDate = new Date(searchParams.get("startDate") || "");
     const endDate = new Date(searchParams.get("endDate") || "");
 
+    if (isNaN(startDate.getTime()) || isNaN(endDate.getTime()) || startDate > endDate) {
+      return NextResponse.json({ error: "A valid date range is required" }, { status: 400 });
+    }
+    endDate.setUTCHours(23, 59, 59, 999);
+
     // Get active loans that have pending repayments
     const activeLoans = await prisma.loan.findMany({
       where: {
@@ -37,49 +42,37 @@ export async function GET(request: NextRequest) {
       .map((loan) => {
         const periodStart = new Date(startDate);
         const periodEnd = new Date(endDate);
-        const installment = loan.installmentAmount || 0;
-
-        // Calculate expected periods in the date range
-        const expectedPeriods: number[] = [];
-        const paidPeriods = new Set(
-          loan.repayments
-            .filter((r) => r.paidDate !== null)
-            .map((r) => r.period)
+        const installment = loan.installmentAmount || (
+          loan.loanType === "Reducing Balance" || loan.repaymentType === "Reducing Balance"
+            ? Math.round((loan.remainingAmount * ((loan.interestPercentage || 0) / 100)) / 12)
+            : 0
         );
-
-        let paymentDate = new Date(loan.disbursementDate);
-        let currentPeriod = 1;
-        const loanTermEnd = new Date(loan.disbursementDate);
-
-        if (loan.repaymentType === "Weekly") {
-          loanTermEnd.setDate(loanTermEnd.getDate() + (loan.duration || 0) * 7);
-          paymentDate.setDate(paymentDate.getDate() + 7);
-
-          while (paymentDate <= periodEnd && paymentDate <= loanTermEnd) {
-            if (paymentDate >= periodStart && !paidPeriods.has(currentPeriod)) {
-              expectedPeriods.push(currentPeriod);
-            }
-            paymentDate.setDate(paymentDate.getDate() + 7);
-            currentPeriod++;
-          }
-        } else {
-          // Monthly
-          loanTermEnd.setMonth(loanTermEnd.getMonth() + (loan.duration || 0));
-          paymentDate.setMonth(paymentDate.getMonth() + 1);
-
-          while (paymentDate <= periodEnd && paymentDate <= loanTermEnd) {
-            if (paymentDate >= periodStart && !paidPeriods.has(currentPeriod)) {
-              expectedPeriods.push(currentPeriod);
-            }
-            paymentDate.setMonth(paymentDate.getMonth() + 1);
-            currentPeriod++;
+        const paidAmounts = new Map<number, number>();
+        for (const repayment of loan.repayments) {
+          if (repayment.paidDate) {
+            paidAmounts.set(repayment.period, (paidAmounts.get(repayment.period) || 0) + repayment.amount);
           }
         }
 
-        // Only return loans that have pending periods
-        if (expectedPeriods.length === 0) return null;
+        let pendingAmount = 0;
+        let pendingPeriods = 0;
+        for (let period = 1; period <= loan.duration; period++) {
+          const paymentDate = new Date(loan.disbursementDate);
+          if (loan.repaymentType === "Weekly") {
+            paymentDate.setDate(paymentDate.getDate() + period * 7);
+          } else {
+            paymentDate.setMonth(paymentDate.getMonth() + period);
+          }
+          if (paymentDate < periodStart || paymentDate > periodEnd) continue;
 
-        const pendingAmount = expectedPeriods.length * installment;
+          const outstanding = Math.max(0, installment - (paidAmounts.get(period) || 0));
+          if (outstanding > 0) {
+            pendingAmount += outstanding;
+            pendingPeriods++;
+          }
+        }
+
+        if (pendingPeriods === 0) return null;
 
         return {
           id: loan.id,
@@ -88,7 +81,7 @@ export async function GET(request: NextRequest) {
           totalAmount: loan.amount,
           installmentAmount: installment,
           pendingAmount,
-          pendingPeriods: expectedPeriods.length,
+          pendingPeriods,
           repaymentType: loan.repaymentType,
         };
       })

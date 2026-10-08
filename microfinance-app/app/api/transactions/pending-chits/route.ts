@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getFundMonthCalendarDate } from "../../../../lib/monthlyAggregations";
 import prisma from "../../../../lib/prisma";
 import { getCurrentUserId } from "../../../../lib/auth";
 
@@ -12,6 +13,11 @@ export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams;
     const startDate = new Date(searchParams.get("startDate") || "");
     const endDate = new Date(searchParams.get("endDate") || "");
+
+    if (isNaN(startDate.getTime()) || isNaN(endDate.getTime()) || startDate > endDate) {
+      return NextResponse.json({ error: "A valid date range is required" }, { status: 400 });
+    }
+    endDate.setUTCHours(23, 59, 59, 999);
 
     // Get active chit funds
     const activeChitFunds = await prisma.chitFund.findMany({
@@ -44,19 +50,11 @@ export async function GET(request: NextRequest) {
 
       // Calculate which months fall within the date range
       const expectedMonthsInRange: number[] = [];
-      let paymentDate = new Date(chitFund.startDate);
-      const chitTermEnd = new Date(chitFund.startDate);
-      chitTermEnd.setMonth(chitTermEnd.getMonth() + (chitFund.duration || 0));
-      let currentMonth = 1;
-
-      // Start from the first contribution date
-      while (paymentDate < chitTermEnd && currentMonth <= chitFund.duration) {
+      for (let month = 1; month <= chitFund.duration; month++) {
+        const paymentDate = getFundMonthCalendarDate(chitFund.startDate, month);
         if (paymentDate >= periodStart && paymentDate <= periodEnd) {
-          expectedMonthsInRange.push(currentMonth);
+          expectedMonthsInRange.push(month);
         }
-        // Move to the next month's contribution date
-        paymentDate.setMonth(paymentDate.getMonth() + 1);
-        currentMonth++;
       }
 
       // If no expected months in this range, skip this chit fund
@@ -65,24 +63,38 @@ export async function GET(request: NextRequest) {
       // Find members with pending contributions
       const pendingMembers = chitFund.members
         .map((member) => {
-          // Get the months that were paid for this member
-          const paidMonths = new Set(
-            member.contributions
-              .filter((c) => c.paidDate !== null)
-              .map((c) => c.month)
-          );
+          const paidAmounts = new Map<number, number>();
+          const settledMonths = new Set<number>();
+          for (const contribution of member.contributions) {
+            if (contribution.paidDate) {
+              paidAmounts.set(contribution.month, (paidAmounts.get(contribution.month) || 0) + contribution.amount);
+              if (contribution.balancePaymentStatus === "Paid") {
+                settledMonths.add(contribution.month);
+              }
+            }
+          }
 
-          // Find which expected months in range are not paid
-          const unpaidMonths = expectedMonthsInRange.filter(
-            (month) => !paidMonths.has(month)
-          );
+          const pendingMonths = expectedMonthsInRange.filter((month) => {
+            const expectedAmount = month === 1
+              ? (chitFund.firstMonthContribution ?? monthlyContribution)
+              : monthlyContribution;
+            return !settledMonths.has(month) && expectedAmount > (paidAmounts.get(month) || 0);
+          });
+          if (pendingMonths.length === 0) return null;
 
-          if (unpaidMonths.length === 0) return null;
+          const pendingAmount = pendingMonths.reduce((sum, month) => {
+            const expectedAmount = month === 1
+              ? (chitFund.firstMonthContribution ?? monthlyContribution)
+              : monthlyContribution;
+            return sum + Math.max(0, expectedAmount - (paidAmounts.get(month) || 0));
+          }, 0);
 
           return {
+            memberId: member.id,
             memberName: member.globalMember.name,
-            pendingAmount: unpaidMonths.length * monthlyContribution,
-            pendingPeriods: unpaidMonths.length,
+            pendingAmount,
+            pendingPeriods: pendingMonths.length,
+            pendingMonths,
           };
         })
         .filter((m) => m !== null);
