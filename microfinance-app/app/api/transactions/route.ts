@@ -62,6 +62,13 @@ export async function GET(request: NextRequest) {
       advSubType
     });
 
+    // Focus on specific transactions (e.g. opened from a notification)
+    const idsParam = searchParams.get('ids');
+    if (idsParam) {
+      const ids = idsParam.split(',').map(Number).filter((n) => Number.isInteger(n) && n > 0).slice(0, 20);
+      (where as any).id = { in: ids };
+    }
+
     // Check if this is a request for partner transactions page (only manual transfers)
     const showOnlyManualTransfers = searchParams.get('manualOnly') === 'true';
 
@@ -271,6 +278,9 @@ async function handleManualTransaction(
   // Notify after commit so a notification problem can never roll back money movement.
   const actorName = await getActorName(actorUserId);
   const amountText = `₹${amount.toLocaleString('en-IN')}`;
+  const transactionIds = 'transaction' in result
+    ? [result.transaction.id]
+    : [result.debitTransaction.id, result.creditTransaction.id];
   await notifyOtherAdmins({
     actorId: actorUserId,
     type: 'transaction',
@@ -278,7 +288,20 @@ async function handleManualTransaction(
     message: isTransfer
       ? `${actorName} recorded a transfer of ${amountText} from ${fromPartner!.name} to ${toPartner!.name}: ${note}`
       : `${actorName} recorded a ${toPartnerId ? 'credit' : 'debit'} of ${amountText} for ${(toPartner || fromPartner)!.name}: ${note}`,
-    link: '/transactions',
+    link: `/transactions?txn=${transactionIds.join(',')}`,
+    entityType: 'transaction',
+    entityId: transactionIds[0],
+    details: {
+      kind: type,
+      direction: isTransfer ? 'transfer' : toPartnerId ? 'credit' : 'debit',
+      amount,
+      reason: note,
+      date: date.toISOString(),
+      fromPartner: fromPartner?.name ?? null,
+      toPartner: toPartner?.name ?? null,
+      enteredBy: activePartner.name,
+      transactionIds,
+    },
   });
 
   if ('transaction' in result) {

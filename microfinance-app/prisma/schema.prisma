@@ -407,6 +407,11 @@ model Notification {
   read      Boolean  @default(false)
   createdAt DateTime @default(now())
 
+  // What the notification is about, so it can open a details view
+  entityType String? // e.g. "transaction"
+  entityId   Int?
+  details    Json? // snapshot shown in the details view (amount, reason, partners, ...)
+
   user  User @relation("UserNotifications", fields: [userId], references: [id], onDelete: Cascade)
   actor User @relation("ActorNotifications", fields: [actorId], references: [id])
 

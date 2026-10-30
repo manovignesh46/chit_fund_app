@@ -7,6 +7,9 @@ export interface NotifyParams {
   title: string;
   message: string;
   link?: string;
+  entityType?: string;
+  entityId?: number;
+  details?: Record<string, unknown>;
 }
 
 export async function notifyOtherAdmins(params: NotifyParams): Promise<void> {
@@ -46,6 +49,9 @@ export async function notifyOtherAdmins(params: NotifyParams): Promise<void> {
             title: params.title,
             message: params.message,
             link: params.link ?? null,
+            entityType: params.entityType ?? null,
+            entityId: params.entityId ?? null,
+            details: (params.details as any) ?? undefined,
           },
           include: {
             actor: {
@@ -78,6 +84,9 @@ export async function notifyAllOrgUsers(params: {
   title: string;
   message: string;
   link?: string;
+  entityType?: string;
+  entityId?: number;
+  details?: Record<string, unknown>;
 }): Promise<void> {
   try {
     const recipients = await prisma.user.findMany({
@@ -103,6 +112,9 @@ export async function notifyAllOrgUsers(params: {
             title: params.title,
             message: params.message,
             link: params.link ?? null,
+            entityType: params.entityType ?? null,
+            entityId: params.entityId ?? null,
+            details: (params.details as any) ?? undefined,
           },
           include: {
             actor: { select: { id: true, name: true } },

@@ -228,6 +228,14 @@ console.log("PASS: manual transaction validation (required notes, amount, date, 
   assert.equal(rows[1].totalBalance, 0);
   assert.equal(locks, 1);
   assert.match(notifications[0].message, /Cash handover/);
+  assert.equal(notifications[0].link, "/transactions?txn=1,2");
+  assert.equal(notifications[0].entityType, "transaction");
+  assert.equal(notifications[0].entityId, 1);
+  assert.equal(notifications[0].details.reason, "Cash handover");
+  assert.equal(notifications[0].details.direction, "transfer");
+  assert.equal(notifications[0].details.fromPartner, "Arun");
+  assert.equal(notifications[0].details.toPartner, "Bala");
+  assert.equal(JSON.stringify(notifications[0].details.transactionIds), "[1,2]");
 
   res = await post({ ...base, note: "Cash handover" });
   assert.equal(res.status, 409, "identical resubmission is rejected");
@@ -239,8 +247,42 @@ console.log("PASS: manual transaction validation (required notes, amount, date, 
   assert.equal(rows[2].totalBalance, 1000);
   res = await post({ type: "RECORD_AMOUNT", amount: 1000, date: today, note: "", from_partner_id: null, to_partner_id: 1 });
   assert.equal(res.status, 400, "record amount needs a reason");
+  assert.equal(notifications[1].details.direction, "credit");
+  assert.equal(notifications[1].link, "/transactions?txn=3");
 
-  console.log("PASS: POST /api/transactions enforces reasons, partner ownership, duplicate guard and balances.");
+  // GET /api/notifications/:id/details
+  const notificationsDb = [
+    { id: 10, userId: 5, entityType: "transaction", entityId: 1, details: { transactionIds: [1, 2] } },
+    { id: 11, userId: 5, entityType: "transaction", entityId: 999, details: { transactionIds: [999] } },
+    { id: 12, userId: 5, entityType: null, entityId: null, details: null, link: "/loans/4" },
+    { id: 13, userId: 6, entityType: "transaction", entityId: 1, details: { transactionIds: [1, 2] } },
+  ];
+  const detailsRoute = load("app/api/notifications/[id]/details/route.ts", {
+    "next/server": { NextResponse: { json: (body, o) => ({ body, status: o?.status ?? 200 }) } },
+    "../../../../../lib/prisma": {
+      default: {
+        notification: { async findFirst({ where }) { return notificationsDb.find((n) => matches(n, where)) || null; } },
+        transaction: txModel,
+      },
+      __esModule: true,
+    },
+    "../../../../../lib/auth": { getCurrentUserId: async () => 7, getActorUserId: async () => 5 },
+  });
+  const details = (id) => detailsRoute.GET({}, { params: Promise.resolve({ id: String(id) }) });
+  res = await details(10);
+  assert.equal(res.status, 200);
+  assert.equal(res.body.transactions.length, 2);
+  assert.equal(res.body.entityMissing, false);
+  res = await details(11);
+  assert.equal(res.body.entityMissing, true, "deleted transaction is reported, not an error");
+  res = await details(12);
+  assert.equal(res.status, 200);
+  assert.equal(res.body.transactions.length, 0);
+  assert.equal(res.body.entityMissing, false);
+  assert.equal((await details(13)).status, 404, "cannot open another user's notification");
+  assert.equal((await details("abc")).status, 400);
+
+  console.log("PASS: POST /api/transactions enforces reasons, partner ownership, duplicate guard and balances; notification details endpoint.");
 })().catch((e) => {
   console.error(e);
   process.exit(1);

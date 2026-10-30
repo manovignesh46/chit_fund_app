@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { memberAPI, loanAPI, chitFundAPI } from "../../lib/api";
 import TransactionList from "../components/TransactionList";
 import DateFilter from "../components/DateFilter";
@@ -18,6 +19,14 @@ import {
 } from "../../lib/transactionFilterUtils";
 
 export default function TransactionsPage() {
+  return (
+    <Suspense fallback={null}>
+      <TransactionsPageContent />
+    </Suspense>
+  );
+}
+
+function TransactionsPageContent() {
   const [activeTab, setActiveTab] = useState("summary" as "summary" | "record-transactions");
   const [refreshList, setRefreshList] = useState(false);
   const { selectedPartner, partners, refreshPartners } = usePartner();
@@ -49,6 +58,15 @@ export default function TransactionsPage() {
   
   // Database export state
   const [isExportingDB, setIsExportingDB] = useState(false);
+
+  // ?txn=12,13 (from a notification) focuses the list on those transactions
+  const router = useRouter();
+  const txnParam = useSearchParams().get("txn") || "";
+  const focusIds = /^\d+(,\d+){0,19}$/.test(txnParam) ? txnParam : "";
+  useEffect(() => {
+    if (focusIds) setActiveTab("summary");
+  }, [focusIds]);
+  const clearFocus = () => router.replace("/transactions");
 
   const fetchPartnersWithBalances = async () => {
     try {
@@ -393,7 +411,19 @@ export default function TransactionsPage() {
             refreshTrigger={refreshList}
           />
 
+          {focusIds && (
+            <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-blue-200 dark:border-blue-500/40 bg-blue-50 dark:bg-blue-500/10 px-4 py-3">
+              <p className="text-sm text-blue-800 dark:text-blue-300">
+                Showing the transaction{focusIds.includes(",") ? "s" : ""} from a notification (#{focusIds.split(",").join(", #")}). Filters are ignored.
+              </p>
+              <button onClick={clearFocus} className="text-sm font-medium text-blue-700 dark:text-blue-300 hover:underline">
+                Show all transactions
+              </button>
+            </div>
+          )}
+
           <TransactionList
+            focusIds={focusIds}
             refresh={refreshList}
             filterType={filterType}
             filterMember={filterMember}

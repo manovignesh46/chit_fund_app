@@ -42,6 +42,8 @@ export function TransactionList(props: TransactionListProps & {
   advSubType?: string,
   startDate?: string,
   endDate?: string,
+  /** Comma-separated transaction ids; when set, only these are shown (e.g. from a notification). */
+  focusIds?: string,
 }) {
   const {
     refresh,
@@ -58,6 +60,7 @@ export function TransactionList(props: TransactionListProps & {
     advSubType = '',
     startDate = '',
     endDate = '',
+    focusIds = '',
   } = props;
 
   // If activePartner is undefined or 'ALL', treat as all partners
@@ -82,12 +85,15 @@ export function TransactionList(props: TransactionListProps & {
 
   useEffect(() => {
     fetchTransactions();
-  }, [partnerToUse, refresh, currentPage, pageSize, filterType, filterMember, advType, advMember, advEntity, advSubType, startDate, endDate]);
+  }, [partnerToUse, refresh, currentPage, pageSize, filterType, filterMember, advType, advMember, advEntity, advSubType, startDate, endDate, focusIds]);
 
   async function fetchTransactions() {
     try {
       setLoading(true);
       let url = `/api/transactions?page=${currentPage}&pageSize=${pageSize}`;
+      if (focusIds) {
+        url = `/api/transactions?page=1&pageSize=20&ids=${encodeURIComponent(focusIds)}`;
+      } else {
       if (partnerToUse) {
         url += `&partner=${partnerToUse}`;
       }
@@ -115,6 +121,7 @@ export function TransactionList(props: TransactionListProps & {
       }
       if (endDate) {
         url += `&endDate=${endDate}`;
+      }
       }
       const response = await fetch(url);
       if (!response.ok) {
@@ -619,7 +626,7 @@ export function TransactionList(props: TransactionListProps & {
                 {sortedTransactions.map((t: Transaction) => (
                   <tr
                     key={t.id}
-                    className="hover:bg-gray-50 dark:hover:bg-surface-hover cursor-pointer group"
+                    className={`hover:bg-gray-50 dark:hover:bg-surface-hover cursor-pointer group ${focusIds ? 'bg-blue-50/60 dark:bg-blue-500/10' : ''}`}
                     tabIndex={0}
                     onClick={() => {
                       if (!t.note) return;
