@@ -12,6 +12,7 @@ import {
 } from '../../components/buttons/ActionButtons';
 import BackTitle from '../../components/common/BackTitle';
 import SwipeableTabs from '../../components/SwipeableTabs';
+import DueAccountCard from '../../components/dues/DueAccountCard';
 
 interface ChitFundMember {
   id: number;
@@ -79,7 +80,52 @@ export default function MemberDetailPage() {
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
   // Tab state
-  const [activeTab, setActiveTab] = useState<"details" | "chit-funds" | "loans">("details");
+  const [activeTab, setActiveTab] = useState<"details" | "dues" | "chit-funds" | "loans" | "payments">("details");
+
+  // Pending dues (overdue + next 30 days), same calculation as the Dues Tracker
+  const [dues, setDues] = useState(null);
+  const [duesLoading, setDuesLoading] = useState(true);
+  const [duesError, setDuesError] = useState(null);
+
+  const fetchDues = async () => {
+    try {
+      setDuesLoading(true);
+      setDuesError(null);
+      setDues(await memberAPI.getDues(Number(memberId), 30));
+    } catch (err: any) {
+      setDuesError(err.message || 'Failed to load pending dues');
+    } finally {
+      setDuesLoading(false);
+    }
+  };
+
+  // Payment history (contributions + repayments), loaded when the tab is first opened
+  const [history, setHistory] = useState(null);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyError, setHistoryError] = useState(null);
+  const [historyKind, setHistoryKind] = useState('');
+  const [historyAccount, setHistoryAccount] = useState('');
+  const [historyPage, setHistoryPage] = useState(1);
+  const [historyRequested, setHistoryRequested] = useState(false);
+
+  useEffect(() => {
+    if (activeTab === 'payments') setHistoryRequested(true);
+  }, [activeTab]);
+
+  useEffect(() => {
+    if (!historyRequested || !memberId) return;
+    let cancelled = false;
+    setHistoryLoading(true);
+    setHistoryError(null);
+    memberAPI
+      .getPaymentHistory(Number(memberId), { page: historyPage, pageSize: 20, kind: historyKind, account: historyAccount })
+      .then((data) => !cancelled && setHistory(data))
+      .catch((err) => !cancelled && setHistoryError(err.message || 'Failed to load payment history'))
+      .finally(() => !cancelled && setHistoryLoading(false));
+    return () => {
+      cancelled = true;
+    };
+  }, [historyRequested, memberId, historyPage, historyKind, historyAccount]);
 
   useEffect(() => {
     const fetchMember = async () => {
@@ -98,6 +144,7 @@ export default function MemberDetailPage() {
 
     if (memberId) {
       fetchMember();
+      fetchDues();
     }
   }, [memberId]);
 
@@ -285,15 +332,42 @@ export default function MemberDetailPage() {
         </div>
       </div>
 
+      {/* Dues summary */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4 sm:mb-6">
+        {[
+          { label: 'Overdue', value: dues ? formatCurrency(dues.summary.overdueAmount) : '—', hint: dues ? `${dues.summary.overdueAccounts} account${dues.summary.overdueAccounts === 1 ? '' : 's'}` : '', tone: 'border-red-500', text: (dues?.summary.overdueAmount ?? 0) > 0 ? 'text-red-600 dark:text-red-400' : 'text-gray-900 dark:text-theme-primary' },
+          { label: 'Due in next 7 days', value: dues ? formatCurrency(dues.summary.dueSoonAmount) : '—', hint: 'Includes today', tone: 'border-amber-500', text: 'text-amber-600 dark:text-amber-400' },
+          { label: 'Total outstanding', value: dues ? formatCurrency(dues.summary.totalOutstanding) : '—', hint: 'Overdue + next 30 days', tone: 'border-blue-500', text: 'text-gray-900 dark:text-theme-primary' },
+          { label: 'Last payment', value: dues?.lastPayment ? formatCurrency(dues.lastPayment.amount) : dues ? 'None' : '—', hint: dues?.lastPayment ? formatDate(dues.lastPayment.date) : '', tone: 'border-gray-400', text: 'text-gray-900 dark:text-theme-primary' },
+        ].map((t) => (
+          <button
+            key={t.label}
+            type="button"
+            onClick={() => setActiveTab(t.label === 'Last payment' ? 'payments' : 'dues')}
+            className={`themed-card p-3 sm:p-4 border-l-4 ${t.tone} text-left hover:shadow-md transition-shadow`}
+          >
+            <p className="text-xs font-medium text-gray-500 dark:text-theme-muted">{t.label}</p>
+            {duesLoading && !dues ? (
+              <div className="h-6 mt-1 w-20 rounded bg-gray-100 dark:bg-surface-elevated animate-pulse" />
+            ) : (
+              <p className={`text-lg sm:text-xl font-bold tabular-nums ${t.text}`}>{t.value}</p>
+            )}
+            <p className="text-[11px] text-gray-400 dark:text-theme-muted mt-0.5">{t.hint}</p>
+          </button>
+        ))}
+      </div>
+
       <div>
       {/* Tab navigation */}
       <div className="border-b border-gray-200 dark:border-surface-border mb-4 sm:mb-6">
         <nav className="flex gap-0 -mb-px overflow-x-auto" aria-label="Member tabs">
-          {(["details", "chit-funds", "loans"] as const).map((tab) => {
+          {(["details", "dues", "chit-funds", "loans", "payments"] as const).map((tab) => {
             const labels = {
               "details": "Member Details",
+              "dues": `Dues${dues ? ` (${dues.accounts.length})` : ''}`,
               "chit-funds": `Chit Funds (${member._count.chitFundMembers})`,
               "loans": `Loans (${member._count.loans})`,
+              "payments": "Payments",
             };
             const isActive = activeTab === tab;
             return (
@@ -315,7 +389,7 @@ export default function MemberDetailPage() {
 
       {/* Tab panels (swipeable on mobile) */}
       <SwipeableTabs
-        tabs={["details", "chit-funds", "loans"] as const}
+        tabs={["details", "dues", "chit-funds", "loans", "payments"] as const}
         activeTab={activeTab}
         onTabChange={setActiveTab}
       >
@@ -348,6 +422,37 @@ export default function MemberDetailPage() {
               <p className="text-gray-500 dark:text-theme-secondary text-xs uppercase tracking-wider mb-1">Notes</p>
               <p className="text-base sm:text-lg mt-1 p-3 bg-gray-50 dark:bg-surface-elevated rounded">{member.notes}</p>
             </div>
+          )}
+        </div>
+
+        {/* Dues panel */}
+        <div className="space-y-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="text-sm text-gray-500 dark:text-theme-muted">
+              Unpaid loan installments and chit contributions — overdue and due in the next 30 days.
+            </p>
+            <button onClick={fetchDues} disabled={duesLoading} className="text-sm text-blue-600 dark:text-blue-400 hover:underline disabled:opacity-50">
+              {duesLoading ? 'Refreshing…' : 'Refresh'}
+            </button>
+          </div>
+          {duesError ? (
+            <div className="alert-error flex items-center justify-between gap-3">
+              <span>{duesError}</span>
+              <button onClick={fetchDues} className="underline text-sm">Retry</button>
+            </div>
+          ) : duesLoading && !dues ? (
+            <div className="space-y-2">{[1, 2].map((i) => <div key={i} className="themed-card h-20 animate-pulse" />)}</div>
+          ) : !dues || dues.accounts.length === 0 ? (
+            <div className="themed-card p-8 text-center">
+              <p className="font-medium text-gray-700 dark:text-theme-secondary">All caught up</p>
+              <p className="text-sm text-gray-500 dark:text-theme-muted mt-1">Nothing overdue or due in the next 30 days.</p>
+            </div>
+          ) : (
+            <ul className="space-y-2">
+              {dues.accounts.map((a) => (
+                <DueAccountCard key={a.key} account={a} showMember={false} defaultOpen={dues.accounts.length === 1} />
+              ))}
+            </ul>
           )}
         </div>
 
@@ -436,7 +541,7 @@ export default function MemberDetailPage() {
               <table className="min-w-full divide-y divide-surface-border text-xs sm:text-sm">
                 <thead className="bg-gray-50 dark:bg-surface-elevated">
                   <tr>
-                    {['Loan Type', 'Amount', 'Remaining', 'Overdue Amount', 'Missed Payments', 'Next Due Date', 'Installment Amount', 'Status', 'Disbursement Date', 'Actions'].map((h) => (
+                    {['Loan Type', 'Amount', 'Remaining', 'Pending', 'Overdue Amount', 'Missed Payments', 'Next Due Date', 'Installment Amount', 'Status', 'Disbursement Date', 'Actions'].map((h) => (
                       <th key={h} scope="col" className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-theme-muted uppercase tracking-wider whitespace-nowrap">{h}</th>
                     ))}
                   </tr>
@@ -447,6 +552,23 @@ export default function MemberDetailPage() {
                       <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-sm font-medium text-blue-600">{loan.loanType}</td>
                       <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-sm text-gray-900 dark:text-theme-primary">{formatCurrency(loan.amount)}</td>
                       <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-sm text-gray-900 dark:text-theme-primary">{formatCurrency(loan.remainingAmount)}</td>
+                      <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap">
+                        {(() => {
+                          const acct = dues?.accounts.find((a) => a.kind === 'loan' && a.entityId === loan.id);
+                          if (!dues) return <span className="text-sm text-gray-400">…</span>;
+                          if (!acct) return <span className="text-sm text-gray-500 dark:text-theme-muted">—</span>;
+                          return (
+                            <button type="button" onClick={() => setActiveTab('dues')} className="text-left">
+                              <span className={`text-sm font-semibold ${acct.overdueAmount > 0 ? 'text-red-600' : 'text-gray-900 dark:text-theme-primary'}`}>
+                                {formatCurrency(acct.totalOutstanding)}
+                              </span>
+                              <span className="block text-xs text-gray-400 dark:text-theme-muted">
+                                {acct.periods.length} payment{acct.periods.length === 1 ? '' : 's'}{acct.maxDaysOverdue > 0 ? ` · ${acct.maxDaysOverdue}d late` : ''}
+                              </span>
+                            </button>
+                          );
+                        })()}
+                      </td>
                       <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap">
                         <span className={`text-sm ${loan.overdueAmount > 0 ? 'text-red-600 font-semibold' : 'text-gray-900 dark:text-theme-primary'}`}>
                           {formatCurrency(loan.overdueAmount || 0)}
@@ -485,6 +607,110 @@ export default function MemberDetailPage() {
                 </tbody>
               </table>
             </div>
+          )}
+        </div>
+        {/* Payments panel */}
+        <div className="themed-card overflow-hidden">
+          <div className="p-4 sm:p-6 border-b border-gray-100 dark:border-surface-border flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <h2 className="text-lg sm:text-xl font-semibold">Payment History</h2>
+              {history && (
+                <p className="text-xs text-gray-500 dark:text-theme-muted">
+                  {history.totalCount} payment{history.totalCount === 1 ? '' : 's'} · {formatCurrency(history.totalAmount)} received
+                </p>
+              )}
+            </div>
+            <div className="flex gap-2">
+              <select
+                value={historyKind}
+                onChange={(e) => { setHistoryKind(e.target.value); setHistoryAccount(''); setHistoryPage(1); }}
+                className="themed-input text-sm"
+                aria-label="Payment type"
+              >
+                <option value="">All payments</option>
+                <option value="contribution">Chit contributions</option>
+                <option value="repayment">Loan repayments</option>
+              </select>
+              <select
+                value={historyAccount}
+                onChange={(e) => { setHistoryAccount(e.target.value); setHistoryPage(1); }}
+                className="themed-input text-sm"
+                aria-label="Account"
+              >
+                <option value="">All accounts</option>
+                {historyKind !== 'repayment' && member.chitFundMembers.map((m) => (
+                  <option key={`chit-${m.chitFund.id}`} value={`chit-${m.chitFund.id}`}>{m.chitFund.name}</option>
+                ))}
+                {historyKind !== 'contribution' && member.loans.map((l) => (
+                  <option key={`loan-${l.id}`} value={`loan-${l.id}`}>Loan #{l.id} · {l.loanType}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+          {historyError ? (
+            <div className="alert-error m-4">{historyError}</div>
+          ) : historyLoading && !history ? (
+            <div className="p-4 space-y-2">{[1, 2, 3].map((i) => <div key={i} className="h-10 rounded bg-gray-100 dark:bg-surface-elevated animate-pulse" />)}</div>
+          ) : !history || history.items.length === 0 ? (
+            <p className="text-gray-500 dark:text-theme-muted text-center py-8 text-sm">No payments recorded{historyKind || historyAccount ? ' for this filter' : ' yet'}.</p>
+          ) : (
+            <>
+              <div className={`overflow-x-auto ${historyLoading ? 'opacity-60' : ''}`}>
+                <table className="min-w-full divide-y divide-surface-border text-xs sm:text-sm">
+                  <thead className="bg-gray-50 dark:bg-surface-elevated">
+                    <tr>
+                      {['Date', 'Type', 'Account', 'Period', 'Amount', 'Balance', 'Collected by', ''].map((h) => (
+                        <th key={h} scope="col" className="px-3 sm:px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-theme-muted uppercase tracking-wider whitespace-nowrap">{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {history.items.map((item) => (
+                      <tr key={item.key} className="hover:bg-gray-50 dark:hover:bg-surface-hover">
+                        <td className="px-3 sm:px-4 py-3 whitespace-nowrap text-gray-900 dark:text-theme-primary">{formatDate(item.date)}</td>
+                        <td className="px-3 sm:px-4 py-3 whitespace-nowrap">
+                          <span className={`px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wide ${item.kind === 'repayment' ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300' : 'bg-teal-100 text-teal-700 dark:bg-teal-900/40 dark:text-teal-300'}`}>
+                            {item.kind === 'repayment' ? 'Repayment' : 'Contribution'}
+                          </span>
+                        </td>
+                        <td className="px-3 sm:px-4 py-3 whitespace-nowrap text-gray-900 dark:text-theme-primary">{item.accountName}</td>
+                        <td className="px-3 sm:px-4 py-3 whitespace-nowrap text-gray-700 dark:text-theme-secondary">
+                          {item.periodLabel}
+                          {item.detail && <span className="block text-[11px] text-gray-400 dark:text-theme-muted max-w-[200px] truncate" title={item.detail}>{item.detail}</span>}
+                        </td>
+                        <td className="px-3 sm:px-4 py-3 whitespace-nowrap font-semibold text-green-600 dark:text-green-400 tabular-nums">{formatCurrency(item.amount)}</td>
+                        <td className="px-3 sm:px-4 py-3 whitespace-nowrap tabular-nums">
+                          {item.balance > 0 ? <span className="text-red-600">{formatCurrency(item.balance)}</span> : <span className="text-gray-400">—</span>}
+                        </td>
+                        <td className="px-3 sm:px-4 py-3 whitespace-nowrap text-gray-700 dark:text-theme-secondary">{item.collectedBy || '—'}</td>
+                        <td className="px-3 sm:px-4 py-3 whitespace-nowrap">
+                          <Link href={item.href} className="text-blue-600 hover:text-blue-900 dark:text-blue-400">Open</Link>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              {history.totalPages > 1 && (
+                <div className="flex items-center justify-between gap-2 px-4 py-3 border-t border-gray-100 dark:border-surface-border text-sm">
+                  <button
+                    onClick={() => setHistoryPage((p) => Math.max(1, p - 1))}
+                    disabled={historyPage === 1 || historyLoading}
+                    className="px-3 py-1.5 rounded-md border border-gray-200 dark:border-surface-border disabled:opacity-50"
+                  >
+                    Previous
+                  </button>
+                  <span className="text-gray-600 dark:text-theme-secondary">Page {history.page} of {history.totalPages}</span>
+                  <button
+                    onClick={() => setHistoryPage((p) => Math.min(history.totalPages, p + 1))}
+                    disabled={historyPage >= history.totalPages || historyLoading}
+                    className="px-3 py-1.5 rounded-md border border-gray-200 dark:border-surface-border disabled:opacity-50"
+                  >
+                    Next
+                  </button>
+                </div>
+              )}
+            </>
           )}
         </div>
       </SwipeableTabs>

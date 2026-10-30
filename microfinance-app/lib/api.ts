@@ -423,7 +423,13 @@ export const emailAPI = {
 
 // Global Members API functions (consolidated)
 export const memberAPI = {
-  getAll: (page = 1, pageSize = 10) => fetchAPI<any>(`/members/consolidated?action=list&page=${page}&pageSize=${pageSize}`),
+  getAll: (page = 1, pageSize = 10, search = '') =>
+    fetchAPI<any>(`/members/consolidated?action=list&page=${page}&pageSize=${pageSize}${search ? `&search=${encodeURIComponent(search)}` : ''}`),
+
+  getDues: (id: number, horizonDays = 30) => fetchAPI<any>(`/members/consolidated?action=dues&id=${id}&horizonDays=${horizonDays}`),
+
+  getPaymentHistory: (id: number, { page = 1, pageSize = 20, kind = '', account = '' } = {}) =>
+    fetchAPI<any>(`/members/consolidated?action=history&id=${id}&page=${page}&pageSize=${pageSize}${kind ? `&kind=${kind}` : ''}${account ? `&account=${encodeURIComponent(account)}` : ''}`),
 
   getById: (id: number) => fetchAPI<any>(`/members/consolidated?action=detail&id=${id}`),
 

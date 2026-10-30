@@ -1,7 +1,7 @@
 // @ts-nocheck
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { memberAPI } from '../../lib/api';
@@ -68,6 +68,35 @@ export default function MembersPage() {
   const [totalPages, setTotalPages] = useState(1);
   const [pageSize, setPageSize] = useState(10);
 
+  // Search by name or phone (kept in ?q= so refresh/back keeps the results)
+  const [searchInput, setSearchInput] = useState('');
+  const [search, setSearch] = useState('');
+  const [searchReady, setSearchReady] = useState(false);
+  const [totalCount, setTotalCount] = useState(0);
+  const [hasLoaded, setHasLoaded] = useState(false);
+  const requestSeq = useRef(0);
+
+  useEffect(() => {
+    const q = new URLSearchParams(window.location.search).get('q') || '';
+    setSearchInput(q);
+    setSearch(q);
+    setSearchReady(true);
+  }, []);
+
+  // Debounce typing; reset to page 1 whenever the search changes
+  useEffect(() => {
+    if (!searchReady) return;
+    const handle = setTimeout(() => {
+      const q = searchInput.trim();
+      if (q === search) return;
+      setSearch(q);
+      setCurrentPage(1);
+      const url = q ? `/members?q=${encodeURIComponent(q)}` : '/members';
+      window.history.replaceState(null, '', url);
+    }, 300);
+    return () => clearTimeout(handle);
+  }, [searchInput, searchReady]);
+
   // For exporting members
   const [isExporting, setIsExporting] = useState(false);
   const [exportingMemberId, setExportingMemberId] = useState<number | null>(null);
@@ -78,28 +107,28 @@ export default function MembersPage() {
 
 
   useEffect(() => {
-    fetchMembers();
-  }, [currentPage, pageSize]);
+    if (searchReady) fetchMembers();
+  }, [currentPage, pageSize, search, searchReady]);
 
   const fetchMembers = async () => {
+    const seq = ++requestSeq.current;
     try {
       setLoading(true);
-      console.log('Fetching members...');
 
-      // Add a small delay to ensure the API route is ready
-      await new Promise(resolve => setTimeout(resolve, 500));
-
-      const data = await memberAPI.getAll(currentPage, pageSize);
-      console.log('Members data received:', data);
+      const data = await memberAPI.getAll(currentPage, pageSize, search);
+      // Ignore responses that arrive after a newer request (fast typing)
+      if (seq !== requestSeq.current) return;
 
       // Check if the response has pagination metadata
       if (data.members && Array.isArray(data.members)) {
         setMembers(data.members);
-        setTotalPages(data.totalPages || Math.ceil(data.totalCount / pageSize));
+        setTotalPages(Math.max(1, data.totalPages || Math.ceil(data.totalCount / pageSize)));
+        setTotalCount(data.totalCount ?? data.members.length);
       } else {
         // Fallback for backward compatibility
         setMembers(Array.isArray(data) ? data : []);
         setTotalPages(1);
+        setTotalCount(Array.isArray(data) ? data.length : 0);
       }
 
       // Clear selected members when page changes
@@ -108,10 +137,14 @@ export default function MembersPage() {
 
       setError(null);
     } catch (err: any) {
+      if (seq !== requestSeq.current) return;
       console.error('Error fetching members:', err);
       setError(err.message || 'Failed to load members. Please try again later.');
     } finally {
-      setLoading(false);
+      if (seq === requestSeq.current) {
+        setLoading(false);
+        setHasLoaded(true);
+      }
     }
   };
 
@@ -403,7 +436,8 @@ export default function MembersPage() {
 
 
 
-  if (loading) {
+  // Full skeleton only for the first load; later loads keep the search box mounted
+  if (loading && !hasLoaded) {
     return <MembersListSkeleton />;
   }
 
@@ -490,8 +524,40 @@ export default function MembersPage() {
         </div>
       )}
 
+      {/* Search */}
+      <div className="mb-4 flex flex-col sm:flex-row sm:items-center gap-2">
+        <div className="relative w-full sm:max-w-md">
+          <svg className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-4.35-4.35M17 10.5a6.5 6.5 0 11-13 0 6.5 6.5 0 0113 0z" />
+          </svg>
+          <input
+            type="search"
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
+            onKeyDown={(e) => e.key === 'Escape' && setSearchInput('')}
+            placeholder="Search by name or phone"
+            aria-label="Search members by name or phone"
+            maxLength={100}
+            className="themed-input w-full pl-9 pr-9 text-sm"
+          />
+          {searchInput && (
+            <button
+              type="button"
+              onClick={() => setSearchInput('')}
+              className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded text-gray-400 hover:text-gray-600 dark:hover:text-theme-secondary"
+              aria-label="Clear search"
+            >
+              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
+            </button>
+          )}
+        </div>
+        <p className="text-xs text-gray-500 dark:text-theme-muted" aria-live="polite">
+          {loading ? 'Searching…' : search ? `${totalCount} member${totalCount === 1 ? '' : 's'} match "${search}"` : `${totalCount} member${totalCount === 1 ? '' : 's'}`}
+        </p>
+      </div>
+
       {/* Members Table */}
-      <div className="themed-card mb-6 overflow-hidden">
+      <div className={`themed-card mb-6 overflow-hidden transition-opacity ${loading ? 'opacity-60' : ''}`}>
         {/* Table container with proper mobile scrolling - constrained width */}
         <div className="table-shell" style={{maxWidth: '85vw'}}>
           <table className="themed-table text-xs sm:text-sm" style={{minWidth: '600px'}}>
@@ -551,8 +617,17 @@ export default function MembersPage() {
           <tbody>
             {sortedMembers.length === 0 ? (
               <tr>
-                <td colSpan={7} className="px-6 py-4 text-center text-gray-500">
-                  No members found. Add members to get started.
+                <td colSpan={7} className="px-6 py-8 text-center text-gray-500 dark:text-theme-muted">
+                  {search ? (
+                    <>
+                      No members match &quot;{search}&quot;.{' '}
+                      <button type="button" onClick={() => setSearchInput('')} className="text-blue-600 hover:underline">
+                        Clear search
+                      </button>
+                    </>
+                  ) : (
+                    'No members found. Add members to get started.'
+                  )}
                 </td>
               </tr>
             ) : (
@@ -666,7 +741,7 @@ export default function MembersPage() {
               <p className="text-sm text-gray-700 dark:text-theme-secondary mr-4">
                 Showing <span className="font-medium">{members.length > 0 ? (currentPage - 1) * pageSize + 1 : 0}</span> to{' '}
                 <span className="font-medium">{Math.min(currentPage * pageSize, (currentPage - 1) * pageSize + members.length)}</span> of{' '}
-                <span className="font-medium">{totalPages * pageSize}</span> results
+                <span className="font-medium">{totalCount}</span> results
               </p>
               <div className="flex items-center">
                 <label htmlFor="pageSize" className="text-sm text-gray-700 dark:text-theme-secondary mr-2">
