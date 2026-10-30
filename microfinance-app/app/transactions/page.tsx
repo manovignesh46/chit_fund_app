@@ -413,8 +413,9 @@ export default function TransactionsPage() {
 
         {/* Record Transactions panel */}
         <div className="themed-card p-4 sm:p-6 max-w-xl">
-          <h2 className="text-lg font-semibold mb-4">Record Manual Transaction</h2>
-          <TransactionForm onSuccess={fetchPartnersWithBalances} />
+          <h2 className="text-lg font-semibold mb-1 text-gray-900 dark:text-theme-primary">Record Manual Transaction</h2>
+          <p className="text-sm text-gray-500 dark:text-theme-muted mb-4">Every manual entry needs a reason and is reviewed before it is saved.</p>
+          <TransactionForm onSuccess={() => { fetchPartnersWithBalances(); setRefreshList((v) => !v); }} />
         </div>
       </SwipeableTabs>
       </div>

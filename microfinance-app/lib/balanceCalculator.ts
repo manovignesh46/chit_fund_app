@@ -1,5 +1,8 @@
 const prisma = require('./prisma').default;
 
+/** Prisma client or interactive-transaction client; lets callers read balances inside their transaction. */
+type DbClient = { transaction: { findFirst: Function; findMany: Function } };
+
 export interface BalanceCalculation {
   partnerBalance: number;
   totalBalance: number;
@@ -145,7 +148,8 @@ export function calculateTransactionBalance(
 export async function getCurrentPartnerBalance(
   partnerId: number | null,
   userId: number,
-  beforeDate?: Date
+  beforeDate?: Date,
+  db: DbClient = prisma
 ): Promise<number> {
   if (!partnerId) return 0;
 
@@ -163,7 +167,7 @@ export async function getCurrentPartnerBalance(
 
   // Get the most recent transaction that affected this partner
   // We need to look at the transaction that stored this partner's balance
-  const lastTransaction = await prisma.transaction.findFirst({
+  const lastTransaction = await db.transaction.findFirst({
     where: {
       ...whereClause,
       OR: [
@@ -218,7 +222,7 @@ export async function getCurrentPartnerBalance(
   console.log(`No stored balance found for partner ${partnerId}, calculating from scratch`);
   
   // Get all transactions involving this partner, ordered chronologically
-  const allTransactions = await prisma.transaction.findMany({
+  const allTransactions = await db.transaction.findMany({
     where: {
       createdById: userId,
       OR: [
@@ -263,7 +267,8 @@ export async function getCurrentPartnerBalance(
  */
 export async function getCurrentTotalBalance(
   userId: number,
-  beforeDate?: Date
+  beforeDate?: Date,
+  db: DbClient = prisma
 ): Promise<number> {
   const whereClause: any = {
     createdById: userId
@@ -273,7 +278,7 @@ export async function getCurrentTotalBalance(
     whereClause.date = { lt: beforeDate };
   }
 
-  const lastTransaction = await prisma.transaction.findFirst({
+  const lastTransaction = await db.transaction.findFirst({
     where: whereClause,
     orderBy: [
       { createdAt: 'desc' }

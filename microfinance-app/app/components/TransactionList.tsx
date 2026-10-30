@@ -244,6 +244,17 @@ export function TransactionList(props: TransactionListProps & {
 
 
 
+  // Manual partner entries carry a user-entered reason instead of a member name
+  function isManualEntry(t: Transaction): boolean {
+    return t.type === 'PARTNER_TO_PARTNER' || t.type === 'RECORD_AMOUNT';
+  }
+
+  // Strip the system "Transfer to/from X - " prefix to show only the reason
+  function manualReason(note?: string): string {
+    if (!note) return '';
+    return note.replace(/^Transfer (?:to|from) .+? - /, '').replace(/^Transfer (?:to|from) [^-]+$/, '').trim();
+  }
+
   // Helper to extract member name from note string
   function extractMemberName(note?: string): string {
     if (!note) return '-';
@@ -627,8 +638,15 @@ export function TransactionList(props: TransactionListProps & {
                         </div>
                       )}
                     </td>
-                    <td className="px-4 py-2 whitespace-nowrap">{t.type.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}</td>
-                    <td className="px-4 py-2 whitespace-nowrap">{extractMemberName(t.note)}</td>
+                    <td className="px-4 py-2">
+                      <div className="whitespace-nowrap">{t.type.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}</div>
+                      {isManualEntry(t) && (
+                        <div className="text-[11px] text-gray-500 dark:text-theme-muted max-w-[220px] truncate" title={t.note || ''}>
+                          {manualReason(t.note) || <span className="italic text-amber-600">No reason recorded</span>}
+                        </div>
+                      )}
+                    </td>
+                    <td className="px-4 py-2 whitespace-nowrap">{isManualEntry(t) ? '-' : extractMemberName(t.note)}</td>
                     <td className="px-4 py-2 whitespace-nowrap">{getPartnerName(t)}</td>
                     {/* Removed Entered By column */}
                     <td className={

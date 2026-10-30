@@ -152,8 +152,9 @@ export default function PartnerManagementPage() {
       </div>
 
       {/* Record Manual Transaction Form */}
-      <div className="themed-card p-6 max-w-xl mb-10">
-        <TransactionForm />
+      <div className="themed-card p-4 sm:p-6 max-w-xl mb-10">
+        <h2 className="text-lg font-semibold mb-4 text-gray-900 dark:text-theme-primary">Record Manual Transaction</h2>
+        <TransactionForm onSuccess={fetchPartnersWithBalances} />
       </div>
 
       {/* Transaction Section removed as per request */}
