@@ -51,10 +51,9 @@ async function checkApi(kind, fixtures, check) {
       },
     },
     "../../../../lib/auth": { getCurrentUserId: async () => user },
-    "../../../../lib/monthlyAggregations": load(
-      "lib/monthlyAggregations.ts",
-      {}
-    ),
+    "../../../../lib/duesTracker": load("lib/duesTracker.ts", {
+      "./monthlyAggregations": load("lib/monthlyAggregations.ts", {}),
+    }),
   });
   const request = (query) => ({
     nextUrl: { searchParams: new URLSearchParams(query) },

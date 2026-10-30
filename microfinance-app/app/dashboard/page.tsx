@@ -7,6 +7,7 @@ import { dashboardAPI } from "../../lib/api";
 import { DashboardSkeleton, TrendsSkeleton } from "../components/skeletons/DashboardSkeletons";
 import { loadDashboardCache, saveDashboardCache } from "../../lib/dashboardCache";
 import CurrentMonthCollections from "../components/CurrentMonthCollections";
+import OverdueAlert from "../components/OverdueAlert";
 import BusinessROICard from "../components/BusinessROICard";
 import CollectionHealthCard from "../components/CollectionHealthCard";
 import CapitalUtilizationCard from "../components/CapitalUtilizationCard";
@@ -551,7 +552,10 @@ export default function DashboardPage() {
             </div>
 
             {/* Collections panel */}
-            <CurrentMonthCollections />
+            <div>
+              <OverdueAlert />
+              <CurrentMonthCollections />
+            </div>
 
             {/* Activities panel */}
             <div className="dark-card p-4 sm:p-6">

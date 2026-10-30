@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { formatCurrency } from '../../lib/formatUtils';
 import { XMarkIcon } from '@heroicons/react/24/outline';
+import Link from 'next/link';
 
 interface PendingLoan {
   id: number;
@@ -14,6 +15,9 @@ interface PendingLoan {
   pendingAmount: number;
   pendingPeriods: number;
   repaymentType: string;
+  overdueAmount?: number;
+  maxDaysOverdue?: number;
+  periods?: { period: number; dueDate: string; outstanding: number; status: string; daysOverdue: number }[];
 }
 
 interface Props {
@@ -147,6 +151,15 @@ export default function PendingLoansModal({ isOpen, onClose, loans, month, year 
                           <p className="font-semibold text-gray-700 dark:text-theme-secondary">{loan.repaymentType}</p>
                         </div>
                       </div>
+                      <PeriodChips periods={loan.periods} label={loan.repaymentType === 'Weekly' ? 'W' : '#'} />
+                      <div className="flex items-center justify-between mt-3">
+                        {loan.maxDaysOverdue ? (
+                          <span className="text-xs font-medium text-red-600 dark:text-red-400">{loan.maxDaysOverdue} days overdue</span>
+                        ) : <span />}
+                        <Link href={`/loans/${loan.id}/repayments/new`} onClick={onClose} className="btn-primary text-xs">
+                          Record payment
+                        </Link>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -155,11 +168,14 @@ export default function PendingLoansModal({ isOpen, onClose, loans, month, year 
           </div>
 
           {/* Footer */}
-          <div className="bg-gray-50 dark:bg-surface-elevated px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+          <div className="bg-gray-50 dark:bg-surface-elevated px-4 py-3 sm:px-6 flex items-center justify-between gap-3">
+            <Link href="/dues" onClick={onClose} className="text-sm text-blue-600 dark:text-blue-400 hover:underline">
+              View all overdue dues →
+            </Link>
             <button
               type="button"
               onClick={onClose}
-              className="btn-primary sm:ml-3 sm:w-auto"
+              className="btn-primary sm:w-auto"
             >
               Close
             </button>
@@ -168,5 +184,26 @@ export default function PendingLoansModal({ isOpen, onClose, loans, month, year 
       </div>
     </div>,
     document.body
+  );
+}
+
+export function PeriodChips({ periods, label }: { periods?: { period: number; dueDate: string; outstanding: number; status: string; daysOverdue: number }[]; label: string }) {
+  if (!periods || periods.length === 0) return null;
+  return (
+    <div className="flex flex-wrap gap-1.5 mt-3">
+      {periods.map((p) => (
+        <span
+          key={p.period}
+          title={`Due ${new Date(p.dueDate).toLocaleDateString('en-IN')} · ${formatCurrency(p.outstanding)} outstanding`}
+          className={`text-xs px-2 py-0.5 rounded-full ${
+            p.status === 'overdue'
+              ? 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300'
+              : 'bg-gray-100 text-gray-700 dark:bg-surface-elevated dark:text-theme-secondary'
+          }`}
+        >
+          {label}{p.period} · {formatCurrency(p.outstanding)}
+        </span>
+      ))}
+    </div>
   );
 }

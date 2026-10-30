@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "../../../../lib/prisma";
 import { getCurrentUserId } from "../../../../lib/auth";
+import { computeLoanDuePeriods, getLoanInstallment, summarizePeriods } from "../../../../lib/duesTracker";
 
 export async function GET(request: NextRequest) {
   try {
@@ -31,6 +32,7 @@ export async function GET(request: NextRequest) {
         borrower: {
           select: {
             name: true,
+            contact: true,
           },
         },
         repayments: true,
@@ -38,50 +40,27 @@ export async function GET(request: NextRequest) {
     });
 
     // Calculate pending repayments for each loan in the date range
+    const range = { start: startDate, end: endDate };
+    const asOf = new Date();
     const pendingLoans = activeLoans
       .map((loan) => {
-        const periodStart = new Date(startDate);
-        const periodEnd = new Date(endDate);
-        const installment = loan.installmentAmount || (
-          loan.loanType === "Reducing Balance" || loan.repaymentType === "Reducing Balance"
-            ? Math.round((loan.remainingAmount * ((loan.interestPercentage || 0) / 100)) / 12)
-            : 0
-        );
-        const paidAmounts = new Map<number, number>();
-        for (const repayment of loan.repayments) {
-          if (repayment.paidDate) {
-            paidAmounts.set(repayment.period, (paidAmounts.get(repayment.period) || 0) + repayment.amount);
-          }
-        }
-
-        let pendingAmount = 0;
-        let pendingPeriods = 0;
-        for (let period = 1; period <= loan.duration; period++) {
-          const paymentDate = new Date(loan.disbursementDate);
-          if (loan.repaymentType === "Weekly") {
-            paymentDate.setDate(paymentDate.getDate() + period * 7);
-          } else {
-            paymentDate.setMonth(paymentDate.getMonth() + period);
-          }
-          if (paymentDate < periodStart || paymentDate > periodEnd) continue;
-
-          const outstanding = Math.max(0, installment - (paidAmounts.get(period) || 0));
-          if (outstanding > 0) {
-            pendingAmount += outstanding;
-            pendingPeriods++;
-          }
-        }
-
-        if (pendingPeriods === 0) return null;
+        const periods = computeLoanDuePeriods(loan, range, asOf);
+        if (periods.length === 0) return null;
+        const summary = summarizePeriods(periods);
 
         return {
           id: loan.id,
+          borrowerId: loan.borrowerId,
           borrowerName: loan.borrower.name,
+          contact: loan.borrower.contact,
           loanType: loan.loanType,
           totalAmount: loan.amount,
-          installmentAmount: installment,
-          pendingAmount,
-          pendingPeriods,
+          installmentAmount: getLoanInstallment(loan),
+          pendingAmount: summary.totalOutstanding,
+          pendingPeriods: periods.length,
+          overdueAmount: summary.overdueAmount,
+          maxDaysOverdue: summary.maxDaysOverdue,
+          periods,
           repaymentType: loan.repaymentType,
         };
       })

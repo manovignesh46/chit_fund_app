@@ -4,11 +4,17 @@ import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { formatCurrency } from '../../lib/formatUtils';
 import { XMarkIcon } from '@heroicons/react/24/outline';
+import Link from 'next/link';
+import { PeriodChips } from './PendingLoansModal';
 
 interface PendingMember {
+  memberId?: number;
   memberName: string;
   pendingAmount: number;
   pendingPeriods: number;
+  pendingMonths?: number[];
+  maxDaysOverdue?: number;
+  periods?: { period: number; dueDate: string; outstanding: number; status: string; daysOverdue: number }[];
 }
 
 interface PendingChitFund {
@@ -158,7 +164,8 @@ export default function PendingChitsModal({ isOpen, onClose, chitFunds, month, y
                         <p className="text-sm font-semibold text-gray-700 dark:text-theme-secondary mb-2">Pending Members ({chitFund.pendingMembers.length})</p>
                         <div className="space-y-2">
                           {chitFund.pendingMembers.map((member, index) => (
-                            <div key={index} className="themed-card border border-gray-200 dark:border-surface-border rounded p-3 flex items-center justify-between hover:shadow-sm transition">
+                            <div key={index} className="themed-card border border-gray-200 dark:border-surface-border rounded p-3 hover:shadow-sm transition">
+                             <div className="flex items-center justify-between">
                               <div className="flex items-center">
                                 <div className="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900/40 flex items-center justify-center mr-3">
                                   <span className="text-sm font-bold text-blue-700 dark:text-blue-300">
@@ -176,6 +183,20 @@ export default function PendingChitsModal({ isOpen, onClose, chitFunds, month, y
                                 <p className="text-xs text-gray-500 dark:text-theme-muted">Pending Amount</p>
                                 <p className="text-base font-bold text-orange-600 dark:text-orange-400">{formatCurrency(member.pendingAmount)}</p>
                               </div>
+                             </div>
+                             <PeriodChips periods={member.periods} label="M" />
+                             <div className="flex items-center justify-between mt-2">
+                               {member.maxDaysOverdue ? (
+                                 <span className="text-xs font-medium text-red-600 dark:text-red-400">{member.maxDaysOverdue} days overdue</span>
+                               ) : <span />}
+                               <Link
+                                 href={`/chit-funds/${chitFund.id}/contributions${member.pendingMonths?.length ? `?month=${member.pendingMonths[0]}` : ''}`}
+                                 onClick={onClose}
+                                 className="btn-primary text-xs"
+                               >
+                                 Record contribution
+                               </Link>
+                             </div>
                             </div>
                           ))}
                         </div>
@@ -188,11 +209,14 @@ export default function PendingChitsModal({ isOpen, onClose, chitFunds, month, y
           </div>
 
           {/* Footer */}
-          <div className="bg-gray-50 dark:bg-surface-elevated px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+          <div className="bg-gray-50 dark:bg-surface-elevated px-4 py-3 sm:px-6 flex items-center justify-between gap-3">
+            <Link href="/dues" onClick={onClose} className="text-sm text-blue-600 dark:text-blue-400 hover:underline">
+              View all overdue dues →
+            </Link>
             <button
               type="button"
               onClick={onClose}
-              className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-blue-600 text-base font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:ml-3 sm:w-auto sm:text-sm"
+              className="inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-blue-600 text-sm font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
             >
               Close
             </button>
