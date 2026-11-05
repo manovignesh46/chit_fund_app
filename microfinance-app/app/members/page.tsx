@@ -527,7 +527,7 @@ export default function MembersPage() {
       {/* Search */}
       <div className="mb-4 flex flex-col sm:flex-row sm:items-center gap-2">
         <div className="relative w-full sm:max-w-md">
-          <svg className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+          <svg className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-4.35-4.35M17 10.5a6.5 6.5 0 11-13 0 6.5 6.5 0 0113 0z" />
           </svg>
           <input
@@ -538,7 +538,7 @@ export default function MembersPage() {
             placeholder="Search by name or phone"
             aria-label="Search members by name or phone"
             maxLength={100}
-            className="themed-input w-full pl-9 pr-9 text-sm"
+            className="themed-input w-full !pl-9 !pr-9 text-sm"
           />
           {searchInput && (
             <button
