@@ -1,4 +1,6 @@
 // Run with: node tests/test-manual-transactions.js
+// Add --database to exercise the route's locks against PostgreSQL from .env.
+// Transaction records remain in memory in both modes.
 // Covers mandatory audit notes and input validation for partner transfers / record amount,
 // plus the dues calculations shared by the pending modals and the Dues Tracker.
 const assert = require("node:assert/strict");
@@ -139,7 +141,13 @@ assert.equal(d.agingBucket(91), "90+");
 console.log("PASS: manual transaction validation (required notes, amount, date, partners) and dues tracker calculations.");
 
 // ---- POST /api/transactions (manual entries) with an in-memory DB ----
+let lockDatabase;
 (async () => {
+  if (process.argv.includes("--database")) {
+    require("dotenv").config({ path: path.join(root, ".env") });
+    const { PrismaClient } = require("@prisma/client");
+    lockDatabase = new PrismaClient();
+  }
   const rows = [];
   const partnersDb = [
     { id: 1, name: "Arun", isActive: true, createdById: 7 },
@@ -183,7 +191,15 @@ console.log("PASS: manual transaction validation (required notes, amount, date, 
     },
     transaction: txModel,
     async $transaction(fn) {
-      return fn({ transaction: txModel, async $executeRaw() { locks++; } });
+      const run = (dbTx) => fn({
+        transaction: txModel,
+        async $executeRaw(...args) {
+          locks++;
+          if (dbTx) return dbTx.$executeRaw(...args);
+          return 0;
+        },
+      });
+      return lockDatabase ? lockDatabase.$transaction(run) : run();
     },
   };
   const balance = load("lib/balanceCalculator.ts", { "./prisma": { default: prisma } });
@@ -250,6 +266,17 @@ console.log("PASS: manual transaction validation (required notes, amount, date, 
   assert.equal(notifications[1].details.direction, "credit");
   assert.equal(notifications[1].link, "/transactions?txn=3");
 
+  res = await post({ type: "RECORD_AMOUNT", amount: 250, date: today, note: "Capital withdrawal", from_partner_id: 1, to_partner_id: null });
+  assert.equal(res.status, 201);
+  assert.equal(rows[3].partnerBalance, -4250);
+  assert.equal(rows[3].totalBalance, 750);
+  assert.equal(notifications[2].details.direction, "debit");
+  res = await post({ type: "RECORD_AMOUNT", amount: 250, date: today, note: "Capital withdrawal", from_partner_id: 1, to_partner_id: null });
+  assert.equal(res.status, 409, "identical record amount resubmission is rejected");
+  assert.equal(rows.length, 4);
+  assert.equal(notifications.length, 3, "duplicates do not send notifications");
+  assert.equal(locks, 5, "transfers, credits, debits and duplicate checks acquire the lock");
+
   // GET /api/notifications/:id/details
   const notificationsDb = [
     { id: 10, userId: 5, entityType: "transaction", entityId: 1, details: { transactionIds: [1, 2] } },
@@ -283,7 +310,10 @@ console.log("PASS: manual transaction validation (required notes, amount, date, 
   assert.equal((await details("abc")).status, 400);
 
   console.log("PASS: POST /api/transactions enforces reasons, partner ownership, duplicate guard and balances; notification details endpoint.");
+  if (lockDatabase) console.log("PASS: route lock queries executed against PostgreSQL; no transaction records written.");
 })().catch((e) => {
   console.error(e);
-  process.exit(1);
+  process.exitCode = 1;
+}).finally(async () => {
+  if (lockDatabase) await lockDatabase.$disconnect();
 });

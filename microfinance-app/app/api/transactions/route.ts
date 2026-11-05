@@ -118,7 +118,8 @@ const DUPLICATE_WINDOW_MS = 15_000;
  * entries cannot both read the same "current balance" and overwrite each other.
  */
 async function lockPartnerBalances(tx: any, userId: number) {
-  await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext('partner-balance'), ${userId})`;
+  // Prisma binds JS integers as bigint; the two-key lock requires two int4 values.
+  await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext('partner-balance'), ${userId}::integer)`;
 }
 
 /**
