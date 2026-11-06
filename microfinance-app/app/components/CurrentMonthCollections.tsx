@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useFirstLoad, refreshingClass } from '../hooks/useFirstLoad';
 import { formatCurrency } from '../../lib/formatUtils';
 import PendingLoansModal from './PendingLoansModal';
 import PendingChitsModal from './PendingChitsModal';
@@ -48,6 +49,7 @@ interface Props {
 export default function CurrentMonthCollections({ refreshTrigger }: Props) {
   const [data, setData] = useState(null as AggregationData | null);
   const [loading, setLoading] = useState(true);
+  const { initialLoading, refreshing } = useFirstLoad(loading);
   const [error, setError] = useState(null as string | null);
   
   // Modal states
@@ -164,7 +166,7 @@ export default function CurrentMonthCollections({ refreshTrigger }: Props) {
     }
   };
 
-  if (loading) {
+  if (initialLoading) {
     return (
       <div className="grid grid-cols-1 gap-4 sm:gap-6 mb-6 sm:mb-8 md:grid-cols-3">
         {[1, 2, 3].map((i) => (
@@ -207,7 +209,7 @@ export default function CurrentMonthCollections({ refreshTrigger }: Props) {
   }
 
   return (
-    <div className="mb-6 sm:mb-8">
+    <div className={`mb-6 sm:mb-8 ${refreshingClass(refreshing)}`} aria-busy={refreshing}>
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 gap-3">
         <h2 className="section-heading">Monthly Collections</h2>
         

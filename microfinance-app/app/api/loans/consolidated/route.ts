@@ -10,7 +10,7 @@ import {
 } from "../../../../lib/paymentSchedule";
 import { TRANSACTION_TYPES_CONFIG } from "../../../../config/config";
 import { calculateTransactionBalance, getCurrentPartnerBalance, getCurrentTotalBalance, recalculateBalancesAfterDeletion } from "../../../../lib/balanceCalculator";
-import { autoUpdateCurrentMonths } from "../../../../lib/timeUtils";
+import { autoUpdateCurrentMonths, invalidateCurrentMonths } from "../../../../lib/timeUtils";
 import { notifyOtherAdmins, getActorName } from "../../../../lib/notifications";
 import { computeLoanDuePeriods, getLoanDueDate } from "../../../../lib/duesTracker";
 import { calculateLoanProfit } from "../../../../lib/financialUtils";
@@ -161,6 +161,8 @@ export async function POST(request: NextRequest) {
         { status: 401 }
       );
     }
+    // A write can change which period a loan or chit fund is in.
+    if (action !== "update-overdue") invalidateCurrentMonths(currentUserId);
 
     // Route to the appropriate handler based on the action
     switch (action) {
@@ -208,6 +210,8 @@ export async function PUT(request: NextRequest) {
         { status: 401 }
       );
     }
+    // A write can change which period a loan or chit fund is in.
+    invalidateCurrentMonths(currentUserId);
 
     // Route to the appropriate handler based on the action
     switch (action) {
@@ -247,6 +251,8 @@ export async function DELETE(request: NextRequest) {
         { status: 401 }
       );
     }
+    // A write can change which period a loan or chit fund is in.
+    invalidateCurrentMonths(currentUserId);
 
     // Route to the appropriate handler based on the action
     switch (action) {

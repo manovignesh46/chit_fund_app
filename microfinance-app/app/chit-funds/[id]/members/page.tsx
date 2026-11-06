@@ -8,6 +8,7 @@ import Link from 'next/link';
 import { apiGet, apiPost, apiPut, apiDelete } from '../../../lib/apiUtils';
 import { UserGroupIcon, PlusCircleIcon, DocumentArrowDownIcon, TrashIcon, UserPlusIcon, UsersIcon, BanknotesIcon } from '@heroicons/react/24/outline';
 import BackTitle from '../../../components/common/BackTitle';
+import { useFirstLoad, refreshingClass } from '../../../hooks/useFirstLoad';
 import { formatDate as formatDateUtil, formatCurrency as formatCurrencyUtil } from '../../../../lib/formatUtils';
 
 interface GlobalMember {
@@ -52,6 +53,9 @@ export default function ChitFundMembersPage() {
   const [allContributions, setAllContributions] = useState<{memberId: number, month: number}[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // Bumped after a save to refetch in place (no full page reload).
+  const [reloadKey, setReloadKey] = useState(0);
+  const { initialLoading, refreshing } = useFirstLoad(loading);
 
   // For adding new member
   const [showAddForm, setShowAddForm] = useState(false);
@@ -106,6 +110,7 @@ export default function ChitFundMembersPage() {
   // For pagination
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
   const [pageSize, setPageSize] = useState(20);
 
   // For exporting members
@@ -150,23 +155,24 @@ export default function ChitFundMembersPage() {
       try {
         setLoading(true);
 
-        // Fetch chit fund details using the apiGet utility function
-        const chitFundData = await apiGet(
-          `/api/chit-funds/consolidated?action=detail&id=${chitFundId}`,
-          'Failed to fetch chit fund details'
-        );
+        // Fetch chit fund details and the current page of members together
+        const [chitFundData, membersData] = await Promise.all([
+          apiGet(
+            `/api/chit-funds/consolidated?action=detail&id=${chitFundId}`,
+            'Failed to fetch chit fund details'
+          ),
+          apiGet(
+            `/api/chit-funds/consolidated?action=members&id=${chitFundId}&page=${currentPage}&pageSize=${pageSize}`,
+            'Failed to fetch members'
+          ),
+        ]);
         setChitFund(chitFundData);
-
-        // Fetch members with pagination using the apiGet utility function
-        const membersData = await apiGet(
-          `/api/chit-funds/consolidated?action=members&id=${chitFundId}&page=${currentPage}&pageSize=${pageSize}`,
-          'Failed to fetch members'
-        );
 
         // Check if the response has pagination metadata
         if (membersData.members && membersData.totalCount !== undefined) {
           setMembers(membersData.members);
           setTotalPages(Math.ceil(membersData.totalCount / pageSize));
+          setTotalCount(membersData.totalCount);
 
           // Use contribution map from members response if available
           if (membersData.contributionMap && Array.isArray(membersData.contributionMap)) {
@@ -176,6 +182,7 @@ export default function ChitFundMembersPage() {
           // Fallback for backward compatibility
           setMembers(membersData);
           setTotalPages(Math.ceil(membersData.length / pageSize));
+          setTotalCount(membersData.length);
 
           // Fallback: Fetch contributions separately if not included in members response
           try {
@@ -217,7 +224,7 @@ export default function ChitFundMembersPage() {
     if (chitFundId) {
       fetchChitFundAndMembers();
     }
-  }, [chitFundId, currentPage, pageSize]);
+  }, [chitFundId, currentPage, pageSize, reloadKey]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -255,7 +262,7 @@ export default function ChitFundMembersPage() {
 
     try {
       // Use the apiPost utility function
-      const newMemberData = await apiPost(
+      await apiPost(
         `/api/chit-funds/consolidated?action=add-member&id=${chitFundId}`,
         {
           name: newMember.name,
@@ -265,9 +272,6 @@ export default function ChitFundMembersPage() {
         'Failed to add member'
       );
 
-      // Update the members list
-      setMembers([...members, newMemberData]);
-
       // Reset form
       setNewMember({
         name: '',
@@ -275,8 +279,8 @@ export default function ChitFundMembersPage() {
       });
       setShowAddForm(false);
 
-      // Refresh the page to get updated data
-      window.location.reload();
+      // Refetch members in place
+      setReloadKey((key) => key + 1);
     } catch (error: any) {
       console.error('Error adding member:', error);
       setFormErrors({ submit: error.message || 'Failed to add member. Please try again.' });
@@ -461,6 +465,7 @@ export default function ChitFundMembersPage() {
     try {
       let successCount = 0;
       let errorCount = 0;
+      const assignedIds: number[] = [];
 
       // Process each selected member
       for (const memberId of selectedGlobalMembers) {
@@ -475,6 +480,7 @@ export default function ChitFundMembersPage() {
             'Failed to assign member'
           );
           successCount++;
+          assignedIds.push(memberId);
         } catch (error) {
           console.error(`Error assigning member ${memberId}:`, error);
           errorCount++;
@@ -487,8 +493,14 @@ export default function ChitFundMembersPage() {
         setSelectedGlobalMembers([]);
         setSelectAllGlobal(false);
 
-        // Refresh the page to get updated data
-        window.location.reload();
+        // Drop the assigned members from the picker and refetch the list in place
+        setGlobalMembers((prev) => prev.filter((member) => !assignedIds.includes(member.id)));
+        setReloadKey((key) => key + 1);
+
+        // Close the form only when everything succeeded, so a partial failure stays visible
+        if (errorCount === 0) {
+          setShowAddForm(false);
+        }
       }
 
       if (errorCount > 0) {
@@ -759,10 +771,10 @@ export default function ChitFundMembersPage() {
         // Close the modal after a delay
         setTimeout(() => {
           setShowRecordContributionModal(false);
-
-          // Refresh the page to get updated data
-          window.location.reload();
         }, 2000);
+
+        // Refetch members and contributions in place
+        setReloadKey((key) => key + 1);
       })
       .catch((error) => {
         console.error('Error recording contribution:', error);
@@ -773,7 +785,7 @@ export default function ChitFundMembersPage() {
       });
   };
 
-  if (loading) {
+  if (initialLoading) {
     return (
       <div className="container mx-auto px-4 py-8">
         <div className="flex justify-center items-center h-64">
@@ -818,7 +830,10 @@ export default function ChitFundMembersPage() {
   }
 
   return (
-    <div className="container w-full max-w-screen-xl mx-auto px-2 sm:px-4 py-4 sm:py-8">
+    <div
+      className={`container w-full max-w-screen-xl mx-auto px-2 sm:px-4 py-4 sm:py-8 ${refreshingClass(refreshing)}`}
+      aria-busy={refreshing}
+    >
       <div className="flex flex-row flex-wrap items-center justify-between gap-2 mb-6 sm:mb-8">
         <BackTitle title="Members" href={`/chit-funds/${chitFundId}`} ariaLabel="Back to Chit Fund" className="break-words flex-shrink-0" />
         <div className="flex flex-row flex-wrap gap-1 sm:gap-2 w-auto">
@@ -1113,7 +1128,7 @@ export default function ChitFundMembersPage() {
                 <p className="text-sm text-gray-700 dark:text-theme-secondary mr-4">
                   Showing <span className="font-medium">{members.length > 0 ? (currentPage - 1) * pageSize + 1 : 0}</span> to{' '}
                   <span className="font-medium">{Math.min(currentPage * pageSize, (currentPage - 1) * pageSize + members.length)}</span> of{' '}
-                  <span className="font-medium">{totalPages * pageSize}</span> results
+                  <span className="font-medium">{totalCount}</span> results
                 </p>
                 <div className="flex items-center">
                   <label htmlFor="pageSize" className="text-sm text-gray-700 dark:text-theme-secondary mr-2">

@@ -43,6 +43,11 @@ export function PartnerProvider({ children }: PartnerProviderProps) {
     try {
       setLoading(true);
       setError(null);
+      // Start the profile request alongside the partners request instead of after it.
+      const profilePromise = fetch('/api/user?action=me').then(
+        (res) => ({ res, failure: null as unknown }),
+        (failure) => ({ res: null as Response | null, failure })
+      );
       const response = await fetch('/api/partners');
       const contentType = response.headers.get('content-type');
       if (!response.ok) {
@@ -56,7 +61,9 @@ export function PartnerProvider({ children }: PartnerProviderProps) {
       const data = await response.json();
       setPartners(data.partners || []);
 
-      const profileResponse = await fetch('/api/user?action=me');
+      const profileResult = await profilePromise;
+      if (!profileResult.res) throw profileResult.failure;
+      const profileResponse = profileResult.res;
       let profileIsPrimaryAdmin = false;
       let profilePartnerLocked = false;
 

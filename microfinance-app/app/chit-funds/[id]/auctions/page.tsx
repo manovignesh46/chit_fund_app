@@ -6,6 +6,7 @@ import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { apiGet, apiPost, apiDelete } from '../../../lib/apiUtils';
 import BackTitle from '../../../components/common/BackTitle';
+import { useFirstLoad, refreshingClass } from '../../../hooks/useFirstLoad';
 import { formatDate as formatDateUtil, formatCurrency as formatCurrencyUtil } from '../../../../lib/formatUtils';
 
 interface GlobalMember {
@@ -54,6 +55,9 @@ export default function ChitFundAuctionsPage() {
   const [auctions, setAuctions] = useState<Auction[]>([]);
   const [members, setMembers] = useState<Member[]>([]);
   const [loading, setLoading] = useState(true);
+  // Bumped after a save to refetch in place (no full page reload).
+  const [reloadKey, setReloadKey] = useState(0);
+  const { initialLoading, refreshing } = useFirstLoad(loading);
   const [error, setError] = useState<string | null>(null);
   const [selectedAuction, setSelectedAuction] = useState<Auction | null>(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
@@ -84,18 +88,22 @@ export default function ChitFundAuctionsPage() {
       try {
         setLoading(true);
 
-        // Fetch chit fund details using the consolidated API endpoint
-        const chitFundData = await apiGet(
-          `/api/chit-funds/consolidated?action=detail&id=${chitFundId}`,
-          'Failed to fetch chit fund details'
-        );
+        // Fetch chit fund details, members and auctions together
+        const [chitFundData, membersData, auctionsData] = await Promise.all([
+          apiGet(
+            `/api/chit-funds/consolidated?action=detail&id=${chitFundId}`,
+            'Failed to fetch chit fund details'
+          ),
+          apiGet(
+            `/api/chit-funds/consolidated?action=members&id=${chitFundId}`,
+            'Failed to fetch members'
+          ),
+          apiGet(
+            `/api/chit-funds/consolidated?action=auctions&id=${chitFundId}`,
+            'Failed to fetch auctions'
+          ),
+        ]);
         setChitFund(chitFundData);
-
-        // Fetch members using the consolidated API endpoint
-        const membersData = await apiGet(
-          `/api/chit-funds/consolidated?action=members&id=${chitFundId}`,
-          'Failed to fetch members'
-        );
 
         // Check if the response is paginated or a direct array
         if (membersData && membersData.members && Array.isArray(membersData.members)) {
@@ -109,12 +117,6 @@ export default function ChitFundAuctionsPage() {
           console.error('Unexpected members data format:', membersData);
           setMembers([]);
         }
-
-        // Fetch auctions using the consolidated API endpoint
-        const auctionsData = await apiGet(
-          `/api/chit-funds/consolidated?action=auctions&id=${chitFundId}`,
-          'Failed to fetch auctions'
-        );
 
         // Check if the response has an auctions property (new format) or is an array (old format)
         if (auctionsData.auctions && Array.isArray(auctionsData.auctions)) {
@@ -136,7 +138,7 @@ export default function ChitFundAuctionsPage() {
     if (chitFundId) {
       fetchData();
     }
-  }, [chitFundId]);
+  }, [chitFundId, reloadKey]);
 
   // Handle ESC key to close modals
   useEffect(() => {
@@ -218,7 +220,7 @@ export default function ChitFundAuctionsPage() {
 
     try {
       // Use the apiPost function with the consolidated API endpoint
-      const newAuctionData = await apiPost(
+      await apiPost(
         `/api/chit-funds/consolidated?action=add-auction&id=${chitFundId}`,
         {
           ...newAuction,
@@ -233,9 +235,6 @@ export default function ChitFundAuctionsPage() {
         'Failed to add auction'
       );
 
-      // Update the auctions list
-      setAuctions([...auctions, newAuctionData]);
-
       // Reset form
       setNewAuction({
         winnerId: '',
@@ -249,8 +248,8 @@ export default function ChitFundAuctionsPage() {
       });
       setShowAddForm(false);
 
-      // Refresh the page to get updated data
-      window.location.reload();
+      // Refetch auctions, members and fund totals in place
+      setReloadKey((key) => key + 1);
     } catch (error) {
       console.error('Error adding auction:', error);
       setFormErrors({ submit: 'Failed to add auction. Please try again.' });
@@ -315,7 +314,7 @@ export default function ChitFundAuctionsPage() {
     }
   };
 
-  if (loading) {
+  if (initialLoading) {
     return (
       <div className="container mx-auto px-4 py-8">
         <div className="flex justify-center items-center h-64">
@@ -360,7 +359,7 @@ export default function ChitFundAuctionsPage() {
   }
 
   return (
-    <div className="container mx-auto px-4 py-8">
+    <div className={`container mx-auto px-4 py-8 ${refreshingClass(refreshing)}`} aria-busy={refreshing}>
       <div className="flex justify-between items-center mb-6">
         <div>
           <BackTitle title="Auctions" href={`/chit-funds/${chitFundId}`} ariaLabel="Back to Chit Fund" />

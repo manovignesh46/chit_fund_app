@@ -2,7 +2,8 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
+import { invalidateDashboardCache } from '../../../lib/dashboardCache';
 import Link from 'next/link';
 import { ChitFund, ChitFundMember, Auction, Contribution } from '../../../lib/interfaces';
 import { formatCurrency, formatDate, calculateChitFundProfit, calculateChitFundProfitUpToCurrentMonth, calculateChitFundOutsideAmount } from '../../../lib/formatUtils';
@@ -36,6 +37,7 @@ interface MemberBalanceData {
 
 const ChitFundDetails = () => {
   const params = useParams();
+  const router = useRouter();
   const id = params.id;
   const [chitFund, setChitFund] = useState<ChitFund | null>(null);
   const [members, setMembers] = useState<Member[]>([]);
@@ -486,8 +488,9 @@ const ChitFundDetails = () => {
         throw new Error(data.error || 'Failed to delete chit fund');
       }
 
-      // Redirect to chit funds list page
-      window.location.href = '/chit-funds';
+      invalidateDashboardCache();
+      // Go to the chit funds list without reloading the app
+      router.push('/chit-funds');
     } catch (error: any) {
       console.error('Error deleting chit fund:', error);
       setDeleteError(error.message || 'Failed to delete chit fund. Please try again.');
@@ -836,7 +839,7 @@ const ChitFundDetails = () => {
               chitFundId={chitFund.id}
               contributionsByMonth={contributionsByMonth}
               showAll={true}
-              onViewMore={() => window.location.href = `/chit-funds/${chitFund.id}/contributions`}
+              onViewMore={() => router.push(`/chit-funds/${chitFund.id}/contributions`)}
             />
           )}
 

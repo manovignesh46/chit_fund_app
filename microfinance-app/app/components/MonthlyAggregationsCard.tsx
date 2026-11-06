@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useFirstLoad, refreshingClass } from '../hooks/useFirstLoad';
 import { formatCurrency } from '../../lib/formatUtils';
 
 interface AggregationData {
@@ -19,6 +20,7 @@ interface Props {
 export default function MonthlyAggregationsCard({ startDate, endDate, refreshTrigger }: Props) {
   const [data, setData] = useState<AggregationData | null>(null);
   const [loading, setLoading] = useState(false);
+  const { initialLoading, refreshing } = useFirstLoad(loading);
 
   useEffect(() => {
     const fetchAggregations = async () => {
@@ -44,11 +46,11 @@ export default function MonthlyAggregationsCard({ startDate, endDate, refreshTri
   }, [startDate, endDate, refreshTrigger]);
 
   if (!startDate || !endDate) return null;
-  if (loading) return <div>Loading aggregations...</div>;
+  if (initialLoading) return <div>Loading aggregations...</div>;
   if (!data) return null;
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+    <div className={`grid grid-cols-1 md:grid-cols-3 gap-4 mb-6 ${refreshingClass(refreshing)}`} aria-busy={refreshing}>
       <div className="themed-card p-4">
         <h3 className="text-sm font-medium text-gray-500 mb-2">Loan Repayments</h3>
         <div className="space-y-2">

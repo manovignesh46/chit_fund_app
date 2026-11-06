@@ -5,6 +5,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { authAPI } from '../../lib/api';
+import { invalidateDashboardCache } from '../../lib/dashboardCache';
 
 interface SidebarUserMenuProps {
   showDetails: boolean;
@@ -48,6 +49,8 @@ export default function SidebarUserMenu({ showDetails, onClose }: SidebarUserMen
     try {
       await authAPI.logout();
       setUser(null);
+      // Do not leave this user's cached dashboard figures for the next login.
+      invalidateDashboardCache();
       if (typeof window !== 'undefined') {
         localStorage.removeItem('selectedPartnerId');
         localStorage.removeItem('selectedPartnerName');

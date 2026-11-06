@@ -2,6 +2,7 @@
 'use client';
 
 import React, { useState, useEffect, FormEvent, useCallback } from 'react';
+import Link from 'next/link';
 import { loanAPI } from '../../../lib/api';
 import { usePartner } from '../../contexts/PartnerContext';
 import { formatDate } from '../../../lib/formatUtils';
@@ -245,7 +246,7 @@ export default function RepaymentForm({ loanId, onSuccess, onCancel, initialLoan
 
   if (loading) return <div className="p-6 text-center text-gray-500">Loading form...</div>;
   if (loan?.status === 'Non-Recoverable') return <div className="themed-card p-6 text-sm">
-    This loan is Non-Recoverable. <a className="text-green-700 underline" href={`/loans/${loanId}#loan-recovery`}>Record an offline recovery on Loan Details.</a>
+    This loan is Non-Recoverable. <Link className="text-green-700 underline" href={`/loans/${loanId}#loan-recovery`}>Record an offline recovery on Loan Details.</Link>
   </div>;
 
   return (

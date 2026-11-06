@@ -21,6 +21,8 @@ import {
 import RepaymentForm from "../../components/loans/RepaymentForm";
 import LoanRecoveryPanel from "../../components/loans/LoanRecoveryPanel";
 import BackTitle from "../../components/common/BackTitle";
+import { useFirstLoad, refreshingClass } from "../../hooks/useFirstLoad";
+import { invalidateDashboardCache } from "../../../lib/dashboardCache";
 import SwipeableTabs from "../../components/SwipeableTabs";
 
 const LoanDetailPage = () => {
@@ -29,6 +31,7 @@ const LoanDetailPage = () => {
   const { selectedPartner, loading: partnerLoading } = usePartner();
   const [loan, setLoan] = useState<Loan | null>(null);
   const [loading, setLoading] = useState(true);
+  const { initialLoading, refreshing } = useFirstLoad(loading);
   const [updating, setUpdating] = useState(false);
 
   // Pagination state
@@ -166,15 +169,9 @@ const LoanDetailPage = () => {
         throw new Error("Invalid response from server.");
       }
 
-      console.log("Payment recorded successfully:", responseData);
-
-      // Add a small delay before refreshing data
-      await new Promise((resolve) => setTimeout(resolve, 500));
-
-      // Refresh loan details and payment schedules
-      await fetchLoanDetails();
+      // Refresh loan details and payment schedules in place, together
       schedulesInitialized.current = true;
-      await fetchPaymentSchedules();
+      await Promise.all([fetchLoanDetails(), fetchPaymentSchedules()]);
     } catch (error) {
       console.error("Payment recording failed:", error);
       setScheduleError(
@@ -189,12 +186,6 @@ const LoanDetailPage = () => {
     try {
       setLoading(true);
 
-      // Validate the ID parameter
-      if (!id) {
-        console.error("Invalid loan ID: ID is undefined or null");
-        throw new Error("Invalid loan ID");
-      }
-
       // Ensure ID is a valid number
       const numericId =
         typeof id === "string"
@@ -204,107 +195,66 @@ const LoanDetailPage = () => {
           : 0;
 
       if (!numericId || isNaN(numericId)) {
-        console.error(`Invalid loan ID: Unable to parse "${id}" as a number`);
         throw new Error("Invalid loan ID format");
       }
 
-      console.log(`Fetching loan details for ID: ${numericId}`);
-
-      // First, update the overdue amount to ensure it's current
-      try {
-        console.log("Updating overdue amount...");
-        const overdueResponse = await fetch(
-          `/api/loans/consolidated?action=update-overdue&id=${numericId}`,
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({}),
-          }
-        );
-
-        if (overdueResponse.ok) {
-          console.log("Overdue amount updated successfully");
-        } else {
-          const errorText = await overdueResponse.text();
-          console.warn(
-            `Failed to update overdue amount: ${overdueResponse.status} ${overdueResponse.statusText}`,
-            errorText
-          );
+      // Recalculate the overdue amount alongside the reads instead of before them.
+      // Its result is applied on top of the loan below, so the figures shown are
+      // still the freshly calculated ones. A failure here must not block the page.
+      const overduePromise = fetch(
+        `/api/loans/consolidated?action=update-overdue&id=${numericId}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({}),
         }
-      } catch (overdueError) {
-        console.error("Error updating overdue amount:", overdueError);
-        // Continue with fetching loan details even if updating overdue amount fails
-      }
+      )
+        .then((response) => (response.ok ? response.json() : null))
+        .catch((overdueError) => {
+          console.error("Error updating overdue amount:", overdueError);
+          return null;
+        });
 
-      // Fetch loan details
-      const loanResponse = await fetch(
-        `/api/loans/consolidated?action=detail&id=${numericId}`
-      );
+      // Fetch the loan and the current page of repayments together
+      const [loanResponse, repaymentsResponse] = await Promise.all([
+        fetch(`/api/loans/consolidated?action=detail&id=${numericId}`),
+        fetch(
+          `/api/loans/consolidated?action=repayments&id=${numericId}&page=${currentPage}&pageSize=${pageSize}`
+        ),
+      ]);
+
       if (!loanResponse.ok) {
-        const errorText = await loanResponse.text();
-        console.error(
-          `Failed to fetch loan details: ${loanResponse.status} ${loanResponse.statusText}`,
-          errorText
-        );
         throw new Error(
           `Failed to fetch loan details: ${loanResponse.statusText}`
         );
       }
-      const loanData = await loanResponse.json();
-
-      console.log("Loan data from API:", loanData);
-
-      // Fetch paginated repayments for this loan
-      const repaymentsResponse = await fetch(
-        `/api/loans/consolidated?action=repayments&id=${numericId}&page=${currentPage}&pageSize=${pageSize}`
-      );
       if (!repaymentsResponse.ok) {
-        const errorText = await repaymentsResponse.text();
-        console.error(
-          `Failed to fetch repayments: ${repaymentsResponse.status} ${repaymentsResponse.statusText}`,
-          errorText
-        );
         throw new Error("Failed to fetch repayments");
       }
-      const repaymentsData = await repaymentsResponse.json();
 
-      console.log("Repayments data from API:", repaymentsData);
+      const [loanData, repaymentsData, overdue] = await Promise.all([
+        loanResponse.json(),
+        repaymentsResponse.json(),
+        overduePromise,
+      ]);
 
-      // Extract repayments and pagination data
-      let repaymentsList = [];
-      if (
-        repaymentsData.repayments &&
-        Array.isArray(repaymentsData.repayments)
-      ) {
-        repaymentsList = repaymentsData.repayments;
-      } else {
-        // Fallback for backward compatibility
-        repaymentsList = Array.isArray(repaymentsData) ? repaymentsData : [];
-      }
+      // Extract repayments (paginated shape, with a fallback for a bare array)
+      const repaymentsList =
+        repaymentsData.repayments && Array.isArray(repaymentsData.repayments)
+          ? repaymentsData.repayments
+          : Array.isArray(repaymentsData)
+          ? repaymentsData
+          : [];
 
-      console.log("Extracted repayments list:", repaymentsList);
-
-      // Combine the data
       const combinedData = {
         ...loanData,
-        repayments: repaymentsList || [],
+        repayments: repaymentsList,
       };
 
-      console.log("Combined data for loan state:", combinedData);
-
-      // Log specific details about the loan for debugging profit calculation
-      console.log("Loan details for profit calculation:", {
-        interestRate: combinedData.interestRate,
-        documentCharge: combinedData.documentCharge,
-        repayments: combinedData.repayments.map((r: Repayment) => ({
-          id: r.id,
-          amount: r.amount,
-          paymentType: r.paymentType,
-          paidDate: r.paidDate,
-        })),
-      });
+      if (overdue && typeof overdue.overdueAmount === "number") {
+        combinedData.overdueAmount = overdue.overdueAmount;
+        combinedData.missedPayments = overdue.missedPayments;
+      }
 
       setLoan(combinedData);
     } catch (error) {
@@ -457,6 +407,7 @@ const LoanDetailPage = () => {
         const errorData = await response.json();
         throw new Error(errorData.error || "Failed to delete repayment");
       }
+      invalidateDashboardCache();
 
       // Show success message
       setDeleteSuccess("Repayment deleted successfully");
@@ -551,7 +502,7 @@ const LoanDetailPage = () => {
   };
 
 
-  if (loading) {
+  if (initialLoading) {
     return <LoanDetailSkeleton />;
   }
 
@@ -575,7 +526,7 @@ const LoanDetailPage = () => {
   }
 
   return (
-    <div className="page-container">
+    <div className={`page-container ${refreshingClass(refreshing)}`} aria-busy={refreshing}>
       {/* Page header: title + action buttons */}
       <div className="flex flex-row flex-wrap items-center justify-between gap-2 mb-4 sm:mb-6">
         <BackTitle title="Loan Details" href="/loans" ariaLabel="Back to Loans" />

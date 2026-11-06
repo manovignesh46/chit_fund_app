@@ -13,6 +13,8 @@ import SortableTableHeader, { useSortableData } from '../components/common/Sorta
 import PageSectionHeader from '../components/layout/PageSectionHeader';
 import StatsCard from '../components/layout/StatsCard';
 import FilterBar from '../components/layout/FilterBar';
+import { invalidateDashboardCache } from '../../lib/dashboardCache';
+import { useFirstLoad, refreshingClass } from '../hooks/useFirstLoad';
 
 // Define interfaces
 interface ChitFund {
@@ -45,6 +47,7 @@ export default function ChitFundsPage() {
   const router = useRouter();
   const [chitFunds, setChitFunds] = useState<ChitFund[]>([]);
   const [loading, setLoading] = useState(true);
+  const { initialLoading, refreshing } = useFirstLoad(loading);
   const [error, setError] = useState<string | null>(null);
 
   // Pagination state
@@ -214,6 +217,7 @@ export default function ChitFundsPage() {
         const errorData = await response.json();
         throw new Error(errorData.error || 'Failed to delete chit fund');
       }
+      invalidateDashboardCache();
 
       // Show success message
       setDeleteSuccess('Chit fund deleted successfully');
@@ -265,6 +269,7 @@ export default function ChitFundsPage() {
       if (failedCount > 0) {
         throw new Error(`Failed to delete ${failedCount} chit funds`);
       }
+      invalidateDashboardCache();
 
       // Show success message
       setBulkDeleteSuccess(`${selectedChitFunds.length} chit funds deleted successfully`);
@@ -492,7 +497,7 @@ export default function ChitFundsPage() {
         ]}
       />
 
-      {loading ? (
+      {initialLoading ? (
         <ChitFundsListSkeleton />
       ) : error ? (
         <div className="dark-card alert-error text-sm">
@@ -511,7 +516,7 @@ export default function ChitFundsPage() {
           )}
         </div>
       ) : (
-        <div className="dark-card overflow-hidden">
+        <div className={`dark-card overflow-hidden ${refreshingClass(refreshing)}`} aria-busy={refreshing}>
           {selectedChitFunds.length > 0 && (
             <div className="px-4 py-3 border-b border-gray-200 dark:border-surface-border">
               <span className="text-sm text-gray-400">{selectedChitFunds.length} selected</span>

@@ -7,6 +7,8 @@ import Link from 'next/link';
 import { Loan, Repayment, PaginatedResponse } from '../../../../lib/interfaces';
 import { formatCurrency, formatDate } from '../../../../lib/formatUtils';
 import BackTitle from '../../../components/common/BackTitle';
+import { useFirstLoad, refreshingClass } from '../../../hooks/useFirstLoad';
+import { invalidateDashboardCache } from '../../../../lib/dashboardCache';
 
 const RepaymentsPage = () => {
   const params = useParams();
@@ -16,6 +18,7 @@ const RepaymentsPage = () => {
   const [loan, setLoan] = useState<Loan | null>(null);
   const [repayments, setRepayments] = useState<Repayment[]>([]);
   const [loading, setLoading] = useState(true);
+  const { initialLoading, refreshing } = useFirstLoad(loading);
   const [error, setError] = useState<string | null>(null);
 
   // Pagination state
@@ -48,19 +51,19 @@ const RepaymentsPage = () => {
     try {
       setLoading(true);
 
-      // Fetch loan details using the consolidated API
-      const loanResponse = await fetch(`/api/loans/consolidated?action=detail&id=${id}`);
+      // Fetch loan details and the current page of repayments together
+      const [loanResponse, repaymentsResponse] = await Promise.all([
+        fetch(`/api/loans/consolidated?action=detail&id=${id}`),
+        fetch(`/api/loans/consolidated?action=repayments&id=${id}&page=${currentPage}&pageSize=${pageSize}`),
+      ]);
       if (!loanResponse.ok) {
         throw new Error('Failed to fetch loan details');
       }
-      const loanData = await loanResponse.json();
-      setLoan(loanData);
-
-      // Fetch paginated repayments using the consolidated API
-      const repaymentsResponse = await fetch(`/api/loans/consolidated?action=repayments&id=${id}&page=${currentPage}&pageSize=${pageSize}`);
       if (!repaymentsResponse.ok) {
         throw new Error('Failed to fetch repayments');
       }
+      const loanData = await loanResponse.json();
+      setLoan(loanData);
 
       const repaymentsData: PaginatedResponse<Repayment> = await repaymentsResponse.json();
 
@@ -147,6 +150,7 @@ const RepaymentsPage = () => {
         const errorData = await response.json();
         throw new Error(errorData.error || 'Failed to delete repayment');
       }
+      invalidateDashboardCache();
 
       // Show success message
       setDeleteSuccess('Repayment deleted successfully');
@@ -194,6 +198,7 @@ const RepaymentsPage = () => {
         const errorData = await response.json();
         throw new Error(errorData.error || 'Failed to delete repayments');
       }
+      invalidateDashboardCache();
 
       const data = await response.json();
 
@@ -236,7 +241,7 @@ const RepaymentsPage = () => {
     }).format(date);
   };
 
-  if (loading) {
+  if (initialLoading) {
     return (
       <div className="container mx-auto px-4 py-8">
         <div className="flex justify-center items-center h-64">
@@ -278,7 +283,7 @@ const RepaymentsPage = () => {
   }
 
   return (
-    <div className="page-container">
+    <div className={`page-container ${refreshingClass(refreshing)}`} aria-busy={refreshing}>
       <div className="flex items-center justify-between mb-6 sm:mb-8 gap-4">
         <BackTitle title="Repayment History" href={`/loans/${id}`} ariaLabel="Back to Loan Details" />
         <div className="flex flex-row gap-2 w-auto">

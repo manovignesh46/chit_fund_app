@@ -3,6 +3,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { formatCurrency } from '../../lib/formatUtils';
 import BackTitle from '../components/common/BackTitle';
 
@@ -19,6 +20,7 @@ interface Activity {
 }
 
 export default function ActivitiesPage() {
+  const router = useRouter();
   // State for activities and pagination
   const [activities, setActivities] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -254,7 +256,7 @@ export default function ActivitiesPage() {
                           return;
                         }
                         if (entityLink !== '#') {
-                          window.location.href = entityLink;
+                          router.push(entityLink);
                         }
                       }}
                     >

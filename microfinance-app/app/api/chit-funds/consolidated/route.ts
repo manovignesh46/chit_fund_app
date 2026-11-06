@@ -4,7 +4,7 @@ import { getCurrentUserId, getActorUserId } from '../../../../lib/auth';
 import { TRANSACTION_TYPES_CONFIG } from '../../../../config/config';
 import { calculateTransactionBalance, getCurrentPartnerBalance, getCurrentTotalBalance, recalculateBalancesAfterDeletion } from '../../../../lib/balanceCalculator';
 import { calculateChitFundProfitUpToCurrentMonth, calculateChitFundOutsideAmount } from '../../../../lib/financialUtils';
-import { autoUpdateCurrentMonths } from '../../../../lib/timeUtils';
+import { autoUpdateCurrentMonths, invalidateCurrentMonths } from '../../../../lib/timeUtils';
 import { notifyOtherAdmins, getActorName } from '../../../../lib/notifications';
 import { BalancePaymentError, planBalancePayment } from '../../../../lib/contributionBalance';
 
@@ -112,6 +112,8 @@ export async function POST(request: NextRequest) {
         { status: 401 }
       );
     }
+    // A write can change which period a chit fund is in.
+    invalidateCurrentMonths(currentUserId);
 
     // Route to the appropriate handler based on the action
     switch (action) {
@@ -179,6 +181,8 @@ export async function PUT(request: NextRequest) {
         { status: 401 }
       );
     }
+    // A write can change which period a chit fund is in.
+    invalidateCurrentMonths(currentUserId);
 
     // Route to the appropriate handler based on the action
     switch (action) {
@@ -245,6 +249,8 @@ export async function DELETE(request: NextRequest) {
         { status: 401 }
       );
     }
+    // A write can change which period a chit fund is in.
+    invalidateCurrentMonths(currentUserId);
 
     // Route to the appropriate handler based on the action
     switch (action) {

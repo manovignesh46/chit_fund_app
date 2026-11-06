@@ -1,4 +1,5 @@
 // API utility functions for client components
+import { invalidateDashboardCache } from './dashboardCache';
 
 // Base URL for API requests
 // Use relative URL to avoid CORS issues
@@ -68,7 +69,10 @@ async function fetchAPI<T>(
       }
 
       const data = await response.json();
-      // console.log('Response data received successfully');
+      // A successful write can change the dashboard totals.
+      if (options.method && options.method.toUpperCase() !== 'GET') {
+        invalidateDashboardCache();
+      }
       return data;
     } catch (fetchError: any) {
       if (fetchError.name === 'AbortError') {

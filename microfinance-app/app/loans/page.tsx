@@ -1,7 +1,7 @@
 // @ts-nocheck
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { LoansListSkeleton } from '../components/skeletons/ListSkeletons';
@@ -10,6 +10,8 @@ import { ArrowDownTrayIcon, TrashIcon, PlusCircleIcon } from '@heroicons/react/2
 import ActionDropdown, { ActionItem } from '../components/ui/ActionDropdown';
 import { formatDate as formatDateUtil } from '../../lib/formatUtils';
 import SortableTableHeader, { useSortableData } from '../components/common/SortableTableHeader';
+import { useFirstLoad, refreshingClass } from '../hooks/useFirstLoad';
+import { invalidateDashboardCache } from '../../lib/dashboardCache';
 
 // Define interfaces for Loan type
 interface GlobalMember {
@@ -83,15 +85,23 @@ export default function LoansPage() {
 
   // Status filter state
   const [statusFilter, setStatusFilter] = useState<string>('Active');
+  // The status in the URL is read once on the client; the first fetch waits for it
+  // so the list is not fetched twice (once as Active, then again with the URL value).
+  const [filterReady, setFilterReady] = useState(false);
   useEffect(() => {
     if (new URLSearchParams(window.location.search).get('status') === 'Non-Recoverable') setStatusFilter('Non-Recoverable');
+    setFilterReady(true);
   }, []);
+  const { initialLoading, refreshing } = useFirstLoad(loading);
+  // Only the latest request may update the list (guards against out-of-order responses).
+  const latestRequest = useRef(0);
 
   // Add sorting functionality
   const { items: sortedLoans, sortConfig, requestSort } = useSortableData(loans);
 
   // Fetch loans function
   const fetchLoans = async () => {
+    const requestId = ++latestRequest.current;
     try {
       setLoading(true);
       let url = `/api/loans/consolidated?action=list&page=${currentPage}&pageSize=${pageSize}`;
@@ -108,8 +118,8 @@ export default function LoansPage() {
       }
 
       const data: PaginatedResponse = await response.json();
+      if (requestId !== latestRequest.current) return;
       setRecoverySummary(data.recoverySummary || null);
-      console.log('Fetched loans:', data);
 
       // Check if the response has pagination metadata
       if (data.loans && Array.isArray(data.loans)) {
@@ -128,10 +138,11 @@ export default function LoansPage() {
       setSelectAll(false);
       setError(null);
     } catch (err) {
+      if (requestId !== latestRequest.current) return;
       console.error('Error fetching loans:', err);
       setError('Failed to load loans. Please try again later.');
     } finally {
-      setLoading(false);
+      if (requestId === latestRequest.current) setLoading(false);
     }
   };
 
@@ -143,8 +154,9 @@ export default function LoansPage() {
 
   // Initial data fetch
   useEffect(() => {
+    if (!filterReady) return;
     fetchLoans();
-  }, [currentPage, pageSize, statusFilter]);
+  }, [currentPage, pageSize, statusFilter, filterReady]);
 
   // Handle selecting/deselecting a loan
   const handleSelectLoan = (loanId: number) => {
@@ -198,6 +210,7 @@ export default function LoansPage() {
         const errorData = await response.json();
         throw new Error(errorData.error || 'Failed to delete loan');
       }
+      invalidateDashboardCache();
 
       // Show success message
       setDeleteSuccess('Loan deleted successfully');
@@ -270,6 +283,7 @@ export default function LoansPage() {
       if (failedCount > 0) {
         throw new Error(`Failed to delete ${failedCount} loans`);
       }
+      invalidateDashboardCache();
 
       // Show success message
       setBulkDeleteSuccess(`${selectedLoans.length} loans deleted successfully`);
@@ -417,7 +431,7 @@ export default function LoansPage() {
         </div>}
       </section>}
 
-      {loading ? (
+      {initialLoading ? (
         <LoansListSkeleton />
       ) : error ? (
         <div className="alert-error px-4 py-3 rounded text-sm sm:text-base">
@@ -436,7 +450,7 @@ export default function LoansPage() {
           )}
         </div>
       ) : (
-        <div className="table-card">
+        <div className={`table-card ${refreshingClass(refreshing)}`} aria-busy={refreshing}>
           <div className="table-toolbar">
             <div className="flex items-center">
               <span className="text-sm text-gray-700 dark:text-theme-secondary">

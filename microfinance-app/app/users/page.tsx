@@ -2,6 +2,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { useFirstLoad } from '../hooks/useFirstLoad';
 import { authAPI } from '../../lib/api';
 import PasswordInput from '../components/ui/PasswordInput';
 
@@ -24,6 +25,7 @@ export default function UsersPage() {
   const [users, setUsers] = useState<AppUser[]>([]);
   const [partners, setPartners] = useState<Partner[]>([]);
   const [loading, setLoading] = useState(true);
+  const { initialLoading } = useFirstLoad(loading);
   const [error, setError] = useState<string | null>(null);
   const [isPrimaryAdmin, setIsPrimaryAdmin] = useState(false);
   const [showForm, setShowForm] = useState(false);
@@ -130,7 +132,7 @@ export default function UsersPage() {
     }
   };
 
-  if (loading) {
+  if (initialLoading) {
     return (
       <div className="p-6">
         <div className="animate-pulse bg-gray-200 rounded-lg h-8 w-48 mb-6"></div>

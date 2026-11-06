@@ -538,6 +538,8 @@ export default function CalendarPage() {
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [events, setEvents] = useState<Event[]>([]);
   const [loading, setLoading] = useState(true);
+  // True once the first month has loaded; later month changes refresh in place.
+  const [hasLoaded, setHasLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState<'all' | 'Loan' | 'Chit Fund'>('all');
   const [monthStats, setMonthStats] = useState<MonthStats | null>(null);
@@ -549,6 +551,8 @@ export default function CalendarPage() {
   const [showSummaryModal, setShowSummaryModal] = useState(false);
 
   useEffect(() => {
+    // Ignore a response that arrives after the month has changed again.
+    let active = true;
     const fetchEventsForMonth = async () => {
       try {
         setLoading(true);
@@ -558,6 +562,7 @@ export default function CalendarPage() {
         const data = await fetch(
           `/api/dashboard/consolidated?action=events&view=calendar&year=${year}&month=${month}`
         ).then((res) => res.json());
+        if (!active) return;
 
         const eventsWithDates = data.map((event: Event) => {
           let parsedDate: Date;
@@ -585,14 +590,21 @@ export default function CalendarPage() {
         setEvents(eventsWithDates);
         setError(null);
       } catch (err: any) {
+        if (!active) return;
         console.error('Error fetching events:', err);
         setError(err.message || 'Failed to load events');
       } finally {
-        setLoading(false);
+        if (active) {
+          setLoading(false);
+          setHasLoaded(true);
+        }
       }
     };
 
     fetchEventsForMonth();
+    return () => {
+      active = false;
+    };
   }, [currentMonth]);
 
   useEffect(() => {
@@ -697,7 +709,7 @@ export default function CalendarPage() {
 
   const backLink = <BackTitle title="Calendar" href="/dashboard" ariaLabel="Back to Dashboard" />;
 
-  if (loading) {
+  if (loading && !hasLoaded) {
     return (
       <div className="page-container">
         <div className="flex justify-between items-center mb-6">{backLink}</div>
@@ -729,7 +741,10 @@ export default function CalendarPage() {
   }
 
   return (
-    <div className="page-container">
+    <div
+      className={`page-container ${loading ? 'opacity-60 transition-opacity duration-200 delay-150' : 'transition-opacity duration-200'}`}
+      aria-busy={loading}
+    >
       <div className="flex flex-row flex-wrap items-center justify-between gap-3 mb-6 sm:mb-8">
         {backLink}
       </div>
@@ -869,16 +884,19 @@ export default function CalendarPage() {
         )}
       </div>
 
-      {statsLoading ? (
+      {statsLoading && !monthStats ? (
         <StatsSkeleton />
       ) : monthStats ? (
-        <MonthlyStatsCards
-          stats={monthStats}
-          monthLabel={format(currentMonth, 'MMMM yyyy')}
-          onOpenModal={openModal}
-          onOpenSummary={() => setShowSummaryModal(true)}
-          onOpenPending={setPendingKind}
-        />
+        // While the next month's totals load, the previous ones stay visible but dimmed.
+        <div className={statsLoading ? 'opacity-50 transition-opacity duration-200' : 'transition-opacity duration-200'} aria-busy={statsLoading}>
+          <MonthlyStatsCards
+            stats={monthStats}
+            monthLabel={format(currentMonth, 'MMMM yyyy')}
+            onOpenModal={openModal}
+            onOpenSummary={() => setShowSummaryModal(true)}
+            onOpenPending={setPendingKind}
+          />
+        </div>
       ) : null}
 
       {showSummaryModal && monthStats && (

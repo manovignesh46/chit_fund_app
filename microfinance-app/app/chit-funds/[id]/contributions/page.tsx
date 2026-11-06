@@ -2,6 +2,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { useFirstLoad } from "../../../hooks/useFirstLoad";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { apiGet, apiPost, apiPut, apiDelete } from "../../../lib/apiUtils";
@@ -60,6 +61,7 @@ export default function ChitFundContributionsPage() {
   const [allContributions, setAllContributions] = useState<any[]>([]); // All contributions for status checking
   const [members, setMembers] = useState<Member[]>([]);
   const [loading, setLoading] = useState(true);
+  const { initialLoading } = useFirstLoad(loading);
   const [error, setError] = useState<string | null>(null);
   const [memberDetail, setMemberDetail] = useState(false);
 
@@ -653,7 +655,7 @@ export default function ChitFundContributionsPage() {
     }
   };
 
-  if (loading) {
+  if (initialLoading) {
     return (
       <div className="container mx-auto px-4 py-8">
         <div className="flex justify-center items-center h-64">

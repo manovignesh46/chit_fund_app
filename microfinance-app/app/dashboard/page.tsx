@@ -188,6 +188,13 @@ export default function DashboardPage() {
       setTrendsInitialized(true);
     }
   }, [activeTab, trendsInitialized]);
+  // Same for the collections tab: its dues and aggregation requests wait until it is opened.
+  const [collectionsInitialized, setCollectionsInitialized] = useState(false);
+  useEffect(() => {
+    if (activeTab === "collections" && !collectionsInitialized) {
+      setCollectionsInitialized(true);
+    }
+  }, [activeTab, collectionsInitialized]);
 
   useEffect(() => {
     if (activeTab === "overview" && !balancesInitialized.current) {
@@ -556,10 +563,16 @@ export default function DashboardPage() {
               )}
             </div>
 
-            {/* Collections panel */}
+            {/* Collections panel — skeleton until first activated, then it stays mounted */}
             <div>
-              <OverdueAlert />
-              <CurrentMonthCollections />
+              {!collectionsInitialized ? (
+                <TrendsSkeleton />
+              ) : (
+                <>
+                  <OverdueAlert />
+                  <CurrentMonthCollections />
+                </>
+              )}
             </div>
 
             {/* Activities panel */}
