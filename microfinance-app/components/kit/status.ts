@@ -38,6 +38,8 @@ export const STATUS_MAP: Readonly<Record<string, StatusStyle>> = {
   closed: { label: 'Closed', tone: 'neutral', variant: 'soft', icon: 'dot' },
   settled: { label: 'Settled', tone: 'neutral', variant: 'soft', icon: 'check' },
   cancelled: { label: 'Cancelled', tone: 'neutral', variant: 'outline', icon: 'dot', muted: true },
+  /** Transient: a write the server has not confirmed yet (optimistic rows). */
+  saving: { label: 'Saving…', tone: 'info', variant: 'outline', icon: 'clock' },
 };
 
 export function normaliseStatus(status: string): string {

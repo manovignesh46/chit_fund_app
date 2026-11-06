@@ -2,10 +2,10 @@
   "description": "UI conventions ratchet baseline (scripts/check-ui-conventions.js). Totals may only go down.",
   "totals": {
     "reload": 0,
-    "alert": 19,
+    "alert": 13,
     "confirm": 2,
     "hardNav": 2,
-    "palette": 331
+    "palette": 309
   },
   "files": {
     "app/activities/page.tsx": {
@@ -131,9 +131,6 @@
     "app/components/dues/DueAccountCard.tsx": {
       "palette": 15
     },
-    "app/components/loans/RepaymentForm.tsx": {
-      "palette": 1
-    },
     "app/components/partners/PartnerBalanceCard.tsx": {
       "palette": 1
     },
@@ -148,26 +145,6 @@
     },
     "app/financial-trends/page.tsx": {
       "palette": 3
-    },
-    "app/loans/[id]/edit/page.tsx": {
-      "alert": 2
-    },
-    "app/loans/[id]/page.tsx": {
-      "alert": 1,
-      "palette": 6
-    },
-    "app/loans/[id]/payment-schedules/page.tsx": {
-      "palette": 3
-    },
-    "app/loans/[id]/repayments/page.tsx": {
-      "palette": 7
-    },
-    "app/loans/new/page.tsx": {
-      "alert": 1
-    },
-    "app/loans/page.tsx": {
-      "alert": 2,
-      "palette": 5
     },
     "app/login/page.tsx": {
       "hardNav": 1,

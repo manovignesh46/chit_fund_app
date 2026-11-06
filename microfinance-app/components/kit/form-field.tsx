@@ -11,13 +11,19 @@ export interface FormFieldProps {
   /** Validation message; also marks the control invalid. */
   error?: React.ReactNode;
   required?: boolean;
+  /**
+   * With `required`: also set the native `required` attribute (the browser then blocks
+   * submit with its own message). Set false when the form validates in script and must
+   * show its own messages; the field is still announced as required (aria-required).
+   */
+  nativeRequired?: boolean;
   /** Use this id for the control (otherwise one is generated). */
   id?: string;
   className?: string;
 }
 
 /** Label + control + help/error text, wired for screen readers. */
-export function FormField({ label, children, description, error, required = false, id, className }: FormFieldProps) {
+export function FormField({ label, children, description, error, required = false, nativeRequired = true, id, className }: FormFieldProps) {
   const generated = React.useId();
   const childProps = children.props as { id?: string; 'aria-describedby'?: string };
   const controlId = id ?? childProps.id ?? `field-${generated}`;
@@ -29,7 +35,8 @@ export function FormField({ label, children, description, error, required = fals
     id: controlId,
     'aria-describedby': describedBy,
     'aria-invalid': error ? true : undefined,
-    required: required || undefined,
+    required: (required && nativeRequired) || undefined,
+    'aria-required': (required && !nativeRequired) || undefined,
   } as Record<string, unknown>);
 
   return (

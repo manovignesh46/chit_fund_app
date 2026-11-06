@@ -15,6 +15,29 @@ import { notifyOtherAdmins, getActorName } from "../../../../lib/notifications";
 import { computeLoanDuePeriods, getLoanDueDate } from "../../../../lib/duesTracker";
 import { calculateLoanProfit } from "../../../../lib/financialUtils";
 import { NON_RECOVERABLE, RecoveryError } from "../../../../lib/loanRecovery";
+import { parseListParams, type SortTarget } from "../../../../lib/list/server";
+import { buildMeta } from "../../../../lib/list/types";
+
+// List contract (lib/list/server.ts): public sort keys -> Prisma orderBy, never a raw column.
+const LOAN_SORTS: Record<string, SortTarget> = {
+  borrower: (order) => ({ borrower: { name: order } }),
+  amount: "amount",
+  disbursementDate: "disbursementDate",
+  remainingAmount: "remainingAmount",
+  overdueAmount: "overdueAmount",
+  nextPaymentDate: (order) => ({ nextPaymentDate: { sort: order, nulls: "last" } }),
+  status: "status",
+  createdAt: "createdAt",
+};
+const LOAN_SEARCH = ["borrower.name", "borrower.contact"] as const;
+const REPAYMENT_SORTS: Record<string, SortTarget> = {
+  period: "period",
+  paidDate: "paidDate",
+  amount: "amount",
+  paymentType: "paymentType",
+  createdAt: "createdAt",
+};
+const REPAYMENT_SEARCH = ["notes"] as const;
 
 /**
  * Check if all periods of a loan have been completed (paid)
@@ -291,6 +314,8 @@ async function getLoansList(request: NextRequest, currentUserId: number) {
     const page = parseInt(searchParams.get("page") || "1");
     const pageSize = parseInt(searchParams.get("pageSize") || "10");
     const status = searchParams.get("status") || null;
+    // Optional list-contract params (q, sort, order). Absent: today's query exactly.
+    const list = parseListParams(searchParams, { sortable: LOAN_SORTS, searchable: LOAN_SEARCH });
 
     // Validate pagination parameters
     const validPage = page > 0 ? page : 1;
@@ -308,6 +333,17 @@ async function getLoansList(request: NextRequest, currentUserId: number) {
     if (status) {
       where.status = status;
     }
+    // Optional named filters (list contract): loan type, and loans with an overdue balance.
+    const type = searchParams.get("type");
+    if (type) {
+      where.loanType = type;
+    }
+    if (searchParams.get("overdue") === "1") {
+      where.overdueAmount = { gt: 0 };
+    }
+    if (list.searchWhere) {
+      Object.assign(where, list.searchWhere);
+    }
 
     // Get total count for pagination with filter
     const totalCount = await prismaAny.loan.count({
@@ -323,7 +359,7 @@ async function getLoansList(request: NextRequest, currentUserId: number) {
         },
         borrower: true,
       },
-      orderBy: { createdAt: "desc" },
+      orderBy: list.orderBy ?? { createdAt: "desc" },
       skip,
       take: validPageSize,
     });
@@ -338,6 +374,10 @@ async function getLoansList(request: NextRequest, currentUserId: number) {
       page: validPage,
       pageSize: validPageSize,
       totalPages: Math.ceil(totalCount / validPageSize),
+      // List metadata, added alongside the keys above (existing callers keep reading them).
+      // The rows are not repeated under `items`: callers that send pageSize=1000 would get
+      // a response twice the size. The client reads them through `itemsKey: 'loans'`.
+      meta: buildMeta({ page: validPage, pageSize: validPageSize, totalCount, sort: list.sort, order: list.order, q: list.q }),
     });
   } catch (error) {
     console.error("Error fetching loans:", error);
@@ -399,6 +439,9 @@ async function getRepayments(
     const { searchParams } = new URL(request.url);
     const page = parseInt(searchParams.get("page") || "1");
     const pageSize = parseInt(searchParams.get("pageSize") || "10");
+    // Optional list-contract params (q, sort, order). Absent: today's query exactly.
+    const list = parseListParams(searchParams, { sortable: REPAYMENT_SORTS, searchable: REPAYMENT_SEARCH });
+    const repaymentWhere: any = { loanId: id, ...(list.searchWhere ?? {}) };
 
     // Validate pagination parameters
     const validPage = page > 0 ? page : 1;
@@ -427,13 +470,13 @@ async function getRepayments(
 
     // Get total count for pagination
     const totalCount = await prismaAny.repayment.count({
-      where: { loanId: id },
+      where: repaymentWhere,
     });
 
     // Get paginated repayments
     const repayments = await prismaAny.repayment.findMany({
-      where: { loanId: id },
-      orderBy: [
+      where: repaymentWhere,
+      orderBy: list.orderBy ?? [
         { period: "desc" },
         { paidDate: "desc" }
       ],
@@ -472,6 +515,8 @@ async function getRepayments(
       page: validPage,
       pageSize: validPageSize,
       totalPages: Math.ceil(totalCount / validPageSize),
+      // List metadata next to the existing keys; rows stay under `repayments` only (see getLoansList).
+      meta: buildMeta({ page: validPage, pageSize: validPageSize, totalCount, sort: list.sort, order: list.order, q: list.q }),
     });
   } catch (error) {
     console.error("Error fetching repayments:", error);

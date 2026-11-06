@@ -1,41 +1,56 @@
-// @ts-nocheck
 'use client';
 
-import React from 'react';
+import * as React from 'react';
+import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
-import RepaymentForm from '../../../../components/loans/RepaymentForm';
-import BackTitle from '../../../../components/common/BackTitle';
-import { invalidateDashboardCache } from '../../../../../lib/dashboardCache';
+import { toast } from '@/lib/toast';
+
+import RepaymentForm from '@/app/components/loans/RepaymentForm';
+import { formatMoney } from '@/lib/format';
+import { invalidateLoan, loanWrites, useLoan } from '@/lib/query/loans';
+import { Button } from '@/components/ui/button';
+import { useBreadcrumbLabel } from '@/components/kit/app-shell/breadcrumb-labels';
+import { errorMessage } from '@/components/kit/error-state';
+import { PageContainer } from '@/components/kit/page-container';
+import { PageHeader } from '@/components/kit/page-header';
 
 export default function NewRepaymentPage() {
-  const params = useParams();
+  const params = useParams<{ id: string }>();
+  const id = parseInt(params.id, 10) || 0;
   const router = useRouter();
-  const id = params.id;
-
-  const handleSuccess = () => {
-    invalidateDashboardCache();
-    router.push(`/loans/${id}`);
-  };
-
-  const handleCancel = () => {
-    router.push(`/loans/${id}`);
-  };
+  const { data: loan } = useLoan(id || null);
+  useBreadcrumbLabel(id ? `/loans/${id}` : null, loan?.borrower?.name);
 
   if (!id) return null;
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="flex justify-between items-center mb-6">
-        <BackTitle title="Record Payment" href={`/loans/${id}`} ariaLabel="Back to Loan Details" />
-      </div>
-
-      <div className="max-w-4xl mx-auto">
-        <RepaymentForm 
-          loanId={parseInt(id as string)} 
-          onSuccess={handleSuccess}
-          onCancel={handleCancel}
+    <PageContainer>
+      <div className="mx-auto max-w-4xl">
+        <PageHeader
+          title="Record payment"
+          description={loan?.borrower?.name}
+          actions={
+            <Button variant="ghost" asChild>
+              <Link href={`/loans/${id}`}>Cancel</Link>
+            </Button>
+          }
+        />
+        <RepaymentForm
+          loanId={id}
+          onCancel={() => router.push(`/loans/${id}`)}
+          onSubmit={async (body) => {
+            try {
+              await loanWrites.addRepayment(id, body);
+            } catch (error) {
+              toast.error('Payment not recorded', { description: errorMessage(error) ?? 'Failed to record payment' });
+              throw error;
+            }
+            toast.success('Payment recorded', { description: formatMoney(body.amount) });
+            void invalidateLoan(id, loan?.borrowerId);
+            router.push(`/loans/${id}?tab=schedule`);
+          }}
         />
       </div>
-    </div>
+    </PageContainer>
   );
 }

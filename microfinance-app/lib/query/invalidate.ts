@@ -7,7 +7,7 @@
  *
  * The SWR provider (provider.tsx) registers its scoped `mutate` here on mount.
  */
-import type { Cache, ScopedMutator } from 'swr';
+import { unstable_serialize, type Cache, type ScopedMutator } from 'swr';
 import type { QueryKey } from './keys';
 
 export type QueryTag = string | readonly [resource: string, action?: string, id?: string | number | null];
@@ -57,10 +57,27 @@ export async function revalidateAll(): Promise<void> {
  */
 export function clearAllCaches(): void {
   if (!mutateRef) return;
-  void mutateRef(() => true, undefined, { revalidate: false });
-  if (cacheRef && 'clear' in cacheRef && typeof (cacheRef as unknown as Map<string, unknown>).clear === 'function') {
-    (cacheRef as unknown as Map<string, unknown>).clear();
-  }
+  const cache = cacheRef;
+  const clear = () => {
+    if (cache && 'clear' in cache && typeof (cache as unknown as Map<string, unknown>).clear === 'function') {
+      (cache as unknown as Map<string, unknown>).clear();
+    }
+  };
+  // The mutate settles asynchronously and can re-add a key after the first clear(): clear again then.
+  void mutateRef(() => true, undefined, { revalidate: false }).finally(clear);
+  clear();
+}
+
+/**
+ * Put prefetched data into the cache for a key that has none yet, so the page that
+ * needs it paints at once. Never overwrites data already cached (that data is newer
+ * or equally fresh and is revalidated on mount anyway).
+ */
+export function primeCache(key: QueryKey, data: unknown): void {
+  if (!mutateRef || !cacheRef) return;
+  const existing = cacheRef.get(unstable_serialize(key));
+  if (existing && existing.data !== undefined) return;
+  void mutateRef(key, data, { revalidate: false });
 }
 
 /** For tests and the styleguide: is this key one the tag would invalidate? */

@@ -26,6 +26,11 @@ export interface RowAction {
   confirm?: Pick<ConfirmDialogProps, 'title' | 'description' | 'confirmLabel' | 'onConfirm'>;
   /** Draw a separator above this item. */
   separatorBefore?: boolean;
+  /**
+   * `onSelect` opens a dialog: the menu then does not move focus back to its trigger on
+   * close (that would pull focus out of the dialog that just opened).
+   */
+  opensDialog?: boolean;
 }
 
 export interface RowActionsProps {
@@ -40,6 +45,8 @@ export interface RowActionsProps {
 export function RowActions({ actions, label = 'Row actions', align = 'end', className }: RowActionsProps) {
   const triggerRef = React.useRef<HTMLButtonElement>(null);
   const [confirming, setConfirming] = React.useState<RowAction | null>(null);
+  // Set when the selected item opens a dialog, so the closing menu leaves focus alone.
+  const dialogOpening = React.useRef(false);
 
   return (
     <>
@@ -57,7 +64,17 @@ export function RowActions({ actions, label = 'Row actions', align = 'end', clas
             <MoreHorizontal aria-hidden="true" />
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align={align} className="min-w-[10rem]" onClick={(event) => event.stopPropagation()}>
+        <DropdownMenuContent
+          align={align}
+          className="min-w-[10rem]"
+          onClick={(event) => event.stopPropagation()}
+          onCloseAutoFocus={(event) => {
+            if (dialogOpening.current) {
+              dialogOpening.current = false;
+              event.preventDefault();
+            }
+          }}
+        >
           {actions.map((action, i) => {
             const Icon = action.icon;
             const content = (
@@ -79,6 +96,7 @@ export function RowActions({ actions, label = 'Row actions', align = 'end', clas
                     className={itemClass}
                     disabled={action.disabled}
                     onSelect={() => {
+                      if (action.confirm || action.opensDialog) dialogOpening.current = true;
                       if (action.confirm) setConfirming(action);
                       else action.onSelect?.();
                     }}

@@ -15,7 +15,7 @@
  */
 import * as React from 'react';
 import useSWR, { type KeyedMutator, type SWRConfiguration } from 'swr';
-import { queryKeys, type QueryKey, type QueryParams } from '../query/keys';
+import { queryKeys, type QueryId, type QueryKey, type QueryParams } from '../query/keys';
 import { buildMeta, type ListMeta, type SortOrder } from './types';
 
 export interface ListResult<TItem, TSummary = unknown, TFacets = unknown> {
@@ -35,6 +35,8 @@ export interface ListQueryInput {
 export interface UseListQueryOptions<TItem, TSummary, TFacets> {
   /** API action, default 'list'. */
   action?: string;
+  /** Parent record id for nested lists (e.g. a loan's repayments); goes in the key's id slot. */
+  id?: QueryId;
   /** Legacy response key holding the rows, e.g. 'loans'. */
   itemsKey?: string;
   /** Extra API params that are not part of the URL state. */
@@ -114,13 +116,13 @@ export function useListQuery<TItem, TSummary = unknown, TFacets = unknown>(
   list: ListQueryInput,
   options: UseListQueryOptions<TItem, TSummary, TFacets> = {}
 ): UseListQueryResult<TItem, TSummary, TFacets> {
-  const { action = 'list', itemsKey, extraParams, enabled = true, select, swr } = options;
+  const { action = 'list', id = null, itemsKey, extraParams, enabled = true, select, swr } = options;
   const request = React.useMemo(() => ({ ...list.apiParams, ...(extraParams as Record<string, string | number>) }), [list.apiParams, extraParams]);
   const key: QueryKey | null =
     enabled && list.ready !== false
-      ? action === 'list'
+      ? action === 'list' && id === null
         ? queryKeys.list(resource, request)
-        : queryKeys.action(resource, action, null, request)
+        : queryKeys.action(resource, action, id, request)
       : null;
 
   const { data, error, isLoading, isValidating, mutate } = useSWR<unknown, Error>(key, swr);

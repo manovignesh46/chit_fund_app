@@ -47,7 +47,7 @@ export interface DataTableColumn<T> {
   /** Value to sort by in client mode. Defaults to `row[id]`. */
   sortValue?: (row: T) => string | number | Date | null | undefined;
   /** Hide the column below this breakpoint. */
-  hideBelow?: 'sm' | 'md' | 'lg' | 'xl';
+  hideBelow?: 'sm' | 'md' | 'lg' | 'xl' | '2xl';
   /** CSS width, e.g. '8rem'. */
   width?: string;
   className?: string;
@@ -99,6 +99,7 @@ const HIDE_BELOW: Record<NonNullable<DataTableColumn<unknown>['hideBelow']>, str
   md: 'hidden md:table-cell',
   lg: 'hidden lg:table-cell',
   xl: 'hidden xl:table-cell',
+  '2xl': 'hidden 2xl:table-cell',
 };
 
 function nextSort(current: SortState, key: string): SortState {

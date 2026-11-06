@@ -1,650 +1,257 @@
-// @ts-nocheck
 'use client';
 
-import { useEffect, useState } from 'react';
-import { useParams } from 'next/navigation';
+/**
+ * A loan's repayment history (List template). page, pageSize, q (notes), sort and order
+ * live in the URL and run on the server.
+ */
+import * as React from 'react';
 import Link from 'next/link';
-import { Loan, Repayment, PaginatedResponse } from '../../../../lib/interfaces';
-import { formatCurrency, formatDate } from '../../../../lib/formatUtils';
-import BackTitle from '../../../components/common/BackTitle';
-import { useFirstLoad, refreshingClass } from '../../../hooks/useFirstLoad';
-import { invalidateDashboardCache } from '../../../../lib/dashboardCache';
+import { useParams } from 'next/navigation';
+import { toast } from '@/lib/toast';
+import { CalendarClock, Plus, ShieldAlert, Trash2 } from 'lucide-react';
 
-const RepaymentsPage = () => {
-  const params = useParams();
-  const id = params.id;
+import { useListParams } from '@/lib/list/useListParams';
+import { useListQuery } from '@/lib/list/useListQuery';
+import { invalidateLoan, LOANS, loanWrites, useLoan, type RepaymentRecord } from '@/lib/query/loans';
+import { ApiError } from '@/lib/query/fetcher';
+import { Button } from '@/components/ui/button';
+import { useBreadcrumbLabel } from '@/components/kit/app-shell/breadcrumb-labels';
+import { DataTable, type DataTableColumn } from '@/components/kit/data-table';
+import { DateText } from '@/components/kit/date-text';
+import { EmptyState } from '@/components/kit/empty-state';
+import { ErrorState } from '@/components/kit/error-state';
+import { formatRange } from '@/components/kit/list-pagination';
+import { ListToolbar } from '@/components/kit/list-toolbar';
+import { Money } from '@/components/kit/money';
+import { NativeSelect } from '@/components/kit/native-select';
+import { PageContainer } from '@/components/kit/page-container';
+import { PageHeader } from '@/components/kit/page-header';
+import { RowActions, type RowAction } from '@/components/kit/row-actions';
+import { SearchInput } from '@/components/kit/search-input';
+import { StatCard } from '@/components/kit/stat-card';
+import { StatusBadge } from '@/components/kit/status-badge';
 
-  // State variables
-  const [loan, setLoan] = useState<Loan | null>(null);
-  const [repayments, setRepayments] = useState<Repayment[]>([]);
-  const [loading, setLoading] = useState(true);
-  const { initialLoading, refreshing } = useFirstLoad(loading);
-  const [error, setError] = useState<string | null>(null);
+const SORTS = ['period', 'paidDate', 'amount', 'paymentType', 'createdAt'] as const;
+const SORT_OPTIONS = [
+  { value: '', label: 'Latest period first' },
+  { value: 'period:asc', label: 'Period, first to last' },
+  { value: 'paidDate:desc', label: 'Payment date, newest' },
+  { value: 'paidDate:asc', label: 'Payment date, oldest' },
+  { value: 'amount:desc', label: 'Amount, high to low' },
+  { value: 'amount:asc', label: 'Amount, low to high' },
+];
 
-  // Pagination state
-  const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
-  const [totalPages, setTotalPages] = useState(1);
-  const [totalCount, setTotalCount] = useState(0);
+function TypeBadge({ type }: { type: string }) {
+  if (type === 'RECOVERY') return <StatusBadge status="Settled" label="Offline Recovery" />;
+  if (type === 'INTEREST_ONLY') return <StatusBadge status="Interest Only" />;
+  return <StatusBadge status="Paid" label="Principal + Interest" />;
+}
 
-  // Selection state
-  const [selectedRepayments, setSelectedRepayments] = useState<number[]>([]);
-  const [selectAll, setSelectAll] = useState(false);
+export default function RepaymentsPage() {
+  return (
+    <PageContainer>
+      <Repayments />
+    </PageContainer>
+  );
+}
 
-  // Delete modal state
-  const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const [repaymentToDelete, setRepaymentToDelete] = useState<number | null>(null);
-  const [isDeleting, setIsDeleting] = useState(false);
-  const [deleteError, setDeleteError] = useState<string | null>(null);
-  const [deleteSuccess, setDeleteSuccess] = useState<string | null>(null);
+function Repayments() {
+  const params = useParams<{ id: string }>();
+  const id = parseInt(params.id, 10) || 0;
+  const loanQuery = useLoan(id || null);
+  const loan = loanQuery.data;
+  useBreadcrumbLabel(id ? `/loans/${id}` : null, loan?.borrower?.name);
 
-  // Bulk delete modal state
-  const [showBulkDeleteModal, setShowBulkDeleteModal] = useState(false);
-  const [isBulkDeleting, setIsBulkDeleting] = useState(false);
-  const [bulkDeleteError, setBulkDeleteError] = useState<string | null>(null);
-  const [bulkDeleteSuccess, setBulkDeleteSuccess] = useState<string | null>(null);
+  const list = useListParams({ id: 'loan-repayments', sortable: SORTS });
+  const query = useListQuery<RepaymentRecord>(LOANS, list, { action: 'repayments', id, itemsKey: 'repayments', enabled: !!id });
+  const meta = query.meta;
+  const rows = query.items;
 
-  // Fetch data function
-  const fetchData = async () => {
-    if (!id) return;
-
-    try {
-      setLoading(true);
-
-      // Fetch loan details and the current page of repayments together
-      const [loanResponse, repaymentsResponse] = await Promise.all([
-        fetch(`/api/loans/consolidated?action=detail&id=${id}`),
-        fetch(`/api/loans/consolidated?action=repayments&id=${id}&page=${currentPage}&pageSize=${pageSize}`),
-      ]);
-      if (!loanResponse.ok) {
-        throw new Error('Failed to fetch loan details');
-      }
-      if (!repaymentsResponse.ok) {
-        throw new Error('Failed to fetch repayments');
-      }
-      const loanData = await loanResponse.json();
-      setLoan(loanData);
-
-      const repaymentsData: PaginatedResponse<Repayment> = await repaymentsResponse.json();
-
-      // Check if the response has pagination metadata
-      if (repaymentsData.repayments && Array.isArray(repaymentsData.repayments)) {
-        setRepayments(repaymentsData.repayments);
-        setTotalCount(repaymentsData.totalCount || 0);
-        setTotalPages(repaymentsData.totalPages || 1);
-      } else {
-        // Fallback for backward compatibility
-        setRepayments(Array.isArray(repaymentsData) ? repaymentsData : []);
-        setTotalPages(1);
-        setTotalCount(Array.isArray(repaymentsData) ? repaymentsData.length : 0);
-      }
-
-
-
-      // Clear selected repayments when page changes
-      setSelectedRepayments([]);
-      setSelectAll(false);
-      setError(null);
-    } catch (err) {
-      console.error('Error fetching data:', err);
-      setError(err instanceof Error ? err.message : 'An error occurred');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Initial data fetch
-  useEffect(() => {
-    fetchData();
-  }, [id, currentPage, pageSize]);
-
-  // Handle selecting/deselecting a repayment
-  const handleSelectRepayment = (repaymentId: number) => {
-    if (selectedRepayments.includes(repaymentId)) {
-      setSelectedRepayments(selectedRepayments.filter(id => id !== repaymentId));
-      setSelectAll(false);
-    } else {
-      setSelectedRepayments([...selectedRepayments, repaymentId]);
-      if (selectedRepayments.length + 1 === repayments.length) {
-        setSelectAll(true);
-      }
-    }
-  };
-
-  // Handle select all repayments
-  const handleSelectAll = () => {
-    if (selectAll) {
-      setSelectedRepayments([]);
-      setSelectAll(false);
-    } else {
-      setSelectedRepayments(repayments.map(repayment => repayment.id));
-      setSelectAll(true);
-    }
-  };
-
-  // Handle delete repayment
-  const handleDeleteRepayment = (repaymentId: number) => {
-    setRepaymentToDelete(repaymentId);
-    setShowDeleteModal(true);
-    setDeleteError(null);
-    setDeleteSuccess(null);
-  };
-
-  // Confirm delete repayment
-  const confirmDeleteRepayment = async () => {
-    if (!repaymentToDelete) return;
-
-    setIsDeleting(true);
-    setDeleteError(null);
-
-    try {
-      const response = await fetch(`/api/loans/consolidated?action=delete-repayment&id=${id}`, {
-        method: 'DELETE',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ repaymentId: repaymentToDelete }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to delete repayment');
-      }
-      invalidateDashboardCache();
-
-      // Show success message
-      setDeleteSuccess('Repayment deleted successfully');
-
-      // Refresh data after a short delay
-      setTimeout(() => {
-        setShowDeleteModal(false);
-        setRepaymentToDelete(null);
-        setDeleteSuccess(null);
-        fetchData();
-      }, 1500);
-    } catch (error) {
-      console.error('Error deleting repayment:', error);
-      setDeleteError(error instanceof Error ? error.message : 'An error occurred');
-    } finally {
-      setIsDeleting(false);
-    }
-  };
-
-  // Handle bulk delete repayments
-  const handleBulkDeleteClick = () => {
-    if (selectedRepayments.length === 0) return;
-    setShowBulkDeleteModal(true);
-    setBulkDeleteError(null);
-    setBulkDeleteSuccess(null);
-  };
-
-  // Confirm bulk delete repayments
-  const confirmBulkDeleteRepayments = async () => {
-    if (selectedRepayments.length === 0) return;
-
-    setIsBulkDeleting(true);
-    setBulkDeleteError(null);
-
-    try {
-      const response = await fetch(`/api/loans/consolidated?action=delete-repayment&id=${id}`, {
-        method: 'DELETE',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ repaymentIds: selectedRepayments }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to delete repayments');
-      }
-      invalidateDashboardCache();
-
-      const data = await response.json();
-
-      // Show success message
-      setBulkDeleteSuccess(data.message || `${selectedRepayments.length} repayments deleted successfully`);
-
-      // Refresh data after a short delay
-      setTimeout(() => {
-        setShowBulkDeleteModal(false);
-        setSelectedRepayments([]);
-        setSelectAll(false);
-        setBulkDeleteSuccess(null);
-        fetchData();
-      }, 1500);
-    } catch (error) {
-      console.error('Error deleting repayments:', error);
-      setBulkDeleteError(error instanceof Error ? error.message : 'An error occurred');
-    } finally {
-      setIsBulkDeleting(false);
-    }
-  };
-
-  // Format currency
-  const formatCurrency = (amount: number): string => {
-    return new Intl.NumberFormat('en-IN', {
-      style: 'currency',
-      currency: 'INR',
-      maximumFractionDigits: 0,
-    }).format(amount);
-  };
-
-  // Format date
-  const formatDate = (dateString: string | Date): string => {
-    if (!dateString) return 'N/A';
-    const date = typeof dateString === 'string' ? new Date(dateString) : dateString;
-    return new Intl.DateTimeFormat('en-IN', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-    }).format(date);
-  };
-
-  if (initialLoading) {
-    return (
-      <div className="container mx-auto px-4 py-8">
-        <div className="flex justify-center items-center h-64">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-700 mx-auto mb-4"></div>
-            <p className="text-gray-700 dark:text-theme-secondary">Loading repayments...</p>
-          </div>
-        </div>
-      </div>
+  if (!loan && loanQuery.error) {
+    const status = loanQuery.error instanceof ApiError ? loanQuery.error.status : 0;
+    return status === 404 || status === 403 ? (
+      <EmptyState
+        title="Loan not found"
+        description="The loan you are looking for does not exist or has been removed."
+        action={
+          <Button size="sm" variant="outline" asChild>
+            <Link href="/loans">Return to loans</Link>
+          </Button>
+        }
+      />
+    ) : (
+      <ErrorState error={loanQuery.error} onRetry={() => void loanQuery.mutate()} />
     );
   }
 
-  if (error) {
-    return (
-      <div className="container mx-auto px-4 py-8">
-        <div className="alert-error px-4 py-3 rounded">
-          <h2 className="text-xl font-bold mb-2">Error</h2>
-          <p>{error}</p>
-          <Link href="/loans" className="mt-4 inline-block text-blue-600 dark:text-blue-400 hover:underline">
-            Return to Loans
-          </Link>
-        </div>
-      </div>
-    );
-  }
+  const interestRate = loan?.interestRate || 0;
+  const pageTotal = rows.reduce((sum, r) => sum + r.amount, 0);
+  // Unchanged from before: interest rate × rows on this page (labelled as such).
+  const pageProfit = rows.reduce((sum) => sum + interestRate, 0);
 
-  if (!loan) {
-    return (
-      <div className="container mx-auto px-4 py-8">
-        <div className="alert-error px-4 py-3 rounded">
-          <h2 className="text-xl font-bold mb-2">Loan Not Found</h2>
-          <p>The loan you are looking for does not exist or has been removed.</p>
-          <Link href="/loans" className="mt-4 inline-block text-blue-600 dark:text-blue-400 hover:underline">
-            Return to Loans
-          </Link>
+  const deleteRepayment = async (repayment: RepaymentRecord) => {
+    await loanWrites.deleteRepayment(id, repayment.id);
+    toast.success('Repayment deleted');
+    await invalidateLoan(id, loan?.borrowerId);
+  };
+
+  const actionsFor = (repayment: RepaymentRecord) => {
+    const actions: RowAction[] = loan?.nonRecoverableAt
+      ? [{ label: 'Recovery details', icon: ShieldAlert, href: `/loans/${id}#loan-recovery` }]
+      : [
+          {
+            label: 'Delete',
+            icon: Trash2,
+            destructive: true,
+            confirm: {
+              title: 'Delete this repayment?',
+              description: 'This action cannot be undone. The loan balance, overdue figures and the cash ledger are recalculated.',
+              onConfirm: () => deleteRepayment(repayment),
+            },
+          },
+        ];
+    actions.push({ label: 'View schedule', icon: CalendarClock, href: `/loans/${id}/payment-schedules`, separatorBefore: true });
+    return <RowActions label={`Actions for repayment ${repayment.period ? `period ${repayment.period}` : repayment.id}`} actions={actions} />;
+  };
+
+  const periodText = (r: RepaymentRecord) => (r.paymentType === 'RECOVERY' ? 'Offline recovery' : r.period ? `Period ${r.period}` : '-');
+  const amountCell = (r: RepaymentRecord) =>
+    r.paymentType === 'INTEREST_ONLY' ? (
+      <div>
+        <Money value={loan?.interestRate || r.amount} tone="plain" />
+        <div className="text-xs text-muted-foreground">
+          (Actual: <Money value={r.amount} tone="plain" />)
         </div>
       </div>
+    ) : (
+      <Money value={r.amount} tone="plain" />
     );
-  }
+
+  const columns: DataTableColumn<RepaymentRecord>[] = [
+    { id: 'period', header: 'Period', sortable: true, cell: (r) => <span className="whitespace-nowrap">{periodText(r)}</span> },
+    { id: 'dueDate', header: 'Due date', cell: (r) => <DateText value={r.dueDate} /> },
+    { id: 'paidDate', header: 'Payment date', sortable: true, cell: (r) => <DateText value={r.paidDate} /> },
+    { id: 'amount', header: 'Amount', numeric: true, sortable: true, cell: amountCell },
+    { id: 'paymentType', header: 'Type', sortable: true, cell: (r) => <TypeBadge type={r.paymentType} /> },
+    { id: 'source', header: 'Source', hideBelow: 'lg', cell: () => <span className="text-muted-foreground">Manual Entry</span> },
+    { id: 'notes', header: 'Notes', hideBelow: 'xl', cell: (r) => <span className="line-clamp-2 max-w-[16rem] text-muted-foreground">{r.notes || '—'}</span> },
+    { id: 'actions', header: <span className="sr-only">Actions</span>, width: '3.5rem', align: 'right', cell: actionsFor },
+  ];
 
   return (
-    <div className={`page-container ${refreshingClass(refreshing)}`} aria-busy={refreshing}>
-      <div className="flex items-center justify-between mb-6 sm:mb-8 gap-4">
-        <BackTitle title="Repayment History" href={`/loans/${id}`} ariaLabel="Back to Loan Details" />
-        <div className="flex flex-row gap-2 w-auto">
-          {loan.status === 'Active' && (
-            <Link href={`/loans/${id}/repayments/new`} className="btn-primary p-2 sm:px-4 sm:py-2">
-              <span className="block sm:hidden">
-                {/* Plus Icon */}
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                </svg>
-              </span>
-              <span className="hidden sm:inline">Record New Payment</span>
-            </Link>
-          )}
-        </div>
+    <div>
+      <PageHeader
+        title="Repayment history"
+        count={meta?.totalCount}
+        description={loan?.borrower?.name}
+        actions={
+          loan?.status === 'Active' ? (
+            <Button asChild>
+              <Link href={`/loans/${id}/repayments/new`}>
+                <Plus aria-hidden="true" />
+                Record new payment
+              </Link>
+            </Button>
+          ) : null
+        }
+      />
+
+      <div className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <StatCard label="Borrower" value={<span className="text-lg">{loan?.borrower?.name || 'Unknown'}</span>} loading={!loan} />
+        <StatCard label="Total amount" value={<Money value={loan?.amount} tone="plain" />} loading={!loan} />
+        <StatCard label="Remaining balance" value={<Money value={loan?.remainingAmount} tone="plain" />} loading={!loan} />
       </div>
 
-      <div className="themed-card p-2 sm:p-6 overflow-x-auto mb-6">
-        {/* Loan Information grid */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
-          <div>
-            <p className="text-sm text-gray-500">Borrower</p>
-            <p className="font-medium">{loan.borrower?.name || 'Unknown'}</p>
-          </div>
-          <div>
-            <p className="text-sm text-gray-500">Total Amount</p>
-            <p className="font-medium">{formatCurrency(loan.amount)}</p>
-          </div>
-          <div>
-            <p className="text-sm text-gray-500">Remaining Balance</p>
-            <p className="font-medium">{formatCurrency(loan.remainingAmount)}</p>
-          </div>
-        </div>
-      </div>
+      <ListToolbar
+        search={<SearchInput value={list.params.q} onChange={(q) => list.setParams({ q })} placeholder="Search notes" label="Search repayment notes" />}
+        sort={
+          <NativeSelect
+            aria-label="Sort by"
+            size="sm"
+            value={list.params.sort ? `${list.params.sort}:${list.params.order ?? 'asc'}` : ''}
+            onValueChange={(value) => {
+              const [sort, order] = value.split(':');
+              list.setParams({ sort: sort || null, order: (order as 'asc' | 'desc') || null });
+            }}
+            options={SORT_OPTIONS}
+          />
+        }
+        resultSummary={meta ? formatRange(meta.page, meta.pageSize, meta.totalCount) : null}
+      />
 
-      {/* Repayments Table */}
-      <div className="themed-card overflow-hidden mb-6">
-        <div className="table-shell" style={{maxWidth: '85vw'}}>
-          <table className="themed-table text-xs sm:text-sm" style={{minWidth: '800px'}}>
-          <thead className="bg-gray-50 dark:bg-surface-elevated">
-            <tr>
-              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-theme-muted uppercase tracking-wider">
-                <div className="flex items-center">
-                  <input
-                    type="checkbox"
-                    checked={selectAll}
-                    onChange={handleSelectAll}
-                    className="h-4 w-4 text-green-600 border-gray-200 dark:border-surface-border rounded focus:ring-green-500"
-                  />
-                  <span className="ml-2">Select</span>
-                </div>
-              </th>
-              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-theme-muted uppercase tracking-wider">
-                Period
-              </th>
-              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-theme-muted uppercase tracking-wider">
-                Due Date
-              </th>
-              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-theme-muted uppercase tracking-wider">
-                Payment Date
-              </th>
-              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-theme-muted uppercase tracking-wider">
-                Amount
-              </th>
-              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-theme-muted uppercase tracking-wider">
-                Type
-              </th>
-              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-theme-muted uppercase tracking-wider">
-                Source
-              </th>
-              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-theme-muted uppercase tracking-wider">
-                Actions
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {repayments.map((repayment) => (
-              <tr key={repayment.id} className="hover:bg-gray-50 dark:hover:bg-surface-hover">
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="flex items-center">
-                    <input
-                      type="checkbox"
-                      checked={selectedRepayments.includes(repayment.id)}
-                      onChange={() => handleSelectRepayment(repayment.id)}
-                      className="h-4 w-4 text-green-600 border-gray-200 dark:border-surface-border rounded focus:ring-green-500"
-                    />
-                  </div>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="text-sm text-gray-900 dark:text-theme-primary">{repayment.paymentType === 'RECOVERY' ? 'Offline recovery' : repayment.period ? `Period ${repayment.period}` : '-'}</div>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="text-sm text-gray-900 dark:text-theme-primary">{repayment.dueDate ? formatDate(repayment.dueDate) : '-'}</div>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="text-sm text-gray-900 dark:text-theme-primary">{formatDate(repayment.paidDate)}</div>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="text-sm text-gray-900 dark:text-theme-primary">
-                    {repayment.paymentType === 'INTEREST_ONLY' ? (
-                      <div>
-                        <div>{formatCurrency((loan as any).interestRate || repayment.amount)}</div>
-                        <div className="text-xs text-gray-500">(Actual: {formatCurrency(repayment.amount)})</div>
-                      </div>
-                    ) : (
-                      formatCurrency(repayment.amount)
-                    )}
-                  </div>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  {repayment.paymentType === 'RECOVERY' ? <span className="px-3 py-1.5 text-sm font-medium rounded-full bg-gray-100 text-gray-800">Offline Recovery</span> : repayment.paymentType === 'INTEREST_ONLY' ? (
-                    <span className="px-3 py-1.5 text-sm font-medium rounded-full bg-blue-100 text-blue-800 border border-blue-300 shadow-sm flex items-center">
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1 text-blue-600" viewBox="0 0 20 20" fill="currentColor">
-                        <path d="M8.433 7.418c.155-.103.346-.196.567-.267v1.698a2.305 2.305 0 01-.567-.267C8.07 8.34 8 8.114 8 8c0-.114.07-.34.433-.582zM11 12.849v-1.698c.22.071.412.164.567.267.364.243.433.468.433.582 0 .114-.07.34-.433.582a2.305 2.305 0 01-.567.267z" />
-                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-13a1 1 0 10-2 0v.092a4.535 4.535 0 00-1.676.662C6.602 6.234 6 7.009 6 8c0 .99.602 1.765 1.324 2.246.48.32 1.054.545 1.676.662v1.941c-.391-.127-.68-.317-.843-.504a1 1 0 10-1.51 1.31c.562.649 1.413 1.076 2.353 1.253V15a1 1 0 102 0v-.092a4.535 4.535 0 001.676-.662C13.398 13.766 14 12.991 14 12c0-.99-.602-1.765-1.324-2.246A4.535 4.535 0 0011 9.092V7.151c.391.127.68.317.843.504a1 1 0 101.511-1.31c-.563-.649-1.413-1.076-2.354-1.253V5z" clipRule="evenodd" />
-                      </svg>
-                      Interest Only
-                    </span>
-                  ) : (
-                    <span className="px-3 py-1.5 text-sm font-medium rounded-full bg-green-100 text-green-800 border border-green-300 shadow-sm flex items-center">
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1 text-green-600" viewBox="0 0 20 20" fill="currentColor">
-                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                      </svg>
-                      Principal + Interest
-                    </span>
-                  )}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="text-sm text-gray-900 dark:text-theme-primary">
-                    <span className="px-2 py-1 text-xs font-medium rounded-full bg-gray-100 text-gray-900 dark:text-theme-primary">
-                      Manual Entry
-                    </span>
-                  </div>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                  {!loan.nonRecoverableAt && <button
-                    onClick={() => handleDeleteRepayment(repayment.id)}
-                    className="text-red-600 hover:text-red-900"
-                  >
-                    Delete
-                  </button>}
-                  {loan.nonRecoverableAt && <Link href={`/loans/${id}#loan-recovery`} className="text-blue-600 dark:text-blue-400 underline">Recovery details</Link>}
-                  <Link
-                    href={`/loans/${id}/payment-schedules`}
-                    className="ml-3 text-blue-600 dark:text-blue-400 hover:text-blue-900 dark:hover:text-blue-300"
-                  >
-                    View Schedule
-                  </Link>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        </div>
-      </div>
-
-      {/* Pagination and summary */}
-      <div className="p-6 border-t">
-        <div className="flex flex-col md:flex-row justify-between items-center">
-          <div className="mb-4 md:mb-0 flex items-center">
-            <div className="mr-6">
-              <span className="text-sm text-gray-500">Total Paid:</span>
-              <span className="ml-2 text-lg font-semibold">
-                {formatCurrency(repayments.reduce((sum, item) => sum + item.amount, 0))}
-              </span>
-              <div className="text-xs text-gray-500 mt-1">
-                (Profit: {formatCurrency(repayments.reduce((sum, item) => {
-                  // Use type assertion to access interestRate
-                  const interestRate = (loan as any).interestRate || 0;
-                  if (item.paymentType === 'INTEREST_ONLY') {
-                    return sum + interestRate;
-                  } else {
-                    return sum + interestRate;
-                  }
-                }, 0))})
+      <DataTable<RepaymentRecord>
+        label="Repayments"
+        columns={columns}
+        rows={rows}
+        getRowId={(r) => r.id}
+        isInitialLoading={query.isInitialLoading}
+        isRefreshing={query.isRefreshing}
+        error={query.error}
+        onRetry={() => void query.mutate()}
+        sort={{ sort: list.params.sort, order: list.params.order }}
+        onSortChange={(next) => list.setParams({ sort: next.sort, order: next.order })}
+        emptyState={
+          list.isFiltered ? (
+            <EmptyState variant="no-results" onClearFilters={list.clearFilters} />
+          ) : (
+            <EmptyState
+              title="No repayments yet"
+              description="Payments recorded for this loan appear here."
+              action={
+                loan?.status === 'Active' ? (
+                  <Button size="sm" asChild>
+                    <Link href={`/loans/${id}/repayments/new`}>Record a payment</Link>
+                  </Button>
+                ) : undefined
+              }
+            />
+          )
+        }
+        pagination={
+          meta
+            ? {
+                page: meta.page,
+                pageSize: list.params.pageSize,
+                totalCount: meta.totalCount,
+                onPageChange: (page) => list.setParams({ page }),
+                onPageSizeChange: (pageSize) => list.setParams({ pageSize }),
+              }
+            : undefined
+        }
+        renderCard={(r) => (
+          <div className="space-y-2">
+            <div className="flex items-start justify-between gap-2">
+              <div>
+                <p className="font-medium text-foreground">{periodText(r)}</p>
+                <p className="text-xs text-muted-foreground">
+                  Paid <DateText value={r.paidDate} />
+                  {r.dueDate ? (
+                    <>
+                      {' '}· due <DateText value={r.dueDate} />
+                    </>
+                  ) : null}
+                </p>
+              </div>
+              <div className="flex items-start gap-1">
+                <div className="text-right font-medium">{amountCell(r)}</div>
+                <div className="-mr-2 -mt-2">{actionsFor(r)}</div>
               </div>
             </div>
-            <div className="flex items-center">
-              <label htmlFor="pageSize" className="text-sm text-gray-700 dark:text-theme-secondary mr-2">
-                Show:
-              </label>
-              <select
-                id="pageSize"
-                value={pageSize}
-                onChange={(e) => {
-                  setPageSize(Number(e.target.value));
-                  setCurrentPage(1); // Reset to first page when changing page size
-                }}
-                className="themed-input text-sm py-1 pl-2 pr-8"
-              >
-                <option value="5">5</option>
-                <option value="10">10</option>
-                <option value="20">20</option>
-                <option value="50">50</option>
-                <option value="100">100</option>
-              </select>
-            </div>
+            <TypeBadge type={r.paymentType} />
+            {r.notes ? <p className="text-xs text-muted-foreground">{r.notes}</p> : null}
           </div>
+        )}
+      />
 
-          {/* Pagination controls */}
-          <div className="flex flex-col md:flex-row items-center space-y-4 md:space-y-0">
-            <div>
-              <nav className="isolate inline-flex -space-x-px rounded-md shadow-sm" aria-label="Pagination">
-                <button
-                  onClick={() => setCurrentPage(1)}
-                  disabled={currentPage === 1}
-                  className={`relative inline-flex items-center rounded-l-md px-2 py-2 ${
-                    currentPage === 1 ? 'pagination-nav-btn' : 'pagination-nav-btn'
-                  }`}
-                >
-                  <span className="sr-only">First</span>
-                  <span className="text-xs">First</span>
-                </button>
-                <button
-                  onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-                  disabled={currentPage === 1}
-                  className={`relative inline-flex items-center px-2 py-2 ${
-                    currentPage === 1 ? 'pagination-nav-btn' : 'pagination-nav-btn'
-                  }`}
-                >
-                  <span className="sr-only">Previous</span>
-                  <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                    <path fillRule="evenodd" d="M12.79 5.23a.75.75 0 01-.02 1.06L8.832 10l3.938 3.71a.75.75 0 11-1.04 1.08l-4.5-4.25a.75.75 0 010-1.08l4.5-4.25a.75.75 0 011.06.02z" clipRule="evenodd" />
-                  </svg>
-                </button>
-
-                {/* Page numbers */}
-                {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                  let pageNum;
-                  if (totalPages <= 5) {
-                    pageNum = i + 1;
-                  } else if (currentPage <= 3) {
-                    pageNum = i + 1;
-                  } else if (currentPage >= totalPages - 2) {
-                    pageNum = totalPages - 4 + i;
-                  } else {
-                    pageNum = currentPage - 2 + i;
-                  }
-
-                  return (
-                    <button
-                      key={pageNum}
-                      onClick={() => setCurrentPage(pageNum)}
-                      className={`relative inline-flex items-center px-4 py-2 text-sm font-semibold ${
-                        currentPage === pageNum
-                          ? 'pagination-page-active'
-                          : 'text-gray-900 dark:text-theme-primary pagination-page focus:outline-offset-0'
-                      }`}
-                    >
-                      {pageNum}
-                    </button>
-                  );
-                })}
-
-                <button
-                  onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-                  disabled={currentPage === totalPages}
-                  className={`relative inline-flex items-center px-2 py-2 ${
-                    currentPage === totalPages ? 'pagination-nav-btn' : 'pagination-nav-btn'
-                  }`}
-                >
-                  <span className="sr-only">Next</span>
-                  <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                    <path fillRule="evenodd" d="M7.21 14.77a.75.75 0 01.02-1.06L11.168 10 7.23 6.29a.75.75 0 111.04-1.08l4.5 4.25a.75.75 0 010 1.08l-4.5 4.25a.75.75 0 01-1.06-.02z" clipRule="evenodd" />
-                  </svg>
-                </button>
-                <button
-                  onClick={() => setCurrentPage(totalPages)}
-                  disabled={currentPage === totalPages}
-                  className={`relative inline-flex items-center rounded-r-md px-2 py-2 ${
-                    currentPage === totalPages ? 'pagination-nav-btn' : 'pagination-nav-btn'
-                  }`}
-                >
-                  <span className="sr-only">Last</span>
-                  <span className="text-xs">Last</span>
-                </button>
-              </nav>
-            </div>
-          </div>
+      {rows.length > 0 ? (
+        <div className="mt-4 rounded-xl border bg-card p-4 text-sm shadow-sm">
+          <span className="text-muted-foreground">Total paid on this page: </span>
+          <Money value={pageTotal} tone="plain" className="text-base font-semibold" />
+          <span className="ml-2 text-xs text-muted-foreground">
+            (Profit on this page: <Money value={pageProfit} tone="plain" />)
+          </span>
         </div>
-      </div>
-
-      {/* Delete Confirmation Modal */}
-      {showDeleteModal && (
-        <div className="modal-overlay flex items-center justify-center z-50">
-          <div className="themed-card rounded-lg p-6 max-w-md w-full">
-            <h3 className="text-lg font-semibold mb-4">Confirm Delete</h3>
-            {deleteSuccess ? (
-              <div className="alert-success px-4 py-3 rounded mb-4">
-                <p>{deleteSuccess}</p>
-              </div>
-            ) : (
-              <>
-                <p className="mb-4">Are you sure you want to delete this repayment? This action cannot be undone.</p>
-                {deleteError && (
-                  <div className="alert-error px-4 py-3 rounded mb-4">
-                    <p>{deleteError}</p>
-                  </div>
-                )}
-                <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 w-full">
-                  <button
-                    onClick={() => setShowDeleteModal(false)}
-                    className="btn-neutral px-4 py-2 rounded-lg transition duration-300 w-full sm:w-auto"
-                    disabled={isDeleting}
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={confirmDeleteRepayment}
-                    className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition duration-300 disabled:opacity-50 disabled:cursor-not-allowed w-full sm:w-auto"
-                    disabled={isDeleting}
-                  >
-                    {isDeleting ? 'Deleting...' : 'Delete'}
-                  </button>
-                </div>
-              </>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* Bulk Delete Confirmation Modal */}
-      {showBulkDeleteModal && (
-        <div className="modal-overlay flex items-center justify-center z-50">
-          <div className="themed-card rounded-lg p-6 max-w-md w-full">
-            <h3 className="text-lg font-semibold mb-4">Confirm Bulk Delete</h3>
-            {bulkDeleteSuccess ? (
-              <div className="alert-success px-4 py-3 rounded mb-4">
-                <p>{bulkDeleteSuccess}</p>
-              </div>
-            ) : (
-              <>
-                <p className="mb-4">Are you sure you want to delete {selectedRepayments.length} repayments? This action cannot be undone.</p>
-                {bulkDeleteError && (
-                  <div className="alert-error px-4 py-3 rounded mb-4">
-                    <p>{bulkDeleteError}</p>
-                  </div>
-                )}
-                <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 w-full">
-                  <button
-                    onClick={() => setShowBulkDeleteModal(false)}
-                    className="btn-neutral px-4 py-2 rounded-lg transition duration-300 w-full sm:w-auto"
-                    disabled={isBulkDeleting}
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={confirmBulkDeleteRepayments}
-                    className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition duration-300 disabled:opacity-50 disabled:cursor-not-allowed w-full sm:w-auto"
-                    disabled={isBulkDeleting}
-                  >
-                    {isBulkDeleting ? 'Deleting...' : 'Delete Selected'}
-                  </button>
-                </div>
-              </>
-            )}
-          </div>
-        </div>
-      )}
+      ) : null}
     </div>
   );
-};
-
-export default RepaymentsPage;
+}

@@ -100,9 +100,37 @@ export async function apiFetch<T>(endpoint: string, init: ApiRequestInit = {}): 
   return data as T;
 }
 
+/**
+ * Requests started ahead of need (row hover, idle next page; see prefetch.ts), by endpoint.
+ * The next SWR fetch of the same endpoint within PREFETCH_TTL_MS takes the request instead
+ * of sending a new one, so a prefetch followed by the real mount costs one request.
+ * Older entries are ignored: cached data is never trusted as fresh beyond that window.
+ */
+export const PREFETCH_TTL_MS = 5_000;
+const prefetched = new Map<string, { promise: Promise<unknown>; at: number }>();
+
+/** Start and remember a prefetch request for `endpoint` (prefetch.ts). Returns null if a fresh one exists. */
+export function rememberPrefetch(endpoint: string, start: () => Promise<unknown>): Promise<unknown> | null {
+  const existing = prefetched.get(endpoint);
+  if (existing && Date.now() - existing.at < PREFETCH_TTL_MS) return null;
+  const promise = start();
+  prefetched.set(endpoint, { promise, at: Date.now() });
+  promise.catch(() => {
+    if (prefetched.get(endpoint)?.promise === promise) prefetched.delete(endpoint);
+  });
+  return promise;
+}
+
+function takePrefetched<T>(endpoint: string): Promise<T> | null {
+  const entry = prefetched.get(endpoint);
+  if (!entry) return null;
+  prefetched.delete(endpoint);
+  return Date.now() - entry.at < PREFETCH_TTL_MS ? (entry.promise as Promise<T>) : null;
+}
+
 /** SWR fetcher: accepts a QueryKey (see keys.ts) or a plain /api-relative URL string. */
 export function queryFetcher<T = unknown>(key: QueryKey | string): Promise<T> {
   const endpoint = typeof key === 'string' ? key : isQueryKey(key) ? keyToEndpoint(key) : null;
   if (!endpoint) return Promise.reject(new ApiError('Invalid query key', 0));
-  return apiFetch<T>(endpoint);
+  return takePrefetched<T>(endpoint) ?? apiFetch<T>(endpoint);
 }

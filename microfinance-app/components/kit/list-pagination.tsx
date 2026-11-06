@@ -128,7 +128,7 @@ export function ListPagination({ page, pageSize, totalCount, onPageChange, onPag
           <NativeSelect
             aria-label="Rows per page"
             size="sm"
-            className="w-24"
+            className="w-32"
             value={String(pageSize)}
             disabled={disabled}
             onValueChange={(v) => onPageSizeChange(Number(v))}
