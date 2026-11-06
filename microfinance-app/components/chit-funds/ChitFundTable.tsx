@@ -105,7 +105,7 @@ export default function ChitFundTable({
                   </td>
                 )}
                 <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="text-sm font-medium text-blue-600 hover:underline">
+                  <div className="text-sm font-medium text-blue-600 dark:text-blue-400 hover:underline">
                     <Link href={`/chit-funds/${fund.id}`}>{fund.name}</Link>
                   </div>
                 </td>
@@ -143,7 +143,7 @@ export default function ChitFundTable({
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                             </svg>
                           ),
-                          className: 'text-blue-600 hover:text-blue-700'
+                          className: 'text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300'
                         },
                         {
                           label: 'Copy',
@@ -154,7 +154,7 @@ export default function ChitFundTable({
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2v-2" />
                             </svg>
                           ),
-                          className: 'text-indigo-600 hover:text-indigo-700'
+                          className: 'text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300'
                         },
                         {
                           label: 'Contributions',
@@ -176,7 +176,7 @@ export default function ChitFundTable({
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 4V2a1 1 0 011-1h8a1 1 0 011 1v2h4a1 1 0 110 2h-1v12a2 2 0 01-2 2H6a2 2 0 01-2-2V6H3a1 1 0 110-2h4zM9 3v1h6V3H9zm2 5a1 1 0 112 0v6a1 1 0 11-2 0V8z" />
                             </svg>
                           ),
-                          className: 'text-purple-600 hover:text-purple-700'
+                          className: 'text-purple-600 dark:text-purple-400 hover:text-purple-700 dark:hover:text-purple-300'
                         }
                       ]}
                     />

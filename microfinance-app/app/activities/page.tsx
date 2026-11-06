@@ -281,7 +281,7 @@ export default function ActivitiesPage() {
                         {entityLink !== '#' ? (
                           <Link
                             href={entityLink}
-                            className="text-blue-600 hover:text-blue-900"
+                            className="text-blue-600 dark:text-blue-400 hover:text-blue-900 dark:hover:text-blue-300"
                             onClick={e => e.stopPropagation()}
                           >
                             View

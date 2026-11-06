@@ -319,7 +319,7 @@ export default function TransactionForm({ onSuccess }: TransactionFormProps) {
           <button
             type="button"
             onClick={swapPartners}
-            className="self-center sm:mt-6 mx-auto p-2 rounded-full border border-gray-200 dark:border-surface-border text-gray-500 hover:text-blue-600 hover:border-blue-400"
+            className="self-center sm:mt-6 mx-auto p-2 rounded-full border border-gray-200 dark:border-surface-border text-gray-500 hover:text-blue-600 dark:hover:text-blue-300 hover:border-blue-400"
             aria-label="Swap from and to partners"
             title="Swap"
           >
@@ -427,7 +427,7 @@ export default function TransactionForm({ onSuccess }: TransactionFormProps) {
               key={s}
               type="button"
               onClick={() => setNote((prev) => (prev.trim() ? prev : `${s}: `))}
-              className="text-xs px-2 py-1 rounded-full border border-gray-200 dark:border-surface-border text-gray-600 dark:text-theme-secondary hover:border-blue-400 hover:text-blue-600"
+              className="text-xs px-2 py-1 rounded-full border border-gray-200 dark:border-surface-border text-gray-600 dark:text-theme-secondary hover:border-blue-400 hover:text-blue-600 dark:hover:text-blue-300"
             >
               {s}
             </button>

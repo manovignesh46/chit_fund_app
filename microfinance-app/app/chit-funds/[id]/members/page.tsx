@@ -975,7 +975,7 @@ export default function ChitFundMembersPage() {
                       </div>
                     </td>
                     <td className="px-2 sm:px-6 py-2 sm:py-4 whitespace-nowrap">
-                      <div className="text-sm font-medium text-blue-600">{member.globalMember.name}</div>
+                      <div className="text-sm font-medium text-blue-600 dark:text-blue-400">{member.globalMember.name}</div>
                     </td>
                     <td className="px-2 sm:px-6 py-2 sm:py-4 whitespace-nowrap">
                       <div className="text-sm text-gray-900 dark:text-theme-primary">{member.globalMember.contact}</div>
@@ -1045,7 +1045,7 @@ export default function ChitFundMembersPage() {
                     </td>
                     <td className="px-2 sm:px-6 py-2 sm:py-4 whitespace-nowrap text-sm font-medium">
                       <div className="flex space-x-2 sm:space-x-4">
-                        <Link href={`/chit-funds/${chitFundId}/members/${member.id}/contributions`} className="text-blue-600 hover:text-blue-900">
+                        <Link href={`/chit-funds/${chitFundId}/members/${member.id}/contributions`} className="text-blue-600 dark:text-blue-400 hover:text-blue-900 dark:hover:text-blue-300">
                           Contributions
                         </Link>
                         {/* Only show the Add Month Due button if no contribution exists for the current month */}
@@ -1065,7 +1065,7 @@ export default function ChitFundMembersPage() {
                         )}
                         <button
                           onClick={() => handleExportMember(member.id)}
-                          className={`text-blue-600 hover:text-blue-900 ${isExporting ? 'opacity-50 cursor-not-allowed' : ''}`}
+                          className={`text-blue-600 dark:text-blue-400 hover:text-blue-900 dark:hover:text-blue-300 ${isExporting ? 'opacity-50 cursor-not-allowed' : ''}`}
                           title="Export member data"
                           disabled={isExporting}
                         >

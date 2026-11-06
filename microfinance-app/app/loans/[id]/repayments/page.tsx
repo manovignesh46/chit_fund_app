@@ -255,7 +255,7 @@ const RepaymentsPage = () => {
         <div className="alert-error px-4 py-3 rounded">
           <h2 className="text-xl font-bold mb-2">Error</h2>
           <p>{error}</p>
-          <Link href="/loans" className="mt-4 inline-block text-blue-600 hover:underline">
+          <Link href="/loans" className="mt-4 inline-block text-blue-600 dark:text-blue-400 hover:underline">
             Return to Loans
           </Link>
         </div>
@@ -269,7 +269,7 @@ const RepaymentsPage = () => {
         <div className="alert-error px-4 py-3 rounded">
           <h2 className="text-xl font-bold mb-2">Loan Not Found</h2>
           <p>The loan you are looking for does not exist or has been removed.</p>
-          <Link href="/loans" className="mt-4 inline-block text-blue-600 hover:underline">
+          <Link href="/loans" className="mt-4 inline-block text-blue-600 dark:text-blue-400 hover:underline">
             Return to Loans
           </Link>
         </div>
@@ -420,10 +420,10 @@ const RepaymentsPage = () => {
                   >
                     Delete
                   </button>}
-                  {loan.nonRecoverableAt && <Link href={`/loans/${id}#loan-recovery`} className="text-blue-600 underline">Recovery details</Link>}
+                  {loan.nonRecoverableAt && <Link href={`/loans/${id}#loan-recovery`} className="text-blue-600 dark:text-blue-400 underline">Recovery details</Link>}
                   <Link
                     href={`/loans/${id}/payment-schedules`}
-                    className="ml-3 text-blue-600 hover:text-blue-900"
+                    className="ml-3 text-blue-600 dark:text-blue-400 hover:text-blue-900 dark:hover:text-blue-300"
                   >
                     View Schedule
                   </Link>

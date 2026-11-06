@@ -322,7 +322,7 @@ export default function MemberDetailPage() {
           <div className="flex flex-wrap gap-3 text-right">
             <div>
               <div className="text-xs text-gray-500 uppercase tracking-wider">Chit Funds</div>
-              <div className="text-lg font-bold text-blue-600">{member._count.chitFundMembers}</div>
+              <div className="text-lg font-bold text-blue-600 dark:text-blue-400">{member._count.chitFundMembers}</div>
             </div>
             <div>
               <div className="text-xs text-gray-500 uppercase tracking-wider">Loans</div>
@@ -460,7 +460,7 @@ export default function MemberDetailPage() {
         <div className="themed-card overflow-hidden">
           <div className="p-4 sm:p-6 border-b flex flex-wrap items-center justify-between gap-2">
             <h2 className="text-lg sm:text-xl font-semibold">Chit Funds ({member._count.chitFundMembers})</h2>
-            <Link href={`/members/${member.id}/assign-chit-fund`} className="text-blue-600 hover:text-blue-900 text-sm">
+            <Link href={`/members/${member.id}/assign-chit-fund`} className="text-blue-600 dark:text-blue-400 hover:text-blue-900 dark:hover:text-blue-300 text-sm">
               + Assign to Chit Fund
             </Link>
           </div>
@@ -479,7 +479,7 @@ export default function MemberDetailPage() {
                 <tbody>
                   {member.chitFundMembers.map((membership) => (
                     <tr key={membership.id} className="hover:bg-gray-50 dark:hover:bg-surface-hover">
-                      <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-sm font-medium text-blue-600">{membership.chitFund.name}</td>
+                      <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-sm font-medium text-blue-600 dark:text-blue-400">{membership.chitFund.name}</td>
                       <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap">
                         <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
                           membership.chitFund.status === 'Active' ? 'bg-green-100 text-green-800' :
@@ -514,7 +514,7 @@ export default function MemberDetailPage() {
                       </td>
                       <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-sm text-gray-900 dark:text-theme-primary">{formatDate(membership.joinDate)}</td>
                       <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-sm font-medium">
-                        <Link href={`/chit-funds/${membership.chitFund.id}/members/${membership.id}/contributions`} className="text-blue-600 hover:text-blue-900">
+                        <Link href={`/chit-funds/${membership.chitFund.id}/members/${membership.id}/contributions`} className="text-blue-600 dark:text-blue-400 hover:text-blue-900 dark:hover:text-blue-300">
                           View Contributions
                         </Link>
                       </td>
@@ -530,7 +530,7 @@ export default function MemberDetailPage() {
         <div className="themed-card overflow-hidden">
           <div className="p-4 sm:p-6 border-b flex flex-wrap items-center justify-between gap-2">
             <h2 className="text-lg sm:text-xl font-semibold">Loans ({member._count.loans})</h2>
-            <Link href={`/loans/new?borrowerId=${member.id}`} className="text-blue-600 hover:text-blue-900 text-sm">
+            <Link href={`/loans/new?borrowerId=${member.id}`} className="text-blue-600 dark:text-blue-400 hover:text-blue-900 dark:hover:text-blue-300 text-sm">
               + Create New Loan
             </Link>
           </div>
@@ -538,7 +538,7 @@ export default function MemberDetailPage() {
             <h3 className="font-semibold">Non-Recoverable · Offline Recovery</h3>
             <p className="text-xs text-gray-500 mt-1">Excluded from this member’s routine pending dues.</p>
             <ul className="mt-3 space-y-3">{member.loans.filter((l) => l.status === 'Non-Recoverable').map((l) => <li key={l.id} className="text-sm">
-              <Link className="text-blue-600 underline" href={`/loans/${l.id}#loan-recovery`}>Loan #{l.id} · {l.loanType}</Link>
+              <Link className="text-blue-600 dark:text-blue-400 underline" href={`/loans/${l.id}#loan-recovery`}>Loan #{l.id} · {l.loanType}</Link>
               <p>Principal {formatCurrency(l.remainingAmount)} · Unpaid interest {formatCurrency(l.recoveryInterestOutstanding || 0)} · Recovered {formatCurrency(l.recoveryAmount || 0)} · {l.recoveryOutcome === 'Recovered' ? 'Fully Recovered' : l.recoveryOutcome}</p>
               <p className="text-xs text-gray-500">Marked {formatDate(l.nonRecoverableAt)} · {l.nonRecoverableReason}</p>
             </li>)}</ul>
@@ -558,7 +558,7 @@ export default function MemberDetailPage() {
                 <tbody>
                   {member.loans.filter((loan) => loan.status !== 'Non-Recoverable').map((loan) => (
                     <tr key={loan.id} className="hover:bg-gray-50 dark:hover:bg-surface-hover">
-                      <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-sm font-medium text-blue-600">{loan.loanType}</td>
+                      <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-sm font-medium text-blue-600 dark:text-blue-400">{loan.loanType}</td>
                       <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-sm text-gray-900 dark:text-theme-primary">{formatCurrency(loan.amount)}</td>
                       <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-sm text-gray-900 dark:text-theme-primary">{formatCurrency(loan.remainingAmount)}</td>
                       <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap">
@@ -609,7 +609,7 @@ export default function MemberDetailPage() {
                       </td>
                       <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-sm text-gray-900 dark:text-theme-primary">{formatDate(loan.disbursementDate)}</td>
                       <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-sm font-medium">
-                        <Link href={`/loans/${loan.id}`} className="text-blue-600 hover:text-blue-900">View Details</Link>
+                        <Link href={`/loans/${loan.id}`} className="text-blue-600 dark:text-blue-400 hover:text-blue-900 dark:hover:text-blue-300">View Details</Link>
                       </td>
                     </tr>
                   ))}
@@ -693,7 +693,7 @@ export default function MemberDetailPage() {
                         </td>
                         <td className="px-3 sm:px-4 py-3 whitespace-nowrap text-gray-700 dark:text-theme-secondary">{item.collectedBy || '—'}</td>
                         <td className="px-3 sm:px-4 py-3 whitespace-nowrap">
-                          <Link href={item.href} className="text-blue-600 hover:text-blue-900 dark:text-blue-400">Open</Link>
+                          <Link href={item.href} className="text-blue-600 hover:text-blue-900 dark:hover:text-blue-300 dark:text-blue-400">Open</Link>
                         </td>
                       </tr>
                     ))}

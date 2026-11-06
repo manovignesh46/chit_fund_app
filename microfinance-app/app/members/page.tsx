@@ -621,7 +621,7 @@ export default function MembersPage() {
                   {search ? (
                     <>
                       No members match &quot;{search}&quot;.{' '}
-                      <button type="button" onClick={() => setSearchInput('')} className="text-blue-600 hover:underline">
+                      <button type="button" onClick={() => setSearchInput('')} className="text-blue-600 dark:text-blue-400 hover:underline">
                         Clear search
                       </button>
                     </>
@@ -659,7 +659,7 @@ export default function MembersPage() {
                     </div>
                   </td>
                   <td className="px-2 sm:px-6 py-2 sm:py-4 whitespace-nowrap">
-                    <div className="text-sm font-medium text-blue-600">
+                    <div className="text-sm font-medium text-blue-600 dark:text-blue-400">
                       {member.name}
                     </div>
                   </td>
@@ -687,7 +687,7 @@ export default function MembersPage() {
                               <path fill="currentColor" d="M16.862 3.487a2.25 2.25 0 113.182 3.182l-9.193 9.193a2.25 2.25 0 01-.708.471l-3.25 1.3a.75.75 0 01-.97-.97l1.3-3.25a2.25 2.25 0 01.471-.708l9.193-9.193zM19.5 6.75L17.25 4.5" />
                             </svg>
                           ),
-                          className: 'text-blue-600 hover:text-blue-700'
+                          className: 'text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300'
                         },
                         {
                           label: isDeleting && memberToDelete === member.id ? 'Deleting...' : 'Delete',

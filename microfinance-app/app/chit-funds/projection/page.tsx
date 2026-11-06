@@ -484,7 +484,7 @@ export default function ChitFundProjectionPage() {
                           </svg>
                           {row.label}
                           {isCurrent && (
-                            <span className="text-xs text-blue-600">(current)</span>
+                            <span className="text-xs text-blue-600 dark:text-blue-400">(current)</span>
                           )}
                           {isPastMonth && (
                             <span className="text-xs text-gray-400 dark:text-theme-muted">

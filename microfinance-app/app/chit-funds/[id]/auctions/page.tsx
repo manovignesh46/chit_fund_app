@@ -371,7 +371,7 @@ export default function ChitFundAuctionsPage() {
             <br />
             Type: <span className="font-semibold">{chitFund.chitFundType || 'Auction'}</span>
             {chitFund.chitFundType === 'Fixed' && (
-              <span className="text-blue-600 ml-2">(Fixed amounts per month)</span>
+              <span className="text-blue-600 dark:text-blue-400 ml-2">(Fixed amounts per month)</span>
             )}
           </p>
         </div>
@@ -455,7 +455,7 @@ export default function ChitFundAuctionsPage() {
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm font-medium text-blue-600">
+                          <div className="text-sm font-medium text-blue-600 dark:text-blue-400">
                             {auction.winner?.globalMember?.name || `Member ID: ${auction.winnerId}`}
                           </div>
                         </td>
@@ -478,7 +478,7 @@ export default function ChitFundAuctionsPage() {
                               setSelectedAuction(auction);
                               setShowDetailModal(true);
                             }}
-                            className="text-blue-600 hover:text-blue-900 underline"
+                            className="text-blue-600 dark:text-blue-400 hover:text-blue-900 dark:hover:text-blue-300 underline"
                           >
                             View Details
                           </button>
@@ -566,7 +566,7 @@ export default function ChitFundAuctionsPage() {
                 <label htmlFor="amount" className="block text-sm font-medium text-gray-700 dark:text-theme-secondary mb-1">
                   Auction Amount <span className="text-red-500">*</span>
                   {chitFund?.chitFundType === 'Fixed' && newAuction.month && (
-                    <span className="text-xs text-blue-600 ml-2">(Auto-populated from fixed amount)</span>
+                    <span className="text-xs text-blue-600 dark:text-blue-400 ml-2">(Auto-populated from fixed amount)</span>
                   )}
                 </label>
                 <input
@@ -582,7 +582,7 @@ export default function ChitFundAuctionsPage() {
                   } ${chitFund?.chitFundType === 'Fixed' && newAuction.month && newAuction.amount ? 'bg-gray-100 cursor-not-allowed' : ''}`}
                 />
                 {chitFund?.chitFundType === 'Fixed' && newAuction.month && newAuction.amount && (
-                  <p className="mt-1 text-xs text-blue-600">
+                  <p className="mt-1 text-xs text-blue-600 dark:text-blue-400">
                     This amount is predefined for Month {newAuction.month} in this Fixed type chit fund.
                   </p>
                 )}

@@ -222,7 +222,7 @@ export default function TemplateForm({ mode, templateId, initial }) {
               <input type="number" id="firstMonthContribution" name="firstMonthContribution" value={formData.firstMonthContribution} onChange={handleChange}
                 min="1" step="1" className={inputClass('firstMonthContribution')} placeholder="Auto-calculated from total amount" />
               {errors.firstMonthContribution && <p className="mt-1 text-sm text-red-500">{errors.firstMonthContribution}</p>}
-              <p className="mt-1 text-xs text-blue-600">
+              <p className="mt-1 text-xs text-blue-600 dark:text-blue-400">
                 Default: Total Amount ÷ Duration = ₹{formData.totalAmount || '0'} ÷ {formData.duration || '0'} = ₹{formData.firstMonthContribution || '0'}
               </p>
             </div>

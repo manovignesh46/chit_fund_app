@@ -232,7 +232,7 @@ export default function AssignMemberPage() {
               <p className="mt-1 text-sm text-red-500">{formErrors.member}</p>
             )}
             <div className="mt-2 text-right">
-              <Link href="/members/new" className="text-blue-600 hover:text-blue-900 text-sm">
+              <Link href="/members/new" className="text-blue-600 dark:text-blue-400 hover:text-blue-900 dark:hover:text-blue-300 text-sm">
                 + Create New Member
               </Link>
             </div>

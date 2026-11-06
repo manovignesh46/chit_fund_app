@@ -255,7 +255,7 @@ const FinancialDetailModal: React.FC<FinancialDetailModalProps> = ({
 
           {/* Transaction Summary Section */}
           <div className="bg-gray-50 dark:bg-surface-elevated p-3 sm:p-4 rounded-lg">
-            <h3 className="text-sm sm:text-lg font-semibold text-purple-700 mb-2">
+            <h3 className="text-sm sm:text-lg font-semibold text-purple-700 dark:text-purple-400 mb-2">
               Transaction Summary
             </h3>
             <div className="space-y-1 sm:space-y-2">
@@ -265,7 +265,7 @@ const FinancialDetailModal: React.FC<FinancialDetailModalProps> = ({
                     <span className="text-xs sm:text-sm text-gray-700 dark:text-theme-secondary">
                       Contributions:
                     </span>
-                    <span className="font-medium text-purple-600 text-xs sm:text-sm">
+                    <span className="font-medium text-purple-600 dark:text-purple-400 text-xs sm:text-sm">
                       {periodData.transactionCounts.contributions}
                     </span>
                   </div>
@@ -273,13 +273,13 @@ const FinancialDetailModal: React.FC<FinancialDetailModalProps> = ({
                     <span className="text-xs sm:text-sm text-gray-700 dark:text-theme-secondary">
                       Loan Repayments:
                     </span>
-                    <span className="font-medium text-purple-600 text-xs sm:text-sm">
+                    <span className="font-medium text-purple-600 dark:text-purple-400 text-xs sm:text-sm">
                       {periodData.transactionCounts.repayments}
                     </span>
                   </div>
                   <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-1 sm:gap-0">
                     <span className="text-xs sm:text-sm text-gray-700 dark:text-theme-secondary">Auctions:</span>
-                    <span className="font-medium text-purple-600 text-xs sm:text-sm">
+                    <span className="font-medium text-purple-600 dark:text-purple-400 text-xs sm:text-sm">
                       {periodData.transactionCounts.auctions}
                     </span>
                   </div>
@@ -287,7 +287,7 @@ const FinancialDetailModal: React.FC<FinancialDetailModalProps> = ({
                     <span className="text-xs sm:text-sm text-gray-700 dark:text-theme-secondary">
                       Loan Disbursements:
                     </span>
-                    <span className="font-medium text-purple-600 text-xs sm:text-sm">
+                    <span className="font-medium text-purple-600 dark:text-purple-400 text-xs sm:text-sm">
                       {periodData.transactionCounts.loans}
                     </span>
                   </div>

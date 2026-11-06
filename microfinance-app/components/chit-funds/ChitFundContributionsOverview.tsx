@@ -70,7 +70,7 @@ const ChitFundContributionsOverview: React.FC<ChitFundContributionsOverviewProps
           <h2 className="text-xl font-semibold">Contributions Overview</h2>
           <Link 
             href={`/chit-funds/${chitFundId}/contributions`}
-            className="text-sm text-blue-600 hover:text-blue-800 font-medium"
+            className="text-sm text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 font-medium"
           >
             View All →
           </Link>
@@ -91,7 +91,7 @@ const ChitFundContributionsOverview: React.FC<ChitFundContributionsOverviewProps
               >
                 <div className="flex justify-between items-start mb-2">
                   <div className="flex items-center">
-                    <h3 className="text-lg font-semibold text-blue-600">
+                    <h3 className="text-lg font-semibold text-blue-600 dark:text-blue-400">
                       Month {monthData.month}
                     </h3>
                     {monthData.pendingCount > 0 && (
@@ -135,7 +135,7 @@ const ChitFundContributionsOverview: React.FC<ChitFundContributionsOverviewProps
                   <div className="mt-3 text-xs text-gray-500" onClick={(e) => e.stopPropagation()}>
                     <details>
                       <summary
-                        className="cursor-pointer text-blue-600 hover:text-blue-800"
+                        className="cursor-pointer text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300"
                         onClick={(e) => e.stopPropagation()}
                       >
                         Show pending members ({monthData.pendingCount})

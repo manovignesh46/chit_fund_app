@@ -45,7 +45,7 @@ export default function EditChitFundTemplatePage() {
     return (
       <div className="container mx-auto px-4 py-8">
         <p className="text-red-500">{error || 'Template not found'}</p>
-        <Link href="/chit-fund-templates" className="text-blue-600 hover:underline">Back to templates</Link>
+        <Link href="/chit-fund-templates" className="text-blue-600 dark:text-blue-400 hover:underline">Back to templates</Link>
       </div>
     );
   }

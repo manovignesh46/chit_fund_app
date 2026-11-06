@@ -658,7 +658,7 @@ export default function ChitFundsPage() {
                                 <path fill="currentColor" d="M16.862 3.487a2.25 2.25 0 113.182 3.182l-9.193 9.193a2.25 2.25 0 01-.708.471l-3.25 1.3a.75.75 0 01-.97-.97l1.3-3.25a2.25 2.25 0 01.471-.708l9.193-9.193zM19.5 6.75L17.25 4.5" />
                               </svg>
                             ),
-                            className: 'text-blue-600 hover:text-blue-700'
+                            className: 'text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300'
                           },
                           {
                             label: 'Copy',
@@ -669,7 +669,7 @@ export default function ChitFundsPage() {
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2v-2" />
                               </svg>
                             ),
-                            className: 'text-indigo-600 hover:text-indigo-700'
+                            className: 'text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300'
                           },
                           {
                             label: 'Delete',

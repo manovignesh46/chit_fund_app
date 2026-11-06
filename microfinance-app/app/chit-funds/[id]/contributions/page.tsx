@@ -767,7 +767,7 @@ export default function ChitFundContributionsPage() {
                         }
                       >
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm font-medium text-blue-600">
+                          <div className="text-sm font-medium text-blue-600 dark:text-blue-400">
                             {memberData.member.globalMember.name}
                           </div>
                         </td>
@@ -932,7 +932,7 @@ export default function ChitFundContributionsPage() {
                       onClick={() => handleViewContribution(contribution)}
                     >
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm font-medium text-blue-600">
+                        <div className="text-sm font-medium text-blue-600 dark:text-blue-400">
                           {contribution.member?.globalMember?.name ||
                             `Member ID: ${contribution.memberId}`}
                         </div>
@@ -1082,7 +1082,7 @@ export default function ChitFundContributionsPage() {
                         }}
                       >
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm font-medium text-blue-600">
+                          <div className="text-sm font-medium text-blue-600 dark:text-blue-400">
                             Month {monthData.month}
                           </div>
                         </td>
@@ -1099,7 +1099,7 @@ export default function ChitFundContributionsPage() {
                           {monthData.pendingCount > 0 && (
                             <div className="mt-2 text-xs text-gray-500">
                               <details>
-                                <summary className="cursor-pointer text-blue-600 hover:text-blue-800">
+                                <summary className="cursor-pointer text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300">
                                   Show pending members
                                 </summary>
                                 <ul className="mt-1 pl-4 list-disc">

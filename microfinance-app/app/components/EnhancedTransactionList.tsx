@@ -284,7 +284,7 @@ export default function EnhancedTransactionList({ refresh }: TransactionListProp
             {(filters.type || filters.dateFrom || filters.dateTo || filters.search) && (
               <button
                 onClick={clearFilters}
-                className="mt-2 text-blue-600 hover:text-blue-800 text-sm"
+                className="mt-2 text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 text-sm"
               >
                 Clear filters to see all transactions
               </button>

@@ -373,7 +373,7 @@ export function TransactionList(props: TransactionListProps & {
           >
             <div className="flex items-center mb-4">
               <svg
-                className="h-6 w-6 text-blue-600 mr-3"
+                className="h-6 w-6 text-blue-600 dark:text-blue-400 mr-3"
                 fill="none"
                 viewBox="0 0 24 24"
                 stroke="currentColor"

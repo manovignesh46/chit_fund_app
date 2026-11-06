@@ -109,7 +109,7 @@ export default function PendingLoansModal({ isOpen, onClose, loans, month, year 
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-sm text-gray-700 dark:text-theme-secondary">Total Pending Loans</p>
-                      <p className="text-2xl font-bold text-purple-600">{loans.length}</p>
+                      <p className="text-2xl font-bold text-purple-600 dark:text-purple-400">{loans.length}</p>
                     </div>
                     <div className="text-right">
                       <p className="text-sm text-gray-700 dark:text-theme-secondary">Total Pending Amount</p>

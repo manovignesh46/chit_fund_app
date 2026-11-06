@@ -175,7 +175,7 @@ export default function DueAccountCard({
             {a.contact && (
               <a
                 href={`tel:${a.contact}`}
-                className="p-2 rounded-md border border-gray-200 dark:border-surface-border text-gray-600 hover:text-blue-600"
+                className="p-2 rounded-md border border-gray-200 dark:border-surface-border text-gray-600 hover:text-blue-600 dark:hover:text-blue-300"
                 title={`Call ${a.contact}`}
                 aria-label={`Call ${a.memberName}`}
               >
@@ -266,7 +266,7 @@ export default function DueAccountCard({
                       p.status === "overdue"
                         ? "text-red-600"
                         : p.status === "due-today"
-                        ? "text-blue-600"
+                        ? "text-blue-600 dark:text-blue-400"
                         : "text-gray-500"
                     }`}
                   >
@@ -281,7 +281,7 @@ export default function DueAccountCard({
             </tbody>
           </table>
           <div className="flex flex-wrap gap-3 mt-3 text-xs">
-            <Link href={a.detailHref} className="text-blue-600 hover:underline">
+            <Link href={a.detailHref} className="text-blue-600 dark:text-blue-400 hover:underline">
               Open {a.kind === "loan" ? "loan" : "chit fund"} details →
             </Link>
             {a.contact && (

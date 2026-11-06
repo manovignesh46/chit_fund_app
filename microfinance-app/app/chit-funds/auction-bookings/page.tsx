@@ -328,7 +328,7 @@ export default function AuctionBookingsPage() {
                                     type="button"
                                     onClick={() => handleRemoveBooking(b.id)}
                                     disabled={saving}
-                                    className="ml-1 text-blue-600 hover:text-red-600 disabled:opacity-50"
+                                    className="ml-1 text-blue-600 dark:text-blue-400 hover:text-red-600 disabled:opacity-50"
                                     title="Remove planned booking"
                                   >
                                     ×
@@ -377,7 +377,7 @@ export default function AuctionBookingsPage() {
                               type="button"
                               onClick={() => setAddingMonth(month)}
                               disabled={availableMembers.length === 0 || saving}
-                              className="text-blue-600 hover:text-blue-800 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                              className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
                             >
                               {availableMembers.length === 0 ? 'All members booked' : '+ Add member'}
                             </button>

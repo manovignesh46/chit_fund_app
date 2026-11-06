@@ -46,7 +46,7 @@ export default function ChitFundFinancialSummary({
         <div className="grid grid-cols-2 gap-6 mb-4">
           <div>
             <p className="text-sm text-gray-500">Total Cash Inflow</p>
-            <p className="text-lg font-semibold text-blue-700">{formatCurrency(totalInflow)}</p>
+            <p className="text-lg font-semibold text-blue-700 dark:text-blue-400">{formatCurrency(totalInflow)}</p>
             <p className="text-xs text-gray-500">From {contributions.length} contributions</p>
           </div>
           <div>
@@ -74,7 +74,7 @@ export default function ChitFundFinancialSummary({
           </div>
           <div>
             <p className="text-sm text-gray-500">Outside Amount</p>
-            <p className="text-lg font-semibold text-purple-700">{formatCurrency(outsideAmount)}</p>
+            <p className="text-lg font-semibold text-purple-700 dark:text-purple-400">{formatCurrency(outsideAmount)}</p>
             <p className="text-xs text-gray-500">
               {outsideAmount > 0
                 ? 'Cash outflow exceeds inflow'

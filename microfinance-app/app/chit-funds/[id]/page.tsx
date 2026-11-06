@@ -506,7 +506,7 @@ const ChitFundDetails = () => {
         <div className="alert-error px-4 py-3 rounded">
           <h2 className="text-xl font-bold mb-2">Error</h2>
           <p>{error}</p>
-          <Link href="/chit-funds" className="mt-4 inline-block text-blue-600 hover:underline">
+          <Link href="/chit-funds" className="mt-4 inline-block text-blue-600 dark:text-blue-400 hover:underline">
             Return to Chit Funds
           </Link>
         </div>
@@ -520,7 +520,7 @@ const ChitFundDetails = () => {
         <div className="alert-error px-4 py-3 rounded">
           <h2 className="text-xl font-bold mb-2">Chit Fund Not Found</h2>
           <p>The chit fund you are looking for does not exist or has been removed.</p>
-          <Link href="/chit-funds" className="mt-4 inline-block text-blue-600 hover:underline">
+          <Link href="/chit-funds" className="mt-4 inline-block text-blue-600 dark:text-blue-400 hover:underline">
             Return to Chit Funds
           </Link>
         </div>
@@ -694,7 +694,7 @@ const ChitFundDetails = () => {
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
                   </h3>
-                  <p id="chitfund-inflow" className="text-lg sm:text-xl font-semibold text-blue-600 hidden">{formatCurrency(cashInflow)}</p>
+                  <p id="chitfund-inflow" className="text-lg sm:text-xl font-semibold text-blue-600 dark:text-blue-400 hidden">{formatCurrency(cashInflow)}</p>
                 </div>
                 <div>
                   <h3
@@ -748,7 +748,7 @@ const ChitFundDetails = () => {
                   <h3 className="detail-label">Template</h3>
                   <p className="text-lg sm:text-xl font-semibold dark:text-theme-secondary">
                     {chitFund.template ? (
-                      <Link href={`/chit-fund-templates/${chitFund.template.id}`} className="text-blue-600 hover:underline">
+                      <Link href={`/chit-fund-templates/${chitFund.template.id}`} className="text-blue-600 dark:text-blue-400 hover:underline">
                         {chitFund.template.name}
                       </Link>
                     ) : (
@@ -772,7 +772,7 @@ const ChitFundDetails = () => {
                   {chitFund.fixedAmounts.sort((a, b) => a.month - b.month).map((fixedAmount) => (
                     <div key={fixedAmount.month} className="bg-gray-50 dark:bg-surface-elevated rounded-lg p-3 sm:p-4 border text-center">
                       <h3 className="text-xs font-medium text-gray-500 mb-1">Month {fixedAmount.month}</h3>
-                      <p className="text-base sm:text-lg font-semibold text-blue-600">{formatCurrency(fixedAmount.amount)}</p>
+                      <p className="text-base sm:text-lg font-semibold text-blue-600 dark:text-blue-400">{formatCurrency(fixedAmount.amount)}</p>
                     </div>
                   ))}
                 </div>
@@ -919,7 +919,7 @@ const ChitFundDetails = () => {
                     <tr key={auction.id} className="hover:bg-gray-50 dark:hover:bg-surface-hover">
                       <td className="px-4 sm:px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-theme-primary">{auction.month}</td>
                       <td className="px-4 sm:px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-theme-primary">{formatDate(auction.date)}</td>
-                      <td className="px-4 sm:px-6 py-4 whitespace-nowrap text-sm font-medium text-blue-600">{auction.winner?.globalMember?.name || `Member ID: ${auction.winnerId}`}</td>
+                      <td className="px-4 sm:px-6 py-4 whitespace-nowrap text-sm font-medium text-blue-600 dark:text-blue-400">{auction.winner?.globalMember?.name || `Member ID: ${auction.winnerId}`}</td>
                       <td className="px-4 sm:px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-theme-primary">{formatCurrency(auction.amount)}</td>
                     </tr>
                   ))}

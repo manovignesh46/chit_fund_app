@@ -170,7 +170,7 @@ export default function DuesTrackerPage() {
           <div className="flex items-center justify-between mb-2">
             <h2 className="text-sm font-semibold text-gray-700 dark:text-theme-secondary">Overdue aging</h2>
             {agingFilter && (
-              <button className="text-xs text-blue-600 hover:underline" onClick={() => setAgingFilter("")}>Clear aging filter</button>
+              <button className="text-xs text-blue-600 dark:text-blue-400 hover:underline" onClick={() => setAgingFilter("")}>Clear aging filter</button>
             )}
           </div>
           <div className="flex h-3 rounded-full overflow-hidden bg-gray-100 dark:bg-surface-elevated" aria-hidden="true">

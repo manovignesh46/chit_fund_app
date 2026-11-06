@@ -632,7 +632,7 @@ export default function LoansPage() {
                                 <path fill="currentColor" d="M3 16.5A2.25 2.25 0 005.25 18.75h13.5A2.25 2.25 0 0021 16.5v-1.5a.75.75 0 00-1.5 0v1.5a.75.75 0 01-.75.75H5.25a.75.75 0 01-.75-.75v-1.5a.75.75 0 00-1.5 0v1.5zM12 3.75a.75.75 0 00-.75.75v7.19l-2.22-2.22a.75.75 0 10-1.06 1.06l3.5 3.5a.75.75 0 001.06 0l3.5-3.5a.75.75 0 10-1.06-1.06l-2.22 2.22V4.5A.75.75 0 0012 3.75z" />
                               </svg>
                             ),
-                            className: 'text-blue-600 hover:text-blue-700'
+                            className: 'text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300'
                           },
                           {
                             label: 'Delete',

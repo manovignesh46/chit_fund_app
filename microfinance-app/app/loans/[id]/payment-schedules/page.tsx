@@ -200,7 +200,7 @@ const PaymentSchedulesPage = () => {
         <div className="alert-error px-4 py-3 rounded">
           <h2 className="text-xl font-bold mb-2">Error</h2>
           <p>{error}</p>
-          <Link href={`/loans/${id}`} className="mt-4 inline-block text-blue-600 hover:underline">
+          <Link href={`/loans/${id}`} className="mt-4 inline-block text-blue-600 dark:text-blue-400 hover:underline">
             Return to Loan Details
           </Link>
         </div>

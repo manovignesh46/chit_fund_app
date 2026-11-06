@@ -66,7 +66,7 @@ export default function BalanceSummary({ refreshTrigger }: BalanceSummaryProps) 
           {error}
           <button 
             onClick={fetchBalanceSummary}
-            className="ml-2 text-blue-600 hover:text-blue-800 underline"
+            className="ml-2 text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 underline"
           >
             Retry
           </button>

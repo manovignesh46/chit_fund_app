@@ -565,7 +565,7 @@ const LoanDetailPage = () => {
           </p>
           <Link
             href="/loans"
-            className="mt-4 inline-block text-blue-600 hover:underline"
+            className="mt-4 inline-block text-blue-600 dark:text-blue-400 hover:underline"
           >
             Return to Loans
           </Link>
@@ -778,7 +778,7 @@ const LoanDetailPage = () => {
         <div className="themed-card overflow-hidden">
           <div className="p-4 sm:p-6 border-b flex flex-wrap items-center justify-between gap-2">
             <h2 className="text-lg sm:text-xl font-semibold dark:text-theme-secondary">Payment Schedule</h2>
-            <Link href={`/loans/${id}/repayments`} className="text-blue-600 hover:text-blue-800 text-sm">
+            <Link href={`/loans/${id}/repayments`} className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 text-sm">
               View All Repayments
             </Link>
           </div>

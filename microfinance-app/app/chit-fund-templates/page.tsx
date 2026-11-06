@@ -83,7 +83,7 @@ export default function ChitFundTemplatesPage() {
               {templates.map((t) => (
                 <tr key={t.id} className="text-sm">
                   <td className="px-4 py-3">
-                    <Link href={`/chit-fund-templates/${t.id}`} className="text-blue-600 hover:underline font-medium">
+                    <Link href={`/chit-fund-templates/${t.id}`} className="text-blue-600 dark:text-blue-400 hover:underline font-medium">
                       {t.name}
                     </Link>
                   </td>
@@ -99,7 +99,7 @@ export default function ChitFundTemplatesPage() {
                   <td className="px-4 py-3">
                     <div className="flex justify-end gap-3">
                       <Link href={`/chit-funds/new?template=${t.id}`} className="text-green-600 hover:underline">Create fund</Link>
-                      <Link href={`/chit-fund-templates/${t.id}/edit`} className="text-blue-600 hover:underline">Edit</Link>
+                      <Link href={`/chit-fund-templates/${t.id}/edit`} className="text-blue-600 dark:text-blue-400 hover:underline">Edit</Link>
                       <button onClick={() => handleArchive(t.id, t.name)} className="text-red-600 hover:underline">Archive</button>
                     </div>
                   </td>

@@ -54,7 +54,7 @@ export default function MonthlyAggregationsCard({ startDate, endDate, refreshTri
         <div className="space-y-2">
           <div className="flex justify-between items-center">
             <span className="text-xs text-gray-500">Expected</span>
-            <span className="text-sm font-semibold text-blue-600">
+            <span className="text-sm font-semibold text-blue-600 dark:text-blue-400">
               {formatCurrency(data.expectedLoanRepayment)}
             </span>
           </div>
@@ -72,7 +72,7 @@ export default function MonthlyAggregationsCard({ startDate, endDate, refreshTri
         <div className="space-y-2">
           <div className="flex justify-between items-center">
             <span className="text-xs text-gray-500">Expected</span>
-            <span className="text-sm font-semibold text-blue-600">
+            <span className="text-sm font-semibold text-blue-600 dark:text-blue-400">
               {formatCurrency(data.expectedChitContribution)}
             </span>
           </div>
@@ -90,7 +90,7 @@ export default function MonthlyAggregationsCard({ startDate, endDate, refreshTri
         <div className="space-y-2">
           <div className="flex justify-between items-center">
             <span className="text-xs text-gray-500">Expected</span>
-            <span className="text-sm font-semibold text-blue-600">
+            <span className="text-sm font-semibold text-blue-600 dark:text-blue-400">
               {formatCurrency(data.totalExpectedAmount)}
             </span>
           </div>
