@@ -71,37 +71,6 @@ export default function MessagesPage() {
   const topSentinelRef = useRef<HTMLDivElement>(null);
   const observerRef = useRef<IntersectionObserver | null>(null);
 
-  const HEADER_HEIGHT = 64;
-
-  const updateChatLayout = useCallback(() => {
-    const el = containerRef.current;
-    if (!el) return;
-    if (window.innerWidth >= 640) {
-      el.style.top = '';
-      el.style.height = '';
-      el.style.bottom = '';
-      return;
-    }
-    const vv = window.visualViewport;
-    if (!vv) {
-      el.style.top = `${HEADER_HEIGHT}px`;
-      el.style.bottom = '0';
-      el.style.height = '';
-      return;
-    }
-    el.style.top = `${vv.offsetTop + HEADER_HEIGHT}px`;
-    el.style.height = `${vv.height - HEADER_HEIGHT}px`;
-    el.style.bottom = 'auto';
-  }, []);
-
-  const [isMobile, setIsMobile] = useState(false);
-  useEffect(() => {
-    const check = () => setIsMobile(window.innerWidth < 640);
-    check();
-    window.addEventListener('resize', check);
-    return () => window.removeEventListener('resize', check);
-  }, []);
-
   const scrollToBottom = useCallback((instant = false) => {
     const el = listRef.current;
     if (!el) return;
@@ -189,24 +158,6 @@ export default function MessagesPage() {
   }, [messages, loading, scrollToBottom]);
 
   useEffect(() => { adjustTextareaHeight(); }, [content]);
-
-  useEffect(() => {
-    updateChatLayout();
-    const vv = window.visualViewport;
-    vv?.addEventListener('resize', updateChatLayout);
-    vv?.addEventListener('scroll', updateChatLayout);
-    window.addEventListener('resize', updateChatLayout);
-    return () => {
-      vv?.removeEventListener('resize', updateChatLayout);
-      vv?.removeEventListener('scroll', updateChatLayout);
-      window.removeEventListener('resize', updateChatLayout);
-    };
-  }, [updateChatLayout]);
-
-  const handleInputBlur = () => {
-    setTimeout(updateChatLayout, 50);
-    setTimeout(updateChatLayout, 300);
-  };
 
   // Load older messages, preserving scroll position (WhatsApp style)
   const loadOlder = useCallback(async () => {
@@ -378,14 +329,11 @@ export default function MessagesPage() {
   };
 
   return (
+    // The shell gives /messages its full-height layout (nav-config `layout: 'full'`):
+    // this fills the space between the top bar and the phone bottom bar.
     <div
       ref={containerRef}
-      className={`messages-fullscreen flex min-h-0 w-full flex-1 flex-col overflow-hidden ${
-        isMobile
-          ? 'fixed bottom-0 left-0 right-0 z-10 bg-gray-100 dark:bg-surface'
-          : 'bg-gray-50 dark:bg-surface-elevated p-4'
-      }`}
-      style={isMobile ? { top: `${HEADER_HEIGHT}px` } : undefined}
+      className="messages-fullscreen flex min-h-0 w-full flex-1 flex-col overflow-hidden bg-gray-100 dark:bg-surface sm:bg-gray-50 sm:p-4 sm:dark:bg-surface-elevated"
     >
       <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-xl border border-gray-200 dark:border-surface-border themed-card shadow-sm">
         {/* Chat header */}
@@ -482,8 +430,6 @@ export default function MessagesPage() {
                 ref={textareaRef}
                 value={content}
                 onChange={(e) => setContent(e.target.value)}
-                onFocus={updateChatLayout}
-                onBlur={handleInputBlur}
                 onKeyDown={handleKeyDown}
                 rows={1}
                 placeholder="Message"

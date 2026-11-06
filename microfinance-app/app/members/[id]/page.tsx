@@ -12,6 +12,7 @@ import {
 } from '../../components/buttons/ActionButtons';
 import BackTitle from '../../components/common/BackTitle';
 import SwipeableTabs from '../../components/SwipeableTabs';
+import { useBreadcrumbLabel } from '@/components/kit/app-shell/breadcrumb-labels';
 import DueAccountCard from '../../components/dues/DueAccountCard';
 
 interface ChitFundMember {
@@ -67,6 +68,7 @@ export default function MemberDetailPage() {
   const memberId = params.id;
 
   const [member, setMember] = useState<GlobalMember | null>(null);
+  useBreadcrumbLabel(`/members/${memberId}`, member?.name);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 

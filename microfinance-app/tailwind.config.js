@@ -1,3 +1,4 @@
+const plugin = require('tailwindcss/plugin');
 const themeExtension = require('./tailwind.theme');
 
 module.exports = {
@@ -17,10 +18,12 @@ module.exports = {
       },
     },
   },
-  // Safelist classes used in dynamic template literals (JIT won't detect them otherwise)
-  safelist: [
-    'lg:w-16',
-    'lg:w-64',
+  plugins: [
+    require('tailwindcss-animate'),
+    // `sidebar-collapsed:` applies while the desktop sidebar is collapsed to icons
+    // (<html data-sidebar="collapsed">, set before first paint by app/theme/inline-script.ts).
+    plugin(({ addVariant }) => {
+      addVariant('sidebar-collapsed', 'html[data-sidebar="collapsed"] &');
+    }),
   ],
-  plugins: [require('tailwindcss-animate')],
 };

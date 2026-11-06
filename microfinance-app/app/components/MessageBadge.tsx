@@ -12,43 +12,32 @@ export default function MessageBadge() {
   const eventSourceRef = useRef<EventSource | null>(null);
   const isOnMessagesPage = pathname === '/messages';
 
+  // Read through a ref so moving to and from /messages does not reopen the stream:
+  // the shell mounts this once and the connection stays up across navigation.
+  const onMessagesPageRef = useRef(isOnMessagesPage);
+  onMessagesPageRef.current = isOnMessagesPage;
+
   useEffect(() => {
     const es = new EventSource('/api/messages/stream');
     eventSourceRef.current = es;
 
+    const applyCount = (event: MessageEvent) => {
+      try {
+        const data = JSON.parse(event.data);
+        if (!onMessagesPageRef.current && typeof data.unreadCount === 'number') {
+          setUnreadCount(data.unreadCount);
+        }
+      } catch {
+        // ignore
+      }
+    };
+
     es.addEventListener('connected', (event) => {
       setConnected(true);
-      try {
-        const data = JSON.parse(event.data);
-        if (!isOnMessagesPage && typeof data.unreadCount === 'number') {
-          setUnreadCount(data.unreadCount);
-        }
-      } catch {
-        // ignore
-      }
+      applyCount(event as MessageEvent);
     });
-
-    es.addEventListener('chat_message', (event) => {
-      try {
-        const data = JSON.parse(event.data);
-        if (!isOnMessagesPage && typeof data.unreadCount === 'number') {
-          setUnreadCount(data.unreadCount);
-        }
-      } catch {
-        // ignore
-      }
-    });
-
-    es.addEventListener('unread_count', (event) => {
-      try {
-        const data = JSON.parse(event.data);
-        if (!isOnMessagesPage && typeof data.unreadCount === 'number') {
-          setUnreadCount(data.unreadCount);
-        }
-      } catch {
-        // ignore
-      }
-    });
+    es.addEventListener('chat_message', applyCount);
+    es.addEventListener('unread_count', applyCount);
 
     es.onerror = () => {
       setConnected(false);
@@ -58,7 +47,7 @@ export default function MessageBadge() {
       es.close();
       eventSourceRef.current = null;
     };
-  }, [isOnMessagesPage]);
+  }, []);
 
   useEffect(() => {
     if (isOnMessagesPage) {
@@ -69,18 +58,20 @@ export default function MessageBadge() {
   return (
     <Link
       href="/messages"
-      className="relative p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-surface-hover transition-colors"
-      aria-label="Messages"
+      className="relative inline-flex h-10 w-10 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring aria-[current=page]:bg-primary-subtle aria-[current=page]:text-primary-text"
+      aria-label={unreadCount > 0 && !isOnMessagesPage ? `Messages, ${unreadCount} unread` : 'Messages'}
+      aria-current={isOnMessagesPage ? 'page' : undefined}
     >
-      <ChatBubbleLeftRightIcon className="w-5 h-5 text-gray-400" />
+      <ChatBubbleLeftRightIcon aria-hidden="true" className="w-5 h-5" />
       {unreadCount > 0 && !isOnMessagesPage && (
-        <span className="absolute -top-0.5 -right-0.5 flex items-center justify-center min-w-[18px] h-[18px] px-1 text-[10px] font-bold text-white bg-red-500 rounded-full">
+        <span aria-hidden="true" className="absolute top-0.5 right-0.5 flex items-center justify-center min-w-[18px] h-[18px] px-1 text-[10px] font-bold text-white bg-red-500 rounded-full">
           {unreadCount > 99 ? '99+' : unreadCount}
         </span>
       )}
       {connected && (
         <span
-          className="absolute bottom-0.5 right-0.5 w-2 h-2 bg-green-500 rounded-full border border-white"
+          aria-hidden="true"
+          className="absolute bottom-1.5 right-1.5 w-2 h-2 bg-green-500 rounded-full border border-sidebar"
           title="Live"
         />
       )}

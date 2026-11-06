@@ -24,12 +24,14 @@ import BackTitle from "../../components/common/BackTitle";
 import { useFirstLoad, refreshingClass } from "../../hooks/useFirstLoad";
 import { invalidateDashboardCache } from "../../../lib/dashboardCache";
 import SwipeableTabs from "../../components/SwipeableTabs";
+import { useBreadcrumbLabel } from "@/components/kit/app-shell/breadcrumb-labels";
 
 const LoanDetailPage = () => {
   const params = useParams();
   const id = params.id;
   const { selectedPartner, loading: partnerLoading } = usePartner();
   const [loan, setLoan] = useState<Loan | null>(null);
+  useBreadcrumbLabel(`/loans/${id}`, loan?.borrower?.name);
   const [loading, setLoading] = useState(true);
   const { initialLoading, refreshing } = useFirstLoad(loading);
   const [updating, setUpdating] = useState(false);

@@ -5,7 +5,7 @@
     "alert": 19,
     "confirm": 2,
     "hardNav": 2,
-    "palette": 335
+    "palette": 331
   },
   "files": {
     "app/activities/page.tsx": {
@@ -98,9 +98,6 @@
     "app/components/FinancialGraph.tsx": {
       "palette": 3
     },
-    "app/components/HeaderUserProfile.tsx": {
-      "palette": 1
-    },
     "app/components/MonthlyAggregationsCard.tsx": {
       "palette": 3
     },
@@ -118,12 +115,6 @@
     },
     "app/components/PendingLoansModal.tsx": {
       "palette": 5
-    },
-    "app/components/Sidebar.tsx": {
-      "palette": 2
-    },
-    "app/components/SidebarUserMenu.tsx": {
-      "palette": 1
     },
     "app/components/TransactionForm.tsx": {
       "palette": 4

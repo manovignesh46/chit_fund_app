@@ -99,6 +99,18 @@ export default function NotificationBell() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  // Escape closes the panel and returns focus to the bell.
+  useEffect(() => {
+    if (!isOpen) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return;
+      setIsOpen(false);
+      dropdownRef.current?.querySelector<HTMLButtonElement>('button')?.focus();
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [isOpen]);
+
   const handleToggle = async () => {
     const nextOpen = !isOpen;
     setIsOpen(nextOpen);
@@ -153,23 +165,25 @@ export default function NotificationBell() {
   return (
     <div className="relative" ref={dropdownRef}>
       <button
+        type="button"
         onClick={handleToggle}
-        className="relative p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-surface-hover transition-colors"
-        aria-label="Notifications"
+        className="relative inline-flex h-10 w-10 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring aria-expanded:bg-sidebar-accent"
+        aria-label={unreadCount > 0 ? `Notifications, ${unreadCount} unread` : 'Notifications'}
+        aria-expanded={isOpen}
       >
-        <BellIcon className="w-5 h-5 text-gray-400" />
+        <BellIcon aria-hidden="true" className="w-5 h-5" />
         {unreadCount > 0 && (
-          <span className="absolute -top-0.5 -right-0.5 flex items-center justify-center min-w-[18px] h-[18px] px-1 text-[10px] font-bold text-white bg-red-500 rounded-full">
+          <span aria-hidden="true" className="absolute top-0.5 right-0.5 flex items-center justify-center min-w-[18px] h-[18px] px-1 text-[10px] font-bold text-white bg-red-500 rounded-full">
             {unreadCount > 99 ? '99+' : unreadCount}
           </span>
         )}
         {connected && (
-          <span className="absolute bottom-0.5 right-0.5 w-2 h-2 bg-green-500 rounded-full border border-white dark:border-surface-card" title="Live" />
+          <span aria-hidden="true" className="absolute bottom-1.5 right-1.5 w-2 h-2 bg-green-500 rounded-full border border-sidebar" title="Live" />
         )}
       </button>
 
       {isOpen && (
-        <div className="fixed inset-x-3 top-16 sm:absolute sm:inset-x-auto sm:top-auto sm:right-0 sm:mt-2 w-auto sm:w-80 md:w-96 max-w-[calc(100vw-1.5rem)] sm:max-w-none themed-card border border-gray-200 dark:border-surface-border z-50 shadow-lg">
+        <div className="fixed inset-x-3 top-[calc(var(--topbar-height)+0.5rem)] sm:absolute sm:inset-x-auto sm:top-auto sm:right-0 sm:mt-2 w-auto sm:w-80 md:w-96 max-w-[calc(100vw-1.5rem)] sm:max-w-none themed-card border border-gray-200 dark:border-surface-border z-50 shadow-lg">
           <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 dark:border-surface-border">
             <h3 className="text-sm font-semibold text-gray-900 dark:text-theme-primary">Notifications</h3>
             {unreadCount > 0 && (

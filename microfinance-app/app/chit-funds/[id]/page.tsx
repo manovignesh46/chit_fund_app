@@ -23,6 +23,7 @@ ExportButton,
 } from '../../components/buttons/ActionButtons';
 import BackTitle from '../../components/common/BackTitle';
 import SwipeableTabs from '../../components/SwipeableTabs';
+import { useBreadcrumbLabel } from '@/components/kit/app-shell/breadcrumb-labels';
 
 // Define Member type
 type Member = ChitFundMember;
@@ -40,6 +41,7 @@ const ChitFundDetails = () => {
   const router = useRouter();
   const id = params.id;
   const [chitFund, setChitFund] = useState<ChitFund | null>(null);
+  useBreadcrumbLabel(`/chit-funds/${id}`, chitFund?.name);
   const [members, setMembers] = useState<Member[]>([]);
   const [auctions, setAuctions] = useState<Auction[]>([]);
   const [contributions, setContributions] = useState<any[]>([]);

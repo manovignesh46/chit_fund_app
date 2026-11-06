@@ -1,118 +1,132 @@
-// @ts-nocheck
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import * as React from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { ChevronsUpDown, LogOut, Settings } from 'lucide-react';
 import { authAPI } from '../../lib/api';
 import { invalidateDashboardCache } from '../../lib/dashboardCache';
+import { usePartner } from '../contexts/PartnerContext';
 
-interface SidebarUserMenuProps {
-  showDetails: boolean;
-  onClose: () => void;
-}
-
-export default function SidebarUserMenu({ showDetails, onClose }: SidebarUserMenuProps) {
-  const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [menuOpen, setMenuOpen] = useState(false);
-  const menuRef = useRef<HTMLDivElement>(null);
+/**
+ * Sign out and drop everything cached for this user: the SWR cache (authAPI.logout
+ * and the /login route both clear it), the dashboard summary in localStorage, and
+ * the saved partner. Shared by the sidebar footer and the phone More sheet.
+ */
+export function useSignOut() {
   const router = useRouter();
-
-  useEffect(() => {
-    const checkAuth = async () => {
-      try {
-        const userData = await authAPI.getCurrentUser();
-        setUser(userData);
-      } catch {
-        setUser(null);
-      } finally {
-        setLoading(false);
-      }
-    };
-    checkAuth();
-  }, []);
-
-  // Close on outside click
-  useEffect(() => {
-    if (!menuOpen) return;
-    const handler = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        setMenuOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, [menuOpen]);
-
-  const handleLogout = async () => {
+  const [pending, setPending] = React.useState(false);
+  const signOut = React.useCallback(async () => {
+    setPending(true);
     try {
       await authAPI.logout();
-      setUser(null);
       // Do not leave this user's cached dashboard figures for the next login.
       invalidateDashboardCache();
-      if (typeof window !== 'undefined') {
+      try {
         localStorage.removeItem('selectedPartnerId');
         localStorage.removeItem('selectedPartnerName');
+      } catch {
+        // storage blocked
       }
       router.push('/login');
     } catch (error) {
       console.error('Logout error:', error);
+      setPending(false);
     }
-  };
+  }, [router]);
+  return { signOut, pending };
+}
 
-  if (loading || !user) return null;
+/** First letter of the user's name, for the avatar. */
+export function initialOf(name: string | undefined | null): string {
+  return (name || '?').trim().charAt(0).toUpperCase() || '?';
+}
+
+/**
+ * Sidebar footer: avatar with name and email (labels hidden when the sidebar is
+ * collapsed), opening a small menu with Settings and Sign out. Escape or a click
+ * outside closes it and focus returns to the trigger.
+ */
+export default function SidebarUserMenu() {
+  const { currentUser } = usePartner();
+  const { signOut, pending } = useSignOut();
+  const [open, setOpen] = React.useState(false);
+  const rootRef = React.useRef<HTMLDivElement>(null);
+  const triggerRef = React.useRef<HTMLButtonElement>(null);
+  const menuRef = React.useRef<HTMLDivElement>(null);
+  const menuId = React.useId();
+
+  React.useEffect(() => {
+    if (!open) return;
+    menuRef.current?.querySelector<HTMLElement>('a,button')?.focus();
+    const onPointer = (event: MouseEvent) => {
+      if (rootRef.current && !rootRef.current.contains(event.target as Node)) setOpen(false);
+    };
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        event.stopPropagation();
+        setOpen(false);
+        triggerRef.current?.focus();
+      }
+    };
+    document.addEventListener('mousedown', onPointer);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onPointer);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [open]);
+
+  if (!currentUser) return <div className="h-12" aria-hidden="true" />;
+
+  const itemClass =
+    'flex w-full items-center gap-2.5 rounded-sm px-3 py-2.5 text-sm text-popover-foreground transition-colors hover:bg-accent focus-visible:bg-accent focus-visible:outline-none';
 
   return (
-    <div ref={menuRef} className="relative w-full">
-      {/* Popover — renders above the footer trigger */}
-      {menuOpen && (
-        <div className="absolute bottom-full left-0 mb-2 w-48 bg-white dark:bg-surface-elevated border border-gray-200 dark:border-surface-border rounded-lg shadow-lg py-1 z-50">
-          <Link
-            href="/settings"
-            onClick={() => {
-              setMenuOpen(false);
-              if (window.innerWidth < 1024) onClose();
-            }}
-            className="flex items-center gap-2.5 px-3 py-2.5 text-sm text-gray-700 dark:text-theme-secondary hover:bg-gray-100 dark:hover:bg-surface-hover hover:text-gray-900 dark:hover:text-theme-primary transition-colors"
-          >
-            <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-            </svg>
+    <div ref={rootRef} className="relative">
+      {open ? (
+        <div
+          ref={menuRef}
+          id={menuId}
+          className="absolute bottom-full left-0 z-50 mb-2 w-56 rounded-lg border bg-popover p-1 shadow-lg"
+        >
+          <div className="border-b px-3 pb-2 pt-1.5">
+            <p className="truncate text-sm font-medium text-popover-foreground">{currentUser.name}</p>
+            <p className="truncate text-xs text-muted-foreground">{currentUser.email}</p>
+          </div>
+          <Link href="/settings" onClick={() => setOpen(false)} className={`${itemClass} mt-1`}>
+            <Settings aria-hidden="true" className="h-4 w-4 shrink-0 text-muted-foreground" />
             Settings
           </Link>
-          <button
-            onClick={handleLogout}
-            className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm text-gray-700 dark:text-theme-secondary hover:bg-gray-100 dark:hover:bg-surface-hover hover:text-gray-900 dark:hover:text-theme-primary transition-colors"
-          >
-            <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-            </svg>
-            Sign out
+          <button type="button" onClick={signOut} disabled={pending} className={itemClass}>
+            <LogOut aria-hidden="true" className="h-4 w-4 shrink-0 text-muted-foreground" />
+            {pending ? 'Signing out…' : 'Sign out'}
           </button>
         </div>
-      )}
+      ) : null}
 
-      {/* Footer trigger — always collapsed, click to open */}
       <button
-        onClick={() => setMenuOpen((v) => !v)}
-        className={`w-full flex items-center gap-3 rounded-lg px-2 py-2 hover:bg-gray-100 dark:hover:bg-surface-hover transition-colors text-left ${menuOpen ? 'bg-gray-100 dark:bg-surface-hover' : ''}`}
+        ref={triggerRef}
+        type="button"
+        aria-expanded={open}
+        aria-controls={open ? menuId : undefined}
+        aria-label={`Account: ${currentUser.name}`}
+        onClick={() => setOpen((value) => !value)}
+        className={`flex h-12 w-full items-center gap-3 rounded-md px-1.5 text-left transition-colors hover:bg-sidebar-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring ${
+          open ? 'bg-sidebar-accent' : ''
+        }`}
       >
-        <div className="bg-blue-600 text-white rounded-full w-9 h-9 flex items-center justify-center flex-shrink-0">
-          <span className="text-sm font-semibold">{user.name.charAt(0).toUpperCase()}</span>
-        </div>
-        {showDetails && (
-          <div className="flex-1 min-w-0 text-left">
-            <p className="text-sm font-medium text-gray-800 dark:text-white truncate">{user.name}</p>
-            <p className="text-xs text-gray-500 dark:text-theme-muted truncate">{user.email}</p>
-          </div>
-        )}
-        {showDetails && (
-          <svg className={`w-4 h-4 flex-shrink-0 text-gray-400 transition-transform duration-150 ${menuOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 15l7-7 7 7" />
-          </svg>
-        )}
+        <span
+          aria-hidden="true"
+          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary text-sm font-semibold text-primary-foreground"
+        >
+          {initialOf(currentUser.name)}
+        </span>
+        <span className="min-w-0 flex-1 sidebar-collapsed:hidden">
+          <span className="block truncate text-sm font-medium text-sidebar-accent-foreground">{currentUser.name}</span>
+          <span className="block truncate text-xs text-muted-foreground">{currentUser.email}</span>
+        </span>
+        <ChevronsUpDown aria-hidden="true" className="h-4 w-4 shrink-0 text-muted-foreground sidebar-collapsed:hidden" />
       </button>
     </div>
   );

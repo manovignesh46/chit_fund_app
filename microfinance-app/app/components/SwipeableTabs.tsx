@@ -26,14 +26,12 @@ const SETTLE = "transform 280ms cubic-bezier(0.22, 0.61, 0.36, 1)";
  * tabs; the track follows the finger and snaps to the next/previous tab on
  * release. Tab-button clicks (which change `activeTab`) animate the same slide.
  *
- * Design notes / constraints preserved (mirrors Sidebar.tsx gesture logic):
+ * Design notes / constraints:
  *  - Listeners bind to this component's own element (not `document`) and the
  *    component only mounts once its page's content is past the loading gate, so
  *    the gesture works on first touch — no stale/null-ref binding.
  *  - `preventDefault` is called ONLY on a locked horizontal drag we own, so
  *    vertical page scrolling is never blocked.
- *  - A right-swipe originating in the left 1/3 of the screen is handed off to
- *    the sidebar's swipe-to-open gesture.
  *  - A horizontal swipe over a still-scrollable element (e.g. a wide table in
  *    `.table-shell`) is handed off to the browser so the table scrolls.
  *  - Desktop (>= 1024px) has no drag; tab clicks still animate the slide.
@@ -73,8 +71,7 @@ export default function SwipeableTabs<T extends string>({
       velocityX: 0,
       locked: null as null | "h" | "v",
       owning: false, // we are actively dragging the track
-      ignored: false, // gesture handed off (vertical / sidebar / table scroll)
-      originLeftThird: false,
+      ignored: false, // gesture handed off (vertical / table scroll)
     };
 
     const baseTransform = () =>
@@ -100,7 +97,6 @@ export default function SwipeableTabs<T extends string>({
       g.locked = null;
       g.owning = false;
       g.ignored = false;
-      g.originLeftThird = t.clientX < window.innerWidth / 3;
     };
 
     const onMove = (e: TouchEvent) => {
@@ -118,12 +114,6 @@ export default function SwipeableTabs<T extends string>({
 
         if (g.locked === "v") {
           g.ignored = true; // vertical -> let the page scroll
-          return;
-        }
-
-        // Right-swipe from the left 1/3 is reserved for the sidebar open gesture.
-        if (dx > 0 && g.originLeftThird) {
-          g.ignored = true;
           return;
         }
 

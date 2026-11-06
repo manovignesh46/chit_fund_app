@@ -11,6 +11,14 @@ interface Partner {
   createdAt: string;
 }
 
+/** The signed-in account, from /api/user?action=me (loaded once with the partners). */
+export interface CurrentUser {
+  id: number;
+  name: string;
+  email: string;
+  role: string;
+}
+
 interface PartnerContextType {
   selectedPartner: Partner | null;
   setSelectedPartner: (partner: Partner | null) => void;
@@ -22,6 +30,7 @@ interface PartnerContextType {
   otherPartner: string;
   partnerLocked: boolean;
   isPrimaryAdmin: boolean;
+  currentUser: CurrentUser | null;
 }
 
 const PartnerContext = createContext(undefined);
@@ -39,6 +48,7 @@ export function PartnerProvider({ children }: PartnerProviderProps) {
   const [isPrimaryAdmin, setIsPrimaryAdmin] = useState(false);
   const [showPartnerModal, setShowPartnerModal] = useState(false);
   const [userProfileLoaded, setUserProfileLoaded] = useState(false);
+  const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
 
   const refreshPartners = async (retryCount = 0) => {
     try {
@@ -70,6 +80,7 @@ export function PartnerProvider({ children }: PartnerProviderProps) {
 
       if (profileResponse.ok) {
         const profile = await profileResponse.json();
+        setCurrentUser(profile?.id ? { id: profile.id, name: profile.name || '', email: profile.email || '', role: profile.role || '' } : null);
         profilePartnerLocked = !!profile.partnerLocked;
         profileIsPrimaryAdmin = !!profile.isPrimaryAdmin;
         setPartnerLocked(profilePartnerLocked);
@@ -187,6 +198,7 @@ export function PartnerProvider({ children }: PartnerProviderProps) {
     otherPartner,
     partnerLocked,
     isPrimaryAdmin,
+    currentUser,
   };
 
   return (

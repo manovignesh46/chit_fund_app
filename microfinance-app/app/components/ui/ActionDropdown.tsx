@@ -23,7 +23,9 @@ export default function ActionDropdown({ actions, className = '' }: ActionDropdo
   const dropdownRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
 
-  // Enhanced positioning with mobile-specific handling
+  // Enhanced positioning with mobile-specific handling. The menu is position: fixed,
+  // so coordinates are viewport-relative: no window scroll offsets (the document
+  // scrolls since the app shell change).
   const calculatePosition = () => {
     if (buttonRef.current) {
       const rect = buttonRef.current.getBoundingClientRect();
@@ -36,22 +38,22 @@ export default function ActionDropdown({ actions, className = '' }: ActionDropdo
 
       if (isMobile) {
         // Mobile: Position dropdown in center of screen, above button if possible
-        topPosition = Math.max(20, rect.top - dropdownHeight - 10 + window.scrollY);
-        leftPosition = (window.innerWidth - dropdownWidth) / 2 + window.scrollX;
+        topPosition = Math.max(20, rect.top - dropdownHeight - 10);
+        leftPosition = (window.innerWidth - dropdownWidth) / 2;
 
         // If dropdown would go off top of screen, position it below button
         if (topPosition < 20) {
-          topPosition = rect.bottom + 10 + window.scrollY;
+          topPosition = rect.bottom + 10;
         }
       } else {
         // Desktop: Position above the button
-        topPosition = rect.top - dropdownHeight - 10 + window.scrollY;
+        topPosition = rect.top - dropdownHeight - 10;
 
         // Center horizontally relative to button
-        leftPosition = rect.left + (rect.width / 2) - (dropdownWidth / 2) + window.scrollX;
+        leftPosition = rect.left + (rect.width / 2) - (dropdownWidth / 2);
 
         // Ensure it stays within viewport horizontally
-        leftPosition = Math.max(10, Math.min(leftPosition, window.innerWidth - dropdownWidth - 10 + window.scrollX));
+        leftPosition = Math.max(10, Math.min(leftPosition, window.innerWidth - dropdownWidth - 10));
 
         // Ensure it stays within viewport vertically
         topPosition = Math.max(10, topPosition);
