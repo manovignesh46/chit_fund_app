@@ -244,6 +244,9 @@ export default function RepaymentForm({ loanId, onSuccess, onCancel, initialLoan
   };
 
   if (loading) return <div className="p-6 text-center text-gray-500">Loading form...</div>;
+  if (loan?.status === 'Non-Recoverable') return <div className="themed-card p-6 text-sm">
+    This loan is Non-Recoverable. <a className="text-green-700 underline" href={`/loans/${loanId}#loan-recovery`}>Record an offline recovery on Loan Details.</a>
+  </div>;
 
   return (
     <div className="themed-card overflow-hidden">

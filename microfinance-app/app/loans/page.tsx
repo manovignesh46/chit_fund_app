@@ -79,8 +79,13 @@ export default function LoansPage() {
   // Export state
   const [isExporting, setIsExporting] = useState(false);
 
+  const [recoverySummary, setRecoverySummary] = useState(null);
+
   // Status filter state
   const [statusFilter, setStatusFilter] = useState<string>('Active');
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get('status') === 'Non-Recoverable') setStatusFilter('Non-Recoverable');
+  }, []);
 
   // Add sorting functionality
   const { items: sortedLoans, sortConfig, requestSort } = useSortableData(loans);
@@ -103,6 +108,7 @@ export default function LoansPage() {
       }
 
       const data: PaginatedResponse = await response.json();
+      setRecoverySummary(data.recoverySummary || null);
       console.log('Fetched loans:', data);
 
       // Check if the response has pagination metadata
@@ -301,6 +307,8 @@ export default function LoansPage() {
   // Get status color
   const getStatusColor = (status: string) => {
     switch (status) {
+      case 'Non-Recoverable':
+        return 'bg-red-100 text-red-800 dark:badge-overdue';
       case 'Active':
         return 'bg-green-100 text-green-800 dark:status-badge-active';
       case 'Pending':
@@ -385,6 +393,7 @@ export default function LoansPage() {
             <option value="Pending">Pending</option>
             <option value="Completed">Completed</option>
             <option value="Defaulted">Defaulted</option>
+            <option value="Non-Recoverable">Non-Recoverable</option>
           </select>
 
           {statusFilter && (
@@ -397,6 +406,16 @@ export default function LoansPage() {
           )}
         </div>
       </div>
+
+      {statusFilter === 'Non-Recoverable' && <section className="themed-card p-4 mb-4">
+        <h2 className="text-lg font-semibold">Non-Recoverable Loans</h2>
+        <p className="text-sm text-gray-500 dark:text-theme-secondary mt-1">These loans are excluded from routine collections. Open a loan to record offline recovery or view its audit history.</p>
+        {recoverySummary && <div className="flex flex-wrap gap-6 mt-3 text-sm">
+          <p>Principal outstanding <strong>{formatCurrency(recoverySummary.principal)}</strong></p>
+          <p>Unpaid interest tracked <strong>{formatCurrency(recoverySummary.interest)}</strong></p>
+          <p>Recovered <strong>{formatCurrency(recoverySummary.recovered)}</strong></p>
+        </div>}
+      </section>}
 
       {loading ? (
         <LoansListSkeleton />
@@ -570,12 +589,19 @@ export default function LoansPage() {
                       <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusColor(loan.status)}`}>
                         {loan.status}
                       </span>
+                      {loan.status === 'Non-Recoverable' && <div className="text-xs text-gray-500 mt-1">
+                        {loan.recoveryOutcome === 'Recovered' ? 'Fully Recovered' : loan.recoveryOutcome || 'Open'} · {formatDate(loan.nonRecoverableAt)}
+                        <span className="block max-w-xs whitespace-normal">{loan.nonRecoverableReason}</span>
+                        <span className="block">At marking: {formatCurrency(loan.recoveryPrincipalAtMark)} principal · {formatCurrency(loan.recoveryDuesAtMark)} installment dues</span>
+                        <span className="block">Recovered: {formatCurrency(loan.recoveryAmount || 0)} · Interest remaining: {formatCurrency(loan.recoveryInterestOutstanding || 0)}</span>
+                      </div>}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                       <ActionDropdown
                         actions={[
                           {
                             label: 'Edit',
+                            disabled: !!loan.nonRecoverableAt,
                             href: `/loans/${loan.id}/edit`,
                             onClick: () => {},
                             icon: (
@@ -610,6 +636,7 @@ export default function LoansPage() {
                           },
                           {
                             label: 'Delete',
+                            disabled: !!loan.nonRecoverableAt,
                             onClick: () => handleDeleteLoan(loan.id),
                             icon: (
                               <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

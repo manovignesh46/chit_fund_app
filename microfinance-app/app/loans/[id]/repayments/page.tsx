@@ -368,7 +368,7 @@ const RepaymentsPage = () => {
                   </div>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="text-sm text-gray-900 dark:text-theme-primary">{repayment.period ? `Period ${repayment.period}` : '-'}</div>
+                  <div className="text-sm text-gray-900 dark:text-theme-primary">{repayment.paymentType === 'RECOVERY' ? 'Offline recovery' : repayment.period ? `Period ${repayment.period}` : '-'}</div>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
                   <div className="text-sm text-gray-900 dark:text-theme-primary">{repayment.dueDate ? formatDate(repayment.dueDate) : '-'}</div>
@@ -389,7 +389,7 @@ const RepaymentsPage = () => {
                   </div>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
-                  {repayment.paymentType === 'INTEREST_ONLY' ? (
+                  {repayment.paymentType === 'RECOVERY' ? <span className="px-3 py-1.5 text-sm font-medium rounded-full bg-gray-100 text-gray-800">Offline Recovery</span> : repayment.paymentType === 'INTEREST_ONLY' ? (
                     <span className="px-3 py-1.5 text-sm font-medium rounded-full bg-blue-100 text-blue-800 border border-blue-300 shadow-sm flex items-center">
                       <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1 text-blue-600" viewBox="0 0 20 20" fill="currentColor">
                         <path d="M8.433 7.418c.155-.103.346-.196.567-.267v1.698a2.305 2.305 0 01-.567-.267C8.07 8.34 8 8.114 8 8c0-.114.07-.34.433-.582zM11 12.849v-1.698c.22.071.412.164.567.267.364.243.433.468.433.582 0 .114-.07.34-.433.582a2.305 2.305 0 01-.567.267z" />
@@ -414,12 +414,13 @@ const RepaymentsPage = () => {
                   </div>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                  <button
+                  {!loan.nonRecoverableAt && <button
                     onClick={() => handleDeleteRepayment(repayment.id)}
                     className="text-red-600 hover:text-red-900"
                   >
                     Delete
-                  </button>
+                  </button>}
+                  {loan.nonRecoverableAt && <Link href={`/loans/${id}#loan-recovery`} className="text-blue-600 underline">Recovery details</Link>}
                   <Link
                     href={`/loans/${id}/payment-schedules`}
                     className="ml-3 text-blue-600 hover:text-blue-900"

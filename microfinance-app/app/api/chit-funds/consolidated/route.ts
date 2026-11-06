@@ -6,6 +6,7 @@ import { calculateTransactionBalance, getCurrentPartnerBalance, getCurrentTotalB
 import { calculateChitFundProfitUpToCurrentMonth, calculateChitFundOutsideAmount } from '../../../../lib/financialUtils';
 import { autoUpdateCurrentMonths } from '../../../../lib/timeUtils';
 import { notifyOtherAdmins, getActorName } from '../../../../lib/notifications';
+import { BalancePaymentError, planBalancePayment } from '../../../../lib/contributionBalance';
 
 // Use ISR with a 5-minute revalidation period
 export const revalidate = 300; // 5 minutes
@@ -132,6 +133,14 @@ export async function POST(request: NextRequest) {
           );
         }
         return await addContribution(request, id, currentUserId);
+      case 'pay-contribution-balance':
+        if (!id) {
+          return NextResponse.json(
+            { error: 'Chit fund ID is required' },
+            { status: 400 }
+          );
+        }
+        return await payContributionBalance(request, id, currentUserId);
       case 'add-auction':
         if (!id) {
           return NextResponse.json(
@@ -774,6 +783,9 @@ async function getContributions(request: NextRequest, id: number, memberId: numb
       amount: true,
       paidDate: true,
       balance: true, // Include balance for outstanding calculations
+      balancePaymentStatus: true,
+      balancePaymentDate: true,
+      actualBalancePaymentDate: true,
     },
     orderBy: [
       { month: 'desc' },
@@ -1169,6 +1181,133 @@ async function addContribution(request: NextRequest, id: number, currentUserId: 
     console.error('Error in contribution creation process:', error);
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     return NextResponse.json({ error: `Failed to create contribution: ${errorMessage}` }, { status: 500 });
+  }
+}
+
+// Prisma's default 5 second limit on an interactive transaction is too tight when the database is
+// far from the app server (each statement is a network round trip), so allow these writes longer.
+const BALANCE_WRITE_TRANSACTION = { maxWait: 10000, timeout: 20000 };
+
+// Handler for paying part or all of a contribution's outstanding balance.
+// The member's single row for the month is topped up, and the cash received is recorded as its
+// own ledger entry (dated when it was received) linked back to that contribution.
+async function payContributionBalance(request: NextRequest, id: number, currentUserId: number) {
+  const body = await request.json();
+  const activePartnerName = request.headers.get('x-active-partner') || 'Me';
+
+  const contributionId = Number(body?.contributionId);
+  if (!Number.isSafeInteger(contributionId) || contributionId <= 0) {
+    return NextResponse.json({ error: 'Contribution ID is required' }, { status: 400 });
+  }
+
+  const chitFund = await prisma.chitFund.findUnique({ where: { id } });
+  if (!chitFund || chitFund.createdById !== currentUserId) {
+    return NextResponse.json({ error: 'Chit fund not found or permission denied' }, { status: 403 });
+  }
+
+  const collector = await prisma.partner.findFirst({
+    where: { name: activePartnerName, createdById: currentUserId, isActive: true },
+  });
+  if (!collector) {
+    return NextResponse.json({ error: `Partner "${activePartnerName}" not found` }, { status: 404 });
+  }
+
+  try {
+    // Read what does not need the lock before the transaction starts, so the transaction itself
+    // stays short (every statement inside it is a round trip to the database).
+    const target = await prisma.contribution.findFirst({
+      where: { id: contributionId, chitFundId: id },
+      select: { id: true, month: true, member: { select: { globalMember: { select: { name: true } } } } },
+    });
+    if (!target) throw new BalancePaymentError('Contribution not found in this chit fund', 404);
+    const memberName = target.member.globalMember.name;
+
+    const amountPaid = await prisma.$transaction(async (tx) => {
+      // Same lock the loan repayment writers take, so running balances are read and written in order
+      // and two payments against one balance cannot both pass the check below.
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext('partner-balance'), ${currentUserId}::integer)`;
+
+      // Re-read the amounts under the lock: this is the check that stops a balance being paid twice.
+      const existing = await tx.contribution.findFirst({
+        where: { id: contributionId, chitFundId: id },
+        select: { id: true, amount: true, balance: true, balancePaymentStatus: true, paidDate: true },
+      });
+      if (!existing) throw new BalancePaymentError('Contribution not found in this chit fund', 404);
+
+      const plan = planBalancePayment(existing, body.amount, body.paidDate);
+
+      const currentPartnerBalance = await getCurrentPartnerBalance(collector.id, currentUserId, undefined, tx);
+      const currentTotalBalance = await getCurrentTotalBalance(currentUserId, undefined, tx);
+      const balanceCalculation = calculateTransactionBalance(
+        {
+          type: TRANSACTION_TYPES_CONFIG.CHIT_CONTRIBUTION,
+          amount: plan.amount,
+          from_partner_id: null,
+          to_partner_id: collector.id,
+        },
+        collector.id,
+        currentPartnerBalance,
+        currentTotalBalance
+      );
+
+      await tx.transaction.create({
+        data: {
+          type: TRANSACTION_TYPES_CONFIG.CHIT_CONTRIBUTION,
+          amount: plan.amount,
+          date: plan.paidDate,
+          note: `Chit contribution from ${memberName} - ${chitFund.name} Month ${target.month} (balance payment)`,
+          createdById: currentUserId,
+          action_performer: collector.name,
+          entered_by: collector.name,
+          to_partner_id: collector.id,
+          partnerBalance: balanceCalculation.partnerBalance,
+          totalBalance: balanceCalculation.totalBalance,
+          balanceContributionId: existing.id,
+        },
+        select: { id: true },
+      });
+
+      await tx.contribution.update({
+        where: { id: existing.id },
+        data: {
+          amount: plan.newAmount,
+          balance: plan.newBalance,
+          balancePaymentStatus: plan.balancePaymentStatus,
+          actualBalancePaymentDate: plan.actualBalancePaymentDate,
+        },
+        select: { id: true },
+      });
+      return plan.amount;
+    }, BALANCE_WRITE_TRANSACTION);
+
+    // The payment is committed. Load the row with its relations for the response.
+    const contribution = await prisma.contribution.findUnique({
+      where: { id: contributionId },
+      include: {
+        collectedBy: true,
+        enteredBy: true,
+        member: { include: { globalMember: true } },
+      },
+    });
+
+    const actorUserId = (await getActorUserId(request)) ?? currentUserId;
+    const actorName = await getActorName(actorUserId);
+    await notifyOtherAdmins({
+      actorId: actorUserId,
+      type: 'contribution',
+      title: 'Chit Fund Contribution',
+      message: `${actorName} recorded a balance payment of ₹${amountPaid} from ${memberName}`,
+      link: `/chit-funds/${id}/contributions`,
+    });
+
+    return NextResponse.json(contribution);
+  } catch (error) {
+    if (error instanceof BalancePaymentError) {
+      return NextResponse.json({ error: error.message }, { status: error.status });
+    }
+    console.error('Error paying contribution balance:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    return NextResponse.json({ error: `Failed to record balance payment: ${errorMessage}` }, { status: 500 });
   }
 }
 
@@ -1798,6 +1937,9 @@ async function deleteContribution(request: NextRequest, id: number, currentUserI
   }
 
   try {
+    // Set inside the transaction callback once ledger entries have been removed; read after it commits.
+    const afterCommit: { recalculateFrom: { date: Date; id: number } | null } = { recalculateFrom: null };
+
     await prisma.$transaction(async (tx) => {
       // 1. Fetch the contribution to get its transactionId
       const contribution = await tx.contribution.findUnique({
@@ -1817,8 +1959,16 @@ async function deleteContribution(request: NextRequest, id: number, currentUserI
         throw new Error('Contribution not found or does not belong to this chit fund');
       }
 
-      const deletedTransactionDate = contribution.transaction?.date || new Date();
-      const deletedTransactionId = contribution.transaction?.id || 0;
+      // Ledger entries for later payments toward this contribution's balance go with it.
+      const balancePayments = await tx.transaction.findMany({
+        where: { balanceContributionId: contribution.id, createdById: currentUserId },
+        select: { id: true, date: true },
+      });
+      if (balancePayments.length > 0) {
+        await tx.transaction.deleteMany({
+          where: { id: { in: balancePayments.map((payment) => payment.id) } },
+        });
+      }
 
       // 2. Delete the associated transaction if it exists
       if (contribution.transactionId) {
@@ -1832,15 +1982,25 @@ async function deleteContribution(request: NextRequest, id: number, currentUserI
         where: { id: parseInt(contributionId) },
       });
 
-      // 4. Recalculate balances for all subsequent transactions
-      if (contribution.transaction) {
-        await recalculateBalancesAfterDeletion(
-          currentUserId,
-          deletedTransactionDate,
-          deletedTransactionId
-        );
+      // 4. Note where running balances have to be recalculated from: the earliest ledger entry removed.
+      const removed = [...balancePayments, ...(contribution.transaction ? [contribution.transaction] : [])];
+      if (removed.length > 0) {
+        removed.sort((a, b) => a.date.getTime() - b.date.getTime() || a.id - b.id);
+        afterCommit.recalculateFrom = { date: removed[0].date, id: removed[0].id };
       }
-    });
+    }, BALANCE_WRITE_TRANSACTION);
+
+    // 5. Recalculate balances for all subsequent transactions, once the deletion has committed.
+    // The recalculation writes through the shared client, outside this transaction. Running it
+    // before the commit meant a slow run could time the transaction out and undo the deletion
+    // while leaving the recalculated balances in place.
+    if (afterCommit.recalculateFrom) {
+      await recalculateBalancesAfterDeletion(
+        currentUserId,
+        afterCommit.recalculateFrom.date,
+        afterCommit.recalculateFrom.id
+      );
+    }
 
     return NextResponse.json({ success: true });
   } catch (error) {

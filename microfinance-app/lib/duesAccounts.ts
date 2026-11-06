@@ -75,7 +75,7 @@ export async function buildDueAccounts(
       },
       include: {
         borrower: { select: { id: true, name: true, contact: true } },
-        repayments: { select: { period: true, amount: true, paidDate: true } },
+        repayments: { select: { period: true, amount: true, paidDate: true, paymentType: true } },
       },
     }),
     db.chitFund.findMany({

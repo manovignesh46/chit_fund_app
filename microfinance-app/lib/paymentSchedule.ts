@@ -1,4 +1,5 @@
 import prisma from './/prisma';
+import { computeLoanDuePeriods, getLoanDueDate, summarizePeriods } from './duesTracker';
 
 // Use type assertion to handle TypeScript type checking
 const prismaAny = prisma as any;
@@ -236,7 +237,7 @@ export async function getDynamicPaymentSchedule(
       // Apply status filter if provided
       const matchesStatusFilter = !status || !options.status || status === options.status;
 
-      if (shouldShow && matchesStatusFilter) {
+      if (shouldShow && matchesStatusFilter && (loan.status !== 'Non-Recoverable' || repayment)) {
         dynamicSchedules.push({
           id: i, // Use period as ID since we're not storing in DB
           loanId,
@@ -297,6 +298,14 @@ export async function updateOverdueAmountFromRepayments(loanId: number) {
       throw new Error(`Loan with ID ${loanId} not found`);
     }
 
+    if (loan.nonRecoverableAt && loan.status === 'Active') {
+      const repayments = await prismaAny.repayment.findMany({ where: { loanId } });
+      const summary = summarizePeriods(computeLoanDuePeriods({ ...loan, repayments }, { start: new Date(0), end: new Date() }));
+      const result = { overdueAmount: summary.overdueAmount, missedPayments: summary.overduePeriods };
+      await prismaAny.loan.update({ where: { id: loanId, status: 'Active' }, data: result });
+      return result;
+    }
+
     // If loan is not active, no overdue
     if (loan.status !== 'Active') {
       const updatedLoan = await prismaAny.loan.update({
@@ -319,8 +328,44 @@ export async function updateOverdueAmountFromRepayments(loanId: number) {
       orderBy: { paidDate: 'asc' }
     });
 
-    // Get current date
-    const currentDate = new Date();
+    const { overdueAmount, missedPayments } = computeOverdueFromRepayments(loan, repayments);
+
+    // Update the loan with the new overdue amount and missed payments
+    await prismaAny.loan.update({
+      where: { id: loanId },
+      data: {
+        overdueAmount,
+        missedPayments
+      }
+    });
+
+    console.log(`Updated overdue amount for loan ${loanId}: ${overdueAmount}, missed payments: ${missedPayments}`);
+
+    return {
+      overdueAmount,
+      missedPayments
+    };
+  } catch (error) {
+    console.error('Error updating overdue amount from repayments:', error);
+    throw error;
+  }
+}
+
+/**
+ * Overdue rule for ordinary loans: a period with a repayment recorded against it is not overdue.
+ * Takes the loan and its repayments as arguments so callers can apply it to rows read inside
+ * their own database transaction.
+ */
+export function computeOverdueFromRepayments(
+  loan: any,
+  repayments: any[],
+  currentDate: Date = new Date()
+): { overdueAmount: number; missedPayments: number } {
+  try {
+    // If loan is not active, no overdue
+    if (loan.status !== 'Active') {
+      return { overdueAmount: 0, missedPayments: 0 };
+    }
 
     // Calculate how many payments should have been made by now
     const disbursementDate = new Date(loan.disbursementDate);
@@ -413,24 +458,12 @@ export async function updateOverdueAmountFromRepayments(loanId: number) {
       // If full payment was made, nothing to add to overdue
     }
 
-    // Update the loan with the new overdue amount and missed payments
-    const updatedLoan = await prismaAny.loan.update({
-      where: { id: loanId },
-      data: {
-        overdueAmount,
-        missedPayments
-      }
-    });
-
-    console.log(`Updated overdue amount for loan ${loanId}: ${overdueAmount}, missed payments: ${missedPayments}`);
-
-    // Return the updated values
     return {
       overdueAmount,
       missedPayments
     };
   } catch (error) {
-    console.error('Error updating overdue amount from repayments:', error);
+    console.error('Error calculating overdue amount from repayments:', error);
     throw error;
   }
 }
@@ -457,11 +490,33 @@ export async function calculateNextPaymentDate(loanId: number) {
     }
 
     // If loan is completed, no next payment date
-    if (loan.status === 'Completed' || loan.remainingAmount <= 0) {
+    if (loan.status === 'Completed' || loan.status === 'Non-Recoverable' || loan.remainingAmount <= 0) {
       return null;
     }
 
-    const currentDate = new Date();
+    if (loan.nonRecoverableAt) {
+      const periods = computeLoanDuePeriods(loan, { start: new Date(), end: getLoanDueDate(loan.disbursementDate, loan.repaymentType, loan.duration) });
+      return periods[0] ? new Date(periods[0].dueDate) : null;
+    }
+
+    return computeNextPaymentDate(loan);
+  } catch (error) {
+    console.error('Error calculating next payment date:', error);
+    throw error;
+  }
+}
+
+/**
+ * Next payment date rule for ordinary loans. Takes the loan with its repayments as an argument
+ * so callers can apply it to rows read inside their own database transaction.
+ */
+export function computeNextPaymentDate(loan: any, currentDate: Date = new Date()): Date | null {
+  try {
+    // If loan is completed, no next payment date
+    if (loan.status === 'Completed' || loan.status === 'Non-Recoverable' || loan.remainingAmount <= 0) {
+      return null;
+    }
+
     const disbursementDate = new Date(loan.disbursementDate);
     const { duration, repaymentType } = loan;
 
@@ -584,6 +639,8 @@ export async function recordPaymentForPeriod(
     if (!loan) {
       throw new Error(`Loan with ID ${loanId} not found`);
     }
+
+    if (loan.status === 'Non-Recoverable') throw new Error('Use the loan recovery actions for this loan');
 
     // Calculate the due date for this period
     const disbursementDate = new Date(loan.disbursementDate);
@@ -733,7 +790,7 @@ export async function generatePaymentSchedule(loanId: number, loan?: any) {
         paymentType: existingRepayment?.paymentType
       };
 
-      schedules.push(schedule);
+      if (loan.status !== 'Non-Recoverable' || existingRepayment) schedules.push(schedule);
     }
 
     // No need to delete schedules since they're not stored in the database
@@ -776,6 +833,8 @@ export async function updatePaymentScheduleStatus(
     if (!loan) {
       throw new Error(`Loan with ID ${loanId} not found`);
     }
+
+    if (loan.status === 'Non-Recoverable') throw new Error('Use the loan recovery actions for this loan');
 
     const paymentDate = actualPaymentDate ? new Date(actualPaymentDate) : new Date();
 
@@ -1029,6 +1088,10 @@ export async function linkRepaymentToPeriod(loanId: number, repaymentId: number,
     if (!repayment) {
       throw new Error(`Repayment with ID ${repaymentId} not found`);
     }
+
+    if (repayment.paymentType === 'RECOVERY' || repayment.loanId !== loanId) throw new Error('Recovery receipts cannot be assigned to installments');
+    const loan = await prismaAny.loan.findUnique({ where: { id: loanId } });
+    if (loan?.status === 'Non-Recoverable') throw new Error('Use the loan recovery actions for this loan');
 
     // Update the repayment with the period
     const updatedRepayment = await prismaAny.repayment.update({

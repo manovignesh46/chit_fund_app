@@ -13,35 +13,38 @@ import { calculateChitPayoutCommission, CommissionFund } from './chitCommission'
  */
 export function calculateLoanProfit(
   loan: Pick<Loan, 'amount' | 'interestRate' | 'interestPercentage' | 'documentCharge' | 'repaymentType' | 'loanType'>,
-  repayments: Pick<Repayment, 'amount' | 'paymentType' | 'paidDate' | 'period'>[]
+  repayments: (Pick<Repayment, 'amount' | 'paymentType' | 'paidDate' | 'period'> & Partial<Pick<Repayment, 'principalComponent' | 'interestComponent'>>)[]
 ): number {
   // Document charge is always part of the profit
   const documentCharge = loan.documentCharge || 0;
+  const recoveryReceipts = repayments.filter(r => r.paymentType === 'RECOVERY');
+  const recoveryInterest = recoveryReceipts.reduce((sum, r) => sum + (r.interestComponent || 0), 0);
+  const ordinaryRepayments = repayments.filter(r => r.paymentType !== 'RECOVERY');
 
   // Different calculation based on loan type
-  if (loan.repaymentType === 'Monthly') {
+  if (loan.repaymentType === 'Monthly' && loan.loanType !== 'Reducing Balance') {
     // For monthly loans, profit comes from interest payments and document charge
 
     // Count interest-only payments
-    const interestOnlyPayments = repayments.filter(r => r.paymentType === 'interestOnly').length;
+    const interestOnlyPayments = ordinaryRepayments.filter(r => r.paymentType === 'interestOnly').length;
     const interestOnlyProfit = interestOnlyPayments * (loan.interestRate || 0);
 
     // Count regular payments (each includes interest)
-    const regularPayments = repayments.filter(r => r.paymentType !== 'interestOnly').length;
+    const regularPayments = ordinaryRepayments.filter(r => r.paymentType !== 'interestOnly').length;
     const regularPaymentsProfit = regularPayments * (loan.interestRate || 0);
 
     // Total profit is interest from all payments plus document charge
-    const totalProfit = interestOnlyProfit + regularPaymentsProfit + documentCharge;
+    const totalProfit = interestOnlyProfit + regularPaymentsProfit + documentCharge + recoveryInterest;
 
     return totalProfit;
   } else if (loan.repaymentType === 'Weekly') {
     // For weekly loans, profit is only from document charge and any excess payments
-    const totalPaid = repayments.reduce((sum, r) => sum + (r.amount || 0), 0);
-    const loanAmount = loan.amount || 0;
+    const totalPaid = ordinaryRepayments.reduce((sum, r) => sum + (r.amount || 0), 0);
+    const loanAmount = Math.max(0, (loan.amount || 0) - recoveryReceipts.reduce((sum, r) => sum + (r.principalComponent || 0), 0));
 
     // If total paid exceeds loan amount, the excess is profit
     const profitFromPayments = totalPaid > loanAmount ? totalPaid - loanAmount : 0;
-    const totalProfit = profitFromPayments + documentCharge;
+    const totalProfit = profitFromPayments + documentCharge + recoveryInterest;
 
     return totalProfit;
   } else if (loan.loanType === 'Reducing Balance' || loan.repaymentType === 'Reducing Balance') {
@@ -53,11 +56,17 @@ export function calculateLoanProfit(
 
     // Sort repayments by date or period to simulate correctly
     const sortedRepayments = [...repayments].sort((a, b) => {
+      if (recoveryReceipts.length) return new Date(a.paidDate).getTime() - new Date(b.paidDate).getTime() || a.period - b.period;
       if (a.period && b.period) return a.period - b.period;
       return new Date(a.paidDate).getTime() - new Date(b.paidDate).getTime();
     });
 
     sortedRepayments.forEach(repayment => {
+      if (repayment.paymentType === 'RECOVERY') {
+        totalInterestProfit += repayment.interestComponent || 0;
+        currentPrincipal = Math.max(0, currentPrincipal - (repayment.principalComponent || 0));
+        return;
+      }
       const interestForThisMonth = currentPrincipal * monthlyInterestRate;
       const principalPaid = (repayment.amount || 0) - interestForThisMonth;
       

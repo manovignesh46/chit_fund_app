@@ -23,6 +23,7 @@ export interface PeriodRange {
 }
 
 export interface LoanWithRepayments {
+  status?: string;
   remainingAmount: number;
   id: number;
   amount: number;
@@ -38,6 +39,8 @@ export interface LoanWithRepayments {
     paymentType?: string;
     paidDate: Date;
     period?: number;
+    principalComponent?: number | null;
+    interestComponent?: number | null;
   }>;
 }
 
@@ -131,33 +134,16 @@ export function calculatePeriodLoanProfit(
   documentCharges: number;
 } {
   // Calculate interest from repayments made in the period
+  const { calculateLoanProfit } = require('./financialUtils');
   const interestProfit = loansWithRepayments.reduce((sum, loan) => {
-    if (loan.repaymentType === 'Monthly') {
-      // Filter repayments to only those made in the period
-      const periodRepayments = periodRange
-        ? loan.repayments.filter(r => isDateInPeriod(new Date(r.paidDate), periodRange))
-        : loan.repayments;
-      return sum + (periodRepayments.length * (loan.interestRate || 0));
-    } else if (loan.repaymentType === 'Weekly') {
-      // For weekly loans, check if repayments exceed loan amount for period repayments only
-      const periodRepayments = periodRange
-        ? loan.repayments.filter(r => isDateInPeriod(new Date(r.paidDate), periodRange))
-        : loan.repayments;
-      const totalPaid = periodRepayments.reduce((s, r) => s + (r.amount || 0), 0);
-      const loanAmount = loan.amount || 0;
-      return sum + (totalPaid > loanAmount ? totalPaid - loanAmount : 0);
-    } else if (loan.loanType === 'Reducing Balance' || loan.repaymentType === 'Reducing Balance') {
-      // For reducing balance loans in a specific period, we need to know the principal at the start of the period.
-      // Since we only have period repayments here, we'll use a simplified approach or ensure full history is passed.
-      // For now, if full history isn't available, we'll try to calculate interest from provided repayments.
-      const { calculateLoanProfit } = require('./financialUtils');
-      const profit = calculateLoanProfit(loan, loan.repayments);
-      // NOTE: This calculates TOTAL profit for the provided repayments. 
-      // If only period repayments are provided, it might be inaccurate for reducing balance.
-      // However, it's better than 0.
-      return sum + (profit - (loan.documentCharge || 0));
-    }
-    return sum;
+    const throughEnd = periodRange
+      ? loan.repayments.filter(r => new Date(r.paidDate) <= periodRange.endDate)
+      : loan.repayments;
+    const beforeStart = periodRange
+      ? loan.repayments.filter(r => new Date(r.paidDate) < periodRange.startDate)
+      : [];
+    // Difference of cumulative interest preserves explicit recovery allocations.
+    return sum + calculateLoanProfit(loan, throughEnd) - calculateLoanProfit(loan, beforeStart);
   }, 0);
 
   // Calculate document charges from loans disbursed in the period
@@ -525,27 +511,8 @@ export function calculateTotalFinancialMetrics(
   chitFunds: ChitFundWithDetails[]
 ): Omit<FinancialMetrics, 'transactionCounts'> {
   // For total calculations, we include all document charges with loans
-  const loanProfit = loansWithRepayments.reduce((sum, loan) => {
-    if (loan.loanType === 'Reducing Balance' || loan.repaymentType === 'Reducing Balance') {
-      const { calculateLoanProfit } = require('./financialUtils');
-      const profit = calculateLoanProfit(loan, loan.repayments);
-      return sum + profit;
-    }
-
-    const documentCharge = loan.documentCharge || 0;
-    let interestProfit = 0;
-
-    if (loan.repaymentType === 'Monthly') {
-      const totalPayments = loan.repayments.length;
-      interestProfit = totalPayments * (loan.interestRate || 0);
-    } else if (loan.repaymentType === 'Weekly') {
-      const totalPaid = loan.repayments.reduce((s, r) => s + (r.amount || 0), 0);
-      const loanAmount = loan.amount || 0;
-      interestProfit = totalPaid > loanAmount ? totalPaid - loanAmount : 0;
-    }
-
-    return sum + interestProfit + documentCharge;
-  }, 0);
+  const { calculateLoanProfit } = require('./financialUtils');
+  const loanProfit = loansWithRepayments.reduce((sum, loan) => sum + calculateLoanProfit(loan, loan.repayments), 0);
 
   const chitFundProfit = chitFunds.reduce((sum, fund) => {
     // Use the new function that only considers transactions up to current month

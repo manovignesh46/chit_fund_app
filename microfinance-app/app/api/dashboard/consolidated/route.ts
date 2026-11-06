@@ -4,6 +4,7 @@ import { getCurrentUserId } from '../../../../lib/auth';
 import { calculateTotalLoanProfit, calculateTotalChitFundProfitUpToCurrentMonth } from '../../../../lib/financialUtils';
 import {
   calculatePeriodFinancialMetrics,
+  calculatePeriodLoanProfit,
   calculateTotalFinancialMetrics,
   createPeriodRange
 } from '../../../../lib/centralizedFinancialCalculations';
@@ -278,10 +279,13 @@ async function getSummary(request: NextRequest, currentUserId: number) {
         loanType: true,
         disbursementDate: true,
         remainingAmount: true,
+        status: true,
         repayments: {
           select: {
             id: true,
             amount: true,
+            principalComponent: true,
+            interestComponent: true,
             paymentType: true,
             paidDate: true,
             period: true
@@ -370,7 +374,11 @@ async function getSummary(request: NextRequest, currentUserId: number) {
     const cashOutflow = totalMetrics.totalCashOutflow;
     const totalProfit = totalMetrics.totalProfit;
     const outsideAmount = totalMetrics.totalOutsideAmount;
+    const nonRecoverablePrincipal = loansWithRepayments.filter(l => l.status === 'Non-Recoverable').reduce((sum, l) => sum + l.remainingAmount, 0);
+    const activePrincipal = loansWithRepayments.filter(l => l.status === 'Active').reduce((sum, l) => sum + l.remainingAmount, 0);
     const outsideAmountBreakdown = {
+      activeLoanRemainingAmount: activePrincipal,
+      nonRecoverableLoanRemainingAmount: nonRecoverablePrincipal,
       loanRemainingAmount: totalMetrics.loanRemainingAmount,
       chitFundOutsideAmount: totalMetrics.chitFundOutsideAmount
     };
@@ -523,6 +531,8 @@ async function getFinancialData(request: NextRequest, currentUserId: number) {
         select: {
           amount: true,
           paidDate: true,
+          principalComponent: true,
+          interestComponent: true,
           paymentType: true
         },
         orderBy: {
@@ -672,16 +682,15 @@ async function getFinancialData(request: NextRequest, currentUserId: number) {
           documentCharge: true,
           repaymentType: true,
           loanType: true,
+          disbursementDate: true,
+          remainingAmount: true,
           repayments: {
-            where: {
-              paidDate: {
-                gte: periodStart,
-                lte: periodEnd
-              }
-            },
+            where: { paidDate: { lte: periodEnd } },
             select: {
               id: true,
               amount: true,
+              principalComponent: true,
+              interestComponent: true,
               paymentType: true,
               paidDate: true,
               period: true
@@ -693,7 +702,9 @@ async function getFinancialData(request: NextRequest, currentUserId: number) {
       // console.log(`Period ${formatPeriodLabel(periodStart)}: Found ${periodLoansWithRepayments.length} loans`);
 
       // Calculate loan profit using the centralized utility function
-      const periodLoanProfit = calculateTotalLoanProfit(periodLoansWithRepayments);
+      const periodLoanProfit = calculatePeriodLoanProfit(periodLoansWithRepayments,
+        periodLoansWithRepayments.filter(loan => loan.disbursementDate >= periodStart && loan.disbursementDate <= periodEnd),
+        createPeriodRange(periodStart, periodEnd)).totalProfit;
 
       // Log individual loan profits for debugging
       /*
@@ -875,16 +886,14 @@ async function getFinancialData(request: NextRequest, currentUserId: number) {
           loanType: true,
           disbursementDate: true,
           remainingAmount: true,
+          status: true,
           repayments: {
-            where: {
-              paidDate: {
-                gte: periodStart,
-                lte: periodEnd
-              }
-            },
+            where: { paidDate: { lte: periodEnd } },
             select: {
               id: true,
               amount: true,
+              principalComponent: true,
+              interestComponent: true,
               paymentType: true,
               paidDate: true,
               period: true
@@ -1109,6 +1118,8 @@ async function getActivitiesWithPagination(userId: number, page: number, pageSiz
         id: true,
         amount: true,
         paidDate: true,
+        principalComponent: true,
+        interestComponent: true,
         paymentType: true,
         period: true,
         loan: {
@@ -1543,6 +1554,8 @@ async function getUpcomingEventsForDashboard(userId: number, limit: number = 3) 
               period: true,
               amount: true,
               paidDate: true,
+              principalComponent: true,
+              interestComponent: true,
               paymentType: true
             }
           }
@@ -1771,7 +1784,7 @@ async function getEventsForMonth(userId: number, year: number, month: number) {
       // Get all active and completed loans to check their payment schedules
       prisma.loan.findMany({
         where: {
-          status: { in: ['Active', 'Completed'] },
+          status: { in: ['Active', 'Completed', 'Non-Recoverable'] },
           createdById: userId,
         },
         select: {
@@ -1792,9 +1805,12 @@ async function getEventsForMonth(userId: number, year: number, month: number) {
           },
           repayments: {
             select: {
+              id: true,
               period: true,
               amount: true,
               paidDate: true,
+              principalComponent: true,
+              interestComponent: true,
               paymentType: true
             }
           }
@@ -1866,7 +1882,7 @@ async function getEventsForMonth(userId: number, year: number, month: number) {
         // For completed loans: use actual paidDate so the event appears in the
         // month the money was truly collected, not when it was scheduled.
         // For active loans: use the calculated dueDate (existing behaviour).
-        const eventDate = (loan.status === 'Completed' && isPaid)
+        const eventDate = (loan.status !== 'Active' && isPaid)
           ? new Date(repayment.paidDate)
           : dueDate;
 
@@ -1931,6 +1947,18 @@ async function getEventsForMonth(userId: number, year: number, month: number) {
           }
 
           events.push(eventObj);
+        }
+      }
+      for (const receipt of loan.repayments.filter(r => r.paymentType === 'RECOVERY')) {
+        const paidDate = new Date(receipt.paidDate);
+        if (paidDate >= startDate && paidDate <= endDate) {
+          const recoveryEvent: any = {
+          id: `recovery-${loan.id}-${receipt.id}`,
+          title: `${borrowerName} Offline Recovery`, date: formatDate(paidDate), rawDate: paidDate,
+          type: 'Loan', entityType: 'loan', entityId: loan.id, borrowerId, status: 'Paid',
+          paymentType: 'RECOVERY', dueAmount: receipt.amount, isDueTomorrow: false,
+          };
+          events.push(recoveryEvent);
         }
       }
     }
@@ -2127,6 +2155,8 @@ async function getFinancialDataForExport(userId: number, startDate: Date, endDat
         amount: true,
         paidDate: true,
         period: true,
+        principalComponent: true,
+        interestComponent: true,
         paymentType: true,
         loan: {
           select: {
@@ -2238,10 +2268,13 @@ async function getFinancialDataForExport(userId: number, startDate: Date, endDat
         loanType: true,
         disbursementDate: true,
         remainingAmount: true,
+        status: true,
         repayments: {
           select: {
             id: true,
             amount: true,
+            principalComponent: true,
+            interestComponent: true,
             paymentType: true,
             paidDate: true,
             period: true
