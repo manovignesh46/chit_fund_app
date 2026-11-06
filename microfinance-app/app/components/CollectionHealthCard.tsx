@@ -82,13 +82,13 @@ export default function CollectionHealthCard({ business }: { business: 'loan' | 
     } else if (rate >= 50 && rate <= 80) {
       return {
         stroke: 'var(--color-warning)',
-        text: 'text-warning',
+        text: 'text-warning-text',
         bg: 'bg-warning-light'
       };
     } else {
       return {
         stroke: 'var(--color-success)',
-        text: 'text-success',
+        text: 'text-success-text',
         bg: 'bg-success-light'
       };
     }

@@ -1,10 +1,14 @@
-/* Tables and data grids */
+/*
+ * Legacy tables and data grids (unconverted pages) — token-based. New code uses kit DataTable.
+ * `dark:` repeats keep the old `.dark .x` specificity (see controls.css).
+ */
 
 @layer components {
   .table-shell {
     @apply overflow-x-auto w-full;
   }
 
+  /* Dark only: light mode keeps the platform scrollbar. */
   .dark .table-shell {
     scrollbar-width: thin;
     scrollbar-color: var(--color-scrollbar-thumb) var(--color-scrollbar-track);
@@ -29,63 +33,33 @@
   }
 
   .table-toolbar {
-    @apply px-4 py-3 border-b border-gray-200 bg-white;
-  }
-
-  .dark .table-toolbar {
-    @apply border-surface-border bg-surface-card;
+    @apply px-4 py-3 border-b border-border bg-card dark:border-border dark:bg-card;
   }
 
   .table-footer {
-    @apply px-4 py-3 border-t border-gray-200 bg-white;
-  }
-
-  .dark .table-footer {
-    @apply border-surface-border bg-surface-card;
+    @apply px-4 py-3 border-t border-border bg-card dark:border-border dark:bg-card;
   }
 
   .themed-table,
   .dark-table {
-    @apply w-full text-sm border-collapse bg-white;
-  }
-
-  .dark .themed-table,
-  .dark .dark-table {
-    background-color: var(--color-surface-card);
+    @apply w-full text-sm border-collapse bg-card dark:bg-card;
   }
 
   .themed-table thead,
   .dark-table thead {
-    @apply bg-gray-50 border-b border-gray-200;
-  }
-
-  .dark .themed-table thead,
-  .dark .dark-table thead {
+    @apply border-b border-border dark:border-border;
     background-color: var(--color-table-head);
-    @apply border-surface-border;
   }
 
   .themed-table th,
   .dark-table th,
   .table-th {
-    @apply px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider;
-  }
-
-  .dark .themed-table th,
-  .dark .dark-table th,
-  .dark .table-th {
-    @apply text-theme-muted;
+    @apply px-4 py-3 text-left text-xs font-medium text-subtle-foreground uppercase tracking-wider dark:text-subtle-foreground;
   }
 
   .themed-table tbody,
   .dark-table tbody {
-    @apply bg-white divide-y divide-gray-200;
-  }
-
-  .dark .themed-table tbody,
-  .dark .dark-table tbody {
-    background-color: var(--color-surface-card);
-    @apply divide-surface-border;
+    @apply bg-card divide-y divide-border dark:bg-card dark:divide-border;
   }
 
   .themed-table tbody tr,
@@ -95,14 +69,10 @@
 
   .themed-table tbody tr:hover,
   .dark-table tbody tr:hover {
-    @apply bg-gray-50;
+    @apply bg-elevated dark:bg-accent;
   }
 
-  .dark .themed-table tbody tr:hover,
-  .dark .dark-table tbody tr:hover {
-    background-color: var(--color-surface-hover);
-  }
-
+  /* Dark only: zebra rows. In light this would override row highlight classes. */
   .dark .themed-table tbody tr:nth-child(even),
   .dark .dark-table tbody tr:nth-child(even) {
     background-color: var(--color-table-row-alt);
@@ -110,72 +80,35 @@
 
   .dark .themed-table tbody tr:nth-child(even):hover,
   .dark .dark-table tbody tr:nth-child(even):hover {
-    background-color: var(--color-surface-hover);
+    @apply bg-accent;
   }
 
   .themed-table td,
   .dark-table td,
   .table-td {
-    @apply px-4 py-3 text-gray-900;
-  }
-
-  .dark .themed-table td,
-  .dark .dark-table td,
-  .dark .table-td {
-    @apply text-theme-secondary;
+    @apply px-4 py-3 text-foreground dark:text-muted-foreground;
   }
 
   .table-foot-row {
-    @apply bg-gray-100 font-semibold border-t-2 border-gray-300;
-  }
-
-  .dark .table-foot-row {
+    @apply font-semibold border-t-2 border-input dark:border-border;
     background-color: var(--color-table-foot);
-    @apply border-surface-border;
   }
 
   .table-sticky-cell {
-    @apply sticky left-0 z-10 bg-white;
-  }
-
-  .dark .table-sticky-cell {
-    background-color: var(--color-surface-card);
+    @apply sticky left-0 z-10 bg-card dark:bg-card;
   }
 
   .table-sticky-head {
-    @apply sticky left-0 z-20 bg-gray-50;
-  }
-
-  .dark .table-sticky-head {
+    @apply sticky left-0 z-20;
     background-color: var(--color-table-head);
   }
 
   /* Row highlights */
   .table-row-overdue {
-    background-color: #fef2f2;
-  }
-
-  html.dark .table-row-overdue,
-  .dark .table-row-overdue {
-    background-color: rgba(239, 68, 68, 0.12);
-  }
-
-  html.dark .table-row-overdue:hover,
-  .dark .table-row-overdue:hover {
-    background-color: rgba(239, 68, 68, 0.18);
+    @apply bg-destructive-subtle dark:bg-destructive-subtle/60 dark:hover:bg-destructive-subtle;
   }
 
   .table-row-due-soon {
-    background-color: #fefce8;
-  }
-
-  html.dark .table-row-due-soon,
-  .dark .table-row-due-soon {
-    background-color: rgba(245, 158, 11, 0.12);
-  }
-
-  html.dark .table-row-due-soon:hover,
-  .dark .table-row-due-soon:hover {
-    background-color: rgba(245, 158, 11, 0.18);
+    @apply bg-warning-subtle dark:bg-warning-subtle/60 dark:hover:bg-warning-subtle;
   }
 }

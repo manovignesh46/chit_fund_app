@@ -1,90 +1,44 @@
-/* Calendar page */
+/*
+ * Legacy calendar page — token-based. Loans = success tint, chit funds = info tint, due = warning.
+ * `dark:` repeats keep the old `.dark .x` specificity (see controls.css).
+ */
 
 @layer components {
   .calendar-day-header {
-    @apply text-center font-semibold text-gray-700;
-  }
-
-  html.dark .calendar-day-header,
-  .dark .calendar-day-header {
-    @apply text-theme-secondary;
+    @apply text-center font-semibold text-secondary-foreground dark:text-muted-foreground;
   }
 
   .calendar-day-empty {
-    @apply h-24 bg-gray-50 rounded;
-  }
-
-  html.dark .calendar-day-empty,
-  .dark .calendar-day-empty {
-    @apply bg-surface-elevated;
+    @apply h-24 bg-elevated rounded dark:bg-elevated;
   }
 
   .calendar-day {
     min-height: 6rem;
-    @apply h-auto p-2 rounded border border-gray-200 bg-white;
-  }
-
-  html.dark .calendar-day,
-  .dark .calendar-day {
-    @apply border-surface-border bg-surface-card;
+    @apply h-auto p-2 rounded border border-border bg-card dark:border-border dark:bg-card;
   }
 
   .calendar-day-today {
-    @apply border-blue-500 bg-blue-50;
-  }
-
-  html.dark .calendar-day-today,
-  .dark .calendar-day-today {
-    background-color: rgba(59, 130, 246, 0.15);
-    border-color: rgba(59, 130, 246, 0.5);
+    @apply border-primary bg-primary-subtle dark:border-primary-text/50 dark:bg-primary-subtle/70;
   }
 
   .calendar-event {
     @apply block p-1 text-xs rounded hover:opacity-80 transition-opacity;
   }
 
-  .calendar-event-loan {
-    @apply bg-green-50 border border-green-200 text-green-900;
-  }
-
-  html.dark .calendar-event-loan,
-  .dark .calendar-event-loan {
-    background-color: rgba(16, 185, 129, 0.15);
-    border-color: rgba(16, 185, 129, 0.35);
-    color: #86efac;
+  .calendar-event-loan,
+  .calendar-event-paid {
+    @apply bg-success-subtle border border-success-border text-success-text
+           dark:bg-success-subtle dark:border-success-border dark:text-success-text;
   }
 
   .calendar-event-chit {
-    @apply bg-blue-50 border border-blue-200 text-blue-900;
-  }
-
-  html.dark .calendar-event-chit,
-  .dark .calendar-event-chit {
-    background-color: rgba(59, 130, 246, 0.15);
-    border-color: rgba(59, 130, 246, 0.35);
-    color: #93c5fd;
+    @apply bg-info-subtle border border-info-border text-info-text
+           dark:bg-info-subtle dark:border-info-border dark:text-info-text;
   }
 
   .calendar-event-due {
-    @apply bg-yellow-50 border border-yellow-200 text-yellow-900;
-  }
-
-  html.dark .calendar-event-due,
-  .dark .calendar-event-due {
-    background-color: rgba(245, 158, 11, 0.15);
-    border-color: rgba(245, 158, 11, 0.35);
-    color: #fcd34d;
-  }
-
-  .calendar-event-paid {
-    @apply bg-green-50 border border-green-200 text-green-900;
-  }
-
-  html.dark .calendar-event-paid,
-  .dark .calendar-event-paid {
-    background-color: rgba(16, 185, 129, 0.2);
-    border-color: rgba(16, 185, 129, 0.4);
-    color: #6ee7b7;
+    @apply bg-warning-subtle border border-warning-border text-warning-text
+           dark:bg-warning-subtle dark:border-warning-border dark:text-warning-text;
   }
 
   .calendar-event-overdue {

@@ -1,0 +1,233 @@
+{
+  "description": "UI conventions ratchet baseline (scripts/check-ui-conventions.js). Totals may only go down.",
+  "totals": {
+    "reload": 0,
+    "alert": 19,
+    "confirm": 2,
+    "hardNav": 2,
+    "palette": 335
+  },
+  "files": {
+    "app/activities/page.tsx": {
+      "palette": 4
+    },
+    "app/calendar/page.tsx": {
+      "palette": 22
+    },
+    "app/chit-fund-templates/TemplateForm.tsx": {
+      "alert": 1,
+      "palette": 2
+    },
+    "app/chit-fund-templates/[id]/edit/page.tsx": {
+      "palette": 1
+    },
+    "app/chit-fund-templates/[id]/page.tsx": {
+      "palette": 3
+    },
+    "app/chit-fund-templates/page.tsx": {
+      "alert": 1,
+      "confirm": 1,
+      "palette": 6
+    },
+    "app/chit-funds/[id]/assign-member/page.tsx": {
+      "palette": 4
+    },
+    "app/chit-funds/[id]/auctions/page.tsx": {
+      "palette": 9
+    },
+    "app/chit-funds/[id]/contributions/page.tsx": {
+      "hardNav": 1,
+      "palette": 11
+    },
+    "app/chit-funds/[id]/edit/page.tsx": {
+      "alert": 1,
+      "palette": 2
+    },
+    "app/chit-funds/[id]/members/[memberId]/contributions/page.tsx": {
+      "palette": 3
+    },
+    "app/chit-funds/[id]/members/page.tsx": {
+      "palette": 17
+    },
+    "app/chit-funds/[id]/page.tsx": {
+      "alert": 1,
+      "palette": 15
+    },
+    "app/chit-funds/auction-bookings/page.tsx": {
+      "palette": 4
+    },
+    "app/chit-funds/auction-history/page.tsx": {
+      "palette": 1
+    },
+    "app/chit-funds/new/page.tsx": {
+      "alert": 3,
+      "palette": 2
+    },
+    "app/chit-funds/page.tsx": {
+      "alert": 1,
+      "palette": 9
+    },
+    "app/chit-funds/projection/page.tsx": {
+      "palette": 2
+    },
+    "app/components/BalanceSummary.tsx": {
+      "palette": 1
+    },
+    "app/components/CapitalUtilizationCard.tsx": {
+      "palette": 1
+    },
+    "app/components/ChitFundMonthlyProfitCard.tsx": {
+      "palette": 4
+    },
+    "app/components/CurrentMonthCollections.tsx": {
+      "alert": 2,
+      "palette": 2
+    },
+    "app/components/DateFilter.tsx": {
+      "palette": 8
+    },
+    "app/components/EnhancedTransactionForm.tsx": {
+      "palette": 1
+    },
+    "app/components/EnhancedTransactionList.tsx": {
+      "palette": 1
+    },
+    "app/components/FinancialDetailModal.tsx": {
+      "palette": 18
+    },
+    "app/components/FinancialGraph.tsx": {
+      "palette": 3
+    },
+    "app/components/HeaderUserProfile.tsx": {
+      "palette": 1
+    },
+    "app/components/MonthlyAggregationsCard.tsx": {
+      "palette": 3
+    },
+    "app/components/MonthlyFlowCard.tsx": {
+      "palette": 1
+    },
+    "app/components/NotificationBell.tsx": {
+      "palette": 2
+    },
+    "app/components/NotificationDetailSheet.tsx": {
+      "palette": 1
+    },
+    "app/components/PendingChitsModal.tsx": {
+      "palette": 12
+    },
+    "app/components/PendingLoansModal.tsx": {
+      "palette": 5
+    },
+    "app/components/Sidebar.tsx": {
+      "palette": 2
+    },
+    "app/components/SidebarUserMenu.tsx": {
+      "palette": 1
+    },
+    "app/components/TransactionForm.tsx": {
+      "palette": 4
+    },
+    "app/components/TransactionList.tsx": {
+      "palette": 4
+    },
+    "app/components/TransactionSummary.tsx": {
+      "palette": 16
+    },
+    "app/components/common/SortableTableHeader.tsx": {
+      "palette": 2
+    },
+    "app/components/dues/DueAccountCard.tsx": {
+      "palette": 15
+    },
+    "app/components/loans/RepaymentForm.tsx": {
+      "palette": 1
+    },
+    "app/components/partners/PartnerBalanceCard.tsx": {
+      "palette": 1
+    },
+    "app/components/partners/PartnerSelectionModal.tsx": {
+      "palette": 3
+    },
+    "app/dashboard/page.tsx": {
+      "palette": 3
+    },
+    "app/dues/page.tsx": {
+      "palette": 3
+    },
+    "app/financial-trends/page.tsx": {
+      "palette": 3
+    },
+    "app/loans/[id]/edit/page.tsx": {
+      "alert": 2
+    },
+    "app/loans/[id]/page.tsx": {
+      "alert": 1,
+      "palette": 6
+    },
+    "app/loans/[id]/payment-schedules/page.tsx": {
+      "palette": 3
+    },
+    "app/loans/[id]/repayments/page.tsx": {
+      "palette": 7
+    },
+    "app/loans/new/page.tsx": {
+      "alert": 1
+    },
+    "app/loans/page.tsx": {
+      "alert": 2,
+      "palette": 5
+    },
+    "app/login/page.tsx": {
+      "hardNav": 1,
+      "palette": 1
+    },
+    "app/members/[id]/assign-chit-fund/page.tsx": {
+      "palette": 3
+    },
+    "app/members/[id]/page.tsx": {
+      "palette": 22
+    },
+    "app/members/page.tsx": {
+      "palette": 11
+    },
+    "app/messages/page.tsx": {
+      "palette": 2
+    },
+    "app/notifications/page.tsx": {
+      "palette": 3
+    },
+    "app/transactions/page.tsx": {
+      "alert": 2,
+      "palette": 4
+    },
+    "app/users/page.tsx": {
+      "alert": 1,
+      "confirm": 1
+    },
+    "components/EmailExportModal.tsx": {
+      "palette": 4
+    },
+    "components/SchedulerManager.tsx": {
+      "palette": 3
+    },
+    "components/chit-funds/ChitFundCard.tsx": {
+      "palette": 2
+    },
+    "components/chit-funds/ChitFundContributionsOverview.tsx": {
+      "palette": 4
+    },
+    "components/chit-funds/ChitFundFinancialSummary.tsx": {
+      "palette": 2
+    },
+    "components/chit-funds/ChitFundMembersList.tsx": {
+      "palette": 1
+    },
+    "components/chit-funds/ChitFundTable.tsx": {
+      "palette": 12
+    },
+    "components/chit-funds/PayContributionBalanceModal.tsx": {
+      "palette": 1
+    }
+  }
+}

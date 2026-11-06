@@ -2,35 +2,27 @@
 
 @layer base {
   body {
-    @apply antialiased;
-    @apply bg-gray-50 text-gray-900;
+    @apply antialiased bg-background text-foreground;
   }
 
-  html.dark body,
-  .dark body {
-    @apply bg-surface text-theme-primary;
-  }
-
-  /* Dark mode form controls — inline properties to avoid @layer circular dependency */
-  html.dark main select:not([size]),
-  html.dark main input[type="text"],
-  html.dark main input[type="number"],
-  html.dark main input[type="date"],
-  html.dark main input[type="email"],
-  html.dark main input[type="password"],
-  html.dark main input[type="search"],
-  html.dark main textarea,
-  .dark main select:not([size]),
-  .dark main input[type="text"],
-  .dark main input[type="number"],
-  .dark main input[type="date"],
-  .dark main input[type="email"],
-  .dark main input[type="password"],
-  .dark main input[type="search"],
-  .dark main textarea {
-    background-color: var(--color-surface-elevated);
-    border-color: var(--color-surface-border);
-    color: var(--color-text-primary);
+  /*
+   * Dark-mode field styling for UNCONVERTED pages (they style inputs with light
+   * classes only). Every selector skips [data-ui] (inside :where() so specificity is unchanged), which marks kit/shadcn fields
+   * (components/ui/input.tsx, textarea.tsx, kit NativeSelect and DateInput) so
+   * those look the same inside <main> and inside portalled dialogs.
+   * Delete this block once all pages use the kit (cleanup phase).
+   */
+  html.dark main select:not([size]):where(:not([data-ui])),
+  html.dark main input[type="text"]:where(:not([data-ui])),
+  html.dark main input[type="number"]:where(:not([data-ui])),
+  html.dark main input[type="date"]:where(:not([data-ui])),
+  html.dark main input[type="email"]:where(:not([data-ui])),
+  html.dark main input[type="password"]:where(:not([data-ui])),
+  html.dark main input[type="search"]:where(:not([data-ui])),
+  html.dark main textarea:where(:not([data-ui])) {
+    background-color: hsl(var(--field));
+    border-color: hsl(var(--border));
+    color: hsl(var(--foreground));
     border-width: 1px;
     border-style: solid;
     border-radius: 0.5rem;
@@ -38,37 +30,57 @@
     font-size: 0.875rem;
   }
 
-  html.dark main select:not([size]),
-  html.dark main select.themed-input,
-  .dark main select:not([size]),
-  .dark main select.themed-input {
-    background-color: var(--color-surface-elevated) !important;
-    border-color: var(--color-surface-border) !important;
-    color: var(--color-text-primary) !important;
+  html.dark main select:not([size]):where(:not([data-ui])),
+  html.dark main select.themed-input:where(:not([data-ui])) {
+    background-color: hsl(var(--field)) !important;
+    border-color: hsl(var(--border)) !important;
+    color: hsl(var(--foreground)) !important;
   }
 
-  html.dark main input[type="checkbox"],
-  .dark main input[type="checkbox"] {
-    @apply h-4 w-4 text-blue-600 border-surface-border bg-surface-elevated rounded focus:ring-blue-500 focus:ring-opacity-50;
+  html.dark main input[type="checkbox"]:where(:not([data-ui])) {
+    @apply h-4 w-4 text-primary border-border bg-field rounded focus:ring-ring focus:ring-opacity-50;
   }
 
-  html.dark option,
-  .dark option {
-    background-color: var(--color-surface-card);
-    color: var(--color-text-primary);
+  html.dark option {
+    background-color: hsl(var(--popover));
+    color: hsl(var(--popover-foreground));
   }
 
   /* Native date picker styling in dark mode */
-  html.dark input[type="date"],
-  .dark input[type="date"] {
+  html.dark input[type="date"]:where(:not([data-ui])) {
     color-scheme: dark;
-    background-color: var(--color-surface-elevated) !important;
-    border-color: var(--color-surface-border) !important;
-    color: var(--color-text-primary) !important;
+    background-color: hsl(var(--field)) !important;
+    border-color: hsl(var(--border)) !important;
+    color: hsl(var(--foreground)) !important;
   }
 
-  html.dark input[type="date"]::-webkit-calendar-picker-indicator,
-  .dark input[type="date"]::-webkit-calendar-picker-indicator {
+  html.dark input[type="date"]:where(:not([data-ui]))::-webkit-calendar-picker-indicator {
     filter: invert(0.8);
+  }
+
+  /*
+   * sonner defines its own --success-text, --info-border, … on the toaster (used only
+   * by its richColors mode, which we do not use). They shadow our HSL-channel tokens
+   * of the same names inside toasts, so restore ours there.
+   */
+  html [data-sonner-toaster][data-sonner-theme] {
+    --success-text: inherit;
+    --success-border: inherit;
+    --warning-text: inherit;
+    --warning-border: inherit;
+    --info-text: inherit;
+    --info-border: inherit;
+  }
+
+  /* Keep motion to short fades/slides, and none when the user asks for less. */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
   }
 }

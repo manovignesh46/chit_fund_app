@@ -1,50 +1,28 @@
-/* Headings and titles — neutral (not blue) so blue is reserved for interactive elements */
+/*
+ * Legacy headings and titles — neutral (not blue) so blue is reserved for interactive elements.
+ * `dark:` repeats keep the old `.dark .x` specificity (see controls.css).
+ */
 
 @layer components {
   .card-title {
-    @apply text-base sm:text-lg font-semibold text-gray-900 mb-4;
-  }
-
-  .dark .card-title,
-  html.dark .card-title {
-    @apply text-theme-heading;
+    @apply text-base sm:text-lg font-semibold text-foreground mb-4 dark:text-foreground;
   }
 
   .section-heading {
-    @apply text-base sm:text-lg font-semibold text-gray-900;
-  }
-
-  .dark .section-heading,
-  html.dark .section-heading {
-    @apply text-theme-heading;
+    @apply text-base sm:text-lg font-semibold text-foreground dark:text-foreground;
   }
 
   .page-title {
-    @apply text-2xl sm:text-3xl font-bold text-gray-900;
-  }
-
-  .dark .page-title,
-  html.dark .page-title {
-    @apply text-theme-heading;
+    @apply text-2xl sm:text-3xl font-bold text-foreground dark:text-foreground;
   }
 
   /* Detail field label — uppercase muted label above a value */
   .detail-label {
-    @apply text-xs font-medium text-gray-500 uppercase tracking-wider mb-1.5;
-  }
-
-  .dark .detail-label,
-  html.dark .detail-label {
-    @apply text-theme-muted;
+    @apply text-xs font-medium text-subtle-foreground uppercase tracking-wider mb-1.5 dark:text-subtle-foreground;
   }
 
   /* Detail field value — the number/text below a label */
   .detail-value {
-    @apply text-lg font-semibold text-gray-900;
-  }
-
-  .dark .detail-value,
-  html.dark .detail-value {
-    @apply text-theme-secondary;
+    @apply text-lg font-semibold text-foreground dark:text-foreground;
   }
 }

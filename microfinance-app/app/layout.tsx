@@ -4,6 +4,7 @@ import '../styles/globals.css';
 import Layout from './components/Layout';
 import { PartnerProvider } from './contexts/PartnerContext';
 import { ThemeProvider, ThemeScript } from './theme';
+import { Providers } from './providers';
 
 import '../lib/init';
 
@@ -43,9 +44,11 @@ const RootLayout = ({ children }: { children: React.ReactNode }) => {
       <body>
         <ThemeProvider>
           <PartnerProvider>
-            <Layout>
-              {children}
-            </Layout>
+            <Providers>
+              <Layout>
+                {children}
+              </Layout>
+            </Providers>
           </PartnerProvider>
         </ThemeProvider>
       </body>

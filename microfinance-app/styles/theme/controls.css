@@ -1,58 +1,52 @@
-/* Buttons, alerts, modals, pagination, forms */
+/*
+ * Legacy buttons, alerts, modals, pagination, forms — used by unconverted pages.
+ * Each class is one token-based rule. Where the old stylesheet had a `.dark .x` override,
+ * the same properties are repeated as `dark:` variants: they compile to `.dark .x`, which
+ * keeps the old dark-mode specificity (it must keep beating light-only utilities that
+ * unconverted pages put on the same element). New code uses components/ui and components/kit.
+ */
 
 @layer components {
   /* ── Primary button (blue only) ── */
   .btn-primary {
-    @apply inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg
-           hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1
+    @apply inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground text-sm font-medium rounded-lg
+           hover:bg-primary-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background
            transition-colors disabled:opacity-50 disabled:cursor-not-allowed;
   }
 
   /* ── Secondary / outline button ── */
   .btn-secondary {
-    @apply inline-flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 text-gray-700 text-sm font-medium rounded-lg
-           hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1
-           transition-colors disabled:opacity-50 disabled:cursor-not-allowed;
-  }
-
-  html.dark .btn-secondary,
-  .dark .btn-secondary {
-    @apply bg-surface-elevated border-surface-border text-theme-secondary hover:bg-surface-hover;
+    @apply inline-flex items-center gap-2 px-4 py-2 bg-card border border-input text-secondary-foreground text-sm font-medium rounded-lg
+           hover:bg-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background
+           transition-colors disabled:opacity-50 disabled:cursor-not-allowed
+           dark:bg-elevated dark:border-border dark:text-muted-foreground dark:hover:bg-accent;
   }
 
   /* ── Neutral / ghost button ── */
   .btn-neutral {
-    @apply inline-flex items-center justify-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 text-sm font-medium rounded-lg
-           hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-offset-1
+    @apply inline-flex items-center justify-center gap-2 px-4 py-2 bg-secondary text-secondary-foreground text-sm font-medium rounded-lg
+           dark:bg-elevated dark:text-muted-foreground dark:border dark:border-border
+           hover:bg-input/60 dark:hover:bg-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background
            transition-colors disabled:opacity-50 disabled:cursor-not-allowed;
-  }
-
-  html.dark .btn-neutral,
-  .dark .btn-neutral {
-    @apply bg-surface-elevated text-theme-secondary border border-surface-border hover:bg-surface-hover;
   }
 
   /* ── Danger button ── */
   .btn-danger {
-    @apply inline-flex items-center gap-2 px-4 py-2 bg-red-600 text-white text-sm font-medium rounded-lg
-           hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-1
+    @apply inline-flex items-center gap-2 px-4 py-2 bg-destructive text-destructive-foreground text-sm font-medium rounded-lg
+           hover:bg-destructive/90 focus:outline-none focus-visible:ring-2 focus-visible:ring-destructive focus-visible:ring-offset-1 focus-visible:ring-offset-background
            transition-colors disabled:opacity-50 disabled:cursor-not-allowed;
   }
 
   /* ── Filter toggle chips ── */
   .filter-chip {
     @apply inline-flex items-center justify-center px-3 py-1.5 rounded-lg text-sm font-medium
-           bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors border border-transparent;
-  }
-
-  html.dark .filter-chip,
-  .dark .filter-chip {
-    @apply bg-surface-elevated text-theme-muted border-surface-border hover:bg-surface-hover;
+           bg-secondary text-muted-foreground hover:bg-input/60 transition-colors border border-transparent
+           dark:bg-elevated dark:text-subtle-foreground dark:border-border dark:hover:bg-accent;
   }
 
   .filter-chip-active-blue {
     @apply inline-flex items-center justify-center px-3 py-1.5 rounded-lg text-sm font-medium
-           bg-blue-600 text-white border border-transparent;
+           bg-primary text-primary-foreground border border-transparent;
   }
 
   /* Removed filter-chip-active-green — use filter-chip-active-blue instead */
@@ -62,52 +56,36 @@
 
   /* ── Pagination ── */
   .pagination-nav-btn {
-    @apply relative inline-flex items-center px-2 py-2 text-gray-500 hover:bg-gray-50
-           rounded-md transition-colors;
-  }
-
-  html.dark .pagination-nav-btn,
-  .dark .pagination-nav-btn {
-    @apply text-theme-muted hover:bg-surface-hover;
+    @apply relative inline-flex items-center px-2 py-2 text-subtle-foreground hover:bg-elevated
+           rounded-md transition-colors dark:text-subtle-foreground dark:hover:bg-accent;
   }
 
   .pagination-nav-btn:disabled {
-    @apply text-gray-300 cursor-not-allowed hover:bg-transparent opacity-50;
+    @apply text-input dark:text-subtle-foreground cursor-not-allowed hover:bg-transparent opacity-50;
   }
 
   .pagination-page {
-    @apply relative inline-flex items-center px-4 py-2 text-sm font-medium text-gray-700
-           border border-gray-300 bg-white hover:bg-gray-50 transition-colors;
-  }
-
-  html.dark .pagination-page,
-  .dark .pagination-page {
-    @apply text-theme-secondary bg-surface-elevated border-surface-border hover:bg-surface-hover;
+    @apply relative inline-flex items-center px-4 py-2 text-sm font-medium text-secondary-foreground
+           border border-input bg-card hover:bg-elevated transition-colors
+           dark:text-muted-foreground dark:bg-elevated dark:border-border dark:hover:bg-accent;
   }
 
   /* Single active color: blue (was green in some pages) */
   .pagination-page-active {
     @apply relative inline-flex items-center px-4 py-2 text-sm font-medium z-10
-           bg-blue-600 text-white border border-blue-600;
+           bg-primary text-primary-foreground border border-primary;
   }
 
   .pagination-info {
-    @apply relative inline-flex items-center px-4 py-2 text-sm font-medium text-gray-600
-           bg-gray-50 border border-gray-200 rounded-lg;
-  }
-
-  html.dark .pagination-info,
-  .dark .pagination-info {
-    @apply text-theme-muted bg-surface-elevated border-surface-border;
+    @apply relative inline-flex items-center px-4 py-2 text-sm font-medium text-muted-foreground
+           bg-elevated border border-border rounded-lg
+           dark:text-subtle-foreground dark:bg-elevated dark:border-border;
   }
 
   .pagination-btn {
-    @apply inline-flex items-center px-3 py-2 text-sm border border-gray-300 bg-white text-gray-700
-           rounded-lg hover:bg-gray-50 transition-colors;
-  }
-
-  .dark .pagination-btn {
-    @apply border-surface-border bg-surface-elevated text-theme-secondary hover:bg-surface-hover;
+    @apply inline-flex items-center px-3 py-2 text-sm border border-input bg-card text-secondary-foreground
+           rounded-lg hover:bg-elevated transition-colors
+           dark:border-border dark:bg-elevated dark:text-muted-foreground dark:hover:bg-accent;
   }
 
   .pagination-btn:disabled {
@@ -115,17 +93,13 @@
   }
 
   .pagination-btn-active {
-    @apply z-10 bg-blue-600 text-white border-blue-600;
+    @apply z-10 bg-primary text-primary-foreground border-primary;
   }
 
   .pagination-bordered {
-    @apply relative inline-flex items-center px-2 py-2 border border-gray-200 bg-white
-           text-gray-500 hover:bg-gray-50 transition-colors;
-  }
-
-  html.dark .pagination-bordered,
-  .dark .pagination-bordered {
-    @apply border-surface-border bg-surface-elevated text-theme-muted hover:bg-surface-hover;
+    @apply relative inline-flex items-center px-2 py-2 border border-border bg-card
+           text-subtle-foreground hover:bg-elevated transition-colors
+           dark:border-border dark:bg-elevated dark:text-subtle-foreground dark:hover:bg-accent;
   }
 
   .pagination-bordered:disabled {
@@ -134,71 +108,38 @@
 
   /* ── Modal ── */
   .modal-overlay {
-    @apply fixed inset-0 flex items-center justify-center z-50 px-2 bg-black bg-opacity-50 backdrop-blur-sm;
-  }
-
-  .dark .modal-overlay {
-    background-color: var(--color-overlay);
+    @apply fixed inset-0 flex items-center justify-center z-50 px-2 backdrop-blur-sm bg-overlay/50 dark:bg-overlay/60;
   }
 
   /* ── Alerts ── */
   .alert-error {
-    @apply px-4 py-3 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm;
-  }
-
-  .dark .alert-error {
-    @apply rounded-lg text-red-400;
-    background-color: var(--color-danger-light);
-    border-color: var(--color-danger-border);
+    @apply px-4 py-3 rounded-lg bg-destructive-subtle border border-destructive-border text-destructive-text text-sm
+           dark:bg-destructive-subtle dark:border-destructive-border dark:text-destructive-text;
   }
 
   .alert-success {
-    @apply px-4 py-3 rounded-lg bg-green-50 border border-green-200 text-green-700 text-sm;
-  }
-
-  .dark .alert-success {
-    @apply rounded-lg text-green-400;
-    background-color: var(--color-success-light);
-    border-color: var(--color-success-border);
+    @apply px-4 py-3 rounded-lg bg-success-subtle border border-success-border text-success-text text-sm
+           dark:bg-success-subtle dark:border-success-border dark:text-success-text;
   }
 
   /* ── Form info panel ── */
   .form-panel {
-    @apply flex items-center justify-between p-4 bg-gray-50 rounded-lg border border-gray-200;
-  }
-
-  html.dark .form-panel,
-  .dark .form-panel {
-    @apply bg-surface-elevated border-surface-border;
+    @apply flex items-center justify-between p-4 bg-elevated rounded-lg border border-border dark:bg-elevated dark:border-border;
   }
 
   /* ── Dropdowns ── */
   .dropdown-trigger {
-    @apply w-full flex items-center justify-between px-3 py-2 text-sm border border-gray-300
-           rounded-lg bg-white text-gray-700 hover:bg-gray-50 transition-colors;
-  }
-
-  html.dark .dropdown-trigger,
-  .dark .dropdown-trigger {
-    @apply bg-surface-elevated border-surface-border text-theme-secondary hover:bg-surface-hover;
+    @apply w-full flex items-center justify-between px-3 py-2 text-sm border border-input
+           rounded-lg bg-card text-secondary-foreground hover:bg-elevated transition-colors
+           dark:bg-elevated dark:border-border dark:text-muted-foreground dark:hover:bg-accent;
   }
 
   .dropdown-item {
-    @apply w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 transition-colors;
-  }
-
-  html.dark .dropdown-item,
-  .dark .dropdown-item {
-    @apply text-theme-secondary hover:bg-surface-hover;
+    @apply w-full px-4 py-2 text-left text-sm text-secondary-foreground hover:bg-elevated transition-colors
+           dark:text-muted-foreground dark:hover:bg-accent;
   }
 
   .dropdown-item-active {
-    @apply bg-blue-50 text-blue-700 font-medium;
-  }
-
-  html.dark .dropdown-item-active,
-  .dark .dropdown-item-active {
-    background-color: var(--color-primary-light);
-    @apply text-blue-400;
+    @apply bg-primary-subtle text-primary-text font-medium dark:bg-primary-subtle dark:text-primary-text;
   }
 }

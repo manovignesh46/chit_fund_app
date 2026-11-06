@@ -4,17 +4,16 @@ module.exports = {
   ...themeExtension,
   content: [
     './app/**/*.{js,ts,jsx,tsx}',
-    './styles/**/*.{css}',
     './components/**/*.{js,ts,jsx,tsx}',
   ],
-  // Keep default border color consistent with v2 behaviour (gray-200 / #e5e7eb)
-  // so existing `border` classes don't suddenly switch to currentColor in v3.
   theme: {
     ...themeExtension.theme,
     extend: {
       ...themeExtension.theme?.extend,
+      // Plain `border` follows the theme (it was hard-coded gray-200, which is why
+      // so many pages pair it with a hand-written dark: border class).
       borderColor: {
-        DEFAULT: '#e5e7eb',
+        DEFAULT: 'hsl(var(--border))',
       },
     },
   },
@@ -23,5 +22,5 @@ module.exports = {
     'lg:w-16',
     'lg:w-64',
   ],
-  plugins: [],
+  plugins: [require('tailwindcss-animate')],
 };

@@ -1,5 +1,6 @@
 // API utility functions for client components
 import { invalidateDashboardCache } from './dashboardCache';
+import { clearAllCaches } from './query/invalidate';
 
 // Base URL for API requests
 // Use relative URL to avoid CORS issues
@@ -301,13 +302,20 @@ export const loanAPI = {
 
 // User API functions (consolidated)
 export const authAPI = {
+  // Both drop every cached query so one user never sees another user's data.
   login: (email: string, password: string) => fetchAPI<any>('/user?action=login', {
     method: 'POST',
     body: JSON.stringify({ email, password }),
+  }).then((result) => {
+    clearAllCaches();
+    return result;
   }),
 
   logout: () => fetchAPI<any>('/user?action=logout', {
     method: 'POST',
+  }).then((result) => {
+    clearAllCaches();
+    return result;
   }),
 
   getCurrentUser: () => fetchAPI<any>('/user?action=me'),

@@ -1,98 +1,42 @@
-/* Status and label badges — semantic only (green=active/paid, blue=info, amber=warning, red=overdue) */
+/*
+ * Legacy status and label badges (unconverted pages). New code uses
+ * components/kit/status-badge.tsx, which reads the same tokens.
+ * green = active/paid, blue = info, amber = warning, red = overdue.
+ * `dark:` repeats keep the old `.dark .x` specificity (see controls.css).
+ */
 
 @layer components {
   /* Base style shared by all badges */
   .badge-base {
-    @apply inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium;
+    @apply inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border;
   }
 
   /* ── Status badges ── */
-  .status-badge-active {
-    @apply badge-base bg-green-50 text-green-700 border border-green-200;
+  .status-badge-active,
+  .badge-green,
+  .badge-paid {
+    @apply badge-base bg-success-subtle text-success-text border-success-border
+           dark:bg-success-subtle dark:text-success-text dark:border-success-border;
   }
 
-  .status-badge-upcoming {
-    @apply badge-base bg-blue-50 text-blue-700 border border-blue-200;
+  .status-badge-upcoming,
+  .badge-blue {
+    @apply badge-base bg-info-subtle text-info-text border-info-border
+           dark:bg-info-subtle dark:text-info-text dark:border-info-border;
   }
 
   .status-badge-completed {
-    @apply badge-base bg-gray-100 text-gray-600 border border-gray-200;
-  }
-
-  .dark .status-badge-active,
-  html.dark .status-badge-active {
-    color: #34d399;
-    background-color: rgba(52, 211, 153, 0.12);
-    border-color: rgba(52, 211, 153, 0.25);
-  }
-
-  .dark .status-badge-upcoming,
-  html.dark .status-badge-upcoming {
-    color: #60a5fa;
-    background-color: rgba(96, 165, 250, 0.12);
-    border-color: rgba(96, 165, 250, 0.25);
-  }
-
-  .dark .status-badge-completed,
-  html.dark .status-badge-completed {
-    @apply text-gray-400;
-    background-color: rgba(107, 114, 128, 0.12);
-    border-color: rgba(107, 114, 128, 0.25);
-  }
-
-  /* ── Label badges ── */
-  .badge-blue {
-    @apply badge-base bg-blue-50 text-blue-700 border border-blue-200;
-  }
-
-  .badge-green {
-    @apply badge-base bg-green-50 text-green-700 border border-green-200;
+    @apply badge-base bg-muted text-muted-foreground border-border
+           dark:bg-muted dark:text-muted-foreground dark:border-border;
   }
 
   .badge-amber {
-    @apply badge-base bg-amber-50 text-amber-700 border border-amber-200;
-  }
-
-  .badge-paid {
-    @apply badge-base bg-green-50 text-green-700 border border-green-200;
+    @apply badge-base bg-warning-subtle text-warning-text border-warning-border
+           dark:bg-warning-subtle dark:text-warning-text dark:border-warning-border;
   }
 
   .badge-overdue {
-    @apply badge-base bg-red-50 text-red-700 border border-red-200;
-  }
-
-  .dark .badge-blue,
-  html.dark .badge-blue {
-    background-color: rgba(96, 165, 250, 0.12);
-    color: #60a5fa;
-    border-color: rgba(96, 165, 250, 0.25);
-  }
-
-  .dark .badge-green,
-  html.dark .badge-green {
-    background-color: rgba(52, 211, 153, 0.12);
-    color: #34d399;
-    border-color: rgba(52, 211, 153, 0.25);
-  }
-
-  .dark .badge-amber,
-  html.dark .badge-amber {
-    background-color: rgba(251, 191, 36, 0.12);
-    color: #fbbf24;
-    border-color: rgba(251, 191, 36, 0.25);
-  }
-
-  .dark .badge-paid,
-  html.dark .badge-paid {
-    background-color: rgba(52, 211, 153, 0.12);
-    color: #34d399;
-    border-color: rgba(52, 211, 153, 0.25);
-  }
-
-  .dark .badge-overdue,
-  html.dark .badge-overdue {
-    background-color: rgba(248, 113, 113, 0.12);
-    color: #f87171;
-    border-color: rgba(248, 113, 113, 0.25);
+    @apply badge-base bg-destructive-subtle text-destructive-text border-destructive-border
+           dark:bg-destructive-subtle dark:text-destructive-text dark:border-destructive-border;
   }
 }

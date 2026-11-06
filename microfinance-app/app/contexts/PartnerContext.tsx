@@ -1,7 +1,8 @@
 'use client';
 
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
 import PartnerSelectionModal from '../components/partners/PartnerSelectionModal';
+import { clearAllCaches, revalidateAll } from '../../lib/query/invalidate';
 
 interface Partner {
   id: number;
@@ -135,6 +136,25 @@ export function PartnerProvider({ children }: PartnerProviderProps) {
       localStorage.setItem('selectedPartnerId', selectedPartner.id.toString());
       localStorage.setItem('selectedPartnerName', selectedPartner.name);
     }
+  }, [selectedPartner]);
+
+  // A change of partner lock means a different identity: drop every cached response.
+  const identityRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!userProfileLoaded) return;
+    const identity = `${partnerLocked}|${isPrimaryAdmin}`;
+    if (identityRef.current !== null && identityRef.current !== identity) clearAllCaches();
+    identityRef.current = identity;
+  }, [userProfileLoaded, partnerLocked, isPrimaryAdmin]);
+
+  // Reads do not depend on the active partner (only writes send it), so switching
+  // partner refreshes what is cached instead of clearing it. Restoring the saved
+  // partner on load (none -> saved) is not a switch.
+  const partnerIdRef = useRef<number | null>(null);
+  useEffect(() => {
+    const id = selectedPartner?.id ?? null;
+    if (partnerIdRef.current !== null && id !== null && partnerIdRef.current !== id) void revalidateAll();
+    if (id !== null) partnerIdRef.current = id;
   }, [selectedPartner]);
 
   // Show partner selection modal for primary admin when no partner is selected

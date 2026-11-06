@@ -1,48 +1,127 @@
-/** Tailwind theme extension — colors driven by CSS variables in styles/theme/variables.css */
+/**
+ * Tailwind theme extension. Every colour reads a token from styles/theme/variables.css.
+ * Tokens are HSL channels, so opacity modifiers work (`bg-primary/90`).
+ *
+ * shadcn names: background, foreground, card, popover, primary, secondary, muted,
+ * accent, destructive, border, input, ring, sidebar.
+ * App additions: success, warning, info, elevated, field, subtle, overlay, chart.
+ * Legacy keys kept for unconverted pages: surface.*, theme.*, danger.*,
+ * success/warning .light and .border, primary.light and primary.border.
+ */
+const token = (name) => `hsl(var(--${name}) / <alpha-value>)`;
+
 module.exports = {
   darkMode: 'class',
   theme: {
     extend: {
       colors: {
-        /* Surface tokens */
-        surface: {
-          DEFAULT: 'var(--color-surface)',
-          sidebar: 'var(--color-surface-sidebar)',
-          card: 'var(--color-surface-card)',
-          elevated: 'var(--color-surface-elevated)',
-          hover: 'var(--color-surface-hover)',
-          border: 'var(--color-surface-border)',
-        },
-        /* Text tokens */
-        theme: {
-          primary: 'var(--color-text-primary)',
-          secondary: 'var(--color-text-secondary)',
-          muted: 'var(--color-text-muted)',
-          heading: 'var(--color-text-heading)',
-        },
-        /* Brand accent */
+        border: token('border'),
+        input: token('input'),
+        field: token('field'),
+        ring: token('ring'),
+        background: token('background'),
+        foreground: token('foreground'),
+        elevated: token('elevated'),
+        overlay: token('overlay'),
+        card: { DEFAULT: token('card'), foreground: token('card-foreground') },
+        popover: { DEFAULT: token('popover'), foreground: token('popover-foreground') },
+        muted: { DEFAULT: token('muted'), foreground: token('muted-foreground') },
+        subtle: { foreground: token('subtle-foreground') },
+        accent: { DEFAULT: token('accent'), foreground: token('accent-foreground') },
+        secondary: { DEFAULT: token('secondary'), foreground: token('secondary-foreground') },
         primary: {
-          DEFAULT: 'var(--color-primary)',
-          hover: 'var(--color-primary-hover)',
-          light: 'var(--color-primary-light)',
-          border: 'var(--color-primary-border)',
+          DEFAULT: token('primary'),
+          foreground: token('primary-foreground'),
+          hover: token('primary-hover'),
+          text: token('primary-text'),
+          subtle: token('primary-subtle'),
+          border: token('primary-border'),
+          /* legacy name */
+          light: token('primary-subtle'),
         },
-        /* Semantic status */
+        destructive: {
+          DEFAULT: token('destructive'),
+          foreground: token('destructive-foreground'),
+          text: token('destructive-text'),
+          subtle: token('destructive-subtle'),
+          border: token('destructive-border'),
+        },
         success: {
-          DEFAULT: 'var(--color-success)',
-          light: 'var(--color-success-light)',
-          border: 'var(--color-success-border)',
-        },
-        danger: {
-          DEFAULT: 'var(--color-danger)',
-          light: 'var(--color-danger-light)',
-          border: 'var(--color-danger-border)',
+          DEFAULT: token('success'),
+          foreground: token('success-foreground'),
+          text: token('success-text'),
+          subtle: token('success-subtle'),
+          border: token('success-border'),
+          /* legacy name */
+          light: token('success-subtle'),
         },
         warning: {
-          DEFAULT: 'var(--color-warning)',
-          light: 'var(--color-warning-light)',
-          border: 'var(--color-warning-border)',
+          DEFAULT: token('warning'),
+          foreground: token('warning-foreground'),
+          text: token('warning-text'),
+          subtle: token('warning-subtle'),
+          border: token('warning-border'),
+          /* legacy name */
+          light: token('warning-subtle'),
         },
+        info: {
+          text: token('info-text'),
+          subtle: token('info-subtle'),
+          border: token('info-border'),
+        },
+        chart: {
+          1: token('chart-1'),
+          2: token('chart-2'),
+          3: token('chart-3'),
+          4: token('chart-4'),
+          5: token('chart-5'),
+          6: token('chart-6'),
+        },
+        sidebar: {
+          DEFAULT: token('sidebar-background'),
+          foreground: token('sidebar-foreground'),
+          primary: token('sidebar-primary'),
+          'primary-foreground': token('sidebar-primary-foreground'),
+          accent: token('sidebar-accent'),
+          'accent-foreground': token('sidebar-accent-foreground'),
+          border: token('sidebar-border'),
+          ring: token('sidebar-ring'),
+        },
+
+        /* ── Legacy (unconverted pages) ── */
+        surface: {
+          DEFAULT: token('background'),
+          sidebar: token('sidebar-background'),
+          card: token('card'),
+          elevated: token('elevated'),
+          hover: token('accent'),
+          border: token('border'),
+        },
+        theme: {
+          primary: token('foreground'),
+          secondary: token('muted-foreground'),
+          muted: token('subtle-foreground'),
+          heading: token('foreground'),
+        },
+        /* Legacy `danger` was a text colour; it stays one. */
+        danger: {
+          DEFAULT: token('destructive-text'),
+          light: token('destructive-subtle'),
+          border: token('destructive-border'),
+        },
+      },
+      borderRadius: {
+        lg: 'var(--radius)',
+        md: 'calc(var(--radius) - 2px)',
+      },
+      keyframes: {
+        'progress-indeterminate': {
+          '0%': { transform: 'translateX(-100%)' },
+          '100%': { transform: 'translateX(250%)' },
+        },
+      },
+      animation: {
+        'progress-indeterminate': 'progress-indeterminate 1.1s ease-in-out infinite',
       },
     },
   },

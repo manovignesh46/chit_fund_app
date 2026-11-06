@@ -1,87 +1,41 @@
-/* Dashboard metrics, lists, progress */
+/*
+ * Legacy dashboard metrics, lists, progress — token-based.
+ * Dark tints use half-strength subtle tokens (calmer on large areas, as before).
+ * `dark:` repeats keep the old `.dark .x` specificity (see controls.css).
+ */
 
 @layer components {
-  /* Base metric row — neutral gray tint */
+  /* Base metric row — neutral tint */
   .metric-row {
-    @apply flex items-center justify-between p-3 rounded-lg bg-gray-50;
+    @apply flex items-center justify-between p-3 rounded-lg bg-elevated dark:bg-elevated/70;
   }
 
   /* Semantic tints (muted, no gradients) */
   .metric-row-blue {
-    @apply metric-row;
-    background-color: #f0f7ff;
+    @apply metric-row bg-primary-subtle dark:bg-primary-subtle/50;
   }
 
   .metric-row-green {
-    @apply metric-row;
-    background-color: #f0fdf4;
+    @apply metric-row bg-success-subtle dark:bg-success-subtle/50;
   }
 
   .metric-row-red {
-    @apply metric-row;
-    background-color: #fef2f2;
+    @apply metric-row bg-destructive-subtle dark:bg-destructive-subtle/50;
   }
 
   /* Highlight: flat blue tint, no gradient */
   .metric-row-highlight {
-    @apply metric-row mb-4 border border-blue-100;
-    background-color: #eff6ff;
-  }
-
-  /* Dark overrides */
-  html.dark .metric-row,
-  .dark .metric-row {
-    background-color: rgba(36, 40, 64, 0.7);
-    background-image: none;
-  }
-
-  html.dark .metric-row-blue,
-  .dark .metric-row-blue {
-    background-color: rgba(96, 165, 250, 0.08);
-    background-image: none;
-  }
-
-  html.dark .metric-row-green,
-  .dark .metric-row-green {
-    background-color: rgba(52, 211, 153, 0.08);
-    background-image: none;
-  }
-
-  html.dark .metric-row-red,
-  .dark .metric-row-red {
-    background-color: rgba(248, 113, 113, 0.08);
-    background-image: none;
-  }
-
-  html.dark .metric-row-highlight,
-  .dark .metric-row-highlight {
-    background-color: rgba(96, 165, 250, 0.10);
-    background-image: none;
-    border-color: rgba(96, 165, 250, 0.22);
+    @apply metric-row mb-4 border border-primary-border/60 bg-primary-subtle dark:bg-primary-subtle/60 dark:border-primary-border;
   }
 
   /* List item rows */
   .list-item-row {
-    @apply flex items-center justify-between gap-4 p-3 rounded-lg bg-gray-50 hover:bg-gray-100 transition;
-  }
-
-  html.dark .list-item-row,
-  .dark .list-item-row {
-    background-color: rgba(36, 40, 64, 0.6);
-  }
-
-  html.dark .list-item-row:hover,
-  .dark .list-item-row:hover {
-    background-color: rgba(42, 47, 71, 1);
+    @apply flex items-center justify-between gap-4 p-3 rounded-lg bg-elevated hover:bg-muted transition
+           dark:bg-elevated/60 dark:hover:bg-accent;
   }
 
   /* Progress track */
   .progress-track {
-    @apply w-full rounded-full h-1.5 bg-gray-200;
-  }
-
-  html.dark .progress-track,
-  .dark .progress-track {
-    background-color: rgba(50, 56, 79, 1);
+    @apply w-full rounded-full h-1.5 bg-border dark:bg-border;
   }
 }
