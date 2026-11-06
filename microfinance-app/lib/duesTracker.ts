@@ -28,6 +28,7 @@ export interface DateRange {
 }
 
 export interface LoanLike {
+  status?: string;
   disbursementDate: Date | string;
   duration: number;
   repaymentType: string;
@@ -35,7 +36,7 @@ export interface LoanLike {
   installmentAmount?: number | null;
   remainingAmount?: number | null;
   interestPercentage?: number | null;
-  repayments: { period: number; amount: number; paidDate?: Date | string | null }[];
+  repayments: { period: number; amount: number; paymentType?: string; paidDate?: Date | string | null }[];
 }
 
 export interface ChitFundLike {
@@ -108,6 +109,7 @@ function buildPeriod(period: number, dueDate: Date, expected: number, paid: numb
 
 /** Unpaid (or partly paid) loan installments whose due date falls in `range`. */
 export function computeLoanDuePeriods(loan: LoanLike, range: DateRange, asOf: Date = new Date()): DuePeriod[] {
+  if (loan.status === 'Non-Recoverable') return [];
   const installment = getLoanInstallment(loan);
   if (installment <= 0) return [];
 
@@ -116,11 +118,18 @@ export function computeLoanDuePeriods(loan: LoanLike, range: DateRange, asOf: Da
     if (r.paidDate) paid.set(r.period, (paid.get(r.period) || 0) + r.amount);
   }
 
+  // On restoration, unscheduled recoveries credit the oldest unpaid installments.
+  // Consume the credit before applying the requested range so month views agree.
+  let recoveryCredit = Math.max(0, loan.repayments.reduce((sum, r) =>
+    sum + (r.paidDate && r.paymentType?.startsWith('RECOVERY') ? r.amount : 0), 0));
   const result: DuePeriod[] = [];
   for (let period = 1; period <= loan.duration; period++) {
     const dueDate = getLoanDueDate(loan.disbursementDate, loan.repaymentType, period);
+    const scheduledPaid = paid.get(period) || 0;
+    const credit = Math.min(recoveryCredit, Math.max(0, installment - scheduledPaid));
+    recoveryCredit -= credit;
     if (dueDate < range.start || dueDate > range.end) continue;
-    const p = buildPeriod(period, dueDate, installment, paid.get(period) || 0, asOf);
+    const p = buildPeriod(period, dueDate, installment, scheduledPaid + credit, asOf);
     if (p.outstanding > 0) result.push(p);
   }
   return result;

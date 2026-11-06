@@ -51,6 +51,8 @@ export default function DashboardPage() {
 
   interface OutsideAmountBreakdown {
     loanRemainingAmount: number;
+    activeLoanRemainingAmount?: number;
+    nonRecoverableLoanRemainingAmount?: number;
     chitFundOutsideAmount: number;
   }
 
@@ -135,6 +137,8 @@ export default function DashboardPage() {
     loanDocumentCharges: data.loanDocumentCharges,
     outsideAmountBreakdown: {
       loanRemainingAmount: data.outsideAmountBreakdown?.loanRemainingAmount || 0,
+      activeLoanRemainingAmount: data.outsideAmountBreakdown?.activeLoanRemainingAmount,
+      nonRecoverableLoanRemainingAmount: data.outsideAmountBreakdown?.nonRecoverableLoanRemainingAmount,
       chitFundOutsideAmount: data.outsideAmountBreakdown?.chitFundOutsideAmount || 0,
     },
     activeChitFunds: data.counts?.activeChitFunds || 0,
@@ -435,9 +439,10 @@ export default function DashboardPage() {
               {/* Financial Overview */}
               <div className="grid grid-cols-2 gap-4 sm:gap-6 md:grid-cols-3">
                 <div className="dark-card p-4 sm:p-6">
-                  <p className="text-sm font-medium text-gray-500 dark:text-theme-muted mb-1">Outstanding Loans</p>
-                  <p className="text-2xl font-bold text-gray-900 dark:text-theme-heading">{formatCurrency(dashboardData.outsideAmountBreakdown.loanRemainingAmount)}</p>
-                  <p className="text-xs text-gray-400 mt-1">Pending loan repayments</p>
+                  <p className="text-sm font-medium text-gray-500 dark:text-theme-muted mb-1">Active Loan Principal</p>
+                  <p className="text-2xl font-bold text-gray-900 dark:text-theme-heading">{formatCurrency(dashboardData.outsideAmountBreakdown.activeLoanRemainingAmount ?? dashboardData.outsideAmountBreakdown.loanRemainingAmount)}</p>
+                  <p className="text-xs text-gray-400 mt-1">Total principal: {formatCurrency(dashboardData.outsideAmountBreakdown.loanRemainingAmount)}</p>
+                  <Link href="/loans?status=Non-Recoverable" className="text-xs text-red-700 dark:text-red-400 underline mt-1 block">Non-Recoverable: {formatCurrency(dashboardData.outsideAmountBreakdown.nonRecoverableLoanRemainingAmount || 0)}</Link>
                 </div>
                 <div className="dark-card p-4 sm:p-6">
                   <p className="text-sm font-medium text-gray-500 dark:text-theme-muted mb-1">Outstanding Chit Funds</p>

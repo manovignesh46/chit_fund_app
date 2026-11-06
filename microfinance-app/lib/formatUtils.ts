@@ -89,6 +89,7 @@ export function getStatusColor(status: string): string {
     case 'Completed':
       return 'bg-blue-100 text-blue-800 dark:status-badge-upcoming';
     case 'Defaulted':
+    case 'Non-Recoverable':
       return 'bg-red-100 text-red-800 dark:badge-overdue';
     default:
       return 'bg-gray-100 text-gray-800 dark:status-badge-completed';

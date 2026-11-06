@@ -7,6 +7,7 @@ import Link from "next/link";
 import { apiGet, apiPost, apiPut, apiDelete } from "../../../lib/apiUtils";
 import BackTitle from "../../../components/common/BackTitle";
 import { formatDate as formatDateUtil, formatCurrency as formatCurrencyUtil } from "../../../../lib/formatUtils";
+import PayContributionBalanceModal from "../../../../components/chit-funds/PayContributionBalanceModal";
 
 interface GlobalMember {
   id: number;
@@ -107,6 +108,9 @@ export default function ChitFundContributionsPage() {
     [key: string]: string;
   }>({});
   const [isEditing, setIsEditing] = useState(false);
+
+  // For paying a contribution's pending balance
+  const [contributionToPay, setContributionToPay] = useState<Contribution | null>(null);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -486,6 +490,30 @@ export default function ChitFundContributionsPage() {
   // Get contributions organized by month
   const contributionsByMonth = getContributionsByMonth();
 
+  // A part-paid contribution whose balance has not been settled yet
+  const hasPendingBalance = (contribution: Contribution | null) =>
+    !!contribution &&
+    contribution.balance > 0 &&
+    contribution.balancePaymentStatus !== "Paid";
+
+  // Month-view rows come without the member relation, so fall back to the members list
+  const getMemberName = (contribution: Contribution) =>
+    contribution.member?.globalMember?.name ||
+    members.find((m) => m.id === contribution.memberId)?.globalMember?.name ||
+    `Member ID: ${contribution.memberId}`;
+
+  // Apply the server's updated contribution after a balance payment
+  const handleBalancePaid = (updated: Contribution) => {
+    const merge = (list: any[]) =>
+      list.map((c) => (c.id === updated.id ? { ...c, ...updated } : c));
+    setContributions(merge);
+    setAllContributions(merge);
+    setSelectedContribution((current) =>
+      current && current.id === updated.id ? { ...current, ...updated } : current
+    );
+    setContributionToPay(null);
+  };
+
   // Handle viewing contribution details
   const handleViewContribution = (contribution: Contribution) => {
     setSelectedContribution(contribution);
@@ -844,6 +872,17 @@ export default function ChitFundContributionsPage() {
                           <div className="flex justify-end space-x-3">
                             {/* Only show Add Payment or Delete, never Edit */}
                             {memberData.status === "paid" ? (
+                              <>
+                                {hasPendingBalance(memberData.contribution) && (
+                                  <button
+                                    onClick={() => setContributionToPay(memberData.contribution)}
+                                    className="text-green-600 hover:text-green-900 flex items-center"
+                                    title="Pay pending balance"
+                                  >
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 block sm:hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" /></svg>
+                                    <span className="hidden sm:inline-flex items-center"><svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" /></svg>Pay Balance</span>
+                                  </button>
+                                )}
                               <button
                                 onClick={() => handleDeleteContribution(memberData.contribution!.id)}
                                 className="text-red-600 hover:text-red-900 flex items-center"
@@ -852,6 +891,7 @@ export default function ChitFundContributionsPage() {
                                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 block sm:hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                                 <span className="hidden sm:inline-flex items-center"><svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>Delete</span>
                               </button>
+                              </>
                             ) : (
                               <button
                                 onClick={() => {
@@ -977,6 +1017,16 @@ export default function ChitFundContributionsPage() {
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 block sm:hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
                             <span className="hidden sm:inline-flex items-center"><svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>Edit</span>
                           </button> */}
+                          {hasPendingBalance(contribution) && (
+                            <button
+                              onClick={() => setContributionToPay(contribution)}
+                              className="text-green-600 hover:text-green-900 flex items-center"
+                              title="Pay pending balance"
+                            >
+                              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 block sm:hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" /></svg>
+                              <span className="hidden sm:inline-flex items-center"><svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" /></svg>Pay Balance</span>
+                            </button>
+                          )}
                           <button
                             onClick={() => handleDeleteContribution(contribution.id)}
                             className="text-red-600 hover:text-red-900 flex items-center"
@@ -1354,8 +1404,7 @@ export default function ChitFundContributionsPage() {
                 <div>
                   <p className="text-sm text-gray-500">Member</p>
                   <p className="text-md font-semibold">
-                    {selectedContribution.member?.globalMember?.name ||
-                      `Member ID: ${selectedContribution.memberId}`}
+                    {getMemberName(selectedContribution)}
                   </p>
                 </div>
                 <div>
@@ -1459,6 +1508,17 @@ export default function ChitFundContributionsPage() {
               >
                 Edit
               </button> */}
+              {hasPendingBalance(selectedContribution) && (
+                <button
+                  onClick={() => {
+                    setShowDetailModal(false);
+                    setContributionToPay(selectedContribution);
+                  }}
+                  className="btn-primary"
+                >
+                  Pay Balance
+                </button>
+              )}
               <button
                 onClick={() => setShowDetailModal(false)}
                 className="btn-neutral px-4 py-2 rounded-lg transition duration-300"
@@ -1468,6 +1528,17 @@ export default function ChitFundContributionsPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Pay Pending Balance */}
+      {contributionToPay && (
+        <PayContributionBalanceModal
+          chitFundId={chitFundId as string}
+          contribution={contributionToPay}
+          memberName={getMemberName(contributionToPay)}
+          onClose={() => setContributionToPay(null)}
+          onPaid={handleBalancePaid}
+        />
       )}
 
       {/* Add Contribution Form */}

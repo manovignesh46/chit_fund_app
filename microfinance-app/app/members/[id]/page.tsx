@@ -534,8 +534,17 @@ export default function MemberDetailPage() {
               + Create New Loan
             </Link>
           </div>
-          {member.loans.length === 0 ? (
-            <p className="text-gray-500 text-center py-8 text-sm">This member has no loans yet.</p>
+          {member.loans.some((l) => l.status === 'Non-Recoverable') && <section className="p-4 sm:p-6 border-b border-gray-200 dark:border-surface-border">
+            <h3 className="font-semibold">Non-Recoverable · Offline Recovery</h3>
+            <p className="text-xs text-gray-500 mt-1">Excluded from this member’s routine pending dues.</p>
+            <ul className="mt-3 space-y-3">{member.loans.filter((l) => l.status === 'Non-Recoverable').map((l) => <li key={l.id} className="text-sm">
+              <Link className="text-blue-600 underline" href={`/loans/${l.id}#loan-recovery`}>Loan #{l.id} · {l.loanType}</Link>
+              <p>Principal {formatCurrency(l.remainingAmount)} · Unpaid interest {formatCurrency(l.recoveryInterestOutstanding || 0)} · Recovered {formatCurrency(l.recoveryAmount || 0)} · {l.recoveryOutcome === 'Recovered' ? 'Fully Recovered' : l.recoveryOutcome}</p>
+              <p className="text-xs text-gray-500">Marked {formatDate(l.nonRecoverableAt)} · {l.nonRecoverableReason}</p>
+            </li>)}</ul>
+          </section>}
+          {member.loans.filter((l) => l.status !== 'Non-Recoverable').length === 0 ? (
+            <p className="text-gray-500 text-center py-8 text-sm">No loans in routine collection.</p>
           ) : (
             <div className="overflow-x-auto">
               <table className="min-w-full divide-y divide-surface-border text-xs sm:text-sm">
@@ -547,7 +556,7 @@ export default function MemberDetailPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {member.loans.map((loan) => (
+                  {member.loans.filter((loan) => loan.status !== 'Non-Recoverable').map((loan) => (
                     <tr key={loan.id} className="hover:bg-gray-50 dark:hover:bg-surface-hover">
                       <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-sm font-medium text-blue-600">{loan.loanType}</td>
                       <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-sm text-gray-900 dark:text-theme-primary">{formatCurrency(loan.amount)}</td>

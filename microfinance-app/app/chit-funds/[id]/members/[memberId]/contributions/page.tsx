@@ -4,7 +4,8 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { apiGet, apiPut } from '../../../../../../lib/apiUtils';
+import { apiGet } from '../../../../../../lib/apiUtils';
+import PayContributionBalanceModal from '../../../../../../components/chit-funds/PayContributionBalanceModal';
 import BackTitle from '../../../../../components/common/BackTitle';
 
 interface GlobalMember {
@@ -60,9 +61,8 @@ export default function MemberContributionsPage() {
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [selectedContribution, setSelectedContribution] = useState<Contribution | null>(null);
 
-  // For updating balance payment status
-  const [isUpdating, setIsUpdating] = useState(false);
-  const [updateError, setUpdateError] = useState<string | null>(null);
+  // For paying a contribution's pending balance
+  const [contributionToPay, setContributionToPay] = useState<Contribution | null>(null);
 
   // For recording a new contribution
   const [showRecordModal, setShowRecordModal] = useState(false);
@@ -182,46 +182,15 @@ export default function MemberContributionsPage() {
   const handleViewContribution = (contribution: Contribution) => {
     setSelectedContribution(contribution);
     setShowDetailModal(true);
-    setUpdateError(null);
   };
 
-  // Handle marking balance as paid
-  const handleMarkBalanceAsPaid = async () => {
-    if (!selectedContribution || !chitFund) return;
-
-    setIsUpdating(true);
-    setUpdateError(null);
-
-    try {
-      // Use the apiPut function from apiUtils
-      const updatedContribution = await apiPut(
-        `/api/chit-funds/consolidated?action=update-contribution&id=${chitFundId}`,
-        {
-          contributionId: selectedContribution.id,
-          amount: selectedContribution.amount,
-          paidDate: new Date(selectedContribution.paidDate).toISOString().split('T')[0],
-          balancePaymentStatus: 'Paid',
-          actualBalancePaymentDate: new Date().toISOString().split('T')[0],
-          // Set balance to 0 when marking as paid
-          balance: 0,
-        },
-        'Failed to update balance payment status'
-      );
-
-      // Update the contributions list
-      setContributions(contributions.map(c =>
-        c.id === updatedContribution.id ? updatedContribution : c
-      ));
-
-      // Update the selected contribution
-      setSelectedContribution(updatedContribution);
-
-    } catch (error: any) {
-      console.error('Error updating balance payment status:', error);
-      setUpdateError(error.message || 'Failed to update balance payment status');
-    } finally {
-      setIsUpdating(false);
-    }
+  // Apply the server's updated contribution after a balance payment
+  const handleBalancePaid = (updated: Contribution) => {
+    setContributions((list) => list.map(c => (c.id === updated.id ? { ...c, ...updated } : c)));
+    setSelectedContribution((current) =>
+      current && current.id === updated.id ? { ...current, ...updated } : current
+    );
+    setContributionToPay(null);
   };
 
   // Handle opening the record contribution modal
@@ -704,35 +673,18 @@ export default function MemberContributionsPage() {
                     </div>
                   )}
 
-                  {/* Mark as Paid button for pending balances */}
+                  {/* Pay Balance button for pending balances */}
                   {selectedContribution.balance > 0 && selectedContribution.balancePaymentStatus !== 'Paid' && (
                     <div className="col-span-2 mt-3">
                       <button
-                        onClick={handleMarkBalanceAsPaid}
-                        disabled={isUpdating}
-                        className={`btn-primary w-full ${isUpdating ? 'opacity-50 cursor-not-allowed' : ''}`}
+                        onClick={() => {
+                          setShowDetailModal(false);
+                          setContributionToPay(selectedContribution);
+                        }}
+                        className="btn-primary w-full"
                       >
-                        {isUpdating ? (
-                          <span className="flex items-center justify-center">
-                            <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                            </svg>
-                            Processing...
-                          </span>
-                        ) : (
-                          'Mark Balance as Paid'
-                        )}
+                        Pay Balance
                       </button>
-                    </div>
-                  )}
-
-                  {/* Error message */}
-                  {updateError && (
-                    <div className="col-span-2 mt-2">
-                      <div className="alert-error px-3 py-2 rounded text-sm">
-                        {updateError}
-                      </div>
                     </div>
                   )}
                 </div>
@@ -749,6 +701,17 @@ export default function MemberContributionsPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Pay Pending Balance */}
+      {contributionToPay && (
+        <PayContributionBalanceModal
+          chitFundId={chitFundId as string}
+          contribution={contributionToPay}
+          memberName={member.globalMember.name}
+          onClose={() => setContributionToPay(null)}
+          onPaid={handleBalancePaid}
+        />
       )}
     </div>
   );

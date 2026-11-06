@@ -85,6 +85,8 @@ export async function getFinancialDataForExport(userId: number, startDate: Date,
         amount: true,
         paidDate: true,
         period: true,
+        principalComponent: true,
+        interestComponent: true,
         paymentType: true,
         loan: {
           select: {
@@ -192,11 +194,17 @@ export async function getFinancialDataForExport(userId: number, startDate: Date,
         interestRate: true,
         documentCharge: true,
         repaymentType: true,
+        loanType: true,
+        interestPercentage: true,
+        remainingAmount: true,
+        status: true,
         disbursementDate: true,
         repayments: {
           select: {
             id: true,
             amount: true,
+            principalComponent: true,
+            interestComponent: true,
             paymentType: true,
             paidDate: true,
             period: true

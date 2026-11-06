@@ -5,11 +5,16 @@ import {
   generatePaymentSchedule,
   calculateNextPaymentDate,
   updateOverdueAmountFromRepayments,
+  computeNextPaymentDate,
+  computeOverdueFromRepayments,
 } from "../../../../lib/paymentSchedule";
 import { TRANSACTION_TYPES_CONFIG } from "../../../../config/config";
 import { calculateTransactionBalance, getCurrentPartnerBalance, getCurrentTotalBalance, recalculateBalancesAfterDeletion } from "../../../../lib/balanceCalculator";
 import { autoUpdateCurrentMonths } from "../../../../lib/timeUtils";
 import { notifyOtherAdmins, getActorName } from "../../../../lib/notifications";
+import { computeLoanDuePeriods, getLoanDueDate } from "../../../../lib/duesTracker";
+import { calculateLoanProfit } from "../../../../lib/financialUtils";
+import { NON_RECOVERABLE, RecoveryError } from "../../../../lib/loanRecovery";
 
 /**
  * Check if all periods of a loan have been completed (paid)
@@ -317,7 +322,11 @@ async function getLoansList(request: NextRequest, currentUserId: number) {
       take: validPageSize,
     });
 
+    const recoveryTotals = status === NON_RECOVERABLE ? await prisma.loan.aggregate({
+      where, _sum: { remainingAmount: true, recoveryInterestOutstanding: true, recoveryAmount: true },
+    }) : null;
     return NextResponse.json({
+      recoverySummary: recoveryTotals ? { principal: recoveryTotals._sum.remainingAmount || 0, interest: recoveryTotals._sum.recoveryInterestOutstanding || 0, recovered: recoveryTotals._sum.recoveryAmount || 0 } : null,
       loans,
       totalCount,
       page: validPage,
@@ -345,6 +354,7 @@ async function getLoanDetail(
       where: { id },
       include: {
         borrower: true,
+        repayments: { select: { amount: true, paymentType: true, paidDate: true, period: true, principalComponent: true, interestComponent: true } },
         _count: {
           select: { repayments: true },
         },
@@ -363,7 +373,7 @@ async function getLoanDetail(
       );
     }
 
-    return NextResponse.json(loan);
+    return NextResponse.json({ ...loan, totalProfit: calculateLoanProfit(loan, loan.repayments) });
   } catch (error) {
     console.error("Error fetching loan:", error);
     return NextResponse.json(
@@ -522,6 +532,9 @@ async function getPaymentSchedules(
     const duration = loan.duration;
     const installmentAmount = loan.installmentAmount;
     const interestRate = loan.interestRate;
+    const restoredDues = loan.nonRecoverableAt && loan.status === 'Active'
+      ? new Map(computeLoanDuePeriods(loan, { start: new Date(0), end: getLoanDueDate(loan.disbursementDate, loan.repaymentType, loan.duration) }).map(p => [p.period, p]))
+      : null;
 
     // Create a map of repayments by period for quick lookup
     const repaymentsByPeriod = new Map();
@@ -549,7 +562,8 @@ async function getPaymentSchedules(
       // Check if this period has been paid
       const repayment = repaymentsByPeriod.get(period);
 
-      const isPaid = !!repayment;
+      const recoveryCovered = restoredDues && !restoredDues.has(period) && !repayment;
+      const isPaid = !!repayment || !!recoveryCovered;
       const isInterestOnly =
         repayment && repayment.paymentType === "INTEREST_ONLY";
 
@@ -601,19 +615,21 @@ async function getPaymentSchedules(
         shouldInclude = isPast || isPaid || (isNextPayment && isWithinThreeDays);
       }
 
+      if (loan.status === NON_RECOVERABLE) shouldInclude = !includeAll && isPaid;
+
       if (shouldInclude) {
         schedules.push({
           id: period, // Use the period as the ID
           period,
           dueDate,
-          amount: installmentAmount,
+          amount: restoredDues?.get(period)?.outstanding ?? installmentAmount,
           interestAmount:
             loan.loanType === "Reducing Balance"
               ? (loan.remainingAmount * (loan.interestPercentage || 0)) /
                 100 /
                 12
               : interestRate,
-          status: isPaid
+          status: recoveryCovered ? 'Recovery Credit' : isPaid
             ? isInterestOnly
               ? "Interest Only"
               : "Paid"
@@ -839,6 +855,13 @@ async function generateLoansExcel(loans: any[]) {
     { header: "Overdue", key: "overdue", width: 15 },
     { header: "Next Payment Date", key: "nextPaymentDate", width: 20 },
     { header: "Purpose", key: "purpose", width: 35 },
+    { header: "Non-Recoverable Date", key: "nonRecoverableAt", width: 22 },
+    { header: "Non-Recoverable Reason", key: "nonRecoverableReason", width: 35 },
+    { header: "Principal at Marking", key: "recoveryPrincipalAtMark", width: 22 },
+    { header: "Installment Dues at Marking", key: "recoveryDuesAtMark", width: 25 },
+    { header: "Unpaid Interest Tracked", key: "recoveryInterestOutstanding", width: 22 },
+    { header: "Offline Amount Recovered", key: "recoveryAmount", width: 23 },
+    { header: "Recovery Outcome", key: "recoveryOutcome", width: 20 },
   ];
 
   // Format header row with bold font
@@ -872,6 +895,14 @@ async function generateLoansExcel(loans: any[]) {
         ? new Date(loan.nextPaymentDate).toLocaleDateString()
         : "N/A",
       purpose: loan.purpose || "N/A",
+      nonRecoverableAt: loan.nonRecoverableAt ? new Date(loan.nonRecoverableAt).toISOString().slice(0, 10) : '',
+      nonRecoverableReason: loan.nonRecoverableReason || '',
+      recoveryPrincipalAtMark: loan.recoveryPrincipalAtMark,
+      recoveryDuesAtMark: loan.recoveryDuesAtMark,
+      recoveryInterestOutstanding: loan.recoveryInterestOutstanding,
+      recoveryAmount: loan.recoveryAmount,
+      recoveryOutcome: loan.recoveryOutcome || '',
+
     });
   });
 
@@ -887,6 +918,9 @@ async function generateLoansExcel(loans: any[]) {
     { header: "Paid Date", key: "paidDate", width: 20 },
     { header: "Payment Type", key: "paymentType", width: 15 },
     { header: "Period", key: "period", width: 10 },
+    { header: "Recovery Principal", key: "principalComponent", width: 20 },
+    { header: "Recovery Interest", key: "interestComponent", width: 20 },
+    { header: "Recovery Notes", key: "notes", width: 35 },
   ];
 
   // Format header row with bold font and center alignment
@@ -909,12 +943,38 @@ async function generateLoansExcel(loans: any[]) {
             ? new Date(repayment.paidDate).toLocaleDateString()
             : "Unknown",
           paymentType: repayment.paymentType || "full",
-          period: repayment.period || "N/A",
+          period: repayment.paymentType === 'RECOVERY' ? 'Offline' : repayment.period || "N/A",
+          principalComponent: repayment.principalComponent,
+          interestComponent: repayment.interestComponent,
+          notes: repayment.notes || '',
         });
       });
     }
   });
 
+  if (loans.some(loan => loan.nonRecoverableAt)) {
+    const events = await prisma.loanRecoveryEvent.findMany({ where: { loanId: { in: loans.map(loan => loan.id) } },
+      include: { actor: { select: { name: true } } }, orderBy: [{ createdAt: 'asc' }, { id: 'asc' }] });
+    const audit = workbook.addWorksheet('Recovery History');
+    audit.columns = [
+      { header: 'Loan ID', key: 'loanId', width: 12 }, { header: 'Action', key: 'action', width: 15 },
+      { header: 'Date', key: 'date', width: 26 }, { header: 'Recorded By', key: 'actor', width: 25 },
+      { header: 'Reason', key: 'reason', width: 45 }, { header: 'Principal at Marking', key: 'principal', width: 22 },
+      { header: 'Installment Dues at Marking', key: 'dues', width: 25 }, { header: 'Unpaid Interest at Marking', key: 'unpaidInterest', width: 25 },
+      { header: 'Cash Received', key: 'received', width: 20 }, { header: 'Principal Received', key: 'principalReceived', width: 22 },
+      { header: 'Interest Received', key: 'interestReceived', width: 22 }, { header: 'Principal Waived', key: 'principalWaived', width: 22 },
+      { header: 'Interest Waived', key: 'interestWaived', width: 22 }, { header: 'Amount Reversed', key: 'amountReversed', width: 22 },
+      { header: 'Receipt ID', key: 'receiptId', width: 15 },
+    ];
+    audit.getRow(1).font = { bold: true };
+    for (const event of events) {
+      const d = event.details as Record<string, any>;
+      audit.addRow({ loanId: event.loanId, action: event.action, date: event.createdAt.toISOString(), actor: event.actor.name, reason: event.reason,
+        principal: d.principal, dues: d.unpaidInstallmentDues, unpaidInterest: d.unpaidInterest, received: d.amountReceived,
+        principalReceived: d.principalReceived, interestReceived: d.interestReceived, principalWaived: d.principalWaived, interestWaived: d.interestWaived,
+        amountReversed: d.amountReversed, receiptId: d.repaymentId ?? d.reversedRepaymentId });
+    }
+  }
   return workbook;
 }
 
@@ -1124,170 +1184,191 @@ async function createLoan(request: NextRequest, currentUserId: number) {
 async function addRepayment(request: NextRequest, id: number, currentUserId: number) {
   try {
     const requestBody = await request.json();
-    const {
-      amount,
-      paidDate,
-      paymentType = "REGULAR",
-      scheduleId,
-      collected_by, // partner ID
-    } = requestBody;
+    const result = await prisma.$transaction(async (tx) => {
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext('partner-balance'), ${currentUserId}::integer)`;
+      const {
+        amount,
+        paidDate,
+        paymentType = "REGULAR",
+        scheduleId,
+        collected_by, // partner ID
+      } = requestBody;
 
-    const activePartnerName = request.headers.get("x-active-partner") || "Me";
+      const activePartnerName = request.headers.get("x-active-partner") || "Me";
 
-    // --- Input validation (remains the same) ... ---
+      // --- Input validation (remains the same) ... ---
 
-    const collectorPartner = await prisma.partner.findUnique({ where: { id: parseInt(collected_by) } });
-    if (!collectorPartner) {
-      return NextResponse.json({ error: "Collector partner not found" }, { status: 400 });
-    }
-    const entryPartner = await prisma.partner.findFirst({ where: { name: activePartnerName, createdById: currentUserId }});
-    if (!entryPartner) {
-        return NextResponse.json({ error: "Data entry partner not found" }, { status: 400 });
-    }
+      const collectorPartner = await tx.partner.findUnique({ where: { id: parseInt(collected_by) } });
+      if (!collectorPartner) {
+        return NextResponse.json({ error: "Collector partner not found" }, { status: 400 });
+      }
+      const entryPartner = await tx.partner.findFirst({ where: { name: activePartnerName, createdById: currentUserId }});
+      if (!entryPartner) {
+          return NextResponse.json({ error: "Data entry partner not found" }, { status: 400 });
+      }
 
-    const loanId = id;
-    const paymentAmount = parseFloat(amount);
-    const period = Number(scheduleId);
+      const loanId = id;
+      const paymentAmount = parseFloat(amount);
+      const period = Number(scheduleId);
 
-    // Fetch the loan first to get its current state and borrower info
-    const loan = await prisma.loan.findUnique({
-      where: { id: loanId },
-      include: { borrower: true },
-    });
+      // Fetch the loan first to get its current state and borrower info
+      const loan = await tx.loan.findUnique({
+        where: { id: loanId },
+        include: { borrower: true },
+      });
 
-    if (!loan || loan.createdById !== currentUserId) {
-      throw new Error("Loan not found or permission denied");
-    }
+      if (!loan || loan.createdById !== currentUserId) {
+        throw new Error("Loan not found or permission denied");
+      }
+      if (loan.status === NON_RECOVERABLE || paymentType.startsWith('RECOVERY')) {
+        return NextResponse.json({ error: 'Use Record Recovery on the loan details page' }, { status: 409 });
+      }
 
-    // Calculate balances before creating the transaction
-    const transactionDate = new Date(paidDate);
-    const affectedPartnerId = collectorPartner.id; // LOAN_REPAYMENT affects the receiving partner
+      // Calculate balances before creating the transaction
+      const transactionDate = new Date(paidDate);
+      const affectedPartnerId = collectorPartner.id; // LOAN_REPAYMENT affects the receiving partner
     
-    const currentPartnerBalance = await getCurrentPartnerBalance(affectedPartnerId, currentUserId);
-    const currentTotalBalance = await getCurrentTotalBalance(currentUserId);
+      const currentPartnerBalance = await getCurrentPartnerBalance(affectedPartnerId, currentUserId, undefined, tx);
+      const currentTotalBalance = await getCurrentTotalBalance(currentUserId, undefined, tx);
     
-    const balanceCalculation = calculateTransactionBalance(
-      {
-        type: TRANSACTION_TYPES_CONFIG.LOAN_REPAYMENT,
-        amount: paymentAmount,
-        from_partner_id: null,
-        to_partner_id: collectorPartner.id
-      },
-      affectedPartnerId,
-      currentPartnerBalance,
-      currentTotalBalance
-    );
-
-    // --- REFACTORED REPAYMENT CREATION (PLAN B) ---
-    // 1. Create the Transaction and nest the Repayment inside it.
-    const createdTransaction = await prisma.transaction.create({
-        data: {
-            type: TRANSACTION_TYPES_CONFIG.LOAN_REPAYMENT,
-            amount: paymentAmount,
-            date: transactionDate,
-            note: `Repayment from ${loan.borrower?.name} - Period ${period}`,
-            createdById: currentUserId,
-            action_performer: collectorPartner.name,
-            entered_by: entryPartner.name,
-            to_partner_id: collectorPartner.id,
-            // Add balance tracking
-            partnerBalance: balanceCalculation.partnerBalance,
-            totalBalance: balanceCalculation.totalBalance,
-            // Nest the Repayment creation
-            repayment: {
-                create: {
-                    loanId,
-                    amount: paymentAmount,
-                    paidDate: transactionDate,
-                    paymentType,
-                    period,
-                    collected_by_id: collectorPartner.id,
-                    entered_by_id: entryPartner.id,
-                    createdById: currentUserId,
-                }
-            }
+      const balanceCalculation = calculateTransactionBalance(
+        {
+          type: TRANSACTION_TYPES_CONFIG.LOAN_REPAYMENT,
+          amount: paymentAmount,
+          from_partner_id: null,
+          to_partner_id: collectorPartner.id
         },
-        include: {
-            repayment: { // Include the new repayment in the response
-                include: {
-                    collectedBy: true
-                }
-            }
-        }
-    });
+        affectedPartnerId,
+        currentPartnerBalance,
+        currentTotalBalance
+      );
 
-    // 2. Calculate the new loan state after the payment
-    // Get all repayments for this loan (including the one we just added)
-    const allRepayments = await prisma.repayment.findMany({
-      where: { loanId },
-      select: { period: true, paymentType: true, amount: true }
-    });
+      // --- REFACTORED REPAYMENT CREATION (PLAN B) ---
+      // 1. Create the Transaction and nest the Repayment inside it.
+      const createdTransaction = await tx.transaction.create({
+          data: {
+              type: TRANSACTION_TYPES_CONFIG.LOAN_REPAYMENT,
+              amount: paymentAmount,
+              date: transactionDate,
+              note: `Repayment from ${loan.borrower?.name} - Period ${period}`,
+              createdById: currentUserId,
+              action_performer: collectorPartner.name,
+              entered_by: entryPartner.name,
+              to_partner_id: collectorPartner.id,
+              // Add balance tracking
+              partnerBalance: balanceCalculation.partnerBalance,
+              totalBalance: balanceCalculation.totalBalance,
+              // Nest the Repayment creation
+              repayment: {
+                  create: {
+                      loanId,
+                      amount: paymentAmount,
+                      paidDate: transactionDate,
+                      paymentType,
+                      period,
+                      collected_by_id: collectorPartner.id,
+                      entered_by_id: entryPartner.id,
+                      createdById: currentUserId,
+                  }
+              }
+          },
+          include: {
+              repayment: { // Include the new repayment in the response
+                  include: {
+                      collectedBy: true
+                  }
+              }
+          }
+      });
 
-    // Count completed periods (excluding interest-only payments)
-    const completedPeriods = new Set(
-      allRepayments
-        .filter(r => r.paymentType !== 'interestOnly')
-        .map(r => r.period)
-    ).size;
+      // 2. Calculate the new loan state after the payment
+      // Get all repayments for this loan (including the one we just added)
+      const allRepayments = await tx.repayment.findMany({
+        where: { loanId },
+        select: { period: true, paymentType: true, amount: true, principalComponent: true, paidDate: true }
+      });
 
-    let newRemainingAmount: number;
-    if (loan.loanType === "Reducing Balance") {
-      // Monthly interest = current principal * (annual rate / 100 / 12)
-      const monthlyInterestRate = (loan.interestPercentage || 0) / 100 / 12;
-      const calculatedInterest = loan.remainingAmount * monthlyInterestRate;
+      // Loans with recovery history follow the recovery-aware schedule rules. Every other loan keeps
+      // the long-standing rules, where a repayment recorded against a period settles that period.
+      const hasRecoveryHistory = !!loan.nonRecoverableAt;
+      const settlesPeriod = (r: { period: number; paymentType: string }) => hasRecoveryHistory
+        ? r.period > 0 && !['interestOnly', 'INTEREST_ONLY', 'RECOVERY'].includes(r.paymentType)
+        : r.paymentType !== 'interestOnly';
+
+      // Count completed periods (excluding interest-only payments)
+      const completedPeriods = new Set(allRepayments.filter(settlesPeriod).map(r => r.period)).size;
+
+      let newRemainingAmount: number;
+      if (loan.loanType === "Reducing Balance") {
+        // Monthly interest = current principal * (annual rate / 100 / 12)
+        const monthlyInterestRate = (loan.interestPercentage || 0) / 100 / 12;
+        const calculatedInterest = loan.remainingAmount * monthlyInterestRate;
       
-      // Principal reduction = payment amount - calculated interest
-      const principalReduction = paymentAmount - calculatedInterest;
-      newRemainingAmount = Math.max(0, loan.remainingAmount - principalReduction);
+        // Principal reduction = payment amount - calculated interest
+        const principalReduction = paymentAmount - calculatedInterest;
+        newRemainingAmount = Math.max(0, loan.remainingAmount - principalReduction);
       
-      console.log(`Reducing Balance Calculation: Principal=${loan.remainingAmount}, Interest=${calculatedInterest}, Reduction=${principalReduction}, NewPrincipal=${newRemainingAmount}`);
-    } else if (loan.loanType === "Weekly") {
-      // For weekly loans: remaining = original amount - (completed periods / (total periods - 1)) * original amount
-      const progressRatio = completedPeriods / (loan.duration - 1);
-      const paidAmount = progressRatio * loan.amount;
-      newRemainingAmount = Math.max(0, loan.amount - paidAmount);
-    } else {
-      // For monthly loans: any amount paid above the fixed interest reduces the principal directly.
-      // This correctly handles overpayments (e.g., paying 18800 when EMI is 2800 with 800 interest
-      // should reduce principal by 18000, not just 2000).
-      const principalReduction = Math.max(0, paymentAmount - (loan.interestRate || 0));
-      newRemainingAmount = Math.max(0, loan.remainingAmount - principalReduction);
-      console.log(`Monthly Loan Calculation: PreviousPrincipal=${loan.remainingAmount}, Payment=${paymentAmount}, Interest=${loan.interestRate}, PrincipalReduction=${principalReduction}, NewPrincipal=${newRemainingAmount}`);
-    }
+        console.log(`Reducing Balance Calculation: Principal=${loan.remainingAmount}, Interest=${calculatedInterest}, Reduction=${principalReduction}, NewPrincipal=${newRemainingAmount}`);
+      } else if (loan.loanType === "Weekly") {
+        // For weekly loans: remaining = original amount - (completed periods / (total periods - 1)) * original amount
+        const progressRatio = completedPeriods / (loan.duration - 1);
+        const paidAmount = progressRatio * loan.amount;
+        newRemainingAmount = Math.max(0, loan.amount - paidAmount - allRepayments.filter(r => r.paymentType === 'RECOVERY').reduce((sum, r) => sum + ((r as any).principalComponent || 0), 0));
+      } else {
+        // For monthly loans: any amount paid above the fixed interest reduces the principal directly.
+        // This correctly handles overpayments (e.g., paying 18800 when EMI is 2800 with 800 interest
+        // should reduce principal by 18000, not just 2000).
+        const principalReduction = Math.max(0, paymentAmount - (loan.interestRate || 0));
+        newRemainingAmount = Math.max(0, loan.remainingAmount - principalReduction);
+        console.log(`Monthly Loan Calculation: PreviousPrincipal=${loan.remainingAmount}, Payment=${paymentAmount}, Interest=${loan.interestRate}, PrincipalReduction=${principalReduction}, NewPrincipal=${newRemainingAmount}`);
+      }
     
-    const updatedDuration = paymentType === "INTEREST_ONLY" ? loan.duration + 1 : loan.duration;
-    const nextPaymentDate = await calculateNextPaymentDate(loanId);
-    const { overdueAmount, missedPayments } = await updateOverdueAmountFromRepayments(loanId) || { overdueAmount: 0, missedPayments: 0 };
+      const updatedDuration = paymentType === "INTEREST_ONLY" ? loan.duration + 1 : loan.duration;
+      let overdueAmount: number;
+      let missedPayments: number;
+      let nextPaymentDate: Date | null;
+      if (hasRecoveryHistory) {
+        const duePeriods = computeLoanDuePeriods({ ...loan, repayments: allRepayments }, { start: new Date(0), end: new Date() });
+        overdueAmount = duePeriods.filter(p => p.status === 'overdue').reduce((sum, p) => sum + p.outstanding, 0);
+        missedPayments = duePeriods.filter(p => p.status === 'overdue').length;
+        const pendingPeriods = computeLoanDuePeriods({ ...loan, duration: updatedDuration, remainingAmount: newRemainingAmount, repayments: allRepayments },
+          { start: new Date(0), end: getLoanDueDate(loan.disbursementDate, loan.repaymentType, updatedDuration) });
+        const nextDue = pendingPeriods.find(p => p.status !== 'overdue');
+        nextPaymentDate = nextDue ? new Date(nextDue.dueDate) : null;
+      } else {
+        // Same inputs the pre-transaction code used: the loan as it was before this update, plus all repayments.
+        ({ overdueAmount, missedPayments } = computeOverdueFromRepayments(loan, allRepayments));
+        nextPaymentDate = computeNextPaymentDate({ ...loan, repayments: allRepayments });
+      }
 
-    // Check if all periods are completed OR remaining balance is zero to determine status
-    const allPeriodsCompleted = await areAllPeriodsCompleted(loanId, updatedDuration);
-    const newStatus = (allPeriodsCompleted || newRemainingAmount <= 0) ? "Completed" : "Active";
+      // Check if all periods are completed OR remaining balance is zero to determine status
+      const allPeriodsCompleted = Array.from({ length: updatedDuration }, (_, i) => i + 1).every(period =>
+        allRepayments.some(r => r.period === period && settlesPeriod(r)));
+      const newStatus = (allPeriodsCompleted || newRemainingAmount <= 0) ? "Completed" : "Active";
 
-    // 3. Update the loan with the new state
-    await prisma.loan.update({
-      where: { id: loanId },
-      data: {
-        remainingAmount: newRemainingAmount,
-        duration: updatedDuration,
-        status: newStatus,
-        nextPaymentDate: newStatus === "Completed" ? null : nextPaymentDate,
-        overdueAmount,
-        missedPayments,
-      },
-    });
+      // 3. Update the loan with the new state
+      await tx.loan.update({
+        where: { id: loanId },
+        data: {
+          remainingAmount: newRemainingAmount,
+          duration: updatedDuration,
+          status: newStatus,
+          nextPaymentDate: newStatus === "Completed" ? null : nextPaymentDate,
+          overdueAmount,
+          missedPayments,
+        },
+      });
     
+      return { repayment: createdTransaction.repayment, paymentAmount, borrowerName: loan.borrower?.name, loanId };
+    }, { isolationLevel: 'Serializable', timeout: 15000 });
+
     const actorUserId = (await getActorUserId(request)) ?? currentUserId;
+    if (!('repayment' in result)) return result;
     const actorName = await getActorName(actorUserId);
-    await notifyOtherAdmins({
-      actorId: actorUserId,
-      type: 'loan_repayment',
-      title: 'Loan Repayment',
-      message: `${actorName} recorded a repayment of ₹${paymentAmount} from ${loan.borrower?.name ?? 'a borrower'}`,
-      link: `/loans/${loanId}`,
-    });
-
-    // Return the repayment object from the transaction response
-    return NextResponse.json({loan: createdTransaction.repayment}, { status: 201 });
+    await notifyOtherAdmins({ actorId: actorUserId, type: 'loan_repayment', title: 'Loan Repayment',
+      message: `${actorName} recorded a repayment of ₹${result.paymentAmount} from ${result.borrowerName ?? 'a borrower'}`,
+      link: `/loans/${result.loanId}` });
+    return NextResponse.json({ loan: result.repayment }, { status: 201 });
 
   } catch (error) {
     console.error("Error creating repayment:", error);
@@ -1322,6 +1403,9 @@ async function updateLoan(
         { status: 403 }
       );
     }
+    if (currentLoan.nonRecoverableAt || body.status === NON_RECOVERABLE) {
+      return NextResponse.json({ error: 'Use the recovery actions for loans with recovery history' }, { status: 409 });
+    }
 
     // Update the global member if needed
     if (body.borrowerName || body.contact) {
@@ -1345,7 +1429,7 @@ async function updateLoan(
 
     // Update the loan
     const loan = await prismaAny.loan.update({
-      where: { id },
+      where: { id, nonRecoverableAt: null, updatedAt: currentLoan.updatedAt },
       data: {
         loanType: body.loanType,
         amount: body.amount ? parseFloat(body.amount) : undefined,
@@ -1390,7 +1474,7 @@ async function updateLoan(
 
       // Update the loan with the new next payment date
       await prismaAny.loan.update({
-        where: { id },
+        where: { id, status: { not: NON_RECOVERABLE } },
         data: {
           nextPaymentDate,
         },
@@ -1460,6 +1544,9 @@ async function deleteLoan(request: NextRequest, id: number, currentUserId: numbe
 
       if (existingLoan.createdById !== currentUserId) {
         throw new Error("You do not have permission to delete this loan");
+      }
+      if (existingLoan.nonRecoverableAt) {
+        throw new RecoveryError('Loans with recovery history must be retained for audit', 409);
       }
 
       // 2. Check if there are any LOAN_REPAYMENT transactions
@@ -1591,7 +1678,7 @@ async function deleteLoan(request: NextRequest, id: number, currentUserId: numbe
   } catch (error) {
     console.error("Error deleting loan:", error);
     const errorMessage = error instanceof Error ? error.message : "Permission denied";
-    return NextResponse.json({ error: `Failed to delete loan: ${errorMessage}` }, { status: 500 });
+    return NextResponse.json({ error: errorMessage }, { status: error instanceof RecoveryError ? error.status : 500 });
   }
 }
 
@@ -1601,125 +1688,137 @@ async function deleteLoan(request: NextRequest, id: number, currentUserId: numbe
 async function deleteRepayment(request: NextRequest, id: number, currentUserId: number) {
     try {
         const body = await request.json();
-        const loanId = id;
-        const repaymentId = body.repaymentId;
+        // Set inside the transaction callback; read after it commits.
+        const deleted: { ledgerEntry: { date: Date; id: number } | null } = { ledgerEntry: null };
+        const response = await prisma.$transaction(async (tx) => {
+          await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext('partner-balance'), ${currentUserId}::integer)`;
+          const loanId = id;
+          const repaymentId = body.repaymentId;
 
-        if (!repaymentId) {
-            return NextResponse.json({ error: "Repayment ID is required" }, { status: 400 });
+          if (!repaymentId) {
+              return NextResponse.json({ error: "Repayment ID is required" }, { status: 400 });
+          }
+
+          // --- OPTIMIZED DELETION LOGIC ---
+          // First, get the repayment details outside the transaction
+          const repaymentToDelete = await tx.repayment.findUnique({
+              where: { id: repaymentId },
+              include: {
+                  loan: true,
+                  transaction: {
+                      select: {
+                          id: true,
+                          date: true,
+                          createdAt: true
+                      }
+                  }
+              },
+          });
+
+          if (!repaymentToDelete || repaymentToDelete.loan.createdById !== currentUserId || repaymentToDelete.loanId !== loanId) {
+              throw new Error("Repayment not found or permission denied.");
+          }
+          if (repaymentToDelete.loan.nonRecoverableAt || repaymentToDelete.paymentType === 'RECOVERY') {
+              return NextResponse.json({ error: 'Use Reverse Receipt for recovery corrections. Loans with recovery history cannot use ordinary repayment deletion.' }, { status: 409 });
+          }
+
+          const deletedTransactionDate = repaymentToDelete.transaction?.date || new Date();
+          const deletedTransactionId = repaymentToDelete.transaction?.id || 0;
+
+          // Now run the fast transaction
+          {
+              // 1. Delete the associated transaction if it exists
+              if (repaymentToDelete.transactionId) {
+                  await tx.transaction.delete({
+                      where: { id: repaymentToDelete.transactionId },
+                  });
+              }
+
+              // 2. Delete the repayment itself
+              await tx.repayment.delete({
+                  where: { id: repaymentId },
+              });
+          }
+
+          // Recalculate the loan before committing the deletion.
+          const currentLoan = repaymentToDelete.loan;
+
+          // Get remaining repayments after deletion
+          const remainingRepayments = await tx.repayment.findMany({
+              where: { loanId },
+              select: { period: true, paymentType: true, amount: true, paidDate: true }
+          });
+
+          // Count completed periods (excluding interest-only payments)
+          const completedPeriods = new Set(
+              remainingRepayments
+                  .filter(r => r.paymentType !== 'interestOnly')
+                  .map(r => r.period)
+          ).size;
+
+          let newRemainingAmount: number;
+          if (currentLoan.loanType === "Weekly") {
+              // For weekly loans: remaining = original amount - (completed periods / (total periods - 1)) * original amount
+              const progressRatio = completedPeriods / (currentLoan.duration - 1);
+              const paidAmount = progressRatio * currentLoan.amount;
+              newRemainingAmount = Math.max(0, currentLoan.amount - paidAmount);
+          } else if (currentLoan.loanType === "Reducing Balance") {
+              // Reducing Balance: recalculate from original amount minus all principal reductions
+              const monthlyInterestRate = (currentLoan.interestPercentage || 0) / 100 / 12;
+              // Cannot accurately recalculate Reducing Balance from repayments alone (each period's interest
+              // depends on prior balance), so fall back to period-count ratio for deletion
+              const progressRatio = completedPeriods / currentLoan.duration;
+              newRemainingAmount = Math.max(0, currentLoan.amount - progressRatio * currentLoan.amount);
+          } else {
+              // For monthly loans: recalculate from actual amounts paid.
+              // Each regular repayment reduces principal by (amount - fixed interest rate).
+              const regularRepayments = remainingRepayments.filter(r => r.paymentType !== 'interestOnly');
+              const totalPrincipalPaid = regularRepayments.reduce(
+                  (sum, r) => sum + Math.max(0, r.amount - (currentLoan.interestRate || 0)),
+                  0
+              );
+              newRemainingAmount = Math.max(0, currentLoan.amount - totalPrincipalPaid);
+          }
+
+          const newDuration = repaymentToDelete.paymentType === "INTEREST_ONLY"
+              ? Math.max(1, currentLoan.duration - 1)
+              : currentLoan.duration;
+
+          // Check if all periods are completed OR remaining balance is zero to determine status
+          // Ordinary deletion is refused above for loans with recovery history, so the long-standing
+          // rules apply: a repayment recorded against a period settles that period.
+          const allPeriodsCompleted = Array.from({ length: newDuration }, (_, i) => i + 1).every(period =>
+            remainingRepayments.some(r => r.period === period && r.paymentType !== 'interestOnly'));
+          const newStatus = (allPeriodsCompleted || newRemainingAmount <= 0) ? "Completed" : "Active";
+
+          // Same inputs the pre-transaction code used: the loan as it was before this update, plus the remaining repayments.
+          const nextPaymentDate = computeNextPaymentDate({ ...currentLoan, repayments: remainingRepayments });
+          const { overdueAmount, missedPayments } = computeOverdueFromRepayments(currentLoan, remainingRepayments);
+
+          // Save the recalculated loan state in the same transaction.
+          await tx.loan.update({
+              where: { id: loanId },
+              data: {
+                  remainingAmount: newRemainingAmount,
+                  duration: newDuration,
+                  status: newStatus,
+                  nextPaymentDate,
+                  overdueAmount,
+                  missedPayments,
+              },
+          });
+
+          if (repaymentToDelete.transaction) deleted.ledgerEntry = { date: deletedTransactionDate, id: deletedTransactionId };
+          return NextResponse.json({ message: 'Repayment deleted successfully' });
+        }, { isolationLevel: 'Serializable', timeout: 15000 });
+
+        // Recalculate running balances from the deleted entry onward, once the deletion has committed.
+        // The recalculation reads through the shared client, so it has to run after the commit to see it.
+        if (deleted.ledgerEntry) {
+            await recalculateBalancesAfterDeletion(currentUserId, deleted.ledgerEntry.date, deleted.ledgerEntry.id);
         }
+        return response;
 
-        // --- OPTIMIZED DELETION LOGIC ---
-        // First, get the repayment details outside the transaction
-        const repaymentToDelete = await prisma.repayment.findUnique({
-            where: { id: repaymentId },
-            include: {
-                loan: true,
-                transaction: {
-                    select: {
-                        id: true,
-                        date: true,
-                        createdAt: true
-                    }
-                }
-            },
-        });
-
-        if (!repaymentToDelete || repaymentToDelete.loan.createdById !== currentUserId) {
-            throw new Error("Repayment not found or permission denied.");
-        }
-
-        const deletedTransactionDate = repaymentToDelete.transaction?.date || new Date();
-        const deletedTransactionId = repaymentToDelete.transaction?.id || 0;
-
-        // Now run the fast transaction
-        await prisma.$transaction(async (tx) => {
-            // 1. Delete the associated transaction if it exists
-            if (repaymentToDelete.transactionId) {
-                await tx.transaction.delete({
-                    where: { id: repaymentToDelete.transactionId },
-                });
-            }
-
-            // 2. Delete the repayment itself
-            await tx.repayment.delete({
-                where: { id: repaymentId },
-            });
-        });
-
-        // 3. Recalculate loan state after deletion (outside transaction)
-        const currentLoan = repaymentToDelete.loan;
-
-        // Get remaining repayments after deletion
-        const remainingRepayments = await prisma.repayment.findMany({
-            where: { loanId },
-            select: { period: true, paymentType: true, amount: true }
-        });
-
-        // Count completed periods (excluding interest-only payments)
-        const completedPeriods = new Set(
-            remainingRepayments
-                .filter(r => r.paymentType !== 'interestOnly')
-                .map(r => r.period)
-        ).size;
-
-        let newRemainingAmount: number;
-        if (currentLoan.loanType === "Weekly") {
-            // For weekly loans: remaining = original amount - (completed periods / (total periods - 1)) * original amount
-            const progressRatio = completedPeriods / (currentLoan.duration - 1);
-            const paidAmount = progressRatio * currentLoan.amount;
-            newRemainingAmount = Math.max(0, currentLoan.amount - paidAmount);
-        } else if (currentLoan.loanType === "Reducing Balance") {
-            // Reducing Balance: recalculate from original amount minus all principal reductions
-            const monthlyInterestRate = (currentLoan.interestPercentage || 0) / 100 / 12;
-            // Cannot accurately recalculate Reducing Balance from repayments alone (each period's interest
-            // depends on prior balance), so fall back to period-count ratio for deletion
-            const progressRatio = completedPeriods / currentLoan.duration;
-            newRemainingAmount = Math.max(0, currentLoan.amount - progressRatio * currentLoan.amount);
-        } else {
-            // For monthly loans: recalculate from actual amounts paid.
-            // Each regular repayment reduces principal by (amount - fixed interest rate).
-            const regularRepayments = remainingRepayments.filter(r => r.paymentType !== 'interestOnly');
-            const totalPrincipalPaid = regularRepayments.reduce(
-                (sum, r) => sum + Math.max(0, r.amount - (currentLoan.interestRate || 0)),
-                0
-            );
-            newRemainingAmount = Math.max(0, currentLoan.amount - totalPrincipalPaid);
-        }
-
-        const newDuration = repaymentToDelete.paymentType === "INTEREST_ONLY"
-            ? Math.max(1, currentLoan.duration - 1)
-            : currentLoan.duration;
-
-        // Check if all periods are completed OR remaining balance is zero to determine status
-        const allPeriodsCompleted = await areAllPeriodsCompleted(loanId, newDuration);
-        const newStatus = (allPeriodsCompleted || newRemainingAmount <= 0) ? "Completed" : "Active";
-
-        const nextPaymentDate = await calculateNextPaymentDate(loanId);
-        const { overdueAmount, missedPayments } = await updateOverdueAmountFromRepayments(loanId) || { overdueAmount: 0, missedPayments: 0 };
-
-        // 4. Update the loan (outside transaction)
-        await prisma.loan.update({
-            where: { id: loanId },
-            data: {
-                remainingAmount: newRemainingAmount,
-                duration: newDuration,
-                status: newStatus,
-                nextPaymentDate,
-                overdueAmount,
-                missedPayments,
-            },
-        });
-
-        // 5. Recalculate balances for all subsequent transactions
-        if (repaymentToDelete.transaction) {
-            await recalculateBalancesAfterDeletion(
-                currentUserId,
-                deletedTransactionDate,
-                deletedTransactionId
-            );
-        }
-
-        return NextResponse.json({ message: "Repayment deleted successfully" });
     } catch (error) {
         console.error("Error deleting repayment:", error);
         const errorMessage = error instanceof Error ? error.message : "Unknown error";

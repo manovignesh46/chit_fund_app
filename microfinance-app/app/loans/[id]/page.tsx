@@ -19,6 +19,7 @@ import {
   ActionButtonGroup,
 } from "../../components/buttons/ActionButtons";
 import RepaymentForm from "../../components/loans/RepaymentForm";
+import LoanRecoveryPanel from "../../components/loans/LoanRecoveryPanel";
 import BackTitle from "../../components/common/BackTitle";
 import SwipeableTabs from "../../components/SwipeableTabs";
 
@@ -579,7 +580,7 @@ const LoanDetailPage = () => {
       <div className="flex flex-row flex-wrap items-center justify-between gap-2 mb-4 sm:mb-6">
         <BackTitle title="Loan Details" href="/loans" ariaLabel="Back to Loans" />
         <div className="flex flex-row flex-wrap gap-1 sm:gap-2 w-auto items-center">
-          <button
+          {!loan.nonRecoverableAt && <><button
             onClick={() => setShowDeleteModal(true)}
             aria-label="Delete Loan"
             className="p-2 rounded-lg text-sm sm:text-base transition duration-300 flex items-center justify-center bg-red-600 text-white hover:bg-red-700 sm:px-4 sm:py-2"
@@ -608,7 +609,8 @@ const LoanDetailPage = () => {
               </svg>
               Edit
             </span>
-          </Link>
+          </Link></>}
+          <LoanRecoveryPanel loan={loan} onChange={fetchLoanDetails} mode="menu" />
         </div>
       </div>
 
@@ -636,6 +638,7 @@ const LoanDetailPage = () => {
             </div>
             <span className={`px-3 py-1 rounded-full text-sm font-semibold ${
               loan.status === "Active" ? "bg-green-100 text-green-800" :
+              loan.status === "Non-Recoverable" ? "bg-red-100 text-red-800" :
               loan.status === "Closed" ? "bg-gray-100 text-gray-700" :
               "bg-yellow-100 text-yellow-800"
             }`}>
@@ -647,6 +650,7 @@ const LoanDetailPage = () => {
 
       <div>
       {/* Tab navigation */}
+      <LoanRecoveryPanel loan={loan} onChange={fetchLoanDetails} />
       <div className="border-b border-gray-200 dark:border-surface-border mb-4 sm:mb-6">
         <nav className="flex gap-0 -mb-px overflow-x-auto" aria-label="Loan tabs">
           {(["loan-details", "payment-schedule", "record-payment"] as const).map((tab) => {
@@ -731,7 +735,7 @@ const LoanDetailPage = () => {
                 </h3>
                 <div>
                   <p id="loan-profit" className="text-lg sm:text-xl font-semibold text-green-600 hidden">
-                    {formatCurrency(calculateLoanProfit(loan, loan.repayments || []))}
+                    {formatCurrency(loan.totalProfit ?? calculateLoanProfit(loan, loan.repayments || []))}
                   </p>
                   <p id="loan-profit-explanation" className="text-xs text-gray-500 mt-1 hidden">
                     Profit calculated based on interest earned from all repayments and document charges.
@@ -872,7 +876,7 @@ const LoanDetailPage = () => {
                         {loan.loanType !== "Reducing Balance" && (
                           <td className="px-4 sm:px-6 py-4 whitespace-nowrap">
                             <div className="flex flex-wrap gap-1.5">
-                              {(schedule.status === "Pending" || schedule.status === "Missed") && !isSettled && (
+                              {(schedule.status === "Pending" || schedule.status === "Missed") && !isSettled && loan.status !== 'Non-Recoverable' && (
                                 <>
                                   <button
                                     onClick={() => handleRecordPayment(schedule.period, "Paid")}
