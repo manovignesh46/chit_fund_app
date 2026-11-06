@@ -1184,6 +1184,10 @@ async function addContribution(request: NextRequest, id: number, currentUserId: 
   }
 }
 
+// Prisma's default 5 second limit on an interactive transaction is too tight when the database is
+// far from the app server (each statement is a network round trip), so allow these writes longer.
+const BALANCE_WRITE_TRANSACTION = { maxWait: 10000, timeout: 20000 };
+
 // Handler for paying part or all of a contribution's outstanding balance.
 // The member's single row for the month is topped up, and the cash received is recorded as its
 // own ledger entry (dated when it was received) linked back to that contribution.
@@ -1209,14 +1213,24 @@ async function payContributionBalance(request: NextRequest, id: number, currentU
   }
 
   try {
-    const { contribution, amountPaid } = await prisma.$transaction(async (tx) => {
+    // Read what does not need the lock before the transaction starts, so the transaction itself
+    // stays short (every statement inside it is a round trip to the database).
+    const target = await prisma.contribution.findFirst({
+      where: { id: contributionId, chitFundId: id },
+      select: { id: true, month: true, member: { select: { globalMember: { select: { name: true } } } } },
+    });
+    if (!target) throw new BalancePaymentError('Contribution not found in this chit fund', 404);
+    const memberName = target.member.globalMember.name;
+
+    const amountPaid = await prisma.$transaction(async (tx) => {
       // Same lock the loan repayment writers take, so running balances are read and written in order
       // and two payments against one balance cannot both pass the check below.
       await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext('partner-balance'), ${currentUserId}::integer)`;
 
+      // Re-read the amounts under the lock: this is the check that stops a balance being paid twice.
       const existing = await tx.contribution.findFirst({
         where: { id: contributionId, chitFundId: id },
-        include: { member: { include: { globalMember: true } } },
+        select: { id: true, amount: true, balance: true, balancePaymentStatus: true, paidDate: true },
       });
       if (!existing) throw new BalancePaymentError('Contribution not found in this chit fund', 404);
 
@@ -1241,7 +1255,7 @@ async function payContributionBalance(request: NextRequest, id: number, currentU
           type: TRANSACTION_TYPES_CONFIG.CHIT_CONTRIBUTION,
           amount: plan.amount,
           date: plan.paidDate,
-          note: `Chit contribution from ${existing.member.globalMember.name} - ${chitFund.name} Month ${existing.month} (balance payment)`,
+          note: `Chit contribution from ${memberName} - ${chitFund.name} Month ${target.month} (balance payment)`,
           createdById: currentUserId,
           action_performer: collector.name,
           entered_by: collector.name,
@@ -1250,9 +1264,10 @@ async function payContributionBalance(request: NextRequest, id: number, currentU
           totalBalance: balanceCalculation.totalBalance,
           balanceContributionId: existing.id,
         },
+        select: { id: true },
       });
 
-      const updated = await tx.contribution.update({
+      await tx.contribution.update({
         where: { id: existing.id },
         data: {
           amount: plan.newAmount,
@@ -1260,18 +1275,23 @@ async function payContributionBalance(request: NextRequest, id: number, currentU
           balancePaymentStatus: plan.balancePaymentStatus,
           actualBalancePaymentDate: plan.actualBalancePaymentDate,
         },
-        include: {
-          collectedBy: true,
-          enteredBy: true,
-          member: { include: { globalMember: true } },
-        },
+        select: { id: true },
       });
-      return { contribution: updated, amountPaid: plan.amount };
+      return plan.amount;
+    }, BALANCE_WRITE_TRANSACTION);
+
+    // The payment is committed. Load the row with its relations for the response.
+    const contribution = await prisma.contribution.findUnique({
+      where: { id: contributionId },
+      include: {
+        collectedBy: true,
+        enteredBy: true,
+        member: { include: { globalMember: true } },
+      },
     });
 
     const actorUserId = (await getActorUserId(request)) ?? currentUserId;
     const actorName = await getActorName(actorUserId);
-    const memberName = contribution.member?.globalMember?.name ?? 'a member';
     await notifyOtherAdmins({
       actorId: actorUserId,
       type: 'contribution',
@@ -1917,7 +1937,7 @@ async function deleteContribution(request: NextRequest, id: number, currentUserI
   }
 
   try {
-    // Set inside the transaction callback when balance payments were removed; read after it commits.
+    // Set inside the transaction callback once ledger entries have been removed; read after it commits.
     const afterCommit: { recalculateFrom: { date: Date; id: number } | null } = { recalculateFrom: null };
 
     await prisma.$transaction(async (tx) => {
@@ -1938,9 +1958,6 @@ async function deleteContribution(request: NextRequest, id: number, currentUserI
       if (!contribution || contribution.chitFundId !== id) {
         throw new Error('Contribution not found or does not belong to this chit fund');
       }
-
-      const deletedTransactionDate = contribution.transaction?.date || new Date();
-      const deletedTransactionId = contribution.transaction?.id || 0;
 
       // Ledger entries for later payments toward this contribution's balance go with it.
       const balancePayments = await tx.transaction.findMany({
@@ -1965,22 +1982,18 @@ async function deleteContribution(request: NextRequest, id: number, currentUserI
         where: { id: parseInt(contributionId) },
       });
 
-      // 4. Recalculate balances for all subsequent transactions
-      if (balancePayments.length > 0) {
-        // Several ledger entries were removed. The recalculation reads through the shared client,
-        // so run it once after the commit, starting from the earliest entry removed.
-        const removed = [...balancePayments, ...(contribution.transaction ? [contribution.transaction] : [])];
+      // 4. Note where running balances have to be recalculated from: the earliest ledger entry removed.
+      const removed = [...balancePayments, ...(contribution.transaction ? [contribution.transaction] : [])];
+      if (removed.length > 0) {
         removed.sort((a, b) => a.date.getTime() - b.date.getTime() || a.id - b.id);
         afterCommit.recalculateFrom = { date: removed[0].date, id: removed[0].id };
-      } else if (contribution.transaction) {
-        await recalculateBalancesAfterDeletion(
-          currentUserId,
-          deletedTransactionDate,
-          deletedTransactionId
-        );
       }
-    });
+    }, BALANCE_WRITE_TRANSACTION);
 
+    // 5. Recalculate balances for all subsequent transactions, once the deletion has committed.
+    // The recalculation writes through the shared client, outside this transaction. Running it
+    // before the commit meant a slow run could time the transaction out and undo the deletion
+    // while leaving the recalculated balances in place.
     if (afterCommit.recalculateFrom) {
       await recalculateBalancesAfterDeletion(
         currentUserId,
