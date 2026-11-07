@@ -21,6 +21,7 @@ import * as React from 'react';
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
+import { addMonths, format, isValid } from 'date-fns';
 import { ArrowLeft, Plus, Trash2, Users, Wallet } from 'lucide-react';
 
 import { toast } from '@/lib/toast';
@@ -79,6 +80,19 @@ interface MemberMonthRow {
   member: StatusMember;
   contribution: ContributionStatusRow | null;
   pending: PendingContribution | undefined;
+}
+
+/** Calendar month of the fund's nth month ("Dec 2025"), or '' when the start date is unknown. */
+function calendarMonth(startDate: string | null | undefined, month: number): string {
+  if (!startDate) return '';
+  const start = new Date(startDate);
+  return isValid(start) ? format(addMonths(start, month - 1), 'MMM yyyy') : '';
+}
+
+/** "Month 5 · Apr 2026" (or just "Month 5"). */
+function monthLabel(startDate: string | null | undefined, month: number): string {
+  const name = calendarMonth(startDate, month);
+  return name ? `Month ${month} · ${name}` : `Month ${month}`;
 }
 
 /** month → memberId → contribution (one pass over the fund's contributions). */
@@ -265,7 +279,16 @@ function ContributionsView() {
 
   // ── Month list ────────────────────────────────────────────────────────────
   const monthColumns: DataTableColumn<MonthRow>[] = [
-    { id: 'month', header: 'Month', cell: (r) => <span className="whitespace-nowrap font-medium text-primary-text">Month {r.month}</span> },
+    {
+      id: 'month',
+      header: 'Month',
+      cell: (r) => (
+        <span className="block whitespace-nowrap">
+          <span className="font-medium text-primary-text">Month {r.month}</span>
+          {calendarMonth(fund.startDate, r.month) ? <span className="block text-xs text-muted-foreground">{calendarMonth(fund.startDate, r.month)}</span> : null}
+        </span>
+      ),
+    },
     {
       id: 'contributions',
       header: 'Contributions',
@@ -322,7 +345,7 @@ function ContributionsView() {
   // ── One month's members ───────────────────────────────────────────────────
   const memberColumns: DataTableColumn<MemberMonthRow>[] = [
     { id: 'member', header: 'Member', cell: (r) => <span className="font-medium text-foreground">{r.member.globalMember.name}</span> },
-    { id: 'month', header: 'Month', cell: () => <span className="whitespace-nowrap">Month {selectedMonth}</span> },
+    { id: 'month', header: 'Month', hideBelow: 'lg', cell: () => <span className="whitespace-nowrap">{monthLabel(fund.startDate, selectedMonth as number)}</span> },
     {
       id: 'amount',
       header: 'Amount',
@@ -401,23 +424,35 @@ function ContributionsView() {
         eyebrow={`Chit fund #${fund.id} · ${fund.name}`}
         title={selectedMonth ? `Contributions · Month ${selectedMonth}` : 'Contributions'}
         description={
-          <>
-            Month {fund.currentMonth} of {fund.duration} · Monthly contribution <Money value={fund.monthlyContribution} tone="plain" />
-          </>
+          selectedMonth ? (
+            <>
+              {calendarMonth(fund.startDate, selectedMonth) ? <>{calendarMonth(fund.startDate, selectedMonth)} · </> : null}
+              Monthly contribution <Money value={fund.monthlyContribution} tone="plain" />
+            </>
+          ) : (
+            <>
+              Month {fund.currentMonth} of {fund.duration}
+              {calendarMonth(fund.startDate, fund.currentMonth) ? <> ({calendarMonth(fund.startDate, fund.currentMonth)})</> : null} · Monthly contribution{' '}
+              <Money value={fund.monthlyContribution} tone="plain" />
+            </>
+          )
         }
         actions={
-          <>
-            <Button variant="outline" asChild>
+          // Phones: the two actions share one row at half width each.
+          <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto">
+            <Button variant="outline" className="w-full sm:w-auto" asChild>
               <Link href={`/chit-funds/${fund.id}/members`}>
                 <Users aria-hidden="true" />
-                View members
+                <span className="sm:hidden">Members</span>
+                <span className="hidden sm:inline">View members</span>
               </Link>
             </Button>
-            <Button onClick={() => openForm()} disabled={!data}>
+            <Button className="w-full sm:w-auto" onClick={() => openForm()} disabled={!data}>
               <Plus aria-hidden="true" />
-              Record contribution
+              <span className="sm:hidden">Record</span>
+              <span className="hidden sm:inline">Record contribution</span>
             </Button>
-          </>
+          </div>
         }
       />
 
@@ -428,22 +463,24 @@ function ContributionsView() {
           ) : undefined
         }
         primaryFilter={
-          <div className="flex flex-wrap items-center gap-2">
+          // Phones: the month and payment selects share one row; the month select's "All months"
+          // option replaces the back button there.
+          <div className={selectedMonth ? 'grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center' : 'flex flex-wrap items-center gap-2'}>
             {selectedMonth ? (
-              <Button variant="ghost" size="sm" onClick={() => list.setParams({ month: null, q: null, status: null })}>
+              <Button variant="ghost" size="sm" className="hidden sm:inline-flex" onClick={() => list.setParams({ month: null, q: null, status: null })}>
                 <ArrowLeft aria-hidden="true" />
                 All months
               </Button>
             ) : null}
             <NativeSelect
               aria-label="Month"
-              className="w-40"
+              className="w-full sm:w-48"
               value={selectedMonth ? String(selectedMonth) : ''}
               onValueChange={(value) => list.setParams(value ? { month: value } : { month: null, q: null, status: null })}
-              options={[{ value: '', label: 'All months' }, ...Array.from({ length: fund.duration }, (_, i) => ({ value: String(i + 1), label: `Month ${i + 1}` }))]}
+              options={[{ value: '', label: 'All months' }, ...Array.from({ length: fund.duration }, (_, i) => ({ value: String(i + 1), label: monthLabel(fund.startDate, i + 1) }))]}
             />
             {selectedMonth ? (
-              <NativeSelect aria-label="Payment" className="w-40" value={list.params.status ?? ''} onValueChange={(value) => list.setParams({ status: value || null })} options={STATUS_OPTIONS} />
+              <NativeSelect aria-label="Payment" className="w-full sm:w-40" value={list.params.status ?? ''} onValueChange={(value) => list.setParams({ status: value || null })} options={STATUS_OPTIONS} />
             ) : null}
           </div>
         }
@@ -470,6 +507,42 @@ function ContributionsView() {
             setDetailsOpen(true);
           }}
           rowClassName={(r) => (r.pending ? 'bg-info-subtle/60' : undefined)}
+          renderCard={(r) => (
+            <div className="space-y-2">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="truncate font-medium text-foreground">{r.member.globalMember.name}</p>
+                  <p className="text-xs text-muted-foreground">{monthLabel(fund.startDate, selectedMonth)}</p>
+                </div>
+                <div className="shrink-0 text-right">
+                  {r.contribution ? (
+                    <Money value={r.contribution.amount} tone="plain" className="font-medium" />
+                  ) : r.pending ? (
+                    <Money value={r.pending.amount} tone="plain" className="font-medium" />
+                  ) : (
+                    <Money value={fund.monthlyContribution} tone="plain" className="font-medium text-muted-foreground" />
+                  )}
+                  <div className="mt-1 text-xs">
+                    {r.contribution ? (
+                      <span className="text-muted-foreground">
+                        Paid <DateText value={r.contribution.paidDate} />
+                      </span>
+                    ) : r.pending ? (
+                      <StatusBadge status="saving" />
+                    ) : (
+                      <span className="font-semibold text-destructive-text">Pending</span>
+                    )}
+                  </div>
+                </div>
+              </div>
+              {r.contribution && hasPendingBalance(r.contribution) ? (
+                <div className="text-sm">
+                  <BalanceCell c={r.contribution} updating={writes.updatingIds.has(r.contribution.id)} />
+                </div>
+              ) : null}
+              <div onClick={(event) => event.stopPropagation()}>{memberColumns[memberColumns.length - 1].cell(r, 0)}</div>
+            </div>
+          )}
           emptyState={
             memberFilterActive ? (
               <EmptyState variant="no-results" description="No members of this month match these filters." onClearFilters={() => list.setParams({ q: null, status: null })} />
@@ -500,6 +573,38 @@ function ContributionsView() {
           skeletonRows={8}
           onRowClick={(r) => list.setParams({ month: String(r.month) })}
           rowClassName={(r) => (r.saving ? 'bg-info-subtle/60' : undefined)}
+          renderCard={(r) => (
+            <Updating active={r.saving}>
+              <div className="space-y-2">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="font-medium text-primary-text">Month {r.month}</p>
+                    {calendarMonth(fund.startDate, r.month) ? <p className="text-xs text-muted-foreground">{calendarMonth(fund.startDate, r.month)}</p> : null}
+                  </div>
+                  <div className="shrink-0 text-right">
+                    <p className="text-sm tabular-nums text-foreground">
+                      {r.contributionCount} of {r.memberCount} paid
+                    </p>
+                    {r.pendingCount > 0 ? <StatusBadge status="Overdue" label={`${r.pendingCount} pending`} className="mt-1" /> : <span className="text-xs font-medium text-success-text">Fully collected</span>}
+                  </div>
+                </div>
+                <dl className="grid grid-cols-3 gap-2 text-xs">
+                  <div>
+                    <dt className="text-muted-foreground">Expected</dt>
+                    <dd className="font-medium text-foreground"><Money value={r.totalExpected} tone="plain" /></dd>
+                  </div>
+                  <div>
+                    <dt className="text-muted-foreground">Collected</dt>
+                    <dd className="font-medium text-foreground"><Money value={r.totalCollected} tone="plain" /></dd>
+                  </div>
+                  <div>
+                    <dt className="text-muted-foreground">Outstanding</dt>
+                    <dd className="font-medium">{r.totalBalance > 0 ? <Money value={r.totalBalance} tone="overdue" /> : <span className="text-success-text">None</span>}</dd>
+                  </div>
+                </dl>
+              </div>
+            </Updating>
+          )}
           emptyState={<EmptyState title="No contributions found" description="Record contributions for this chit fund." />}
         />
       )}

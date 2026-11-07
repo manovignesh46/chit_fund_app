@@ -1,7 +1,7 @@
 'use client';
 
 /**
- * Dashboard (Dashboard template): KPI grid and partner balances on Overview, then Trends,
+ * Dashboard (Dashboard template): partner balances first, then the KPI grid on Overview, then Trends,
  * Monthly collections (with the overdue banner), recent activities and upcoming events.
  *
  * - The tab is `?tab=` (UrlTabs owns the bar, SwipeableTabs the swipe panels).
@@ -248,6 +248,8 @@ function OverviewPanel({ data }: { data: DashboardData }) {
   const breakdown = data.outsideAmountBreakdown;
   return (
     <div className="space-y-6">
+      <PartnerBalances />
+
       <section aria-label="Cash flow" className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard label="Invested amount" icon={PiggyBank} value={<Money value={data.investedAmount || 0} tone="plain" />} hint="Total recorded transactions" />
         <StatCard label="Cash inflow" icon={ArrowUpRight} value={<Money value={data.totalCashInflow} tone="inflow" />} hint="Loan repayments + chit contributions" />
@@ -274,7 +276,7 @@ function OverviewPanel({ data }: { data: DashboardData }) {
         </section>
       ) : null}
 
-      <section aria-label="Outstanding" className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <section aria-label="Outstanding" className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <StatCard
           label="Active loan principal"
           icon={Landmark}
@@ -291,14 +293,13 @@ function OverviewPanel({ data }: { data: DashboardData }) {
           }
         />
         <StatCard label="Outstanding chit funds" icon={Wallet} value={<Money value={breakdown.chitFundOutsideAmount} tone="plain" />} hint="Pending or over-disbursed" />
-        <StatCard label="Active loans" value={data.activeLoans.toLocaleString('en-IN')} href="/loans" hint="View loans" />
-        <StatCard label="Active chit funds" value={data.activeChitFunds.toLocaleString('en-IN')} href="/chit-funds" hint="View chit funds" />
       </section>
 
-      <div className="grid grid-cols-1 gap-3 lg:grid-cols-4">
-        <StatCard label="Total members" icon={Users} value={data.totalMembers.toLocaleString('en-IN')} href="/members" hint="Chit fund members and borrowers" className="lg:col-span-1" />
-        <PartnerBalances className="lg:col-span-3" />
-      </div>
+      <section aria-label="Counts" className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <StatCard label="Active loans" value={data.activeLoans.toLocaleString('en-IN')} href="/loans" hint="View loans" />
+        <StatCard label="Active chit funds" value={data.activeChitFunds.toLocaleString('en-IN')} href="/chit-funds" hint="View chit funds" />
+        <StatCard label="Total members" icon={Users} value={data.totalMembers.toLocaleString('en-IN')} href="/members" hint="Chit fund members and borrowers" />
+      </section>
     </div>
   );
 }
