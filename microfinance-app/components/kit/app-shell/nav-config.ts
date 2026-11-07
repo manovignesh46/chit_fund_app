@@ -119,6 +119,12 @@ export interface RouteDef {
   link?: boolean;
   /** 'full': the page fills the viewport between the bars and the document does not scroll (chat). */
   layout?: 'full';
+  /**
+   * Query string appended to the parent's crumb link (and the phone back chevron) when
+   * this route is open, e.g. 'tab=contributions' so going back from a fund's
+   * contributions page reopens the fund on its Contributions tab, not Overview.
+   */
+  parentQuery?: string;
 }
 
 export const ROUTES: RouteDef[] = [
@@ -137,8 +143,8 @@ export const ROUTES: RouteDef[] = [
   { pattern: '/chit-funds/:id/members', label: 'Members' },
   { pattern: '/chit-funds/:id/members/:memberId', label: (p) => `Member #${p.memberId}`, link: false },
   { pattern: '/chit-funds/:id/members/:memberId/contributions', label: 'Contributions' },
-  { pattern: '/chit-funds/:id/contributions', label: 'Contributions' },
-  { pattern: '/chit-funds/:id/auctions', label: 'Auctions' },
+  { pattern: '/chit-funds/:id/contributions', label: 'Contributions', parentQuery: 'tab=contributions' },
+  { pattern: '/chit-funds/:id/auctions', label: 'Auctions', parentQuery: 'tab=auctions' },
   { pattern: '/chit-funds/:id/assign-member', label: 'Assign member' },
 
   { pattern: '/chit-fund-templates', label: 'Templates' },
@@ -150,14 +156,14 @@ export const ROUTES: RouteDef[] = [
   { pattern: '/loans/new', label: 'New loan' },
   { pattern: '/loans/:id', label: (p) => `Loan #${p.id}` },
   { pattern: '/loans/:id/edit', label: 'Edit' },
-  { pattern: '/loans/:id/repayments', label: 'Repayments' },
+  { pattern: '/loans/:id/repayments', label: 'Repayments', parentQuery: 'tab=schedule' },
   { pattern: '/loans/:id/repayments/new', label: 'New repayment' },
-  { pattern: '/loans/:id/payment-schedules', label: 'Payment schedules' },
+  { pattern: '/loans/:id/payment-schedules', label: 'Payment schedules', parentQuery: 'tab=schedule' },
   { pattern: '/dues', label: 'Dues Tracker' },
 
   { pattern: '/members', label: 'Members' },
   { pattern: '/members/:id', label: (p) => `Member #${p.id}` },
-  { pattern: '/members/:id/assign-chit-fund', label: 'Assign chit fund' },
+  { pattern: '/members/:id/assign-chit-fund', label: 'Assign chit fund', parentQuery: 'tab=chit-funds' },
 
   { pattern: '/transactions', label: 'Transactions' },
   { pattern: '/financial-trends', label: 'Trends' },
@@ -259,12 +265,16 @@ export function getBreadcrumbs(pathname: string | null | undefined, labels: Reco
   const chain: Crumb[] = [];
   let route: RouteDef | null = match.route;
   let guard = 0;
+  // Set by the child level just processed: its parent's link carries this query (e.g. the tab).
+  let childQuery: string | undefined;
   while (route && guard++ < 10) {
     const path = fill(route.pattern, match.params);
     const supplied = labels[path];
     const dynamic = typeof route.label === 'function';
     const label = supplied || (typeof route.label === 'function' ? route.label(match.params) : route.label);
-    chain.unshift({ path, href: route.link === false ? null : path, label, fallback: dynamic && !supplied });
+    const href = route.link === false ? null : childQuery ? `${path}?${childQuery}` : path;
+    chain.unshift({ path, href, label, fallback: dynamic && !supplied });
+    childQuery = route.parentQuery;
     const parent = parentPattern(route);
     route = parent ? ROUTE_BY_PATTERN.get(parent) ?? null : null;
   }
