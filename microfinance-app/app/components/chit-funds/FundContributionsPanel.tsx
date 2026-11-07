@@ -23,6 +23,7 @@ import { EmptyState } from '@/components/kit/empty-state';
 import { Money } from '@/components/kit/money';
 import { SectionCard } from '@/components/kit/section-card';
 import { cn } from '@/lib/utils';
+import { calendarMonth } from '@/lib/chitMonths';
 
 type StatusMember = ContributionsResponse['members'][number];
 
@@ -99,7 +100,8 @@ export function outstandingBalances(data: ContributionsResponse): { total: numbe
   return { total, members: Array.from(byMember.values()) };
 }
 
-function MonthCard({ fundId, data }: { fundId: number; data: MonthContributions }) {
+function MonthCard({ fundId, startDate, data }: { fundId: number; startDate: string; data: MonthContributions }) {
+  const name = calendarMonth(startDate, data.month);
   const full = data.contributionCount === data.memberCount;
   const tone = data.totalBalance > 0 ? 'destructive' : full ? 'success' : 'warning';
   const percent = data.totalExpected > 0 ? Math.min((data.totalCollected / data.totalExpected) * 100, 100) : 0;
@@ -112,6 +114,7 @@ function MonthCard({ fundId, data }: { fundId: number; data: MonthContributions 
             className="text-base font-semibold text-primary-text hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             Month {data.month}
+            {name ? <span className="ml-1.5 text-sm font-normal text-muted-foreground">{name}</span> : null}
           </Link>
           {data.pendingCount > 0 ? (
             <span className="rounded-full border border-destructive-border bg-destructive-subtle px-2 py-0.5 text-xs font-medium text-destructive-text">
@@ -190,7 +193,7 @@ export function FundContributionsPanel({ fund, data }: { fund: ChitFundDetail; d
         ) : (
           <ul className="space-y-3">
             {months.map((month) => (
-              <MonthCard key={month.month} fundId={fund.id} data={month} />
+              <MonthCard key={month.month} fundId={fund.id} startDate={fund.startDate} data={month} />
             ))}
           </ul>
         )}
@@ -220,7 +223,7 @@ export function FundContributionsPanel({ fund, data }: { fund: ChitFundDetail; d
                 <ul className="mt-2 flex flex-wrap gap-1.5">
                   {member.months.map((m, index) => (
                     <li key={index} className="rounded-full bg-destructive-subtle px-2 py-0.5 text-xs font-medium text-destructive-text">
-                      Month {m.month}: <Money value={m.balance} tone="plain" />
+                      Month {m.month}{calendarMonth(fund.startDate, m.month) ? ` (${calendarMonth(fund.startDate, m.month)})` : ''}: <Money value={m.balance} tone="plain" />
                     </li>
                   ))}
                 </ul>

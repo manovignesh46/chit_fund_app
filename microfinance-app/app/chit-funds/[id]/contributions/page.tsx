@@ -21,11 +21,11 @@ import * as React from 'react';
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
-import { addMonths, format, isValid } from 'date-fns';
 import { ArrowLeft, Plus, Trash2, Users, Wallet } from 'lucide-react';
 
 import { toast } from '@/lib/toast';
 import { formatMoney } from '@/lib/format';
+import { calendarMonth, monthLabel } from '@/lib/chitMonths';
 import { useListParams } from '@/lib/list/useListParams';
 import { ApiError } from '@/lib/query/fetcher';
 import { useChitFund, useChitFundContributionStatus, type ContributionStatusRow, type ContributionsResponse } from '@/lib/query/chit-funds';
@@ -80,19 +80,6 @@ interface MemberMonthRow {
   member: StatusMember;
   contribution: ContributionStatusRow | null;
   pending: PendingContribution | undefined;
-}
-
-/** Calendar month of the fund's nth month ("Dec 2025"), or '' when the start date is unknown. */
-function calendarMonth(startDate: string | null | undefined, month: number): string {
-  if (!startDate) return '';
-  const start = new Date(startDate);
-  return isValid(start) ? format(addMonths(start, month - 1), 'MMM yyyy') : '';
-}
-
-/** "Month 5 · Apr 2026" (or just "Month 5"). */
-function monthLabel(startDate: string | null | undefined, month: number): string {
-  const name = calendarMonth(startDate, month);
-  return name ? `Month ${month} · ${name}` : `Month ${month}`;
 }
 
 /** month → memberId → contribution (one pass over the fund's contributions). */
