@@ -250,7 +250,7 @@ function OverviewPanel({ data }: { data: DashboardData }) {
     <div className="space-y-6">
       <PartnerBalances />
 
-      <section aria-label="Cash flow" className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <section aria-label="Cash flow" className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <StatCard label="Invested amount" icon={PiggyBank} value={<Money value={data.investedAmount || 0} tone="plain" />} hint="Total recorded transactions" />
         <StatCard label="Cash inflow" icon={ArrowUpRight} value={<Money value={data.totalCashInflow} tone="inflow" />} hint="Loan repayments + chit contributions" />
         <StatCard label="Cash outflow" icon={ArrowDownRight} value={<Money value={data.totalCashOutflow} tone="plain" />} hint="Loan disbursements + auction payouts" />
@@ -270,13 +270,13 @@ function OverviewPanel({ data }: { data: DashboardData }) {
       </section>
 
       {showProfit ? (
-        <section aria-label="Profit breakdown" className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <section aria-label="Profit breakdown" className="grid grid-cols-2 gap-3">
           <StatCard label="Loan profit" value={<Money value={data.loanProfit} tone="auto" />} hint="From interest and document charges" />
           <StatCard label="Chit fund profit" value={<Money value={data.chitFundProfit} tone="auto" />} hint="From auction commissions" />
         </section>
       ) : null}
 
-      <section aria-label="Outstanding" className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+      <section aria-label="Outstanding" className="grid grid-cols-2 gap-3">
         <StatCard
           label="Active loan principal"
           icon={Landmark}
@@ -295,10 +295,10 @@ function OverviewPanel({ data }: { data: DashboardData }) {
         <StatCard label="Outstanding chit funds" icon={Wallet} value={<Money value={breakdown.chitFundOutsideAmount} tone="plain" />} hint="Pending or over-disbursed" />
       </section>
 
-      <section aria-label="Counts" className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+      <section aria-label="Counts" className="grid grid-cols-2 gap-3 sm:grid-cols-3">
         <StatCard label="Active loans" value={data.activeLoans.toLocaleString('en-IN')} href="/loans" hint="View loans" />
         <StatCard label="Active chit funds" value={data.activeChitFunds.toLocaleString('en-IN')} href="/chit-funds" hint="View chit funds" />
-        <StatCard label="Total members" icon={Users} value={data.totalMembers.toLocaleString('en-IN')} href="/members" hint="Chit fund members and borrowers" />
+        <StatCard label="Total members" icon={Users} value={data.totalMembers.toLocaleString('en-IN')} href="/members" hint="Chit fund members and borrowers" className="col-span-2 sm:col-span-1" />
       </section>
     </div>
   );
