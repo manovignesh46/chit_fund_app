@@ -9,7 +9,7 @@ import * as React from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { toast } from '@/lib/toast';
-import { Download, Eye, FileDown, Pencil, Plus, Trash2, X } from 'lucide-react';
+import { AlertTriangle, CalendarClock, Download, Eye, FileDown, Landmark, Pencil, Plus, Trash2, Wallet, X } from 'lucide-react';
 
 import { loanAPI } from '@/lib/api';
 import { useListParams } from '@/lib/list/useListParams';
@@ -17,7 +17,7 @@ import { normaliseListResponse, useListQuery } from '@/lib/list/useListQuery';
 import { ALL } from '@/lib/list/types';
 import { queryKeys } from '@/lib/query/keys';
 import { prefetchQuery, whenIdle } from '@/lib/query/prefetch';
-import { invalidateLoans, LOANS, loanWrites, prefetchLoan, type LoanRecord, type LoansListSummary } from '@/lib/query/loans';
+import { invalidateLoans, LOANS, loanWrites, prefetchLoan, useLoansSummary, type LoanRecord, type LoansListSummary } from '@/lib/query/loans';
 import { errorMessage } from '@/components/kit/error-state';
 
 import { Button } from '@/components/ui/button';
@@ -119,6 +119,7 @@ export default function LoansPage() {
 function LoansList() {
   const router = useRouter();
   const list = useListParams<Filter>({ id: 'loans', filters: FILTERS, defaults: { status: 'Active' }, sortable: SORTS });
+  const summary = useLoansSummary();
   const query = useListQuery<LoanRecord, LoansListSummary | null>(LOANS, list, {
     itemsKey: 'loans',
     select: (raw, request) => ({
@@ -374,6 +375,40 @@ function LoansList() {
           </>
         }
       />
+
+      <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <StatCard
+          label="Active loans"
+          icon={Landmark}
+          loading={!summary.data && !summary.error}
+          value={summary.data ? summary.data.active.toLocaleString('en-IN') : '—'}
+          hint={summary.data ? <>Disbursed <Money value={summary.data.activeAmount} tone="plain" compact /></> : undefined}
+          onClick={() => list.setParams({ status: 'Active', type: null, overdue: null, q: null })}
+        />
+        <StatCard
+          label="Outstanding principal"
+          icon={Wallet}
+          loading={!summary.data && !summary.error}
+          value={<Money value={summary.data?.outstanding ?? null} tone="plain" compact />}
+          hint="Active loans"
+        />
+        <StatCard
+          label="Overdue"
+          icon={AlertTriangle}
+          tone={summary.data && summary.data.overdueAmount > 0 ? 'destructive' : 'neutral'}
+          loading={!summary.data && !summary.error}
+          value={<Money value={summary.data?.overdueAmount ?? null} tone={summary.data && summary.data.overdueAmount > 0 ? 'overdue' : 'plain'} compact />}
+          hint={summary.data ? `${summary.data.overdueCount.toLocaleString('en-IN')} loan${summary.data.overdueCount === 1 ? '' : 's'} overdue` : undefined}
+          onClick={() => list.setParams({ status: 'Active', overdue: '1', q: null })}
+        />
+        <StatCard
+          label="Due this week"
+          icon={CalendarClock}
+          loading={!summary.data && !summary.error}
+          value={summary.data ? summary.data.dueThisWeek.toLocaleString('en-IN') : '—'}
+          hint="Next payment in the next 7 days"
+        />
+      </div>
 
       {isNonRecoverable ? (
         <section aria-labelledby="nr-heading" className="mb-4 space-y-3">

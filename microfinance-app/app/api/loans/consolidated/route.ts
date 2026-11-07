@@ -112,6 +112,8 @@ export async function GET(request: NextRequest) {
     switch (action) {
       case "list":
         return await getLoansList(request, currentUserId);
+      case "summary":
+        return await getLoansSummary(currentUserId);
       case "detail":
         if (!id) {
           return NextResponse.json(
@@ -304,6 +306,39 @@ export async function DELETE(request: NextRequest) {
       { error: "An error occurred while processing your request" },
       { status: 500 }
     );
+  }
+}
+
+// Handler for the loans page's key figures (action=summary): counts and totals over the
+// user's loans from database aggregates (no rows are loaded).
+async function getLoansSummary(currentUserId: number) {
+  try {
+    const owned = { createdById: currentUserId };
+    const active = { ...owned, status: "Active" };
+    const startOfToday = new Date();
+    startOfToday.setHours(0, 0, 0, 0);
+    const weekEnd = new Date(startOfToday);
+    weekEnd.setDate(weekEnd.getDate() + 7);
+    const [activeTotals, overdueTotals, dueThisWeek, completed, nonRecoverable] = await Promise.all([
+      prismaAny.loan.aggregate({ where: active, _count: { _all: true }, _sum: { amount: true, remainingAmount: true } }),
+      prismaAny.loan.aggregate({ where: { ...active, overdueAmount: { gt: 0 } }, _count: { _all: true }, _sum: { overdueAmount: true } }),
+      prismaAny.loan.count({ where: { ...active, nextPaymentDate: { gte: startOfToday, lt: weekEnd } } }),
+      prismaAny.loan.count({ where: { ...owned, status: "Completed" } }),
+      prismaAny.loan.count({ where: { ...owned, status: NON_RECOVERABLE } }),
+    ]);
+    return NextResponse.json({
+      active: activeTotals._count._all,
+      activeAmount: activeTotals._sum.amount || 0,
+      outstanding: activeTotals._sum.remainingAmount || 0,
+      overdueAmount: overdueTotals._sum.overdueAmount || 0,
+      overdueCount: overdueTotals._count._all,
+      dueThisWeek,
+      completed,
+      nonRecoverable,
+    });
+  } catch (error) {
+    console.error("Error fetching loans summary:", error);
+    return NextResponse.json({ error: "Failed to fetch loans summary" }, { status: 500 });
   }
 }
 

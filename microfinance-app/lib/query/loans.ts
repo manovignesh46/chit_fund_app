@@ -103,6 +103,18 @@ export interface RepaymentRecord {
   interestComponent?: number | null;
 }
 
+/** GET action=summary: the loans page's key figures. */
+export interface LoansSummary {
+  active: number;
+  activeAmount: number;
+  outstanding: number;
+  overdueAmount: number;
+  overdueCount: number;
+  dueThisWeek: number;
+  completed: number;
+  nonRecoverable: number;
+}
+
 export interface LoansListSummary {
   principal: number;
   interest: number;
@@ -126,6 +138,7 @@ export interface AddRepaymentBody {
 export const loanKeys = {
   list: (params?: QueryParams): QueryKey => queryKeys.list(LOANS, params),
   detail: (id: number): QueryKey => queryKeys.detail(LOANS, id),
+  summary: (): QueryKey => queryKeys.action(LOANS, 'summary'),
   repayments: (id: number, params?: QueryParams): QueryKey => queryKeys.action(LOANS, 'repayments', id, params),
   /** includeAll=false: the detail page view ({schedules}); true: every unpaid period (array). */
   schedules: (id: number, includeAll: boolean): QueryKey =>
@@ -137,6 +150,10 @@ export const loanKeys = {
 
 export function useLoan(id: number | null, config?: SWRConfiguration<LoanRecord>) {
   return useSWR<LoanRecord>(id ? loanKeys.detail(id) : null, config);
+}
+
+export function useLoansSummary() {
+  return useSWR<LoansSummary>(loanKeys.summary());
 }
 
 /** Schedules as an array whichever shape the server returned. */
@@ -213,6 +230,7 @@ export function invalidateLoan(id: number, borrowerId?: number | null): Promise<
     [LOANS, 'payment-schedules', id],
     [LOANS, 'recovery', id],
     [LOANS, 'list'],
+    [LOANS, 'summary'],
     ...memberTags(borrowerId),
     ...MONEY_TAGS
   );
