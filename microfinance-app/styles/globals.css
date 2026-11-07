@@ -1,12 +1,6 @@
 @import './theme/variables.css';
 @import './theme/base.css';
-@import './theme/surfaces.css';
-@import './theme/tables.css';
-@import './theme/typography.css';
-@import './theme/badges.css';
-@import './theme/metrics.css';
-@import './theme/controls.css';
-@import './theme/calendar.css';
+@import './theme/shell.css';
 
 @tailwind base;
 @tailwind components;

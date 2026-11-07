@@ -17,6 +17,8 @@ export async function buildTransactionWhereClause(
     advMember?: string;
     advEntity?: string;
     advSubType?: string;
+    /** Free-text search (list contract `q`): note, partner names, performer. Optional. */
+    q?: string | null;
   }
 ): Promise<TransactionWhereClause> {
   const where: TransactionWhereClause = {
@@ -32,7 +34,8 @@ export async function buildTransactionWhereClause(
     advType,
     advMember,
     advEntity,
-    advSubType
+    advSubType,
+    q
   } = filters;
 
   // Advanced filter logic: apply each filter independently
@@ -232,9 +235,9 @@ export async function buildTransactionWhereClause(
   } else {
     // Basic filters (when not using advanced filters)
     
-    // Filter by transaction type
+    // Filter by transaction type (a comma-separated list matches any of them)
     if (type) {
-      where.type = type;
+      where.type = type.includes(',') ? { in: type.split(',').map((t) => t.trim()).filter(Boolean) } : type;
     }
 
     // Filter by member name (search in note field)
@@ -275,6 +278,24 @@ export async function buildTransactionWhereClause(
           }
         ]
       }
+    ];
+  }
+
+  // Free-text search: added with AND so it never replaces an OR built above.
+  const search = typeof q === 'string' ? q.trim().slice(0, 200) : '';
+  if (search) {
+    const contains = { contains: search, mode: 'insensitive' };
+    where.AND = [
+      ...(Array.isArray(where.AND) ? where.AND : []),
+      {
+        OR: [
+          { note: contains },
+          { from_partner: contains },
+          { to_partner: contains },
+          { action_performer: contains },
+          { entered_by: contains },
+        ],
+      },
     ];
   }
 

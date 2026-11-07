@@ -38,7 +38,8 @@ export async function GET(request: NextRequest) {
       advType,
       advMember,
       advEntity,
-      advSubType
+      advSubType,
+      q: searchParams.get('q')
     });
 
     // Fetch all transactions that match the filter

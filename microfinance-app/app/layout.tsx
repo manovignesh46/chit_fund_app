@@ -1,9 +1,9 @@
-// @ts-nocheck
 import React from 'react';
 import '../styles/globals.css';
-import Layout from './components/Layout';
 import { PartnerProvider } from './contexts/PartnerContext';
 import { ThemeProvider, ThemeScript } from './theme';
+import { Providers } from './providers';
+import { AppShell } from '@/components/kit/app-shell/app-shell';
 
 import '../lib/init';
 
@@ -31,7 +31,8 @@ export const viewport = {
   width: 'device-width',
   initialScale: 1,
   interactiveWidget: 'resizes-content',
-  themeColor: '#4338CA',
+  // Light; the inline theme script swaps in the dark top-bar colour (app/theme/config.ts).
+  themeColor: '#2563eb',
 };
 
 const RootLayout = ({ children }: { children: React.ReactNode }) => {
@@ -43,9 +44,9 @@ const RootLayout = ({ children }: { children: React.ReactNode }) => {
       <body>
         <ThemeProvider>
           <PartnerProvider>
-            <Layout>
-              {children}
-            </Layout>
+            <Providers>
+              <AppShell>{children}</AppShell>
+            </Providers>
           </PartnerProvider>
         </ThemeProvider>
       </body>

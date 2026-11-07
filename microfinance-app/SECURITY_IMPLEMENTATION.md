@@ -81,6 +81,8 @@ if (pathname.startsWith('/api') && request.method !== 'GET') {
 ---
 
 ### 6. Security Utilities (lib/security.ts)
+> Removed later (UI-standard cleanup): no route ever imported it. Authentication and rate limiting live in `middleware.ts` and `lib/auth.ts`.
+
 **Status**: ✅ NEW FILE CREATED
 
 **Utilities provided**:

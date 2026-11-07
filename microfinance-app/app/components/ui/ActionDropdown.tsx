@@ -23,7 +23,9 @@ export default function ActionDropdown({ actions, className = '' }: ActionDropdo
   const dropdownRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
 
-  // Enhanced positioning with mobile-specific handling
+  // Enhanced positioning with mobile-specific handling. The menu is position: fixed,
+  // so coordinates are viewport-relative: no window scroll offsets (the document
+  // scrolls since the app shell change).
   const calculatePosition = () => {
     if (buttonRef.current) {
       const rect = buttonRef.current.getBoundingClientRect();
@@ -36,22 +38,22 @@ export default function ActionDropdown({ actions, className = '' }: ActionDropdo
 
       if (isMobile) {
         // Mobile: Position dropdown in center of screen, above button if possible
-        topPosition = Math.max(20, rect.top - dropdownHeight - 10 + window.scrollY);
-        leftPosition = (window.innerWidth - dropdownWidth) / 2 + window.scrollX;
+        topPosition = Math.max(20, rect.top - dropdownHeight - 10);
+        leftPosition = (window.innerWidth - dropdownWidth) / 2;
 
         // If dropdown would go off top of screen, position it below button
         if (topPosition < 20) {
-          topPosition = rect.bottom + 10 + window.scrollY;
+          topPosition = rect.bottom + 10;
         }
       } else {
         // Desktop: Position above the button
-        topPosition = rect.top - dropdownHeight - 10 + window.scrollY;
+        topPosition = rect.top - dropdownHeight - 10;
 
         // Center horizontally relative to button
-        leftPosition = rect.left + (rect.width / 2) - (dropdownWidth / 2) + window.scrollX;
+        leftPosition = rect.left + (rect.width / 2) - (dropdownWidth / 2);
 
         // Ensure it stays within viewport horizontally
-        leftPosition = Math.max(10, Math.min(leftPosition, window.innerWidth - dropdownWidth - 10 + window.scrollX));
+        leftPosition = Math.max(10, Math.min(leftPosition, window.innerWidth - dropdownWidth - 10));
 
         // Ensure it stays within viewport vertically
         topPosition = Math.max(10, topPosition);
@@ -121,7 +123,7 @@ export default function ActionDropdown({ actions, className = '' }: ActionDropdo
           ref={buttonRef}
           type="button"
           onClick={() => setIsOpen((prev: boolean) => !prev)}
-          className="inline-flex items-center justify-center w-8 h-8 text-gray-400 hover:text-gray-700 dark:text-theme-secondary focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 rounded-full hover:bg-gray-50 dark:hover:bg-surface-hover"
+          className="inline-flex items-center justify-center w-8 h-8 text-subtle-foreground hover:text-foreground focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-ring focus:ring-offset-background rounded-full hover:bg-accent"
           aria-label="Actions"
         >
           <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
@@ -134,7 +136,7 @@ export default function ActionDropdown({ actions, className = '' }: ActionDropdo
       {isOpen && typeof window !== 'undefined' && createPortal(
         <div
           ref={dropdownRef}
-          className="fixed w-48 themed-card rounded-md shadow-xl border border-gray-200 dark:border-surface-border focus:outline-none"
+          className="fixed w-48 bg-popover text-popover-foreground rounded-md shadow-xl border border-border focus:outline-none"
           style={{
             top: `${dropdownPosition.top}px`,
             left: `${dropdownPosition.left}px`,
@@ -155,8 +157,8 @@ export default function ActionDropdown({ actions, className = '' }: ActionDropdo
                     onClick={(e) => handleActionClick(action, e)}
                     className={`group flex items-center px-4 py-2 text-sm transition-colors ${
                       action.disabled
-                        ? 'text-gray-400 cursor-not-allowed'
-                        : 'text-gray-700 dark:text-theme-secondary hover:bg-gray-50 dark:hover:bg-surface-hover hover:text-gray-900 dark:text-theme-primary'
+                        ? 'text-subtle-foreground cursor-not-allowed'
+                        : 'text-foreground hover:bg-accent hover:text-accent-foreground'
                     } ${action.className || ''}`}
                   >
                     {action.icon && (
@@ -176,8 +178,8 @@ export default function ActionDropdown({ actions, className = '' }: ActionDropdo
                     disabled={action.disabled}
                     className={`group flex items-center w-full px-4 py-2 text-sm text-left transition-colors ${
                       action.disabled
-                        ? 'text-gray-400 cursor-not-allowed'
-                        : 'text-gray-700 dark:text-theme-secondary hover:bg-gray-50 dark:hover:bg-surface-hover hover:text-gray-900 dark:text-theme-primary'
+                        ? 'text-subtle-foreground cursor-not-allowed'
+                        : 'text-foreground hover:bg-accent hover:text-accent-foreground'
                     } ${action.className || ''}`}
                   >
                     {action.icon && (

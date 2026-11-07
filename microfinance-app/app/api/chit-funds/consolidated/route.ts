@@ -4,9 +4,11 @@ import { getCurrentUserId, getActorUserId } from '../../../../lib/auth';
 import { TRANSACTION_TYPES_CONFIG } from '../../../../config/config';
 import { calculateTransactionBalance, getCurrentPartnerBalance, getCurrentTotalBalance, recalculateBalancesAfterDeletion } from '../../../../lib/balanceCalculator';
 import { calculateChitFundProfitUpToCurrentMonth, calculateChitFundOutsideAmount } from '../../../../lib/financialUtils';
-import { autoUpdateCurrentMonths } from '../../../../lib/timeUtils';
+import { autoUpdateCurrentMonths, invalidateCurrentMonths } from '../../../../lib/timeUtils';
 import { notifyOtherAdmins, getActorName } from '../../../../lib/notifications';
 import { BalancePaymentError, planBalancePayment } from '../../../../lib/contributionBalance';
+import { parseListParams, type SortTarget } from '../../../../lib/list/server';
+import { buildMeta, MAX_PAGE_SIZE } from '../../../../lib/list/types';
 
 // Use ISR with a 5-minute revalidation period
 export const revalidate = 300; // 5 minutes
@@ -34,6 +36,8 @@ export async function GET(request: NextRequest) {
     switch (action) {
       case 'list':
         return await getChitFundsList(request, currentUserId);
+      case 'summary':
+        return await getChitFundsSummary(currentUserId);
       case 'detail':
         if (!id) {
           return NextResponse.json(
@@ -112,6 +116,8 @@ export async function POST(request: NextRequest) {
         { status: 401 }
       );
     }
+    // A write can change which period a chit fund is in.
+    invalidateCurrentMonths(currentUserId);
 
     // Route to the appropriate handler based on the action
     switch (action) {
@@ -179,6 +185,8 @@ export async function PUT(request: NextRequest) {
         { status: 401 }
       );
     }
+    // A write can change which period a chit fund is in.
+    invalidateCurrentMonths(currentUserId);
 
     // Route to the appropriate handler based on the action
     switch (action) {
@@ -245,6 +253,8 @@ export async function DELETE(request: NextRequest) {
         { status: 401 }
       );
     }
+    // A write can change which period a chit fund is in.
+    invalidateCurrentMonths(currentUserId);
 
     // Route to the appropriate handler based on the action
     switch (action) {
@@ -303,60 +313,50 @@ export async function DELETE(request: NextRequest) {
   }
 }
 
-// Handler for getting chit funds list
-async function getChitFundsList(request: NextRequest, currentUserId: number) {
-  const { searchParams } = new URL(request.url);
-  const page = parseInt(searchParams.get('page') || '1');
-  const pageSize = parseInt(searchParams.get('pageSize') || '10');
-  const status = searchParams.get('status') || null;
+// List-contract sort keys for the chit funds list: stored columns, plus the member count
+// (Postgres counts it in the same query). Anything else in ?sort= is ignored.
+const CHIT_FUND_SORTS: Record<string, SortTarget> = {
+  name: 'name',
+  totalAmount: 'totalAmount',
+  monthlyContribution: 'monthlyContribution',
+  duration: 'duration',
+  currentMonth: 'currentMonth',
+  startDate: 'startDate',
+  status: 'status',
+  createdAt: 'createdAt',
+  // Funds without a next auction date go last in both directions.
+  nextAuctionDate: (order) => ({ nextAuctionDate: { sort: order, nulls: 'last' } }),
+  members: (order) => ({ members: { _count: order } }),
+};
+const CHIT_FUND_SEARCH = ['name'] as const;
 
-  // Validate pagination parameters
-  const validPage = page > 0 ? page : 1;
-  const validPageSize = pageSize > 0 ? pageSize : 10;
+/** What the completion rules below need from a fund (a slim select, or the full row). */
+interface FundCompletionInput {
+  id: number;
+  status: string;
+  startDate: Date;
+  duration: number;
+  _count: { members: number; auctions: number; contributions: number };
+}
 
-  // Calculate skip value for pagination
-  const skip = (validPage - 1) * validPageSize;
+const FUND_COUNTS = { _count: { select: { members: true, auctions: true, contributions: true } } } as const;
 
-  // Build where clause for filtering
-  const where: any = {
-    // Only show chit funds created by the current user
-    createdById: currentUserId
-  };
-
-  // 'Upcoming' (and any other status not handled below) is a plain lifecycle flag,
-  // so it can be filtered directly in the database.
-  if (status && status !== 'Active' && status !== 'Completed') {
-    where.status = status;
-  }
-
-  // 'Active'/'Completed' can't be filtered by the stored status field alone: duration
-  // and membersCount are independent in this app, so a fund can reach its last month
-  // (or have its status auto-flipped) before every member has actually received an
-  // auction payout or paid every contribution, and vice versa. Whether the fund is
-  // actually finished is the real signal, so fetch candidates and split them in JS.
-  const allMatching = await prisma.chitFund.findMany({
-    where,
-    include: {
-      _count: {
-        select: {
-          members: true,
-          auctions: true,
-          contributions: true,
-        }
-      }
-    },
-    orderBy: { createdAt: 'desc' },
-  });
-
-  // Sum of still-outstanding contribution balances, per chit fund (a contribution row
-  // with a partial balance whose balancePaymentStatus is 'Paid' has already been settled
-  // through a separate payment, so it doesn't count as outstanding).
+/**
+ * The rules that decide whether a fund is really finished (unchanged from before; they only
+ * moved out of getChitFundsList so the list can apply them to a slim candidate set or to
+ * one page of rows).
+ *
+ * Sum of still-outstanding contribution balances, per chit fund (a contribution row with a
+ * partial balance whose balancePaymentStatus is 'Paid' has already been settled through a
+ * separate payment, so it doesn't count as outstanding).
+ */
+async function fundCompletionRules(funds: FundCompletionInput[]) {
   const pendingBalanceByFund = new Map<number, number>();
-  if (allMatching.length > 0) {
+  if (funds.length > 0) {
     const pendingBalances = await prisma.contribution.groupBy({
       by: ['chitFundId'],
       where: {
-        chitFundId: { in: allMatching.map(cf => cf.id) },
+        chitFundId: { in: funds.map(cf => cf.id) },
         balance: { gt: 0 },
         balancePaymentStatus: { not: 'Paid' },
       },
@@ -370,7 +370,7 @@ async function getChitFundsList(request: NextRequest, currentUserId: number) {
   // How many of the fund's months have actually started yet, by calendar date — mirrors
   // the same month-visibility rule the Contributions tab uses, so "all caught up" here
   // means the same thing it means there.
-  const visibleMonths = (cf: typeof allMatching[number]) => {
+  const visibleMonths = (cf: FundCompletionInput) => {
     const start = new Date(cf.startDate);
     const now = new Date();
     let maxVisibleMonth = 0;
@@ -390,29 +390,105 @@ async function getChitFundsList(request: NextRequest, currentUserId: number) {
   // Compare against the actual number of Member rows added (_count.members), not the
   // membersCount field — on older chit funds that field was left mirroring `duration`
   // and doesn't reflect who was actually enrolled.
-  const isPayoutComplete = (cf: typeof allMatching[number]) =>
+  const isPayoutComplete = (cf: FundCompletionInput) =>
     cf._count.members > 0 && cf._count.auctions >= cf._count.members;
 
-  const isContributionsComplete = (cf: typeof allMatching[number]) =>
+  const isContributionsComplete = (cf: FundCompletionInput) =>
     cf._count.members > 0 &&
     cf._count.contributions >= cf._count.members * visibleMonths(cf) &&
     (pendingBalanceByFund.get(cf.id) || 0) <= 0;
 
-  const isFundComplete = (cf: typeof allMatching[number]) => isPayoutComplete(cf) && isContributionsComplete(cf);
+  const isFundComplete = (cf: FundCompletionInput) => isPayoutComplete(cf) && isContributionsComplete(cf);
 
-  let filtered = allMatching;
-  if (status === 'Active') {
-    filtered = allMatching.filter(cf => cf.status === 'Active' && !isFundComplete(cf));
-  } else if (status === 'Completed') {
-    filtered = allMatching.filter(cf => cf.status === 'Completed' || isFundComplete(cf));
+  /** The ?status= rule for 'Active' / 'Completed' (other statuses filter in the database). */
+  const matchesStatus = (cf: FundCompletionInput, status: string) =>
+    status === 'Active'
+      ? cf.status === 'Active' && !isFundComplete(cf)
+      : cf.status === 'Completed' || isFundComplete(cf);
+
+  return { isContributionsComplete, matchesStatus };
+}
+
+// Handler for getting chit funds list
+//
+// With ?sort= (the list page always sends one), one page is loaded, sorted and searched in
+// the database, with the id tiebreaker. 'Active'/'Completed' need the completion rules (they
+// cannot be expressed on stored columns), so for those two the candidates are first read as
+// a slim select (ids, status, dates and counts), filtered with the same rules as before, and
+// only the requested page is then loaded in full.
+// Optional list-contract params: q (name), sort, order. Without them the rows, their order
+// and every legacy key are what this handler returned before; `meta` is added alongside.
+async function getChitFundsList(request: NextRequest, currentUserId: number) {
+  const { searchParams } = new URL(request.url);
+  const page = parseInt(searchParams.get('page') || '1');
+  const pageSize = Math.min(parseInt(searchParams.get('pageSize') || '10'), MAX_PAGE_SIZE);
+  const status = searchParams.get('status') || null;
+  const list = parseListParams(searchParams, { sortable: CHIT_FUND_SORTS, searchable: CHIT_FUND_SEARCH });
+
+  // Validate pagination parameters
+  const validPage = page > 0 ? page : 1;
+  const validPageSize = pageSize > 0 ? pageSize : 10;
+
+  // Calculate skip value for pagination
+  const skip = (validPage - 1) * validPageSize;
+
+  // Build where clause for filtering
+  const where: any = {
+    // Only show chit funds created by the current user
+    createdById: currentUserId,
+    ...(list.searchWhere ?? {}),
+  };
+
+  // 'Upcoming' (and any other status not handled below) is a plain lifecycle flag,
+  // so it can be filtered directly in the database.
+  if (status && status !== 'Active' && status !== 'Completed') {
+    where.status = status;
+  }
+  const orderBy: any = list.orderBy ?? { createdAt: 'desc' };
+
+  let totalCount: number;
+  let pageRows: Awaited<ReturnType<typeof loadFundsPage>>;
+  let rules: Awaited<ReturnType<typeof fundCompletionRules>>;
+
+  if (status === 'Active' || status === 'Completed') {
+    // 'Active'/'Completed' can't be filtered by the stored status field alone: duration
+    // and membersCount are independent in this app, so a fund can reach its last month
+    // (or have its status auto-flipped) before every member has actually received an
+    // auction payout or paid every contribution, and vice versa. Whether the fund is
+    // actually finished is the real signal, so read slim candidates and split them in JS.
+    const candidates = await prisma.chitFund.findMany({
+      where,
+      select: { id: true, status: true, startDate: true, duration: true, ...FUND_COUNTS },
+      orderBy,
+    });
+    rules = await fundCompletionRules(candidates);
+    const matching = candidates.filter(cf => rules.matchesStatus(cf, status));
+    totalCount = matching.length;
+    const pageIds = matching.slice(skip, skip + validPageSize).map(cf => cf.id);
+    pageRows = await loadFundsPage({ id: { in: pageIds } }, undefined, undefined, undefined);
+    const position = new Map(pageIds.map((id, i) => [id, i]));
+    pageRows.sort((a, b) => (position.get(a.id) ?? 0) - (position.get(b.id) ?? 0));
+  } else if (!list.orderBy) {
+    // No ?sort= (legacy callers): the query this handler always ran, sliced in JS. A LIMIT
+    // query may order rows with equal createdAt differently, so it is used only with a sort,
+    // which always carries the id tiebreaker.
+    const all = await loadFundsPage(where, orderBy, undefined, undefined);
+    totalCount = all.length;
+    pageRows = all.slice(skip, skip + validPageSize);
+    rules = await fundCompletionRules(pageRows);
+  } else {
+    [totalCount, pageRows] = await Promise.all([
+      prisma.chitFund.count({ where }),
+      loadFundsPage(where, orderBy, skip, validPageSize),
+    ]);
+    rules = await fundCompletionRules(pageRows);
   }
 
-  const totalCount = filtered.length;
   // hasPendingContribution flags rows for a list-page indicator dot — any contribution due
   // so far (by calendar date) that hasn't been fully collected yet, not just the current month.
-  const chitFunds = filtered.slice(skip, skip + validPageSize).map(cf => ({
+  const chitFunds = pageRows.map(cf => ({
     ...cf,
-    hasPendingContribution: !isContributionsComplete(cf),
+    hasPendingContribution: !rules.isContributionsComplete(cf),
   }));
 
   return NextResponse.json({
@@ -420,7 +496,44 @@ async function getChitFundsList(request: NextRequest, currentUserId: number) {
     totalCount,
     page: validPage,
     pageSize: validPageSize,
-    totalPages: Math.ceil(totalCount / validPageSize)
+    totalPages: Math.ceil(totalCount / validPageSize),
+    meta: buildMeta({ page: validPage, pageSize: validPageSize, totalCount, sort: list.sort, order: list.order, q: list.q }),
+  });
+}
+
+/** Full list rows (scalar columns + counts), as the list has always returned them. */
+function loadFundsPage(where: any, orderBy: any, skip: number | undefined, take: number | undefined) {
+  return prisma.chitFund.findMany({
+    where,
+    include: FUND_COUNTS,
+    ...(orderBy ? { orderBy } : {}),
+    ...(skip !== undefined ? { skip } : {}),
+    ...(take !== undefined ? { take } : {}),
+  });
+}
+
+// Handler for the chit funds page's key figures (action=summary). The same figures the page
+// used to build from three list requests (status=Active pageSize=1, status=Upcoming
+// pageSize=1, status=Active pageSize=500): active and upcoming counts with the list's own
+// status rules, and the Active funds' member and value totals (a member total of 0 falls
+// back to membersCount, as the page did).
+async function getChitFundsSummary(currentUserId: number) {
+  const where = { createdById: currentUserId };
+  const [candidates, upcoming] = await Promise.all([
+    prisma.chitFund.findMany({
+      where,
+      select: { id: true, status: true, startDate: true, duration: true, totalAmount: true, membersCount: true, ...FUND_COUNTS },
+      orderBy: { createdAt: 'desc' },
+    }),
+    prisma.chitFund.count({ where: { ...where, status: 'Upcoming' } }),
+  ]);
+  const rules = await fundCompletionRules(candidates);
+  const active = candidates.filter(cf => rules.matchesStatus(cf, 'Active'));
+  return NextResponse.json({
+    active: active.length,
+    upcoming,
+    totalMembers: active.reduce((sum, f) => sum + (f._count?.members || f.membersCount || 0), 0),
+    totalValue: active.reduce((sum, f) => sum + (f.totalAmount || 0), 0),
   });
 }
 
@@ -515,18 +628,37 @@ async function getChitFundDetail(request: NextRequest, id: number, currentUserId
   return NextResponse.json(responseData);
 }
 
-// Handler for getting members of a chit fund
+// List-contract sort keys for a fund's members: stored columns only (the missed-contribution
+// and pending-amount figures are computed below, so they cannot be sorted in SQL).
+const CHIT_MEMBER_SORTS: Record<string, SortTarget> = {
+  name: (order) => ({ globalMember: { name: order } }),
+  contact: (order) => ({ globalMember: { contact: order } }),
+  joinDate: 'joinDate',
+  contribution: 'contribution',
+};
+const CHIT_MEMBER_SEARCH = ['globalMember.name', 'globalMember.contact'] as const;
+
+// Handler for getting members of a chit fund.
+// Optional list-contract params (q, sort, order, auction=won|notwon) filter and order in SQL and
+// add `meta` next to the legacy keys. `all=1` returns every member of the fund on one page
+// (the auctions page needs all of them to know who can still win; a fund has tens of members,
+// and the per-member figures below already read every contribution of the fund).
+// With none of these params the handler runs exactly the query it always ran.
 async function getChitFundMembers(request: NextRequest, id: number, currentUserId: number) {
   const { searchParams } = new URL(request.url);
   const page = parseInt(searchParams.get('page') || '1');
-  const pageSize = parseInt(searchParams.get('pageSize') || '20');
+  const pageSize = Math.min(parseInt(searchParams.get('pageSize') || '20'), MAX_PAGE_SIZE);
+  const all = searchParams.get('all') === '1';
+  const list = parseListParams(searchParams, { sortable: CHIT_MEMBER_SORTS, searchable: CHIT_MEMBER_SEARCH, filters: ['auction'] });
+  const auctionFilter = list.filters.auction === 'won' || list.filters.auction === 'notwon' ? list.filters.auction : null;
+  const withMeta = !!(list.q || list.sort || searchParams.has('order') || auctionFilter);
 
   // Validate pagination parameters
-  const validPage = page > 0 ? page : 1;
-  const validPageSize = pageSize > 0 ? pageSize : 10;
+  const validPage = all ? 1 : page > 0 ? page : 1;
+  const requestedPageSize = pageSize > 0 ? pageSize : 10;
 
   // Calculate skip value for pagination
-  const skip = (validPage - 1) * validPageSize;
+  const skip = (validPage - 1) * requestedPageSize;
 
   // Check if the chit fund exists
   const chitFund = await prisma.chitFund.findUnique({
@@ -548,14 +680,21 @@ async function getChitFundMembers(request: NextRequest, id: number, currentUserI
     );
   }
 
+  const memberWhere: any = {
+    chitFundId: id,
+    ...(list.searchWhere ?? {}),
+    ...(auctionFilter === 'won' ? { auctions: { some: {} } } : auctionFilter === 'notwon' ? { auctions: { none: {} } } : {}),
+  };
+
   // Get total count for pagination
   const totalCount = await prisma.member.count({
-    where: { chitFundId: id },
+    where: memberWhere,
   });
+  const validPageSize = all ? Math.max(totalCount, 1) : requestedPageSize;
 
   // Get paginated members for this chit fund
   const members = await prisma.member.findMany({
-    where: { chitFundId: id },
+    where: memberWhere,
     include: {
       globalMember: true,
       _count: {
@@ -569,9 +708,8 @@ async function getChitFundMembers(request: NextRequest, id: number, currentUserI
         take: 1, // We only need to know if they won any auction
       },
     },
-    orderBy: { joinDate: 'asc' },
-    skip,
-    take: validPageSize,
+    orderBy: list.orderBy ?? { joinDate: 'asc' },
+    ...(all ? {} : { skip, take: validPageSize }),
   });
 
   // Get all contributions for this chit fund with balance information
@@ -646,7 +784,9 @@ async function getChitFundMembers(request: NextRequest, id: number, currentUserI
     totalCount,
     page: validPage,
     pageSize: validPageSize,
-    totalPages: Math.ceil(totalCount / validPageSize)
+    totalPages: Math.ceil(totalCount / validPageSize),
+    // List metadata, only for list-contract requests (legacy callers get exactly the keys above).
+    ...(withMeta ? { meta: buildMeta({ page: validPage, pageSize: validPageSize, totalCount, sort: list.sort, order: list.order, q: list.q }) } : {}),
   });
 }
 
@@ -703,7 +843,7 @@ async function getMemberDetail(request: NextRequest, id: number, memberId: numbe
 async function getContributions(request: NextRequest, id: number, memberId: number | null, currentUserId: number) {
   const { searchParams } = new URL(request.url);
   const page = parseInt(searchParams.get('page') || '1');
-  const pageSize = parseInt(searchParams.get('pageSize') || '10');
+  const pageSize = Math.min(parseInt(searchParams.get('pageSize') || '10'), MAX_PAGE_SIZE);
 
   // Validate pagination parameters
   const validPage = page > 0 ? page : 1;
@@ -2081,7 +2221,7 @@ async function deleteAuction(request: NextRequest, id: number, currentUserId: nu
 async function getAuctions(request: NextRequest, id: number, currentUserId: number) {
   const { searchParams } = new URL(request.url);
   const page = parseInt(searchParams.get('page') || '1');
-  const pageSize = parseInt(searchParams.get('pageSize') || '10');
+  const pageSize = Math.min(parseInt(searchParams.get('pageSize') || '10'), MAX_PAGE_SIZE);
 
   // Validate pagination parameters
   const validPage = page > 0 ? page : 1;

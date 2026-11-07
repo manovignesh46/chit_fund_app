@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '../../../../lib/prisma';
 import { getCurrentUserId } from '../../../../lib/auth';
+import { parseListParams, type SortTarget } from '../../../../lib/list/server';
+import { buildMeta } from '../../../../lib/list/types';
 
 // Use ISR with a 5-minute revalidation period (mirrors chit-funds/consolidated)
 export const revalidate = 300;
@@ -147,22 +149,57 @@ export async function DELETE(request: NextRequest) {
 // Handlers
 // ---------------------------------------------------------------------------
 
+// List-contract sort keys for the templates list (stored columns, plus how many funds use
+// each template). Anything else in ?sort= is ignored.
+const TEMPLATE_SORTS: Record<string, SortTarget> = {
+  name: 'name',
+  chitFundType: 'chitFundType',
+  totalAmount: 'totalAmount',
+  monthlyContribution: 'monthlyContribution',
+  duration: 'duration',
+  membersCount: 'membersCount',
+  createdAt: 'createdAt',
+  chitFunds: (order) => ({ chitFunds: { _count: order } }),
+};
+const TEMPLATE_SEARCH = ['name', 'description'] as const;
+
+// Without list params this returns every template, newest first, exactly as before (the
+// new-fund form reads it that way). Optional list-contract params: q (name, description),
+// sort, order, type (Auction | Fixed); page/pageSize paginate in the database and add `meta`.
 async function getTemplatesList(request: NextRequest, currentUserId: number) {
   const { searchParams } = new URL(request.url);
   const includeArchived = searchParams.get('includeArchived') === 'true';
+  const list = parseListParams(searchParams, { sortable: TEMPLATE_SORTS, searchable: TEMPLATE_SEARCH, filters: ['type'] });
+  const paginated = searchParams.has('page') || searchParams.has('pageSize');
 
-  const where: any = { createdById: currentUserId };
+  const where: any = { createdById: currentUserId, ...(list.searchWhere ?? {}) };
   if (!includeArchived) where.isArchived = false;
+  if (list.filters.type) where.chitFundType = list.filters.type;
+  const orderBy: any = list.orderBy ?? { createdAt: 'desc' };
 
-  const templates = await prisma.chitFundTemplate.findMany({
-    where,
-    include: {
-      _count: { select: { chitFunds: true } },
-    },
-    orderBy: { createdAt: 'desc' },
+  const findTemplates = (page?: { skip: number; take: number }) =>
+    prisma.chitFundTemplate.findMany({
+      where,
+      include: {
+        _count: { select: { chitFunds: true } },
+      },
+      orderBy,
+      ...(page ?? {}),
+    });
+
+  if (!paginated) {
+    const templates = await findTemplates();
+    return NextResponse.json({ templates });
+  }
+
+  const [totalCount, templates] = await Promise.all([
+    prisma.chitFundTemplate.count({ where }),
+    findTemplates({ skip: list.skip, take: list.take }),
+  ]);
+  return NextResponse.json({
+    templates,
+    meta: buildMeta({ page: list.page, pageSize: list.pageSize, totalCount, sort: list.sort, order: list.order, q: list.q }),
   });
-
-  return NextResponse.json({ templates });
 }
 
 async function getTemplateDetail(request: NextRequest, id: number, currentUserId: number) {

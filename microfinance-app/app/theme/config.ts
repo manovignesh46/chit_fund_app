@@ -28,3 +28,13 @@ export const THEME_OPTION_META: Record<
     description: 'Follow your device appearance setting',
   },
 };
+
+/** Browser UI colour (<meta name="theme-color">) per resolved theme. Dark = the top-bar surface (--sidebar-background). */
+export const THEME_COLOR_LIGHT = '#2563eb';
+export const THEME_COLOR_DARK = '#14171f';
+
+/** localStorage key for the desktop sidebar state ('collapsed' | 'expanded'). */
+export const SIDEBAR_STORAGE_KEY = 'am-fincorp-sidebar';
+
+/** Set on <html> before first paint ('collapsed' | 'expanded'); the shell's CSS reads it. */
+export const SIDEBAR_DATA_ATTRIBUTE = 'data-sidebar';

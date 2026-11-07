@@ -1,6 +1,7 @@
 /**
  * Utility functions for API requests with robust error handling
  */
+import { invalidateDashboardCache } from './dashboardCache';
 
 /**
  * Safely parse a response from an API call, handling both JSON and non-JSON responses
@@ -74,7 +75,10 @@ export async function apiPost(url: string, data: any, defaultErrorMessage: strin
     body: JSON.stringify(data),
   });
 
-  return await safeParseResponse(response, defaultErrorMessage);
+  const result = await safeParseResponse(response, defaultErrorMessage);
+  // A successful write can change the dashboard totals.
+  invalidateDashboardCache();
+  return result;
 }
 
 /**
@@ -104,7 +108,10 @@ export async function apiPut(url: string, data: any, defaultErrorMessage: string
     body: JSON.stringify(data),
   });
 
-  return await safeParseResponse(response, defaultErrorMessage);
+  const result = await safeParseResponse(response, defaultErrorMessage);
+  // A successful write can change the dashboard totals.
+  invalidateDashboardCache();
+  return result;
 }
 
 /**
@@ -127,5 +134,8 @@ export async function apiDelete(url: string, data?: any, defaultErrorMessage: st
   }
   
   const response = await fetch(url, options);
-  return await safeParseResponse(response, defaultErrorMessage);
+  const result = await safeParseResponse(response, defaultErrorMessage);
+  // A successful write can change the dashboard totals.
+  invalidateDashboardCache();
+  return result;
 }

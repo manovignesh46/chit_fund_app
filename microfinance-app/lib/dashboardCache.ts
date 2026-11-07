@@ -1,5 +1,11 @@
-// Client-side stale-while-revalidate cache for the dashboard summary.
-// Stored in localStorage so it survives in-app navigation but not hard refresh.
+// Dashboard summary cache facade.
+//
+// The dashboard page still keeps its summary in localStorage (stale-while-revalidate,
+// survives in-app navigation but expires after 3 minutes). New code reads the dashboard
+// through SWR (lib/query); invalidateDashboardCache() clears both, so every existing
+// caller keeps working and also refreshes SWR queries tagged 'dashboard'.
+
+import { invalidate } from './query/invalidate';
 
 const CACHE_KEY = 'dashboard_summary_v1';
 const TTL_MS = 3 * 60 * 1000; // 3 minutes
@@ -41,4 +47,5 @@ export function invalidateDashboardCache(): void {
   try {
     localStorage.removeItem(CACHE_KEY);
   } catch {}
+  void invalidate('dashboard');
 }

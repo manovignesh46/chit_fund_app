@@ -1,0 +1,20 @@
+{
+  "description": "UI conventions ratchet baseline (scripts/check-ui-conventions.js). Totals may only go down.",
+  "totals": {
+    "reload": 0,
+    "alert": 0,
+    "confirm": 0,
+    "hardNav": 1,
+    "palette": 0,
+    "heroicons": 0,
+    "swipeable": 0,
+    "tsNocheck": 0,
+    "bigPage": 0,
+    "legacyClass": 0
+  },
+  "files": {
+    "app/login/page.tsx": {
+      "hardNav": 1
+    }
+  }
+}

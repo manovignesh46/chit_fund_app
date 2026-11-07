@@ -1,0 +1,53 @@
+/*
+ * App shell layout variables (components/kit/app-shell).
+ *
+ *   --topbar-height        sticky top bar (56px)
+ *   --sidebar-width        desktop sidebar open (16rem)
+ *   --sidebar-width-icon   desktop sidebar collapsed (3.5rem)
+ *   --shell-sidebar-width  what the sidebar takes right now: 0 below lg, else one of the two
+ *                          above, following <html data-sidebar> (set before first paint)
+ *   --bottom-nav-height    phone/tablet bottom bar incl. the safe-area inset; 0 from lg and
+ *                          while the on-screen keyboard is up (<html data-keyboard-open>).
+ *                          Page content, FormActions and toasts keep clear of it.
+ */
+:root {
+  --topbar-height: 3.5rem;
+  --sidebar-width: 16rem;
+  --sidebar-width-icon: 3.5rem;
+  --shell-sidebar-width: 0px;
+  --bottom-nav-height: calc(3.5rem + env(safe-area-inset-bottom, 0px));
+}
+
+html[data-keyboard-open] {
+  --bottom-nav-height: 0px;
+}
+
+@media (min-width: 1024px) {
+  :root {
+    --shell-sidebar-width: var(--sidebar-width);
+    --bottom-nav-height: 0px;
+  }
+  html[data-sidebar='collapsed'] {
+    --shell-sidebar-width: var(--sidebar-width-icon);
+  }
+}
+
+/*
+ * The document scrolls: anchors and scrollIntoView keep clear of the sticky top bar.
+ * scrollbar-gutter keeps the width constant when a page grows past the viewport, so
+ * the shell and page do not jump sideways on desktops with classic scrollbars.
+ */
+html {
+  scroll-padding-top: calc(var(--topbar-height) + 0.5rem);
+  scroll-padding-bottom: var(--bottom-nav-height);
+  scrollbar-gutter: stable;
+}
+
+/*
+ * Radix dialogs (react-remove-scroll-bar) add a right margin equal to the scrollbar
+ * width while open; with the gutter reserved above that margin would shift the page
+ * left instead of preventing a shift.
+ */
+html body[data-scroll-locked] {
+  margin-right: 0 !important;
+}

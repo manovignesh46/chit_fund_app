@@ -1,911 +1,377 @@
-// @ts-nocheck
 'use client';
 
-import React, { useState, useEffect } from 'react';
+/**
+ * Calendar (Report/List hybrid). The month is `?month=YYYY-MM` (each change is a history
+ * entry, so Back returns to the previous month); the kind filter is `?type=loan|chit`.
+ * A month is one request (events + the month's figures); while the next month loads the
+ * current one stays on screen, dimmed. Desktop: a month grid with event chips. Phones: a
+ * compact grid with dots and the selected day's agenda underneath.
+ *
+ * The figures and the pending-members list live in app/components/calendar/month-panels.tsx
+ * (tested by tests/test-calendar-pending.js).
+ */
+import * as React from 'react';
+import dynamic from 'next/dynamic';
 import Link from 'next/link';
-import { dashboardAPI } from '../../lib/api';
-import BackTitle from '../components/common/BackTitle';
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, addMonths, subMonths, parseISO } from 'date-fns';
+import { eachDayOfInterval, endOfMonth, format, isSameDay, startOfMonth } from 'date-fns';
+import { CalendarCheck } from 'lucide-react';
 
-const formatCurrency = (amount: number | undefined) => {
-  if (amount === undefined || amount === null) return '₹0';
-  return new Intl.NumberFormat('en-IN', {
-    style: 'currency',
-    currency: 'INR',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(amount);
-};
+import { cn } from '@/lib/utils';
+import { formatMoney } from '@/lib/format';
+import { useUrlState } from '@/lib/list/useUrlState';
+import { calendarKeys, useCalendarMonth, type CalendarEvent } from '@/lib/query/dashboard';
+import { prefetchQuery } from '@/lib/query/prefetch';
+import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
+import { chartColor } from '@/components/kit/chart-card';
+import { RefreshProgress } from '@/components/kit/data-table';
+import { EmptyState } from '@/components/kit/empty-state';
+import { ErrorState } from '@/components/kit/error-state';
+import { Money } from '@/components/kit/money';
+import { PageContainer } from '@/components/kit/page-container';
+import { iconOnPhone, PageHeader } from '@/components/kit/page-header';
+import { currentMonthKey, MonthPicker, monthLabel, monthRange, parseMonth, SegmentedControl } from '@/components/kit/period-picker';
+import { StatusBadge } from '@/components/kit/status-badge';
+import { MonthlyStatsCards, parseEventDate, toMonthStats, type ModalKind, type PendingKind } from '../components/calendar/month-panels';
 
-const collectionRate = (actual: number, expected: number) =>
-  expected > 0 ? Math.min(100, Math.round((actual / expected) * 100)) : 0;
+const MonthTransactionsDialog = dynamic(() => import('../components/calendar/month-dialogs').then((m) => m.MonthTransactionsDialog), { ssr: false });
+const CashFlowDialog = dynamic(() => import('../components/calendar/month-dialogs').then((m) => m.CashFlowDialog), { ssr: false });
+const PendingMembersDialog = dynamic(() => import('../components/calendar/month-dialogs').then((m) => m.PendingMembersDialog), { ssr: false });
 
-function extractMemberName(note?: string): string {
-  if (!note) return '-';
-  let m = note.match(/Repayment from ([^-]+?)(?: -|$)/i);
-  if (m) return m[1].trim();
-  m = note.match(/Loan disbursed to ([^-]+?)(?: -|$)/i);
-  if (m) return m[1].trim();
-  m = note.match(/Auction payout to ([^-]+?)(?: -|$)/i);
-  if (m) return m[1].trim();
-  m = note.match(/from ([^-]+?)(?: -|$)/i);
-  if (m) return m[1].trim();
-  m = note.match(/to ([^-]+?)(?: -|$)/i);
-  if (m) return m[1].trim();
-  return '-';
+// A document load starts the month's request while the page is being evaluated.
+if (typeof window !== 'undefined' && window.location.pathname === '/calendar') {
+  const m = parseMonth(new URLSearchParams(window.location.search).get('month')) ?? parseMonth(currentMonthKey())!;
+  prefetchQuery(calendarKeys.month(m.year, m.month));
 }
 
-interface Event {
-  id: string;
-  title: string;
-  date: string;
-  type: 'Loan' | 'Chit Fund';
-  isDueTomorrow?: boolean;
-  rawDate?: Date;
-  entityId?: number;
-  entityType?: string;
-  period?: number;
-  status?: 'Paid' | 'Overdue';
-  paymentType?: string;
-  dueAmount?: number;
+const KINDS = [
+  { value: 'all', label: 'All' },
+  { value: 'loan', label: 'Loans' },
+  { value: 'chit', label: 'Chit funds' },
+] as const;
+type Kind = (typeof KINDS)[number]['value'];
+const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+interface DayEvent extends CalendarEvent {
+  rawDate: Date;
 }
 
-interface MonthStats {
-  expectedLoanRepayment: number;
-  actualLoanRepayment: number;
-  expectedChitContribution: number;
-  actualChitContribution: number;
-  totalLoanDisbursement: number;
-  totalDocumentCharges: number;
-  auctionCommission: number;
-  auctionCount: number;
-  totalAuctionPayouts: number;
-  totalTransactions: number;
-  totalAmount: number;
-}
+const eventHref = (event: CalendarEvent) =>
+  event.entityType === 'loan' && event.entityId
+    ? `/loans/${event.entityId}`
+    : event.entityType === 'chitFund' && event.entityId
+      ? `/chit-funds/${event.entityId}`
+      : null;
 
-const navBtnClass = 'btn-neutral p-2 rounded-lg text-sm sm:text-base';
+/** "Ravi Kumar Loan Payment (Period 3)" → "Ravi Kumar" (as the grid always shortened it). */
+const chipTitle = (event: CalendarEvent) =>
+  event.title.includes('Loan Payment') ? event.title.split('Loan Payment')[0].trim() : event.title;
 
-function getEventChipClass(event: Event): string {
-  if (event.status === 'Overdue') return 'calendar-event calendar-event-overdue';
-  if (event.status === 'Paid') return 'calendar-event calendar-event-paid';
-  if (event.isDueTomorrow) return 'calendar-event calendar-event-due';
-  if (event.type === 'Loan') return 'calendar-event calendar-event-loan';
-  return 'calendar-event calendar-event-chit';
-}
+const slotOf = (event: CalendarEvent) => (event.type === 'Loan' ? 1 : 2) as 1 | 2;
 
-function CollectionBar({ rate }: { rate: number }) {
-  const color = rate >= 80 ? 'bg-green-500' : rate >= 50 ? 'bg-yellow-400' : 'bg-red-400';
-  return (
-    <div className="mt-2">
-      <div className="flex justify-between text-xs text-gray-500 dark:text-theme-muted mb-1">
-        <span>Collection rate</span>
-        <span className="font-semibold">{rate}%</span>
-      </div>
-      <div className="h-1.5 rounded-full bg-gray-200 dark:bg-surface-elevated overflow-hidden">
-        <div className={`h-full rounded-full ${color} transition-all`} style={{ width: `${rate}%` }} />
-      </div>
-    </div>
-  );
-}
-
-type ModalKind = 'loan_repayment' | 'chit_contribution' | 'loan_disbursement' | 'auction_payout' | 'all';
-
-const MODAL_CONFIG: Record<ModalKind, { title: string; type: string | null; emptyText: string }> = {
-  loan_repayment:    { title: 'Loan Repayments',    type: 'LOAN_REPAYMENT',                                  emptyText: 'No loan repayments recorded this month.' },
-  chit_contribution: { title: 'Chit Contributions', type: 'CHIT_CONTRIBUTION',                               emptyText: 'No chit contributions recorded this month.' },
-  loan_disbursement: { title: 'Loans Given',         type: 'LOAN_DISBURSEMENT',                              emptyText: 'No loans disbursed this month.' },
-  auction_payout:    { title: 'Auction Payouts',     type: 'AUCTION_PAYOUT',                                 emptyText: 'No auction payouts recorded this month.' },
-  all:               { title: 'All Transactions',    type: null,                                              emptyText: 'No transactions recorded this month.' },
-};
-
-interface ModalRow {
-  member: string;
-  amount: number;
-  date: string;
-}
-
-type PendingKind = 'loan_repayment' | 'chit_contribution';
-
-interface PendingRow {
-  key: string;
-  member: string;
-  description: string;
-  amount: number;
-  periods: number;
-  href: string;
-}
-
-function PendingMembersModal({ kind, month, onClose }: {
-  kind: PendingKind; month: Date; onClose: () => void;
-}) {
-  const [rows, setRows] = useState<PendingRow[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [retry, setRetry] = useState(0);
-  const start = format(startOfMonth(month), 'yyyy-MM-dd');
-  const end = format(endOfMonth(month), 'yyyy-MM-dd');
-
-  useEffect(() => {
-    const controller = new AbortController();
-    const load = async () => {
-      setLoading(true);
-      setError(null);
-      try {
-        const endpoint = kind === 'loan_repayment' ? 'pending-loans' : 'pending-chits';
-        const response = await fetch(`/api/transactions/${endpoint}?startDate=${start}&endDate=${end}`, {
-          signal: controller.signal,
-          cache: 'no-store',
-        });
-        if (!response.ok) throw new Error('Unable to load pending members. Please try again.');
-        const data = await response.json();
-        if (controller.signal.aborted) return;
-        setRows(kind === 'loan_repayment'
-          ? (data.pendingLoans ?? []).map((loan: any) => ({
-              key: `loan-${loan.id}`,
-              member: loan.borrowerName,
-              description: `${loan.loanType} · Loan #${loan.id}`,
-              amount: loan.pendingAmount,
-              periods: loan.pendingPeriods,
-              href: `/loans/${loan.id}/repayments`,
-            }))
-          : (data.pendingChitFunds ?? []).flatMap((fund: any) => fund.pendingMembers.map((member: any) => ({
-              key: `chit-${fund.id}-${member.memberId}`,
-              member: member.memberName,
-              description: `${fund.name} · Month ${(member.pendingMonths ?? []).join(', ')}`,
-              amount: member.pendingAmount,
-              periods: member.pendingPeriods,
-              href: `/chit-funds/${fund.id}/contributions?month=${member.pendingMonths[0]}`,
-            }))));
-      } catch (err) {
-        if (!controller.signal.aborted) setError(err instanceof Error ? err.message : 'Unable to load pending members.');
-      } finally {
-        if (!controller.signal.aborted) setLoading(false);
-      }
-    };
-    load();
-    return () => controller.abort();
-  }, [kind, start, end, retry]);
-
-  return (
-    <ModalShell title={`Pending ${MODAL_CONFIG[kind].title} — ${format(month, 'MMMM yyyy')}`} onClose={onClose}>
-      {loading ? (
-        <p className="p-5 text-sm text-gray-500 dark:text-theme-muted" role="status">Loading pending members…</p>
-      ) : error ? (
-        <div className="p-5">
-          <p className="text-sm text-red-600 dark:text-red-400" role="alert">{error}</p>
-          <button type="button" className="btn-neutral mt-3" onClick={() => setRetry((value) => value + 1)}>Retry</button>
-        </div>
-      ) : rows.length === 0 ? (
-        <p className="p-5 text-sm text-gray-500 dark:text-theme-muted text-center">No pending payments for this month.</p>
-      ) : (
-        <div className="p-5">
-          <div className="flex flex-wrap justify-between gap-2 mb-3 text-sm font-semibold text-gray-700 dark:text-theme-secondary">
-            <span>{rows.length} pending {rows.length === 1 ? 'entry' : 'entries'}</span>
-            <span className="text-orange-600 dark:text-orange-400">{formatCurrency(rows.reduce((sum, row) => sum + row.amount, 0))} outstanding</span>
-          </div>
-          <p className="text-xs text-gray-500 dark:text-theme-muted mb-4">Payments scheduled this month with an unpaid balance, including partial payments.</p>
-          <ul className="divide-y divide-gray-100 dark:divide-surface-border">
-            {rows.map((row) => (
-              <li key={row.key}>
-                <Link href={row.href} className="flex items-start justify-between gap-3 py-3 hover:bg-gray-50 dark:hover:bg-surface-elevated rounded">
-                  <div className="min-w-0">
-                    <div className="font-medium text-blue-600 dark:text-blue-400 break-words">{row.member}</div>
-                    <div className="text-xs text-gray-500 dark:text-theme-muted mt-1">{row.description}</div>
-                    <div className="text-xs text-gray-500 dark:text-theme-muted">{row.periods} {row.periods === 1 ? 'payment' : 'payments'} pending</div>
-                  </div>
-                  <span className="font-semibold text-orange-600 dark:text-orange-400 whitespace-nowrap">{formatCurrency(row.amount)}</span>
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-    </ModalShell>
-  );
-}
-
-function ModalShell({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [onClose]);
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50" onClick={onClose}>
-      <div role="dialog" aria-modal="true" aria-label={title} className="themed-card w-full sm:max-w-lg max-h-[80vh] flex flex-col rounded-t-2xl sm:rounded-2xl overflow-hidden" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200 dark:border-surface-elevated">
-          <h3 className="text-base font-semibold text-gray-900 dark:text-theme-heading">{title}</h3>
-          <button type="button" aria-label="Close dialog" onClick={onClose} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
-            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
-        <div className="overflow-y-auto flex-1">{children}</div>
-      </div>
-    </div>
-  );
-}
-
-function TransactionModal({ title, rows, loading, onClose, emptyText }: {
-  title: string; rows: ModalRow[]; loading: boolean; onClose: () => void; emptyText: string;
-}) {
-  return (
-    <ModalShell title={title} onClose={onClose}>
-      {loading ? (
-        <div className="p-5 space-y-3">
-          {[...Array(3)].map((_, i) => (
-            <div key={i} className="animate-pulse flex justify-between">
-              <div className="h-4 bg-gray-200 dark:bg-surface-elevated rounded w-1/3" />
-              <div className="h-4 bg-gray-200 dark:bg-surface-elevated rounded w-1/4" />
-            </div>
-          ))}
-        </div>
-      ) : rows.length === 0 ? (
-        <p className="p-5 text-sm text-gray-500 dark:text-theme-muted text-center">{emptyText}</p>
-      ) : (
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b border-gray-100 dark:border-surface-elevated text-xs text-gray-500 dark:text-theme-muted uppercase">
-              <th className="text-left px-5 py-2">Member</th>
-              <th className="text-right px-5 py-2">Amount</th>
-              <th className="text-right px-5 py-2 hidden sm:table-cell">Date</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((row, i) => (
-              <tr key={i} className="border-b border-gray-50 dark:border-surface-elevated last:border-0 hover:bg-gray-50 dark:hover:bg-surface-elevated">
-                <td className="px-5 py-3 text-gray-800 dark:text-theme-primary font-medium">{row.member}</td>
-                <td className="px-5 py-3 text-right text-green-600 dark:text-green-400 font-semibold">{formatCurrency(row.amount)}</td>
-                <td className="px-5 py-3 text-right text-gray-500 dark:text-theme-muted hidden sm:table-cell">{row.date}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
-    </ModalShell>
-  );
-}
-
-function SummaryBreakdownModal({ title, stats, onClose }: {
-  title: string; stats: MonthStats; onClose: () => void;
-}) {
-  const cashInflow = stats.actualLoanRepayment + stats.actualChitContribution + stats.totalDocumentCharges;
-  const cashOutflow = stats.totalLoanDisbursement + stats.totalAuctionPayouts;
-  const netFlow = cashInflow - cashOutflow;
-
-  const rows = [
-    { label: 'Loan Repayments',    amount: stats.actualLoanRepayment,    color: 'text-green-600 dark:text-green-400',  tag: '↑ Inflow' },
-    { label: 'Chit Contributions', amount: stats.actualChitContribution, color: 'text-green-600 dark:text-green-400',  tag: '↑ Inflow' },
-    { label: 'Document Charges',   amount: stats.totalDocumentCharges,   color: 'text-green-600 dark:text-green-400',  tag: '↑ Inflow' },
-    { label: 'Loans Disbursed',    amount: stats.totalLoanDisbursement,  color: 'text-red-500 dark:text-red-400',      tag: '↓ Outflow' },
-    { label: 'Auction Payouts',    amount: stats.totalAuctionPayouts,    color: 'text-red-500 dark:text-red-400',      tag: '↓ Outflow' },
-  ].filter(r => r.amount > 0);
-
-  return (
-    <ModalShell title={title} onClose={onClose}>
-      <table className="w-full text-sm">
-        <thead>
-          <tr className="border-b border-gray-100 dark:border-surface-elevated text-xs text-gray-500 dark:text-theme-muted uppercase">
-            <th className="text-left px-5 py-2">Category</th>
-            <th className="text-left px-5 py-2 hidden sm:table-cell">Flow</th>
-            <th className="text-right px-5 py-2">Amount</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((row, i) => (
-            <tr key={i} className="border-b border-gray-50 dark:border-surface-elevated last:border-0">
-              <td className="px-5 py-3 text-gray-800 dark:text-theme-primary font-medium">{row.label}</td>
-              <td className="px-5 py-3 text-xs text-gray-500 dark:text-theme-muted hidden sm:table-cell">{row.tag}</td>
-              <td className={`px-5 py-3 text-right font-semibold ${row.color}`}>{formatCurrency(row.amount)}</td>
-            </tr>
-          ))}
-        </tbody>
-        <tfoot>
-          <tr className="border-t-2 border-gray-200 dark:border-surface-elevated">
-            <td className="px-5 py-3 font-semibold text-gray-700 dark:text-theme-heading" colSpan={2}>Net Cash Flow</td>
-            <td className={`px-5 py-3 text-right font-bold ${netFlow >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-500 dark:text-red-400'}`}>
-              {netFlow >= 0 ? '+' : ''}{formatCurrency(netFlow)}
-            </td>
-          </tr>
-        </tfoot>
-      </table>
-      {rows.length === 0 && (
-        <p className="p-5 text-sm text-gray-500 dark:text-theme-muted text-center">No transactions recorded this month.</p>
-      )}
-    </ModalShell>
-  );
-}
-
-function StatCard({
-  title,
-  icon,
-  onClick,
-  children,
-}: {
-  title: string;
-  icon: React.ReactNode;
-  onClick?: () => void;
-  children: React.ReactNode;
-}) {
-  return (
-    <div
-      className={`themed-card p-4 flex flex-col gap-2 ${onClick ? 'cursor-pointer hover:ring-2 hover:ring-blue-400/50 transition-shadow' : ''}`}
-      onClick={onClick}
-    >
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2 text-gray-500 dark:text-theme-muted text-sm font-medium">
-          {icon}
-          {title}
-        </div>
-        {onClick && (
-          <svg className="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-          </svg>
-        )}
-      </div>
-      {children}
-    </div>
-  );
-}
-
-function StatsSkeleton() {
-  return (
-    <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 mt-6">
-      {[...Array(6)].map((_, i) => (
-        <div key={i} className="themed-card p-4 animate-pulse">
-          <div className="h-4 bg-gray-200 dark:bg-surface-elevated rounded w-2/3 mb-3" />
-          <div className="h-7 bg-gray-200 dark:bg-surface-elevated rounded w-1/2 mb-2" />
-          <div className="h-3 bg-gray-100 dark:bg-surface-elevated rounded w-full" />
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function MonthlyStatsCards({
-  stats,
-  monthLabel,
-  onOpenModal,
-  onOpenSummary,
-  onOpenPending,
-}: {
-  stats: MonthStats;
-  monthLabel: string;
-  onOpenModal: (kind: ModalKind) => void;
-  onOpenSummary: () => void;
-  onOpenPending: (kind: PendingKind) => void;
-}) {
-  const loanRate = collectionRate(stats.actualLoanRepayment, stats.expectedLoanRepayment);
-  const chitRate = collectionRate(stats.actualChitContribution, stats.expectedChitContribution);
-  const cashInflow = stats.actualLoanRepayment + stats.actualChitContribution + stats.totalDocumentCharges;
-  const cashOutflow = stats.totalLoanDisbursement + stats.totalAuctionPayouts;
-  const netFlow = cashInflow - cashOutflow;
-
-  return (
-    <div className="mt-6">
-      <h2 className="text-base font-semibold text-gray-700 dark:text-theme-heading mb-3">
-        {monthLabel} — Monthly Summary
-      </h2>
-      <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
-        {/* Loan Repayments */}
-        <StatCard
-          title="Loan Repayments"
-          onClick={() => onOpenModal('loan_repayment')}
-          icon={
-            <svg className="w-4 h-4 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-          }
-        >
-          <div>
-            <div className="text-xl font-bold text-green-600 dark:text-green-400">
-              {formatCurrency(stats.actualLoanRepayment)}
-            </div>
-            <div className="text-xs text-gray-500 dark:text-theme-muted">
-              of {formatCurrency(stats.expectedLoanRepayment)} expected
-            </div>
-          </div>
-          <CollectionBar rate={loanRate} />
-          <button type="button" className="text-left text-xs font-semibold text-orange-600 dark:text-orange-400 hover:underline mt-1" aria-label="View pending loan members"
-            onClick={(event) => { event.stopPropagation(); onOpenPending('loan_repayment'); }}>
-            View pending members →
-          </button>
-        </StatCard>
-
-        {/* Chit Contributions */}
-        <StatCard
-          title="Chit Contributions"
-          onClick={() => onOpenModal('chit_contribution')}
-          icon={
-            <svg className="w-4 h-4 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2z" />
-            </svg>
-          }
-        >
-          <div>
-            <div className="text-xl font-bold text-blue-600 dark:text-blue-400">
-              {formatCurrency(stats.actualChitContribution)}
-            </div>
-            <div className="text-xs text-gray-500 dark:text-theme-muted">
-              of {formatCurrency(stats.expectedChitContribution)} expected
-            </div>
-          </div>
-          <CollectionBar rate={chitRate} />
-          <button type="button" className="text-left text-xs font-semibold text-orange-600 dark:text-orange-400 hover:underline mt-1" aria-label="View pending chit members"
-            onClick={(event) => { event.stopPropagation(); onOpenPending('chit_contribution'); }}>
-            View pending members →
-          </button>
-        </StatCard>
-
-        {/* Loan Disbursements */}
-        <StatCard
-          title="Loans Given"
-          onClick={() => onOpenModal('loan_disbursement')}
-          icon={
-            <svg className="w-4 h-4 text-orange-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
-            </svg>
-          }
-        >
-          <div className="text-xl font-bold text-orange-600 dark:text-orange-400">
-            {formatCurrency(stats.totalLoanDisbursement)}
-          </div>
-          {stats.totalDocumentCharges > 0 && (
-            <div className="text-xs text-gray-500 dark:text-theme-muted">
-              + {formatCurrency(stats.totalDocumentCharges)} doc charges
-            </div>
-          )}
-        </StatCard>
-
-        {/* Auction Commission */}
-        <StatCard
-          title="Auction Commission"
-          icon={
-            <svg className="w-4 h-4 text-purple-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-            </svg>
-          }
-        >
-          <div className="text-xl font-bold text-purple-600 dark:text-purple-400">
-            {formatCurrency(stats.auctionCommission)}
-          </div>
-          <div className="text-xs text-gray-500 dark:text-theme-muted">
-            {stats.auctionCount} auction{stats.auctionCount !== 1 ? 's' : ''} this month
-          </div>
-        </StatCard>
-
-        {/* Auction Payout */}
-        <StatCard
-          title="Auction Payout"
-          onClick={() => onOpenModal('auction_payout')}
-          icon={
-            <svg className="w-4 h-4 text-pink-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-          }
-        >
-          <div className="text-xl font-bold text-pink-600 dark:text-pink-400">
-            {formatCurrency(stats.totalAuctionPayouts)}
-          </div>
-          <div className="text-xs text-gray-500 dark:text-theme-muted">paid to winners</div>
-        </StatCard>
-
-        {/* Transactions */}
-        <StatCard
-          title="Transactions"
-          onClick={() => onOpenModal('all')}
-          icon={
-            <svg className="w-4 h-4 text-teal-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" />
-            </svg>
-          }
-        >
-          <div className="text-xl font-bold text-teal-600 dark:text-teal-400">
-            {stats.totalTransactions}
-          </div>
-          <div className="text-xs text-gray-500 dark:text-theme-muted">
-            {formatCurrency(stats.totalAmount)} total recorded
-          </div>
-        </StatCard>
-
-        {/* Cash Flow */}
-        <StatCard
-          title="Net Cash Flow"
-          onClick={onOpenSummary}
-          icon={
-            <svg className="w-4 h-4 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
-            </svg>
-          }
-        >
-          <div className={`text-xl font-bold ${netFlow >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-500 dark:text-red-400'}`}>
-            {netFlow >= 0 ? '+' : ''}{formatCurrency(netFlow)}
-          </div>
-          <div className="text-xs text-gray-500 dark:text-theme-muted flex gap-3">
-            <span className="text-green-600 dark:text-green-400">↑ {formatCurrency(cashInflow)}</span>
-            <span className="text-red-500 dark:text-red-400">↓ {formatCurrency(cashOutflow)}</span>
-          </div>
-        </StatCard>
-      </div>
-    </div>
-  );
+function EventStatus({ event }: { event: CalendarEvent }) {
+  if (event.status === 'Overdue') return <StatusBadge status="Overdue" />;
+  if (event.status === 'Paid') return <StatusBadge status="Paid" />;
+  if (event.isDueTomorrow) return <StatusBadge status="Due Tomorrow" />;
+  return null;
 }
 
 export default function CalendarPage() {
-  const [currentMonth, setCurrentMonth] = useState(new Date());
-  const [events, setEvents] = useState<Event[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [filter, setFilter] = useState<'all' | 'Loan' | 'Chit Fund'>('all');
-  const [monthStats, setMonthStats] = useState<MonthStats | null>(null);
-  const [statsLoading, setStatsLoading] = useState(true);
-  const [activeModal, setActiveModal] = useState<ModalKind | null>(null);
-  const [pendingKind, setPendingKind] = useState<PendingKind | null>(null);
-  const [modalRows, setModalRows] = useState<ModalRow[]>([]);
-  const [modalLoading, setModalLoading] = useState(false);
-  const [showSummaryModal, setShowSummaryModal] = useState(false);
+  return (
+    <PageContainer wide fallback={<CalendarSkeleton />}>
+      <Calendar />
+    </PageContainer>
+  );
+}
 
-  useEffect(() => {
-    const fetchEventsForMonth = async () => {
-      try {
-        setLoading(true);
-        const year = currentMonth.getFullYear();
-        const month = currentMonth.getMonth() + 1;
+function Calendar() {
+  const monthState = useUrlState({ month: '' }, { history: 'push' });
+  const filterState = useUrlState({ type: 'all' });
+  const month = parseMonth(monthState.values.month) ? monthState.values.month : currentMonthKey();
+  const kind: Kind = (['loan', 'chit'] as string[]).includes(filterState.values.type) ? (filterState.values.type as Kind) : 'all';
+  const { year, month: m } = parseMonth(month)!;
+  const query = useCalendarMonth(monthState.ready ? year : null, m);
+  const data = query.data;
 
-        const data = await fetch(
-          `/api/dashboard/consolidated?action=events&view=calendar&year=${year}&month=${month}`
-        ).then((res) => res.json());
+  // What is on screen is the loaded month (the previous one while the next loads).
+  const shownYear = data?.year ?? year;
+  const shownMonth = data?.month ?? m;
+  const shownDate = new Date(shownYear, shownMonth - 1, 1);
+  const refreshing = !!data && (data.year !== year || data.month !== m || query.isLoading);
+  const label = monthLabel(shownYear, shownMonth);
 
-        const eventsWithDates = data.map((event: Event) => {
-          let parsedDate: Date;
-          const parts = event.date.split(' ');
-          if (parts.length === 3) {
-            const day = parseInt(parts[0]);
-            const monthName = parts[1];
-            const yearNum = parseInt(parts[2]);
-            const monthMap: Record<string, number> = {
-              January: 0, February: 1, March: 2, April: 3,
-              May: 4, June: 5, July: 6, August: 7,
-              September: 8, October: 9, November: 10, December: 11,
-            };
-            const monthIndex = monthMap[monthName];
-            parsedDate =
-              !isNaN(day) && monthIndex !== undefined && !isNaN(yearNum)
-                ? new Date(yearNum, monthIndex, day)
-                : new Date();
-          } else {
-            parsedDate = new Date();
-          }
-          return { ...event, rawDate: parsedDate };
-        });
+  const events: DayEvent[] = React.useMemo(
+    () => (data?.events ?? []).map((event) => ({ ...event, rawDate: parseEventDate(event.date) })),
+    [data]
+  );
+  const visible = events.filter((e) => kind === 'all' || (kind === 'loan' ? e.type === 'Loan' : e.type === 'Chit Fund'));
+  const stats = data ? toMonthStats(data) : null;
+  const range = monthRange(shownYear, shownMonth);
 
-        setEvents(eventsWithDates);
-        setError(null);
-      } catch (err: any) {
-        console.error('Error fetching events:', err);
-        setError(err.message || 'Failed to load events');
-      } finally {
-        setLoading(false);
+  const [selectedDay, setSelectedDay] = React.useState<Date | null>(null);
+  React.useEffect(() => {
+    // Default the agenda to today in the current month, else the first day with events.
+    if (!data) return;
+    const today = new Date();
+    const inMonth = today.getFullYear() === data.year && today.getMonth() + 1 === data.month;
+    setSelectedDay(inMonth ? new Date(today.getFullYear(), today.getMonth(), today.getDate()) : events[0]?.rawDate ?? null);
+  }, [data, events]);
+
+  const [modal, setModal] = React.useState<ModalKind | null>(null);
+  const [pending, setPending] = React.useState<PendingKind | null>(null);
+  const [summaryOpen, setSummaryOpen] = React.useState(false);
+  const [mounted, setMounted] = React.useState(false);
+  const mount = () => setMounted(true);
+
+  const goTo = (next: string) => monthState.set({ month: next === currentMonthKey() ? null : next });
+
+  const header = (
+    <PageHeader
+      title="Calendar"
+      description={monthLabel(year, m)}
+      actionsLayout="stack"
+      actions={
+        <>
+          <MonthPicker value={month} onChange={goTo} />
+          <Button className={iconOnPhone} variant="outline" onClick={() => goTo(currentMonthKey())} aria-label="Go to Today">
+            <CalendarCheck aria-hidden="true" />
+            <span className="max-sm:sr-only">Today</span>
+          </Button>
+        </>
       }
-    };
+    />
+  );
 
-    fetchEventsForMonth();
-  }, [currentMonth]);
-
-  useEffect(() => {
-    const fetchMonthStats = async () => {
-      try {
-        setStatsLoading(true);
-        const start = startOfMonth(currentMonth);
-        const end = endOfMonth(currentMonth);
-        const startDate = format(start, 'yyyy-MM-dd');
-        const endDate = format(end, 'yyyy-MM-dd');
-
-        const monthKey = format(start, 'yyyy-MM');
-        const [aggregations, summary, chitProfit, auctionTxns] = await Promise.all([
-          fetch(`/api/transactions/aggregations?startDate=${startDate}&endDate=${endDate}`).then((r) => r.json()),
-          fetch(`/api/transactions/summary?startDate=${startDate}&endDate=${endDate}`).then((r) => r.json()),
-          fetch(`/api/chit-funds/monthly-profit?months=24`).then((r) => r.json()),
-          fetch(`/api/transactions?type=AUCTION_PAYOUT&startDate=${startDate}&endDate=${endDate}&pageSize=1000`).then((r) => r.json()),
-        ]);
-
-        const monthProfitData = chitProfit?.months?.find((m: { key: string }) => m.key === monthKey);
-        const auctionPayoutTotal = (auctionTxns?.transactions ?? []).reduce(
-          (sum: number, t: any) => sum + Math.abs(t.amount ?? 0), 0
-        );
-
-        setMonthStats({
-          expectedLoanRepayment: aggregations.expectedLoanRepayment ?? 0,
-          actualLoanRepayment: aggregations.actualLoanRepayment ?? 0,
-          expectedChitContribution: aggregations.expectedChitContribution ?? 0,
-          actualChitContribution: aggregations.actualChitContribution ?? 0,
-          totalLoanDisbursement: summary.totalLoanDisbursement ?? 0,
-          totalDocumentCharges: summary.totalDocumentCharges ?? 0,
-          auctionCommission: monthProfitData?.commission ?? 0,
-          auctionCount: monthProfitData?.auctionCount ?? 0,
-          totalAuctionPayouts: auctionPayoutTotal,
-          totalTransactions: summary.totalTransactions ?? 0,
-          totalAmount: summary.totalAmount ?? 0,
-        });
-      } catch (err) {
-        console.error('Error fetching month stats:', err);
-      } finally {
-        setStatsLoading(false);
-      }
-    };
-
-    fetchMonthStats();
-  }, [currentMonth]);
-
-  const openModal = async (kind: ModalKind) => {
-    if (!MODAL_CONFIG[kind]) return;
-    setActiveModal(kind);
-    setModalRows([]);
-    setModalLoading(true);
-    try {
-      const start = format(startOfMonth(currentMonth), 'yyyy-MM-dd');
-      const end = format(endOfMonth(currentMonth), 'yyyy-MM-dd');
-      const base = `startDate=${start}&endDate=${end}&pageSize=1000`;
-      const cfg = MODAL_CONFIG[kind];
-
-      let txns: any[];
-      if (cfg.type === null) {
-        // Fetch all transaction types in parallel and merge, sorted by date desc
-        const types = ['LOAN_REPAYMENT', 'CHIT_CONTRIBUTION', 'LOAN_DISBURSEMENT', 'AUCTION_PAYOUT'];
-        const results = await Promise.all(
-          types.map((t) => fetch(`/api/transactions?${base}&type=${t}`).then((r) => r.json()))
-        );
-        txns = results
-          .flatMap((r) => r.transactions ?? [])
-          .sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime());
-      } else {
-        const res = await fetch(`/api/transactions?${base}&type=${cfg.type}`).then((r) => r.json());
-        txns = res.transactions ?? [];
-      }
-
-      setModalRows(
-        txns.map((t: any) => ({
-          member: extractMemberName(t.note),
-          amount: Math.abs(t.amount ?? 0),
-          date: t.date ? new Date(t.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }) : '-',
-        }))
-      );
-    } catch {
-      setModalRows([]);
-    } finally {
-      setModalLoading(false);
-    }
-  };
-
-  const prevMonth = () => setCurrentMonth(subMonths(currentMonth, 1));
-  const nextMonth = () => setCurrentMonth(addMonths(currentMonth, 1));
-  const goToToday = () => setCurrentMonth(new Date());
-
-  const monthStart = startOfMonth(currentMonth);
-  const monthEnd = endOfMonth(currentMonth);
-  const monthDays = eachDayOfInterval({ start: monthStart, end: monthEnd });
-
-  const getEventsForDay = (day: Date) =>
-    events.filter((event) => {
-      if (!event.rawDate) return false;
-      if (filter !== 'all' && event.type !== filter) return false;
-      return isSameDay(event.rawDate, day);
-    });
-
-  const backLink = <BackTitle title="Calendar" href="/dashboard" ariaLabel="Back to Dashboard" />;
-
-  if (loading) {
+  if (!data) {
     return (
-      <div className="page-container">
-        <div className="flex justify-between items-center mb-6">{backLink}</div>
-        <div className="themed-card p-6">
-          <div className="animate-pulse">
-            <div className="h-8 bg-gray-200 dark:bg-surface-elevated rounded w-1/4 mb-6" />
-            <div className="grid grid-cols-7 gap-2">
-              {[...Array(35)].map((_, i) => (
-                <div key={i} className="h-24 bg-gray-100 dark:bg-surface-elevated rounded" />
-              ))}
-            </div>
-          </div>
-        </div>
-        <StatsSkeleton />
+      <div>
+        {header}
+        {query.error ? <ErrorState title="Failed to load events" error={query.error} onRetry={() => void query.mutate()} /> : <CalendarBodySkeleton />}
       </div>
     );
   }
 
-  if (error) {
-    return (
-      <div className="page-container">
-        <div className="flex justify-between items-center mb-6">{backLink}</div>
-        <div className="alert-error px-4 py-3 rounded">
-          <p className="font-bold">Error</p>
-          <p>{error}</p>
-        </div>
-      </div>
-    );
-  }
+  const monthStart = startOfMonth(shownDate);
+  const monthEnd = endOfMonth(shownDate);
+  const days = eachDayOfInterval({ start: monthStart, end: monthEnd });
+  const eventsOn = (day: Date) => visible.filter((e) => isSameDay(e.rawDate, day));
+  const today = new Date();
+  const agendaDays = selectedDay ? [selectedDay] : days.filter((d) => eventsOn(d).length > 0);
 
   return (
-    <div className="page-container">
-      <div className="flex flex-row flex-wrap items-center justify-between gap-3 mb-6 sm:mb-8">
-        {backLink}
-      </div>
-
-      <div className="themed-card p-2 sm:p-6">
-        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 sm:gap-4 mb-6">
-          <div className="flex flex-row gap-2">
-            <button onClick={prevMonth} className={navBtnClass} aria-label="Previous Month">
-              <span className="hidden sm:inline">Prev</span>
-              <span className="sm:hidden">‹</span>
-            </button>
-            <button
-              onClick={goToToday}
-              className="btn-primary p-2 rounded-lg text-sm sm:text-base sm:px-4 sm:py-2"
-              aria-label="Go to Today"
-            >
-              Today
-            </button>
-            <button onClick={nextMonth} className={navBtnClass} aria-label="Next Month">
-              <span className="hidden sm:inline">Next</span>
-              <span className="sm:hidden">›</span>
-            </button>
-          </div>
-          <h2 className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-theme-heading">
-            {format(currentMonth, 'MMMM yyyy')}
-          </h2>
-          <div className="flex flex-row gap-2">
-            <button
-              onClick={() => setFilter('all')}
-              className={filter === 'all' ? 'filter-chip-active-blue' : 'filter-chip'}
-            >
-              All
-            </button>
-            <button
-              onClick={() => setFilter('Loan')}
-              className={filter === 'Loan' ? 'filter-chip-active-green' : 'filter-chip'}
-            >
-              Loans
-            </button>
-            <button
-              onClick={() => setFilter('Chit Fund')}
-              className={filter === 'Chit Fund' ? 'filter-chip-active-blue' : 'filter-chip'}
-            >
-              Chit Funds
-            </button>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-7 gap-1 sm:gap-2 mb-4">
-          {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day) => (
-            <div key={day} className="calendar-day-header">
-              {day}
+    <div className="relative" aria-busy={refreshing || undefined}>
+      {header}
+      <RefreshProgress active={refreshing} />
+      <div className={cn('space-y-4 transition-opacity duration-200', refreshing && 'opacity-60 delay-150')}>
+        <section aria-label={`${label} calendar`} className="rounded-xl border bg-card p-2 text-card-foreground shadow-sm sm:p-4">
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2 px-1">
+            <h2 className="text-base font-semibold text-foreground">{label}</h2>
+            <div className="flex items-center gap-3">
+              <span className="hidden items-center gap-3 text-xs text-muted-foreground sm:inline-flex" aria-hidden="true">
+                <span className="inline-flex items-center gap-1.5"><span className="h-2 w-2 rounded-full" style={{ backgroundColor: chartColor(1) }} />Loan</span>
+                <span className="inline-flex items-center gap-1.5"><span className="h-2 w-2 rounded-full" style={{ backgroundColor: chartColor(2) }} />Chit fund</span>
+              </span>
+              <SegmentedControl size="sm" aria-label="Show events" value={kind} onChange={(v) => filterState.set({ type: v === 'all' ? null : v })} options={[...KINDS]} />
             </div>
-          ))}
-        </div>
-
-        {events.length === 0 ? (
-          <div className="text-center py-8 text-gray-500 dark:text-theme-muted">
-            <p className="text-lg font-semibold mb-2">No events found</p>
-            <p>There are no events scheduled for this month.</p>
           </div>
-        ) : (
-          <div className="grid grid-cols-7 gap-1 sm:gap-2">
-            {[...Array(monthStart.getDay())].map((_, i) => (
-              <div key={`empty-start-${i}`} className="calendar-day-empty" />
+
+          <div className="grid grid-cols-7 gap-1 sm:gap-1.5">
+            {WEEKDAYS.map((d) => (
+              <div key={d} aria-hidden="true" className="py-1 text-center text-xs font-medium text-muted-foreground">
+                {d}
+              </div>
             ))}
-
-            {monthDays.map((day) => {
-              const dayEvents = getEventsForDay(day);
-              const isToday = isSameDay(day, new Date());
-
+            {Array.from({ length: monthStart.getDay() }, (_, i) => (
+              <div key={`s${i}`} aria-hidden="true" />
+            ))}
+            {days.map((day) => {
+              const dayEvents = eventsOn(day);
+              const isToday = isSameDay(day, today);
+              const selected = !!selectedDay && isSameDay(day, selectedDay);
+              const overdue = dayEvents.some((e) => e.status === 'Overdue');
               return (
                 <div
-                  key={day.toString()}
-                  className={isToday ? 'calendar-day calendar-day-today' : 'calendar-day'}
+                  key={day.toISOString()}
+                  className={cn(
+                    'min-w-0 rounded-md border md:min-h-[7.5rem]',
+                    isToday ? 'border-primary' : 'border-border',
+                    selected ? 'bg-primary-subtle' : 'bg-card'
+                  )}
                 >
-                  <div className="font-semibold mb-1 text-gray-900 dark:text-theme-primary">
-                    {format(day, 'd')}
-                  </div>
-                  <div className="space-y-1 overflow-y-auto max-h-20">
-                    {dayEvents.map((event) => {
-                      let eventLink = '#';
-                      if (event.entityType === 'loan' && event.entityId) {
-                        eventLink = `/loans/${event.entityId}`;
-                      } else if (event.entityType === 'chitFund' && event.entityId) {
-                        eventLink = `/chit-funds/${event.entityId}`;
-                      }
-
+                  <button
+                    type="button"
+                    onClick={() => setSelectedDay(selected ? null : day)}
+                    aria-label={`${format(day, 'd MMMM yyyy')}: ${dayEvents.length} ${dayEvents.length === 1 ? 'event' : 'events'}`}
+                    aria-pressed={selected}
+                    className="flex w-full flex-col items-center gap-1 rounded-md px-0.5 py-1.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring md:items-start md:px-2 md:py-1"
+                  >
+                    <span className={cn('text-sm font-semibold tabular-nums', isToday ? 'text-primary-text' : 'text-foreground')}>{format(day, 'd')}</span>
+                    {/* Phones: dots (up to 3) for the day's events. */}
+                    <span className="flex h-1.5 gap-0.5 md:hidden" aria-hidden="true">
+                      {dayEvents.slice(0, 3).map((e) => (
+                        <span key={e.id} className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: e.status === 'Overdue' ? 'hsl(var(--destructive))' : chartColor(slotOf(e)) }} />
+                      ))}
+                    </span>
+                    {overdue ? <span className="sr-only">Has overdue payments</span> : null}
+                  </button>
+                  {/* Desktop: up to three chips, then "+N more" (opens the day's agenda). */}
+                  <ul className="hidden space-y-1 px-1.5 pb-1.5 md:block">
+                    {dayEvents.slice(0, 3).map((event) => {
+                      const href = eventHref(event);
+                      const body = (
+                        <>
+                          <span aria-hidden="true" className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: chartColor(slotOf(event)) }} />
+                          <span className="min-w-0 flex-1 truncate">{chipTitle(event)}</span>
+                          {event.status === 'Overdue' ? <span className="shrink-0 font-semibold text-destructive-text">OD</span> : null}
+                          {event.status === 'Paid' ? <span className="shrink-0 font-semibold text-success-text">Paid</span> : null}
+                        </>
+                      );
+                      const cls = cn(
+                        'flex items-center gap-1 rounded px-1.5 py-0.5 text-xs',
+                        event.status === 'Overdue' ? 'bg-destructive-subtle text-foreground' : event.isDueTomorrow ? 'bg-warning-subtle text-foreground' : 'bg-muted text-foreground'
+                      );
+                      const title = `${event.title}${event.dueAmount !== undefined ? `: ${formatMoney(event.dueAmount)}` : ''}`;
                       return (
-                        <Link
-                          href={eventLink}
-                          key={event.id}
-                          className={getEventChipClass(event)}
-                        >
-                          <div className="font-semibold truncate">
-                            {event.title.includes('Loan Payment')
-                              ? event.title.split('Loan Payment')[0].trim().replace(/\s+$/, '')
-                              : event.title}
-                            {event.dueAmount !== undefined && (
-                              <span className="font-medium">: {formatCurrency(event.dueAmount)}</span>
-                            )}
-                          </div>
-                          <div className="flex items-center justify-between mt-1">
-                            <div className="flex items-center">
-                              <span
-                                className={`inline-block w-2 h-2 rounded-full mr-1 ${
-                                  event.type === 'Loan' ? 'bg-green-500' : 'bg-blue-500'
-                                }`}
-                              />
-                              <span className="text-xs opacity-80">{event.type}</span>
-                              {event.isDueTomorrow && (
-                                <span className="ml-1 text-xs font-semibold">Due Tomorrow</span>
-                              )}
-                              {event.status === 'Paid' && (
-                                <span className="ml-1 text-xs font-semibold">Paid</span>
-                              )}
-                              {event.status === 'Overdue' && (
-                                <span className="ml-1 text-xs font-semibold">OD</span>
-                              )}
-                            </div>
-                            {event.period && (
-                              <span className="text-xs opacity-80">due: {event.period}</span>
-                            )}
-                          </div>
-                        </Link>
+                        <li key={event.id}>
+                          {href ? (
+                            <Link href={href} title={title} className={cn(cls, 'hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring')}>
+                              {body}
+                            </Link>
+                          ) : (
+                            <span title={title} className={cls}>{body}</span>
+                          )}
+                        </li>
                       );
                     })}
-                  </div>
+                    {dayEvents.length > 3 ? (
+                      <li>
+                        <button type="button" onClick={() => setSelectedDay(day)} className="rounded px-1.5 text-xs font-medium text-primary-text hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                          +{dayEvents.length - 3} more
+                        </button>
+                      </li>
+                    ) : null}
+                  </ul>
                 </div>
               );
             })}
-
-            {[...Array(6 - monthEnd.getDay())].map((_, i) => (
-              <div key={`empty-end-${i}`} className="calendar-day-empty" />
-            ))}
           </div>
-        )}
+        </section>
+
+        <section aria-labelledby="calendar-agenda" className="rounded-xl border bg-card text-card-foreground shadow-sm">
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b px-4 py-3 sm:px-6">
+            <h2 id="calendar-agenda" className="text-base font-semibold text-foreground">
+              {selectedDay ? format(selectedDay, 'EEEE, d MMMM') : `All events in ${label}`}
+            </h2>
+            {selectedDay ? (
+              <Button variant="ghost" size="sm" onClick={() => setSelectedDay(null)}>
+                Show whole month
+              </Button>
+            ) : null}
+          </div>
+          {visible.length === 0 ? (
+            <EmptyState compact title="No events found" description="There are no events scheduled for this month." />
+          ) : (
+            <div className="divide-y">
+              {agendaDays.map((day) => {
+                const list = eventsOn(day);
+                return (
+                  <div key={day.toISOString()} className="px-4 py-3 sm:px-6">
+                    {!selectedDay ? <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">{format(day, 'EEE d MMM')}</h3> : null}
+                    {list.length === 0 ? (
+                      <p className="text-sm text-muted-foreground">Nothing scheduled on this day.</p>
+                    ) : (
+                      <ul className="space-y-2">
+                        {list.map((event) => {
+                          const href = eventHref(event);
+                          const content = (
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="flex min-w-0 items-start gap-2">
+                                <span aria-hidden="true" className="mt-1.5 h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: chartColor(slotOf(event)) }} />
+                                <div className="min-w-0">
+                                  <p className="break-words text-sm font-medium text-foreground">{event.title}</p>
+                                  <p className="text-xs text-muted-foreground">
+                                    {event.type}
+                                    {event.period ? ` · due: ${event.period}` : ''}
+                                  </p>
+                                </div>
+                              </div>
+                              <div className="flex shrink-0 flex-col items-end gap-1">
+                                {event.dueAmount !== undefined ? <Money value={event.dueAmount} tone="plain" className="text-sm font-semibold" /> : null}
+                                <EventStatus event={event} />
+                              </div>
+                            </div>
+                          );
+                          return (
+                            <li key={event.id}>
+                              {href ? (
+                                <Link href={href} className="-mx-2 block rounded-md px-2 py-1.5 hover:bg-elevated focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                                  {content}
+                                </Link>
+                              ) : (
+                                <div className="py-1.5">{content}</div>
+                              )}
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </section>
+
+        {stats ? (
+          <MonthlyStatsCards
+            stats={stats}
+            monthLabel={label}
+            onOpenModal={(k) => { mount(); setModal(k); }}
+            onOpenSummary={() => { mount(); setSummaryOpen(true); }}
+            onOpenPending={(k) => { mount(); setPending(k); }}
+          />
+        ) : null}
       </div>
 
-      {statsLoading ? (
-        <StatsSkeleton />
-      ) : monthStats ? (
-        <MonthlyStatsCards
-          stats={monthStats}
-          monthLabel={format(currentMonth, 'MMMM yyyy')}
-          onOpenModal={openModal}
-          onOpenSummary={() => setShowSummaryModal(true)}
-          onOpenPending={setPendingKind}
-        />
+      {mounted ? (
+        <>
+          <MonthTransactionsDialog kind={modal} onClose={() => setModal(null)} range={range} monthLabel={label} />
+          {stats ? <CashFlowDialog open={summaryOpen} onClose={() => setSummaryOpen(false)} stats={stats} monthLabel={label} /> : null}
+          <PendingMembersDialog kind={pending} month={shownDate} monthLabel={label} onClose={() => setPending(null)} />
+        </>
       ) : null}
+    </div>
+  );
+}
 
-      {showSummaryModal && monthStats && (
-        <SummaryBreakdownModal
-          title={`Cash Flow — ${format(currentMonth, 'MMMM yyyy')}`}
-          stats={monthStats}
-          onClose={() => setShowSummaryModal(false)}
-        />
-      )}
+function CalendarBodySkeleton() {
+  return (
+    <div aria-hidden="true" className="space-y-4">
+      <div className="rounded-xl border bg-card p-4">
+        <Skeleton className="mb-4 h-6 w-40" />
+        <div className="grid grid-cols-7 gap-1.5">
+          {Array.from({ length: 35 }, (_, i) => (
+            <Skeleton key={i} className="h-10 md:h-28" />
+          ))}
+        </div>
+      </div>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        {Array.from({ length: 4 }, (_, i) => (
+          <Skeleton key={i} className="h-28 rounded-xl" />
+        ))}
+      </div>
+    </div>
+  );
+}
 
-      {activeModal && MODAL_CONFIG[activeModal] && (
-        <TransactionModal
-          title={`${MODAL_CONFIG[activeModal].title} — ${format(currentMonth, 'MMMM yyyy')}`}
-          rows={modalRows}
-          loading={modalLoading}
-          onClose={() => setActiveModal(null)}
-          emptyText={MODAL_CONFIG[activeModal].emptyText}
-        />
-      )}
-      {pendingKind && (
-        <PendingMembersModal
-          key={`${pendingKind}-${format(currentMonth, 'yyyy-MM')}`}
-          kind={pendingKind}
-          month={currentMonth}
-          onClose={() => setPendingKind(null)}
-        />
-      )}
+function CalendarSkeleton() {
+  return (
+    <div aria-hidden="true" className="space-y-6">
+      <div className="flex items-center justify-between">
+        <Skeleton className="h-7 w-32" />
+        <Skeleton className="h-9 w-80" />
+      </div>
+      <CalendarBodySkeleton />
     </div>
   );
 }

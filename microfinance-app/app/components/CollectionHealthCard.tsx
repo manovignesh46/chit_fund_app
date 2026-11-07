@@ -1,232 +1,109 @@
-// @ts-nocheck
 'use client';
 
-import React, { useEffect, useState } from 'react';
-
-interface AggregationData {
-  expectedLoanRepayment: number;
-  actualLoanRepayment: number;
-  expectedChitContribution: number;
-  actualChitContribution: number;
-  totalExpectedAmount: number;
-  totalActualAmount: number;
-}
+import * as React from 'react';
+import { AlertTriangle, CheckCircle2, Clock } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { Skeleton } from '@/components/ui/skeleton';
+import { ErrorState } from '@/components/kit/error-state';
+import { Money } from '@/components/kit/money';
+import { currentMonthKey, monthRange, parseMonth } from '@/components/kit/period-picker';
+import { useAggregations } from '@/lib/query/transactions';
 
 /**
- * Collection Health Card Component
- * Displays collection rate with a circular progress bar
- * Fetches current month's collection data automatically
+ * This month's collection rate for loans or chit funds: expected vs collected, as a ring.
+ * Both cards share one request (same key).
  */
 export default function CollectionHealthCard({ business }: { business: 'loan' | 'chit' }) {
   const title = business === 'loan' ? 'Loan Collections' : 'Chit Fund Collections';
-  const [data, setData] = useState<AggregationData | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const { year, month } = parseMonth(currentMonthKey())!;
+  const range = monthRange(year, month);
+  const query = useAggregations(range.startDate, range.endDate);
+  const data = query.data;
 
-  useEffect(() => {
-    const fetchCurrentMonthCollections = async () => {
-      setLoading(true);
-      setError(null);
+  if (!data) {
+    return (
+      <section className="rounded-xl border bg-card p-4 text-card-foreground shadow-sm sm:p-6">
+        <h2 className="mb-4 text-center text-base font-semibold text-foreground">{title}</h2>
+        {query.error ? (
+          <ErrorState compact title="Failed to load collection data" error={query.error} onRetry={() => void query.mutate()} />
+        ) : (
+          <div className="flex flex-col items-center gap-4">
+            <Skeleton className="h-48 w-48 rounded-full" />
+            <Skeleton className="h-20 w-full" />
+          </div>
+        )}
+      </section>
+    );
+  }
 
-      try {
-        // Get current month's start and end dates
-        const currentDate = new Date();
-        const startDate = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
-        const endDate = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0);
+  const expected = business === 'loan' ? data.expectedLoanRepayment ?? 0 : data.expectedChitContribution ?? 0;
+  const collected = business === 'loan' ? data.actualLoanRepayment ?? 0 : data.actualChitContribution ?? 0;
+  const rate = expected === 0 ? 0 : (collected / expected) * 100;
+  const tone = rate < 50 ? 'destructive' : rate <= 80 ? 'warning' : 'success';
+  const stroke = `hsl(var(--${tone === 'warning' ? 'warning' : tone === 'success' ? 'success' : 'destructive'}))`;
+  const text = tone === 'destructive' ? 'text-destructive-text' : tone === 'warning' ? 'text-warning-text' : 'text-success-text';
+  const status =
+    expected === 0
+      ? { label: 'No collections scheduled', Icon: Clock }
+      : rate < 50
+        ? { label: 'Needs attention', Icon: AlertTriangle }
+        : rate <= 80
+          ? { label: 'Fair progress', Icon: Clock }
+          : { label: 'Excellent performance', Icon: CheckCircle2 };
 
-        // Format dates as YYYY-MM-DD
-        const formatDate = (date: Date) => {
-          return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
-        };
-
-        const response = await fetch(
-          `/api/transactions/aggregations?startDate=${formatDate(startDate)}&endDate=${formatDate(endDate)}`
-        );
-
-        if (!response.ok) {
-          throw new Error('Failed to fetch collection data');
-        }
-
-        const aggregations = await response.json();
-        setData(aggregations);
-      } catch (err: any) {
-        console.error('Error fetching collection data:', err);
-        setError(err.message || 'Failed to load collection data');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchCurrentMonthCollections();
-  }, []);
-
-  const expected = business === 'loan' ? data?.expectedLoanRepayment ?? 0 : data?.expectedChitContribution ?? 0;
-  const collected = business === 'loan' ? data?.actualLoanRepayment ?? 0 : data?.actualChitContribution ?? 0;
-
-  // Calculate collection rate percentage
-  const calculateCollectionRate = (): number => {
-    if (!data || expected === 0) return 0;
-    return (collected / expected) * 100;
-  };
-
-  const collectionRate = calculateCollectionRate();
-
-  // Determine color based on collection rate
-  const getColor = (rate: number): { stroke: string; text: string; bg: string } => {
-    if (rate < 50) {
-      return {
-        stroke: 'var(--color-danger)',
-        text: 'text-danger',
-        bg: 'bg-danger-light'
-      };
-    } else if (rate >= 50 && rate <= 80) {
-      return {
-        stroke: 'var(--color-warning)',
-        text: 'text-warning',
-        bg: 'bg-warning-light'
-      };
-    } else {
-      return {
-        stroke: 'var(--color-success)',
-        text: 'text-success',
-        bg: 'bg-success-light'
-      };
-    }
-  };
-
-  const colors = getColor(collectionRate);
-
-  // SVG Circle properties
   const size = 200;
   const strokeWidth = 12;
   const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
-  const offset = circumference - (Math.min(Math.max(collectionRate, 0), 100) / 100) * circumference;
-
-  // Format currency
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat("en-IN", {
-      style: "currency",
-      currency: "INR",
-      maximumFractionDigits: 0,
-    }).format(amount);
-  };
-
-  if (loading) {
-    return (
-      <div className="themed-card p-4 sm:p-6 animate-pulse">
-        <div className="h-6 bg-gray-200 dark:bg-surface-elevated rounded w-3/4 mx-auto mb-4"></div>
-        <div className="flex justify-center mb-4">
-          <div className="w-48 h-48 bg-gray-200 dark:bg-surface-elevated rounded-full"></div>
-        </div>
-        <div className="h-4 bg-gray-200 dark:bg-surface-elevated rounded w-2/3 mx-auto mb-4"></div>
-        <div className="space-y-2">
-          <div className="h-3 bg-gray-200 dark:bg-surface-elevated rounded"></div>
-          <div className="h-3 bg-gray-200 dark:bg-surface-elevated rounded"></div>
-          <div className="h-3 bg-gray-200 dark:bg-surface-elevated rounded"></div>
-        </div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="themed-card p-4 sm:p-6">
-        <h2 className="text-lg font-semibold text-gray-700 dark:text-theme-secondary mb-2 text-center">
-          {title}
-        </h2>
-        <div className="alert-error rounded-lg p-3">
-          <p className="text-sm text-danger">{error}</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (!data) return null;
+  const offset = circumference - (Math.min(Math.max(rate, 0), 100) / 100) * circumference;
 
   return (
-    <div className="themed-card p-4 sm:p-6">
-      <h2 className="text-lg sm:text-xl font-semibold text-gray-700 dark:text-theme-secondary mb-4 text-center">
-        {title}
-      </h2>
-
-      {/* Circular Progress Bar */}
-      <div className="flex flex-col items-center justify-center mb-4">
+    <section className="rounded-xl border bg-card p-4 text-card-foreground shadow-sm sm:p-6" aria-busy={query.isValidating || undefined}>
+      <h2 className="mb-4 text-center text-base font-semibold text-foreground">{title}</h2>
+      <div className="mb-4 flex justify-center">
         <div className="relative inline-flex items-center justify-center">
-          <svg
-            width={size}
-            height={size}
-            className="transform -rotate-90"
-          >
-            {/* Background circle */}
+          <svg width={size} height={size} className="max-w-full -rotate-90" viewBox={`0 0 ${size} ${size}`} aria-hidden="true">
+            <circle cx={size / 2} cy={size / 2} r={radius} stroke="hsl(var(--border))" strokeWidth={strokeWidth} fill="none" />
             <circle
               cx={size / 2}
               cy={size / 2}
               r={radius}
-              stroke="var(--color-surface-border)"
-              strokeWidth={strokeWidth}
-              fill="none"
-            />
-            {/* Progress circle */}
-            <circle
-              cx={size / 2}
-              cy={size / 2}
-              r={radius}
-              stroke={colors.stroke}
+              stroke={stroke}
               strokeWidth={strokeWidth}
               fill="none"
               strokeLinecap="round"
               strokeDasharray={circumference}
               strokeDashoffset={offset}
-              className="transition-all duration-1000 ease-out"
+              className="transition-all duration-700 ease-out"
             />
           </svg>
-
-          {/* Center text - percentage */}
           <div className="absolute inset-0 flex flex-col items-center justify-center">
-            <span className={`text-4xl sm:text-5xl font-bold ${colors.text}`}>
-              {expected > 0 ? `${collectionRate.toFixed(1)}%` : '—'}
+            <span className={cn('text-4xl font-semibold tabular-nums', expected > 0 ? text : 'text-muted-foreground')}>
+              {expected > 0 ? `${rate.toFixed(1)}%` : '—'}
             </span>
-            <span className="text-xs text-theme-secondary mt-1">collected</span>
+            <span className="mt-1 text-xs text-muted-foreground">collected</span>
           </div>
         </div>
       </div>
-
-      {/* Label */}
-      <p className="text-sm sm:text-base font-medium text-gray-700 dark:text-theme-secondary text-center mb-4">
-        Current month collection status
+      <p className="mb-4 text-center text-sm text-muted-foreground">Current month collection status</p>
+      <dl className="space-y-2 rounded-lg bg-muted p-3 text-sm">
+        <div className="flex items-center justify-between">
+          <dt className="text-muted-foreground">Expected</dt>
+          <dd className="font-medium"><Money value={expected} tone="plain" /></dd>
+        </div>
+        <div className="flex items-center justify-between">
+          <dt className="text-muted-foreground">Collected</dt>
+          <dd className="font-medium"><Money value={collected} tone="plain" /></dd>
+        </div>
+        <div className="flex items-center justify-between border-t pt-2">
+          <dt className="text-muted-foreground">Pending</dt>
+          <dd className="font-medium"><Money value={Math.max(0, expected - collected)} tone="plain" /></dd>
+        </div>
+      </dl>
+      <p className={cn('mt-4 flex items-center justify-center gap-1.5 text-xs font-medium', expected > 0 ? text : 'text-muted-foreground')}>
+        <status.Icon aria-hidden="true" className="h-3.5 w-3.5" />
+        {status.label}
       </p>
-
-      {/* Collection Details */}
-      <div className={`${colors.bg} rounded-lg p-3 space-y-2`}>
-        <div className="flex justify-between items-center text-sm">
-          <span className="text-gray-700 dark:text-theme-secondary">Expected:</span>
-          <span className="font-semibold text-gray-900 dark:text-theme-primary">
-            {formatCurrency(expected)}
-          </span>
-        </div>
-        <div className="flex justify-between items-center text-sm">
-          <span className="text-gray-700 dark:text-theme-secondary">Collected:</span>
-          <span className={`font-semibold ${colors.text}`}>
-            {formatCurrency(collected)}
-          </span>
-        </div>
-        <div className="flex justify-between items-center text-sm pt-2 border-t border-gray-200 dark:border-surface-border">
-          <span className="text-gray-700 dark:text-theme-secondary">Pending:</span>
-          <span className="font-semibold text-gray-900 dark:text-theme-primary">
-            {formatCurrency(Math.max(0, expected - collected))}
-          </span>
-        </div>
-      </div>
-
-      {/* Status indicator */}
-      <div className="mt-4 text-center">
-        <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${colors.bg} ${colors.text}`}>
-          {expected === 0 ? 'No collections scheduled' : collectionRate < 50 ? '⚠️ Needs Attention' :
-           collectionRate <= 80 ? '⚡ Fair Progress' :
-           '✅ Excellent Performance'}
-        </span>
-      </div>
-    </div>
+    </section>
   );
 }

@@ -1,442 +1,129 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { formatCurrency } from '../../lib/formatUtils';
-import PendingLoansModal from './PendingLoansModal';
-import PendingChitsModal from './PendingChitsModal';
+import * as React from 'react';
+import dynamic from 'next/dynamic';
+import { cn } from '@/lib/utils';
+import { Skeleton } from '@/components/ui/skeleton';
+import { ErrorState } from '@/components/kit/error-state';
+import { Money } from '@/components/kit/money';
+import { currentMonthKey, MonthPicker, monthLabel, monthRange, parseMonth } from '@/components/kit/period-picker';
+import { useUrlState } from '@/lib/list/useUrlState';
+import { useAggregations } from '@/lib/query/transactions';
 
-interface AggregationData {
-  expectedLoanRepayment: number;
-  actualLoanRepayment: number;
-  expectedChitContribution: number;
-  actualChitContribution: number;
-  totalExpectedAmount: number;
-  totalActualAmount: number;
-}
+const PendingLoansDialog = dynamic(() => import('./dashboard/pending-dialogs').then((m) => m.PendingLoansDialog), { ssr: false });
+const PendingChitsDialog = dynamic(() => import('./dashboard/pending-dialogs').then((m) => m.PendingChitsDialog), { ssr: false });
 
-interface PendingLoan {
-  id: number;
-  borrowerName: string;
-  loanType: string;
-  totalAmount: number;
-  installmentAmount: number;
-  pendingAmount: number;
-  pendingPeriods: number;
-  repaymentType: string;
-}
-
-interface PendingMember {
-  memberName: string;
-  pendingAmount: number;
-  pendingPeriods: number;
-}
-
-interface PendingChitFund {
-  id: number;
-  name: string;
-  totalAmount: number;
-  installmentAmount: number;
-  frequency: string;
-  pendingMembers: PendingMember[];
-  totalPendingAmount: number;
-}
-
-interface Props {
-  refreshTrigger?: boolean;
-}
-
-export default function CurrentMonthCollections({ refreshTrigger }: Props) {
-  const [data, setData] = useState(null as AggregationData | null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null as string | null);
-  
-  // Modal states
-  const [showLoansModal, setShowLoansModal] = useState(false);
-  const [showChitsModal, setShowChitsModal] = useState(false);
-  const [pendingLoans, setPendingLoans] = useState<PendingLoan[]>([]);
-  const [pendingChitFunds, setPendingChitFunds] = useState<PendingChitFund[]>([]);
-  const [loadingPending, setLoadingPending] = useState(false);
-  
-  // Get current month and year
-  const currentDate = new Date();
-  const [selectedMonth, setSelectedMonth] = useState(currentDate.getMonth()); // 0-11
-  const [selectedYear, setSelectedYear] = useState(currentDate.getFullYear());
-
-  // Get month name
-  const months = [
-    'January', 'February', 'March', 'April', 'May', 'June',
-    'July', 'August', 'September', 'October', 'November', 'December'
-  ];
-
-  useEffect(() => {
-    const fetchCurrentMonthAggregations = async () => {
-      setLoading(true);
-      setError(null);
-      
-      try {
-        // Get selected month's start and end dates
-        const startDate = new Date(selectedYear, selectedMonth, 1);
-        const endDate = new Date(selectedYear, selectedMonth + 1, 0);
-
-        // Format dates as YYYY-MM-DD
-        const formatDate = (date: Date) => {
-          return date.toISOString().split('T')[0];
-        };
-
-        const response = await fetch(
-          `/api/transactions/aggregations?startDate=${formatDate(startDate)}&endDate=${formatDate(endDate)}`
-        );
-        
-        if (!response.ok) {
-          throw new Error('Failed to fetch aggregations');
-        }
-        
-        const aggregations = await response.json();
-        setData(aggregations);
-      } catch (err: any) {
-        console.error('Error fetching current month aggregations:', err);
-        setError(err.message || 'Failed to load collections data');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchCurrentMonthAggregations();
-  }, [refreshTrigger, selectedMonth, selectedYear]);
-
-  // Fetch pending loans
-  const fetchPendingLoans = async () => {
-    setLoadingPending(true);
-    try {
-      const startDate = new Date(selectedYear, selectedMonth, 1);
-      const endDate = new Date(selectedYear, selectedMonth + 1, 0);
-
-      const formatDate = (date: Date) => {
-        return date.toISOString().split('T')[0];
-      };
-
-      const response = await fetch(
-        `/api/transactions/pending-loans?startDate=${formatDate(startDate)}&endDate=${formatDate(endDate)}`
-      );
-      
-      if (!response.ok) {
-        throw new Error('Failed to fetch pending loans');
-      }
-      
-      const data = await response.json();
-      setPendingLoans(data.pendingLoans || []);
-      setShowLoansModal(true);
-    } catch (err: any) {
-      console.error('Error fetching pending loans:', err);
-      alert('Failed to load pending loans. Please try again.');
-    } finally {
-      setLoadingPending(false);
-    }
-  };
-
-  // Fetch pending chit funds
-  const fetchPendingChits = async () => {
-    setLoadingPending(true);
-    try {
-      const startDate = new Date(selectedYear, selectedMonth, 1);
-      const endDate = new Date(selectedYear, selectedMonth + 1, 0);
-
-      const formatDate = (date: Date) => {
-        return date.toISOString().split('T')[0];
-      };
-
-      const response = await fetch(
-        `/api/transactions/pending-chits?startDate=${formatDate(startDate)}&endDate=${formatDate(endDate)}`
-      );
-      
-      if (!response.ok) {
-        throw new Error('Failed to fetch pending chit funds');
-      }
-      
-      const data = await response.json();
-      setPendingChitFunds(data.pendingChitFunds || []);
-      setShowChitsModal(true);
-    } catch (err: any) {
-      console.error('Error fetching pending chit funds:', err);
-      alert('Failed to load pending chit funds. Please try again.');
-    } finally {
-      setLoadingPending(false);
-    }
-  };
-
-  if (loading) {
-    return (
-      <div className="grid grid-cols-1 gap-4 sm:gap-6 mb-6 sm:mb-8 md:grid-cols-3">
-        {[1, 2, 3].map((i) => (
-          <div key={i} className="dark-card p-4 sm:p-6 animate-pulse">
-            <div className="h-4 bg-gray-50 dark:bg-surface-elevated rounded w-3/4 mb-4"></div>
-            <div className="space-y-3">
-              <div className="h-3 bg-gray-50 dark:bg-surface-elevated rounded w-full"></div>
-              <div className="h-3 bg-gray-50 dark:bg-surface-elevated rounded w-5/6"></div>
-            </div>
-          </div>
-        ))}
+function Progress({ value, label }: { value: number; label: string }) {
+  return (
+    <div className="pt-2">
+      <div className="mb-1 flex items-center justify-between text-xs">
+        <span className="text-muted-foreground">Progress</span>
+        <span className="font-medium tabular-nums text-foreground">{value.toFixed(0)}%</span>
       </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="alert-error mb-6 sm:mb-8">
-        <p className="text-red-400 text-sm">{error}</p>
+      <div className="h-1.5 overflow-hidden rounded-full bg-muted" role="progressbar" aria-label={label} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(Math.min(value, 100))}>
+        <div className="h-full rounded-full bg-primary transition-all duration-300" style={{ width: `${Math.min(value, 100)}%` }} />
       </div>
-    );
-  }
+    </div>
+  );
+}
 
-  if (!data) return null;
+function CollectionCard({ title, expected, collected, onPending, pendingLabel }: { title: string; expected: number; collected: number; onPending?: () => void; pendingLabel: string }) {
+  const pending = expected - collected;
+  const progress = expected > 0 ? (collected / expected) * 100 : 0;
+  return (
+    <section className="rounded-xl border bg-card p-4 text-card-foreground shadow-sm sm:p-5">
+      <h3 className="mb-3 text-sm font-semibold text-foreground">{title}</h3>
+      <dl className="space-y-2.5 text-sm">
+        <div className="flex items-center justify-between gap-2">
+          <dt className="text-xs text-muted-foreground">Expected</dt>
+          <dd className="font-medium"><Money value={expected} tone="plain" /></dd>
+        </div>
+        <div className="flex items-center justify-between gap-2">
+          <dt className="text-xs text-muted-foreground">Collected</dt>
+          <dd className="font-semibold"><Money value={collected} tone="plain" /></dd>
+        </div>
+        <div className="flex items-center justify-between gap-2">
+          <dt className="text-xs text-muted-foreground">Pending</dt>
+          <dd className="font-semibold">
+            {onPending && pending !== 0 ? (
+              <button
+                type="button"
+                onClick={onPending}
+                aria-label={pendingLabel}
+                className="rounded-sm text-primary-text underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                <Money value={pending} tone="plain" />
+              </button>
+            ) : (
+              <Money value={pending} tone="plain" />
+            )}
+          </dd>
+        </div>
+      </dl>
+      <Progress value={progress} label={`${title} progress`} />
+    </section>
+  );
+}
 
-  const loanProgress = data.expectedLoanRepayment > 0 
-    ? (data.actualLoanRepayment / data.expectedLoanRepayment) * 100 
-    : 0;
-  const chitProgress = data.expectedChitContribution > 0 
-    ? (data.actualChitContribution / data.expectedChitContribution) * 100 
-    : 0;
-  const totalProgress = data.totalExpectedAmount > 0 
-    ? (data.totalActualAmount / data.totalExpectedAmount) * 100 
-    : 0;
-
-  // Generate year options (2021 to 2040)
-  const years = [];
-  for (let i = 2021; i <= 2040; i++) {
-    years.push(i);
-  }
+/**
+ * Expected vs collected for one month (the month is `?month=YYYY-MM`, default this month).
+ * Pending amounts open the month's pending loans / chit members.
+ */
+export default function CurrentMonthCollections() {
+  const url = useUrlState({ month: '' });
+  const month = parseMonth(url.values.month) ? url.values.month : currentMonthKey();
+  const { year, month: m } = parseMonth(month)!;
+  const range = monthRange(year, m);
+  const query = useAggregations(url.ready ? range.startDate : null, range.endDate);
+  const data = query.data;
+  const [open, setOpen] = React.useState<'loans' | 'chits' | null>(null);
+  const [mounted, setMounted] = React.useState<{ loans: boolean; chits: boolean }>({ loans: false, chits: false });
+  const show = (kind: 'loans' | 'chits') => {
+    setMounted((prev) => ({ ...prev, [kind]: true }));
+    setOpen(kind);
+  };
+  const label = monthLabel(year, m);
+  const refreshing = !!data && query.isLoading;
 
   return (
-    <div className="mb-6 sm:mb-8">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 gap-3">
-        <h2 className="section-heading">Monthly Collections</h2>
-        
-        <div className="flex items-center gap-2 flex-shrink-0">
-          <select
-            value={selectedMonth}
-            onChange={(e) => setSelectedMonth(Number(e.target.value))}
-            className="themed-input px-3 py-1.5 text-sm"
-          >
-            {months.map((month, index) => (
-              <option key={index} value={index}>
-                {month}
-              </option>
-            ))}
-          </select>
-          
-          <select
-            value={selectedYear}
-            onChange={(e) => setSelectedYear(Number(e.target.value))}
-            className="themed-input px-3 py-1.5 text-sm"
-          >
-            {years.map((year) => (
-              <option key={year} value={year}>
-                {year}
-              </option>
-            ))}
-          </select>
-        </div>
+    <section aria-labelledby="monthly-collections-heading" className="mb-6">
+      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <h2 id="monthly-collections-heading" className="text-lg font-semibold text-foreground">
+          Monthly Collections
+        </h2>
+        <MonthPicker value={month} onChange={(next) => url.set({ month: next === currentMonthKey() ? null : next })} />
       </div>
-
-      <div className="grid grid-cols-2 gap-4 sm:gap-6 md:grid-cols-3">
-        {/* Loan Repayments Card */}
-        <div className="dark-card p-4 sm:p-6">
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="text-sm font-semibold text-gray-700 dark:text-theme-secondary">Loan Repayments</h3>
-            <div className="w-8 h-8 rounded-lg bg-gray-100 dark:bg-surface-elevated flex items-center justify-center">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-            </div>
+      {!data ? (
+        query.error ? (
+          <ErrorState title="Failed to load collections data" error={query.error} onRetry={() => void query.mutate()} />
+        ) : (
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+            {[1, 2, 3].map((i) => (
+              <Skeleton key={i} className="h-48 w-full rounded-xl" />
+            ))}
           </div>
-          
-          <div className="space-y-3">
-            <div>
-              <div className="flex justify-between items-center mb-1">
-                <span className="text-xs text-gray-500">Expected</span>
-                <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">
-                  {formatCurrency(data.expectedLoanRepayment)}
-                </span>
-              </div>
-            </div>
-            
-            <div>
-              <div className="flex justify-between items-center mb-1">
-                <span className="text-xs text-gray-500">Collected</span>
-                <span className="text-base font-bold text-green-600 dark:text-green-400">
-                  {formatCurrency(data.actualLoanRepayment)}
-                </span>
-              </div>
-            </div>
-
-            <div>
-              <div className="flex justify-between items-center mb-1">
-                <span className="text-xs text-gray-500">Pending</span>
-                <button
-                  onClick={fetchPendingLoans}
-                  disabled={loadingPending || (data.expectedLoanRepayment - data.actualLoanRepayment) === 0}
-                  className={`text-base font-bold transition-colors ${
-                    (data.expectedLoanRepayment - data.actualLoanRepayment) === 0
-                      ? 'text-gray-400 dark:text-theme-muted cursor-default'
-                      : loadingPending
-                        ? 'text-amber-600 dark:text-amber-400 cursor-wait opacity-60'
-                        : 'text-amber-600 hover:text-amber-700 dark:text-amber-400 dark:hover:text-amber-300 cursor-pointer hover:underline underline-offset-2'
-                  }`}
-                >
-                  {formatCurrency(data.expectedLoanRepayment - data.actualLoanRepayment)}
-                </button>
-              </div>
-            </div>
-
-            {/* Progress Bar */}
-            <div className="pt-2">
-              <div className="flex justify-between items-center mb-1">
-                <span className="text-xs text-gray-500">Progress</span>
-                <span className="text-xs font-semibold text-blue-600 dark:text-blue-400">
-                  {loanProgress.toFixed(0)}%
-                </span>
-              </div>
-              <div className="progress-track">
-                <div className="bg-blue-500 h-1.5 rounded-full transition-all duration-300" style={{ width: `${Math.min(loanProgress, 100)}%` }}></div>
-              </div>
-            </div>
-          </div>
+        )
+      ) : (
+        <div className={cn('grid grid-cols-1 gap-4 transition-opacity sm:grid-cols-2 md:grid-cols-3', refreshing && 'opacity-60')} aria-busy={refreshing || undefined}>
+          <CollectionCard
+            title="Loan Repayments"
+            expected={data.expectedLoanRepayment}
+            collected={data.actualLoanRepayment}
+            onPending={() => show('loans')}
+            pendingLabel={`Show pending loan repayments for ${label}`}
+          />
+          <CollectionCard
+            title="Chit Contributions"
+            expected={data.expectedChitContribution}
+            collected={data.actualChitContribution}
+            onPending={() => show('chits')}
+            pendingLabel={`Show pending chit contributions for ${label}`}
+          />
+          <CollectionCard title="Total Collections" expected={data.totalExpectedAmount} collected={data.totalActualAmount} pendingLabel="" />
         </div>
-
-        {/* Chit Fund Contributions Card */}
-        <div className="dark-card p-4 sm:p-6">
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="text-sm font-semibold text-gray-700 dark:text-theme-secondary">Chit Contributions</h3>
-            <div className="w-8 h-8 rounded-lg bg-gray-100 dark:bg-surface-elevated flex items-center justify-center">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
-              </svg>
-            </div>
-          </div>
-          
-          <div className="space-y-3">
-            <div>
-              <div className="flex justify-between items-center mb-1">
-                <span className="text-xs text-gray-500">Expected</span>
-                <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">
-                  {formatCurrency(data.expectedChitContribution)}
-                </span>
-              </div>
-            </div>
-            
-            <div>
-              <div className="flex justify-between items-center mb-1">
-                <span className="text-xs text-gray-500">Collected</span>
-                <span className="text-base font-bold text-green-600 dark:text-green-400">
-                  {formatCurrency(data.actualChitContribution)}
-                </span>
-              </div>
-            </div>
-
-            <div>
-              <div className="flex justify-between items-center mb-1">
-                <span className="text-xs text-gray-500">Pending</span>
-                <button
-                  onClick={fetchPendingChits}
-                  disabled={loadingPending || (data.expectedChitContribution - data.actualChitContribution) === 0}
-                  className={`text-base font-bold transition-colors ${
-                    (data.expectedChitContribution - data.actualChitContribution) === 0
-                      ? 'text-gray-400 dark:text-theme-muted cursor-default'
-                      : loadingPending
-                        ? 'text-amber-600 dark:text-amber-400 cursor-wait opacity-60'
-                        : 'text-amber-600 hover:text-amber-700 dark:text-amber-400 dark:hover:text-amber-300 cursor-pointer hover:underline underline-offset-2'
-                  }`}
-                >
-                  {formatCurrency(data.expectedChitContribution - data.actualChitContribution)}
-                </button>
-              </div>
-            </div>
-
-            {/* Progress Bar */}
-            <div className="pt-2">
-              <div className="flex justify-between items-center mb-1">
-                <span className="text-xs text-gray-500">Progress</span>
-                <span className="text-xs font-semibold text-blue-600 dark:text-blue-400">
-                  {chitProgress.toFixed(0)}%
-                </span>
-              </div>
-              <div className="progress-track">
-                <div className="bg-blue-500 h-1.5 rounded-full transition-all duration-300" style={{ width: `${Math.min(chitProgress, 100)}%` }}></div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Total Collections Card */}
-        <div className="dark-card p-4 sm:p-6">
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="text-sm font-semibold text-gray-700 dark:text-theme-secondary">Total Collections</h3>
-            <div className="w-8 h-8 rounded-lg bg-green-50 dark:bg-surface-elevated flex items-center justify-center">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-green-500 dark:text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-            </div>
-          </div>
-          
-          <div className="space-y-3">
-            <div>
-              <div className="flex justify-between items-center mb-1">
-                <span className="text-xs text-gray-500">Expected</span>
-                <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">
-                  {formatCurrency(data.totalExpectedAmount)}
-                </span>
-              </div>
-            </div>
-            
-            <div>
-              <div className="flex justify-between items-center mb-1">
-                <span className="text-xs text-gray-500">Collected</span>
-                <span className="text-base font-bold text-green-600 dark:text-green-400">
-                  {formatCurrency(data.totalActualAmount)}
-                </span>
-              </div>
-            </div>
-
-            <div>
-              <div className="flex justify-between items-center mb-1">
-                <span className="text-xs text-gray-500">Pending</span>
-                <span className="text-base font-bold text-amber-600 dark:text-amber-400">
-                  {formatCurrency(data.totalExpectedAmount - data.totalActualAmount)}
-                </span>
-              </div>
-            </div>
-
-            <div className="pt-2">
-              <div className="flex justify-between items-center mb-1">
-                <span className="text-xs text-gray-500">Progress</span>
-                <span className="text-xs font-semibold text-green-600 dark:text-green-400">
-                  {totalProgress.toFixed(0)}%
-                </span>
-              </div>
-              <div className="progress-track">
-                <div className="bg-green-500 h-1.5 rounded-full transition-all duration-300" style={{ width: `${Math.min(totalProgress, 100)}%` }}></div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Modals */}
-      <PendingLoansModal
-        isOpen={showLoansModal}
-        onClose={() => setShowLoansModal(false)}
-        loans={pendingLoans}
-        month={months[selectedMonth]}
-        year={selectedYear}
-      />
-
-      <PendingChitsModal
-        isOpen={showChitsModal}
-        onClose={() => setShowChitsModal(false)}
-        chitFunds={pendingChitFunds}
-        month={months[selectedMonth]}
-        year={selectedYear}
-      />
-    </div>
+      )}
+      {mounted.loans ? <PendingLoansDialog open={open === 'loans'} onOpenChange={(o) => setOpen(o ? 'loans' : null)} range={range} monthLabel={label} /> : null}
+      {mounted.chits ? <PendingChitsDialog open={open === 'chits'} onOpenChange={(o) => setOpen(o ? 'chits' : null)} range={range} monthLabel={label} /> : null}
+    </section>
   );
 }

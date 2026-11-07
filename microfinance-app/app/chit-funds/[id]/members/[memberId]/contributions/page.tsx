@@ -1,718 +1,322 @@
-// @ts-nocheck
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+/**
+ * One member's contributions in a fund (Detail template): months 1..current month with what
+ * was paid, balances, and record / pay-balance / export.
+ *
+ * Requests: the fund (usually cached) and the member (`member-detail`), in parallel. The
+ * member-detail response already holds every contribution of the member; the page used to
+ * read a separate 10-row contributions page, so with more than 10 contributions the older
+ * months showed as "Pending" and offered "Record Payment" for months already paid.
+ */
+import * as React from 'react';
+import dynamic from 'next/dynamic';
 import Link from 'next/link';
-import { apiGet } from '../../../../../../lib/apiUtils';
-import PayContributionBalanceModal from '../../../../../../components/chit-funds/PayContributionBalanceModal';
-import BackTitle from '../../../../../components/common/BackTitle';
+import { useParams } from 'next/navigation';
+import { FileDown, Plus, Wallet } from 'lucide-react';
 
-interface GlobalMember {
-  id: number;
-  name: string;
-  contact: string;
-  email: string | null;
-}
+import { toast } from '@/lib/toast';
+import { formatMoney } from '@/lib/format';
+import { ApiError } from '@/lib/query/fetcher';
+import { chitFundWrites, useChitFund, useChitFundMember, type ChitContribution } from '@/lib/query/chit-funds';
+import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
+import { useBreadcrumbLabel } from '@/components/kit/app-shell/breadcrumb-labels';
+import { DataTable, type DataTableColumn } from '@/components/kit/data-table';
+import { DateText } from '@/components/kit/date-text';
+import { DescriptionList } from '@/components/kit/description-list';
+import { EmptyState } from '@/components/kit/empty-state';
+import { ErrorState, errorMessage } from '@/components/kit/error-state';
+import { Money } from '@/components/kit/money';
+import { PageContainer } from '@/components/kit/page-container';
+import { iconOnPhone, PageHeader } from '@/components/kit/page-header';
+import { SectionCard } from '@/components/kit/section-card';
+import { StatusBadge } from '@/components/kit/status-badge';
+import { Updating } from '@/components/kit/updating';
+import { hasPendingBalance, type ShownContribution } from '@/app/components/chit-funds/contribution-display';
+import { ContributionBusyError, pendingFor, useContributionWrites, type PendingContribution } from '@/app/components/chit-funds/contribution-writes';
+import { quickContributionBody, quickContributionValues, type QuickContributionValues } from '@/app/components/chit-funds/QuickContributionDialog';
 
-interface Member {
-  id: number;
-  globalMemberId: number;
-  globalMember: GlobalMember;
-  joinDate: string;
-}
+const QuickContributionDialog = dynamic(() => import('@/app/components/chit-funds/QuickContributionDialog'), { ssr: false });
+const PayBalanceDialog = dynamic(() => import('@/app/components/chit-funds/PayBalanceDialog'), { ssr: false });
+const ContributionDetailsDialog = dynamic(() => import('@/app/components/chit-funds/contribution-display').then((m) => m.ContributionDetailsDialog), { ssr: false });
 
-interface Contribution {
-  id: number;
-  amount: number;
+interface MonthRow {
   month: number;
-  paidDate: string;
-  memberId: number;
-  balance: number;
-  balancePaymentDate: string | null;
-  balancePaymentStatus: string | null;
-  actualBalancePaymentDate: string | null;
-  notes: string | null;
+  contribution: ChitContribution | null;
+  pending: PendingContribution | undefined;
 }
 
-interface ChitFund {
-  id: number;
-  name: string;
-  totalAmount: number;
-  monthlyContribution: number;
-  duration: number;
-  status: string;
-  currentMonth: number;
+function PageSkeleton() {
+  return (
+    <div aria-hidden="true" className="space-y-6">
+      <div className="space-y-2">
+        <Skeleton className="h-4 w-40" />
+        <Skeleton className="h-8 w-64" />
+      </div>
+      <Skeleton className="h-24 w-full rounded-xl" />
+      <Skeleton className="h-72 w-full rounded-xl" />
+    </div>
+  );
 }
 
 export default function MemberContributionsPage() {
-  const params = useParams();
-  const router = useRouter();
-  const chitFundId = params.id;
-  const memberId = params.memberId;
+  return (
+    <PageContainer fallback={<PageSkeleton />}>
+      <MemberContributions />
+    </PageContainer>
+  );
+}
 
-  const [chitFund, setChitFund] = useState<ChitFund | null>(null);
-  const [member, setMember] = useState<Member | null>(null);
-  const [contributions, setContributions] = useState<Contribution[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+function MemberContributions() {
+  const params = useParams<{ id: string; memberId: string }>();
+  const id = parseInt(params.id, 10) || 0;
+  const memberId = parseInt(params.memberId, 10) || 0;
+  const fundQuery = useChitFund(id || null);
+  const memberQuery = useChitFundMember(id || null, memberId || null);
+  const fund = fundQuery.data;
+  const member = memberQuery.data;
+  useBreadcrumbLabel(id ? `/chit-funds/${id}` : null, fund?.name);
+  useBreadcrumbLabel(id && memberId ? `/chit-funds/${id}/members/${memberId}` : null, member?.globalMember?.name);
+  const writes = useContributionWrites(id);
 
-  // For viewing contribution details
-  const [showDetailModal, setShowDetailModal] = useState(false);
-  const [selectedContribution, setSelectedContribution] = useState<Contribution | null>(null);
+  const [record, setRecord] = React.useState<{ open: boolean; month: number; values: QuickContributionValues; error: string | null } | null>(null);
+  const [detailsId, setDetailsId] = React.useState<number | null>(null);
+  const [detailsOpen, setDetailsOpen] = React.useState(false);
+  const [payId, setPayId] = React.useState<number | null>(null);
+  const [payOpen, setPayOpen] = React.useState(false);
 
-  // For paying a contribution's pending balance
-  const [contributionToPay, setContributionToPay] = useState<Contribution | null>(null);
+  const contributions = member?.contributions;
+  const rows = React.useMemo<MonthRow[]>(() => {
+    if (!fund || !contributions) return [];
+    const byMonth = new Map<number, ChitContribution>();
+    for (const c of contributions) if (!byMonth.has(c.month)) byMonth.set(c.month, c);
+    return Array.from({ length: Math.max(0, fund.currentMonth) }, (_, i) => i + 1).map((month) => ({
+      month,
+      contribution: byMonth.get(month) ?? null,
+      pending: pendingFor(writes.pending, memberId, month),
+    }));
+  }, [fund, contributions, writes.pending, memberId]);
+  const byId = React.useMemo(() => new Map((contributions ?? []).map((c) => [c.id, c])), [contributions]);
 
-  // For recording a new contribution
-  const [showRecordModal, setShowRecordModal] = useState(false);
-  const [selectedMonth, setSelectedMonth] = useState<number | null>(null);
-  const [newContribution, setNewContribution] = useState({
-    amount: '',
-    paidDate: new Date().toISOString().split('T')[0],
-    notes: '',
-  });
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [submitError, setSubmitError] = useState<string | null>(null);
-  const [submitSuccess, setSubmitSuccess] = useState<string | null>(null);
-
-  // For exporting member data
-  const [isExporting, setIsExporting] = useState(false);
-  const [exportError, setExportError] = useState<string | null>(null);
-
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setLoading(true);
-
-        // Fetch chit fund details using the consolidated API endpoint
-        const chitFundData = await apiGet(
-          `/api/chit-funds/consolidated?action=detail&id=${chitFundId}`,
-          'Failed to fetch chit fund details'
+  const error = fundQuery.error ?? memberQuery.error;
+  if (!fund || !member) {
+    if (error) {
+      const status = error instanceof ApiError ? error.status : 0;
+      if (status === 404 || status === 403 || status === 400) {
+        return (
+          <EmptyState
+            title="Not found"
+            description="The chit fund or member you are looking for does not exist or has been removed."
+            action={
+              <Button size="sm" variant="outline" asChild>
+                <Link href={`/chit-funds/${params.id}/members`}>Back to members</Link>
+              </Button>
+            }
+          />
         );
-        setChitFund(chitFundData);
-
-        // Fetch member details using the consolidated API endpoint
-        const memberData = await apiGet(
-          `/api/chit-funds/consolidated?action=member-detail&id=${chitFundId}&memberId=${memberId}`,
-          'Failed to fetch member details'
-        );
-        setMember(memberData);
-
-        // Fetch member's contributions using the consolidated API endpoint
-        const contributionsData = await apiGet(
-          `/api/chit-funds/consolidated?action=contributions&id=${chitFundId}&memberId=${memberId}`,
-          'Failed to fetch contributions'
-        );
-
-        // Check if the response has a contributions property (new format) or is an array (old format)
-        if (contributionsData.contributions && Array.isArray(contributionsData.contributions)) {
-          setContributions(contributionsData.contributions);
-        } else {
-          // Fallback for backward compatibility
-          setContributions(Array.isArray(contributionsData) ? contributionsData : []);
-        }
-
-        setError(null);
-      } catch (err: any) {
-        console.error('Error fetching data:', err);
-        setError(err.message || 'Failed to load data. Please try again later.');
-      } finally {
-        setLoading(false);
       }
-    };
-
-    if (chitFundId && memberId) {
-      fetchData();
-    }
-  }, [chitFundId, memberId]);
-
-  // Format currency
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-IN', {
-      style: 'currency',
-      currency: 'INR',
-      maximumFractionDigits: 0,
-    }).format(amount);
-  };
-
-  // Format date
-  const formatDate = (dateString: string) => {
-    const options: Intl.DateTimeFormatOptions = {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-    };
-    return new Date(dateString).toLocaleDateString('en-IN', options);
-  };
-
-  // Generate all months with contribution status
-  const getAllMonthsWithStatus = () => {
-    if (!chitFund) return [];
-
-    // Create an array of all months up to the current month
-    const allMonths = [];
-    const currentMonth = chitFund.currentMonth;
-
-    for (let month = 1; month <= currentMonth; month++) {
-      // Find contribution for this month if it exists
-      const contribution = contributions.find(c => c.month === month);
-
-      if (contribution) {
-        // Contribution exists
-        allMonths.push({
-          month,
-          status: 'paid',
-          contribution
-        });
-      } else {
-        // No contribution for this month
-        allMonths.push({
-          month,
-          status: 'pending',
-          contribution: null
-        });
-      }
-    }
-
-    return allMonths;
-  };
-
-  // Handle viewing contribution details
-  const handleViewContribution = (contribution: Contribution) => {
-    setSelectedContribution(contribution);
-    setShowDetailModal(true);
-  };
-
-  // Apply the server's updated contribution after a balance payment
-  const handleBalancePaid = (updated: Contribution) => {
-    setContributions((list) => list.map(c => (c.id === updated.id ? { ...c, ...updated } : c)));
-    setSelectedContribution((current) =>
-      current && current.id === updated.id ? { ...current, ...updated } : current
-    );
-    setContributionToPay(null);
-  };
-
-  // Handle opening the record contribution modal
-  const handleOpenRecordModal = (month: number) => {
-    setSelectedMonth(month);
-    setNewContribution({
-      amount: chitFund ? chitFund.monthlyContribution.toString() : '',
-      paidDate: new Date().toISOString().split('T')[0],
-      notes: '',
-    });
-    setShowRecordModal(true);
-    setSubmitError(null);
-    setSubmitSuccess(null);
-  };
-
-  // Handle exporting member data
-  const handleExportMember = async () => {
-    if (!member) return;
-
-    try {
-      setIsExporting(true);
-      setExportError(null);
-
-      // Create a form to submit as POST
-      const form = document.createElement('form');
-      form.method = 'POST';
-      form.action = `/api/chit-funds/${chitFundId}/members/export`;
-      form.target = '_blank'; // Open in new tab
-
-      // Add member ID as hidden input
-      const input = document.createElement('input');
-      input.type = 'hidden';
-      input.name = 'memberIds';
-      input.value = JSON.stringify([member.id]);
-      form.appendChild(input);
-
-      // Submit the form
-      document.body.appendChild(form);
-      form.submit();
-      document.body.removeChild(form);
-    } catch (error: any) {
-      console.error('Error exporting member:', error);
-      setExportError(error.message || 'Failed to export member');
-    } finally {
-      setIsExporting(false);
-    }
-  };
-
-  // Handle recording a new contribution
-  const handleRecordContribution = async () => {
-    if (!chitFund || !member || selectedMonth === null) return;
-
-    // Validate form
-    if (!newContribution.amount || parseFloat(newContribution.amount) <= 0) {
-      setSubmitError('Please enter a valid amount');
-      return;
-    }
-
-    if (!newContribution.paidDate) {
-      setSubmitError('Please enter a valid payment date');
-      return;
-    }
-
-    setIsSubmitting(true);
-    setSubmitError(null);
-    setSubmitSuccess(null);
-
-    try {
-      // Use the apiPost function from apiUtils
-      const { apiPost } = await import('../../../../../../lib/apiUtils');
-
-// Check if it's a partial payment
-      const paidAmount = parseFloat(newContribution.amount);
-      const expectedAmount = chitFund.monthlyContribution;
-      const isPartialPayment = paidAmount < expectedAmount;
-
-      // Prepare the request data
-      const requestData = {
-        memberId: member.id,
-        month: selectedMonth,
-        amount: paidAmount,
-        paidDate: newContribution.paidDate,
-        notes: newContribution.notes || null,
-      };
-
-      const recordedContribution = await apiPost(
-        `/api/chit-funds/consolidated?action=add-contribution&id=${chitFundId}`,
-        requestData,
-        'Failed to record contribution'
+      return (
+        <ErrorState
+          title="Couldn't load this member's contributions"
+          error={error}
+          onRetry={() => {
+            void fundQuery.mutate();
+            void memberQuery.mutate();
+          }}
+        />
       );
-
-      // Update the contributions list
-      setContributions([...contributions, recordedContribution]);
-
-      // Show success message with payment status
-      let successMessage = `Successfully recorded contribution for Month ${selectedMonth}`;
-      if (isPartialPayment) {
-        successMessage += ` (Partial payment: ${formatCurrency(paidAmount)} of ${formatCurrency(expectedAmount)})`;
-      }
-      setSubmitSuccess(successMessage);
-
-      // Close the modal after a delay
-      setTimeout(() => {
-        setShowRecordModal(false);
-        setSubmitSuccess(null);
-      }, 2000);
-
-    } catch (error: any) {
-      console.error('Error recording contribution:', error);
-      setSubmitError(error.message || 'Failed to record contribution');
-    } finally {
-      setIsSubmitting(false);
     }
+    return <PageSkeleton />;
+  }
+
+  const name = member.globalMember.name;
+  const openRecord = (month: number) => setRecord({ open: true, month, values: quickContributionValues(fund ? fund.monthlyContribution.toString() : ''), error: null });
+  const submitRecord = (values: QuickContributionValues) => {
+    if (!record) return;
+    const month = record.month;
+    setRecord({ ...record, open: false, values });
+    const paidAmount = parseFloat(values.amount);
+    const expected = fund.monthlyContribution;
+    void writes
+      .record(quickContributionBody(member.id, month, values), member.globalMemberId)
+      .then(() => {
+        let message = `Successfully recorded contribution for Month ${month}`;
+        if (paidAmount < expected) message += ` (Partial payment: ${formatMoney(paidAmount)} of ${formatMoney(expected)})`;
+        toast.success('Contribution recorded', { description: message });
+      })
+      .catch((err) => {
+        const message = err instanceof ContributionBusyError ? err.message : errorMessage(err) ?? 'Failed to record contribution';
+        toast.error('Contribution not recorded', { description: message });
+        setRecord({ open: true, month, values, error: message });
+      });
   };
+  const openDetails = (c: ChitContribution) => {
+    setDetailsId(c.id);
+    setDetailsOpen(true);
+  };
+  const openPay = (c: ShownContribution) => {
+    setDetailsOpen(false);
+    setPayId(c.id);
+    setPayOpen(true);
+  };
+  const detailsRow = detailsId !== null ? byId.get(detailsId) ?? null : null;
+  const payRow = payId !== null ? byId.get(payId) ?? null : null;
 
-  if (loading) {
-    return (
-      <div className="container mx-auto px-4 py-8">
-        <div className="flex justify-center items-center h-64">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-700 mx-auto mb-4"></div>
-            <p className="text-gray-700 dark:text-theme-secondary">Loading member contributions...</p>
-          </div>
-        </div>
-      </div>
+  const balanceCell = (r: MonthRow) => {
+    const c = r.contribution;
+    if (!c) return r.pending ? <Updating active><span className="text-muted-foreground">—</span></Updating> : <span className="text-muted-foreground">-</span>;
+    const body =
+      c.balancePaymentStatus === 'Paid' ? (
+        <span className="font-semibold text-success-text">Paid in full</span>
+      ) : c.balance > 0 ? (
+        <span className="flex flex-col items-start gap-1">
+          <Money value={c.balance} tone="overdue" className="font-semibold" />
+          <span className="text-xs font-medium text-warning-text">Partial payment</span>
+        </span>
+      ) : (
+        <span className="font-semibold text-success-text">Paid in full</span>
+      );
+    return <Updating active={writes.updatingIds.has(c.id)}>{body}</Updating>;
+  };
+  const balanceDateCell = (r: MonthRow) => {
+    const c = r.contribution;
+    if (!c) return <span className="text-muted-foreground">-</span>;
+    if (c.balancePaymentStatus === 'Paid' && c.actualBalancePaymentDate) return <DateText value={c.actualBalancePaymentDate} className="text-success-text" />;
+    if (c.balancePaymentDate) return <DateText value={c.balancePaymentDate} />;
+    return <span className="text-muted-foreground">-</span>;
+  };
+  const amountCell = (r: MonthRow) =>
+    r.contribution ? <Money value={r.contribution.amount} tone="plain" /> : r.pending ? <Money value={r.pending.amount} tone="plain" /> : <Money value={fund.monthlyContribution || 0} tone="plain" />;
+  const paidCell = (r: MonthRow) =>
+    r.contribution ? (
+      <DateText value={r.contribution.paidDate} />
+    ) : r.pending ? (
+      <span className="flex flex-wrap items-center gap-2">
+        <DateText value={r.pending.paidDate} />
+        <StatusBadge status="saving" />
+      </span>
+    ) : (
+      <span className="flex flex-wrap items-center gap-2">
+        <span className="font-semibold text-destructive-text">Pending</span>
+        <Button size="sm" variant="outline" disabled={writes.busy} onClick={() => openRecord(r.month)}>
+          <Plus aria-hidden="true" />
+          Record payment
+        </Button>
+      </span>
     );
-  }
 
-  if (error) {
-    return (
-      <div className="container mx-auto px-4 py-8">
-        <div className="alert-error px-4 py-3 rounded">
-          <p className="font-bold">Error</p>
-          <p>{error}</p>
-          <button
-            onClick={() => router.back()}
-            className="mt-4 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition duration-300"
-          >
-            Go Back
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  if (!chitFund || !member) {
-    return (
-      <div className="container mx-auto px-4 py-8">
-        <div className="bg-yellow-100 border border-yellow-400 text-yellow-700 px-4 py-3 rounded">
-          <p className="font-bold">Not Found</p>
-          <p>The chit fund or member you are looking for does not exist or has been removed.</p>
-          <Link href={`/chit-funds/${chitFundId}/members`} className="mt-4 inline-block px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-300">
-            Back to Members
-          </Link>
-        </div>
-      </div>
-    );
-  }
+  const columns: DataTableColumn<MonthRow>[] = [
+    { id: 'month', header: 'Month', cell: (r) => <span className="whitespace-nowrap font-medium">Month {r.month}</span> },
+    { id: 'amount', header: 'Amount', numeric: true, cell: amountCell },
+    { id: 'paidDate', header: 'Paid date', cell: paidCell },
+    { id: 'balance', header: 'Balance', cell: balanceCell },
+    { id: 'balanceDate', header: 'Balance payment date', cell: balanceDateCell },
+  ];
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="flex justify-between items-center mb-6">
-        <div>
-          <BackTitle title={`${member.globalMember.name}'s Contributions`} href={`/chit-funds/${chitFundId}/members`} ariaLabel="Back to Members" />
-          <p className="text-gray-700 dark:text-theme-secondary">
-            {chitFund.name} | Monthly Contribution: {formatCurrency(chitFund.monthlyContribution)}
-          </p>
-        </div>
-        <div className="flex space-x-4">
-          <button
-            onClick={handleExportMember}
-            disabled={isExporting}
-            className={`btn-primary ${
-              isExporting ? 'opacity-50 cursor-not-allowed' : ''
-            }`}
-          >
-            {isExporting ? 'Exporting...' : 'Export Member Data'}
-          </button>
-        </div>
-      </div>
+    <div>
+      <PageHeader
+        eyebrow={`Chit fund #${fund.id} · ${fund.name}`}
+        title={`${name}'s contributions`}
+        description={
+          <>
+            {fund.name} · Monthly contribution <Money value={fund.monthlyContribution} tone="plain" />
+          </>
+        }
+        actions={
+          <Button className={iconOnPhone} variant="outline" onClick={() => chitFundWrites.exportMembers(fund.id, [member.id])}>
+            <FileDown aria-hidden="true" />
+            <span className="max-sm:sr-only">Export member data</span>
+          </Button>
+        }
+      />
 
-      {/* Error Messages */}
-      {exportError && (
-        <div className="mb-4 alert-error px-4 py-3 rounded relative">
-          <span className="block sm:inline">{exportError}</span>
-        </div>
-      )}
-
-      {/* Member Info Card */}
-      <div className="themed-card p-6 mb-8">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div>
-            <p className="text-sm text-gray-500">Member Name</p>
-            <p className="text-lg font-semibold">{member.globalMember.name}</p>
-          </div>
-          <div>
-            <p className="text-sm text-gray-500">Contact</p>
-            <p className="text-lg font-semibold">{member.globalMember.contact}</p>
-          </div>
-          <div>
-            <p className="text-sm text-gray-500">Join Date</p>
-            <p className="text-lg font-semibold">{formatDate(member.joinDate)}</p>
-          </div>
-        </div>
-      </div>
-
-      {/* Contributions Table */}
-      <div className="themed-card overflow-hidden mb-8">
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-surface-border">
-            <thead className="bg-gray-50 dark:bg-surface-elevated">
-              <tr>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-theme-muted uppercase tracking-wider">
-                  Month
-                </th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-theme-muted uppercase tracking-wider">
-                  Amount
-                </th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-theme-muted uppercase tracking-wider">
-                  Paid Date
-                </th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-theme-muted uppercase tracking-wider">
-                  Balance
-                </th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-theme-muted uppercase tracking-wider">
-                  Balance Payment Date
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {chitFund && getAllMonthsWithStatus().length === 0 ? (
-                <tr>
-                  <td colSpan={5} className="px-6 py-4 text-center text-gray-500">
-                    No months to display for this member.
-                  </td>
-                </tr>
-              ) : (
-                getAllMonthsWithStatus().map((monthData) => (
-                  <tr
-                    key={monthData.month}
-                    className={`hover:bg-gray-50 dark:hover:bg-surface-hover ${monthData.status === 'paid' ? 'cursor-pointer' : ''}`}
-                    onClick={() => monthData.status === 'paid' && monthData.contribution && handleViewContribution(monthData.contribution)}
-                  >
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900 dark:text-theme-primary">Month {monthData.month}</div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900 dark:text-theme-primary">
-                        {monthData.status === 'paid'
-                          ? formatCurrency(monthData.contribution!.amount)
-                          : formatCurrency(chitFund?.monthlyContribution || 0)}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      {monthData.status === 'paid' ? (
-                        <div className="text-sm text-gray-900 dark:text-theme-primary">{formatDate(monthData.contribution!.paidDate)}</div>
-                      ) : (
-                        <div className="flex items-center">
-                          <div className="text-sm text-red-600 font-semibold mr-2">Pending</div>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleOpenRecordModal(monthData.month);
-                            }}
-                            className="text-xs px-2 py-1 bg-blue-600 text-white rounded hover:bg-blue-700"
-                          >
-                            Record Payment
-                          </button>
-                        </div>
-                      )}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      {monthData.status === 'paid' ? (
-                        monthData.contribution!.balancePaymentStatus === 'Paid' ? (
-                          <div className="text-sm text-green-600 font-semibold">Paid in full</div>
-                        ) : monthData.contribution!.balance > 0 ? (
-                          <div className="flex flex-col">
-                            <div className="text-sm text-red-600 font-semibold">{formatCurrency(monthData.contribution!.balance)}</div>
-                            <div className="text-xs text-yellow-600 font-medium">Partial payment</div>
-                          </div>
-                        ) : (
-                          <div className="text-sm text-green-600 font-semibold">Paid in full</div>
-                        )
-                      ) : (
-                        <div className="text-sm text-gray-500">-</div>
-                      )}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      {monthData.status === 'paid' ? (
-                        monthData.contribution!.balancePaymentStatus === 'Paid' && monthData.contribution!.actualBalancePaymentDate ? (
-                          <div className="text-sm text-green-600">{formatDate(monthData.contribution!.actualBalancePaymentDate)}</div>
-                        ) : monthData.contribution!.balancePaymentDate ? (
-                          <div className="text-sm text-gray-900 dark:text-theme-primary">{formatDate(monthData.contribution!.balancePaymentDate)}</div>
-                        ) : (
-                          <div className="text-sm text-gray-500">-</div>
-                        )
-                      ) : (
-                        <div className="text-sm text-gray-500">-</div>
-                      )}
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {/* Record Contribution Modal */}
-      {showRecordModal && selectedMonth !== null && (
-        <div className="modal-overlay flex items-center justify-center z-50">
-          <div className="themed-card p-6 w-full max-w-md">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="section-heading">Record Contribution for Month {selectedMonth}</h2>
-              <button
-                onClick={() => setShowRecordModal(false)}
-                className="text-gray-500 hover:text-gray-700 dark:text-theme-secondary"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-
-            {submitSuccess && (
-              <div className="mb-4 alert-success px-4 py-3 rounded">
-                <p>{submitSuccess}</p>
-              </div>
-            )}
-
-            {submitError && (
-              <div className="mb-4 alert-error px-4 py-3 rounded">
-                <p>{submitError}</p>
-              </div>
-            )}
-
-            <div className="mb-4">
-              <label htmlFor="amount" className="block text-sm font-medium text-gray-700 dark:text-theme-secondary mb-1">
-                Amount <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="number"
-                id="amount"
-                value={newContribution.amount}
-                onChange={(e) => setNewContribution({...newContribution, amount: e.target.value})}
-                className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="Enter amount"
-              />
-            </div>
-
-            <div className="mb-4">
-              <label htmlFor="paidDate" className="block text-sm font-medium text-gray-700 dark:text-theme-secondary mb-1">
-                Payment Date <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="date"
-                id="paidDate"
-                value={newContribution.paidDate}
-                onChange={(e) => setNewContribution({...newContribution, paidDate: e.target.value})}
-                className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
-            </div>
-
-            <div className="mb-6">
-              <label htmlFor="notes" className="block text-sm font-medium text-gray-700 dark:text-theme-secondary mb-1">
-                Notes
-              </label>
-              <textarea
-                id="notes"
-                value={newContribution.notes}
-                onChange={(e) => setNewContribution({...newContribution, notes: e.target.value})}
-                className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                rows={3}
-                placeholder="Optional notes about this contribution"
-              ></textarea>
-            </div>
-
-            <div className="flex justify-end space-x-4">
-              <button
-                onClick={() => setShowRecordModal(false)}
-                className="btn-neutral px-4 py-2 rounded-lg transition duration-300"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleRecordContribution}
-                disabled={isSubmitting}
-                className={`btn-primary ${
-                  isSubmitting ? 'opacity-50 cursor-not-allowed' : ''
-                }`}
-              >
-                {isSubmitting ? 'Recording...' : 'Record Contribution'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Contribution Detail Modal */}
-      {showDetailModal && selectedContribution && (
-        <div className="modal-overlay flex items-center justify-center z-50">
-          <div className="themed-card p-6 w-full max-w-md">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="section-heading">Contribution Details</h2>
-              <button
-                onClick={() => setShowDetailModal(false)}
-                className="text-gray-500 hover:text-gray-700 dark:text-theme-secondary"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-
-            <div className="bg-gray-50 dark:bg-surface-elevated p-4 rounded-lg mb-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <p className="text-sm text-gray-500">Member</p>
-                  <p className="text-md font-semibold">{member.globalMember.name}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-500">Month</p>
-                  <p className="text-md font-semibold">Month {selectedContribution.month}</p>
-                </div>
-              </div>
-            </div>
-
-            <div className="mb-4">
-              <h3 className="text-lg font-semibold mb-2">Payment Information</h3>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <p className="text-sm text-gray-500">Amount Paid</p>
-                  <p className="text-md font-semibold">{formatCurrency(selectedContribution.amount)}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-500">Payment Date</p>
-                  <p className="text-md font-semibold">{formatDate(selectedContribution.paidDate)}</p>
-                </div>
-              </div>
-            </div>
-
-            {(selectedContribution.balance > 0 || selectedContribution.balancePaymentStatus === 'Paid') && (
-              <div className="mb-4">
-                <h3 className="text-lg font-semibold mb-2">Balance Information</h3>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <p className="text-sm text-gray-500">Balance Amount</p>
-                    {selectedContribution.balancePaymentStatus === 'Paid' ? (
-                      <p className="text-md font-semibold text-green-600">Paid in full</p>
-                    ) : (
-                      <p className="text-md font-semibold text-red-600">{formatCurrency(selectedContribution.balance)}</p>
-                    )}
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-500">Status</p>
-                    <p className={`text-md font-semibold ${
-                      selectedContribution.balancePaymentStatus === 'Paid'
-                        ? 'text-green-600'
-                        : selectedContribution.balancePaymentStatus === 'Overdue'
-                        ? 'text-red-600'
-                        : 'text-yellow-600'
-                    }`}>
-                      {selectedContribution.balancePaymentStatus === 'Pending' && selectedContribution.balance > 0
-                        ? 'Partial Payment'
-                        : selectedContribution.balancePaymentStatus || 'Paid in full'}
-                    </p>
-                  </div>
-
-                  {selectedContribution.balancePaymentDate && (
-                    <div className="col-span-2">
-                      <p className="text-sm text-gray-500">Expected Payment Date</p>
-                      <p className="text-md font-semibold">{formatDate(selectedContribution.balancePaymentDate)}</p>
-                    </div>
-                  )}
-
-                  {selectedContribution.actualBalancePaymentDate && (
-                    <div className="col-span-2">
-                      <p className="text-sm text-gray-500">Actual Payment Date</p>
-                      <p className="text-md font-semibold text-green-600">{formatDate(selectedContribution.actualBalancePaymentDate)}</p>
-                    </div>
-                  )}
-
-                  {/* Pay Balance button for pending balances */}
-                  {selectedContribution.balance > 0 && selectedContribution.balancePaymentStatus !== 'Paid' && (
-                    <div className="col-span-2 mt-3">
-                      <button
-                        onClick={() => {
-                          setShowDetailModal(false);
-                          setContributionToPay(selectedContribution);
-                        }}
-                        className="btn-primary w-full"
-                      >
-                        Pay Balance
-                      </button>
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-
-            <div className="flex justify-end mt-6">
-              <button
-                onClick={() => setShowDetailModal(false)}
-                className="btn-neutral px-4 py-2 rounded-lg transition duration-300"
-              >
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Pay Pending Balance */}
-      {contributionToPay && (
-        <PayContributionBalanceModal
-          chitFundId={chitFundId as string}
-          contribution={contributionToPay}
-          memberName={member.globalMember.name}
-          onClose={() => setContributionToPay(null)}
-          onPaid={handleBalancePaid}
+      <SectionCard className="mb-6">
+        <DescriptionList
+          columns={3}
+          items={[
+            { label: 'Member name', value: <span className="font-semibold">{name}</span> },
+            { label: 'Contact', value: <span className="tabular-nums">{member.globalMember.contact}</span> },
+            { label: 'Join date', value: <DateText value={member.joinDate} /> },
+          ]}
         />
-      )}
+      </SectionCard>
+
+      <DataTable<MonthRow>
+        label={`${name}'s contributions by month`}
+        mode="client"
+        columns={columns}
+        rows={rows}
+        getRowId={(r) => r.month}
+        isRefreshing={memberQuery.isValidating && !writes.saving}
+        onRowClick={(r) => r.contribution && openDetails(r.contribution)}
+        rowClassName={(r) => (r.pending ? 'bg-info-subtle/60' : undefined)}
+        emptyState={<EmptyState compact title="No months to display for this member." />}
+        renderCard={(r) => (
+          <div className="space-y-2">
+            <div className="flex items-start justify-between gap-2">
+              <div>
+                <p className="font-medium text-foreground">Month {r.month}</p>
+                <div className="mt-1 text-sm">{paidCell(r)}</div>
+              </div>
+              <div className="text-right">
+                {amountCell(r)}
+                <div className="mt-1 text-sm">{balanceCell(r)}</div>
+              </div>
+            </div>
+            {r.contribution && (r.contribution.balancePaymentDate || r.contribution.actualBalancePaymentDate) ? (
+              <p className="text-xs text-muted-foreground">Balance payment date: {balanceDateCell(r)}</p>
+            ) : null}
+            {r.contribution && hasPendingBalance(r.contribution) ? (
+              <div className="flex justify-end" onClick={(e) => e.stopPropagation()}>
+                <Button size="sm" variant="outline" disabled={writes.busy} onClick={() => openPay(r.contribution!)}>
+                  <Wallet aria-hidden="true" />
+                  Pay balance
+                </Button>
+              </div>
+            ) : null}
+          </div>
+        )}
+      />
+
+      {record ? (
+        <QuickContributionDialog
+          open={record.open}
+          onOpenChange={(open) => setRecord((prev) => (prev ? { ...prev, open } : prev))}
+          title={`Record contribution for Month ${record.month}`}
+          description={name}
+          values={record.values}
+          onValuesChange={(values) => setRecord((prev) => (prev ? { ...prev, values } : prev))}
+          dateMessage="Please enter a valid payment date"
+          submitError={record.error}
+          busy={writes.busy}
+          onSubmit={submitRecord}
+        />
+      ) : null}
+      {detailsId !== null ? (
+        <ContributionDetailsDialog
+          open={detailsOpen && detailsRow !== null}
+          onOpenChange={setDetailsOpen}
+          contribution={detailsRow}
+          memberName={name}
+          statusText="member"
+          onPayBalance={openPay}
+          updating={detailsRow ? writes.updatingIds.has(detailsRow.id) : false}
+        />
+      ) : null}
+      {payId !== null ? (
+        <PayBalanceDialog
+          open={payOpen && payRow !== null}
+          onOpenChange={setPayOpen}
+          contribution={payRow}
+          memberName={name}
+          onSubmit={async (body) => {
+            await writes.payBalance(body, member.globalMemberId);
+            toast.success('Balance payment recorded', { description: `${name} · Month ${payRow?.month} · ${formatMoney(body.amount)}` });
+          }}
+        />
+      ) : null}
     </div>
   );
 }

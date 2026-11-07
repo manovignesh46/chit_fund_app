@@ -1,464 +1,524 @@
-"use client";
+'use client';
 
-import { useState, useEffect, Suspense } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
-import { memberAPI, loanAPI, chitFundAPI } from "../../lib/api";
-import TransactionList from "../components/TransactionList";
-import DateFilter from "../components/DateFilter";
-import EmailExportModal from "../../components/EmailExportModal";
-import TransactionSummary from "../components/TransactionSummary";
-import MonthlyAggregationsCard from "../components/MonthlyAggregationsCard";
-import PartnerBalanceCard from "../components/partners/PartnerBalanceCard";
-import TransactionForm from "../components/TransactionForm";
-import SwipeableTabs from "../components/SwipeableTabs";
-import { usePartner } from "../contexts/PartnerContext";
-import { TRANSACTION_TYPES_CONFIG } from "../../config/config";
-import {
-  buildTransactionFilterParams,
-  type TransactionFilters,
-} from "../../lib/transactionFilterUtils";
+/**
+ * Transactions (List template). List state is in the URL: q, type, partner, from, to, the
+ * advanced filters (advType, advMember, advEntity, advSubType), sort, order, page,
+ * pageSize, and `txn` (ids from a notification). Search, filters and sort run on the
+ * server over the whole dataset; the partner summary, the period's collections and the
+ * exports follow the same filters. "Record transaction" opens the entry form in a dialog.
+ */
+import * as React from 'react';
+import dynamic from 'next/dynamic';
+import { Calculator, Database, Download, Mail, Plus } from 'lucide-react';
 
-export default function TransactionsPage() {
+import { cn } from '@/lib/utils';
+import { toast } from '@/lib/toast';
+import { formatDate } from '@/lib/format';
+import { useListParams, type ListPatch } from '@/lib/list/useListParams';
+import { useListQuery } from '@/lib/list/useListQuery';
+import { queryKeys } from '@/lib/query/keys';
+import { prefetchQuery, whenIdle } from '@/lib/query/prefetch';
+import { usePartnerBalances } from '@/lib/query/dashboard';
+import { invalidateTransactions, TRANSACTIONS, transactionWrites, type TransactionRecord } from '@/lib/query/transactions';
+import { buildTransactionFilterParams, type TransactionFilters } from '../../lib/transactionFilterUtils';
+import { TRANSACTION_TYPES_CONFIG } from '../../config/config';
+import { usePartner } from '../contexts/PartnerContext';
+
+import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
+import { ConfirmDialog } from '@/components/kit/confirm-dialog';
+import { DataTable, type DataTableColumn } from '@/components/kit/data-table';
+import { DateText } from '@/components/kit/date-text';
+import { DescriptionList } from '@/components/kit/description-list';
+import { EmptyState } from '@/components/kit/empty-state';
+import { FilterChips } from '@/components/kit/filter-chips';
+import { formatRange } from '@/components/kit/list-pagination';
+import { ListToolbar } from '@/components/kit/list-toolbar';
+import { Money } from '@/components/kit/money';
+import { NativeSelect } from '@/components/kit/native-select';
+import { PageContainer } from '@/components/kit/page-container';
+import { iconOnPhone, PageHeader } from '@/components/kit/page-header';
+import { describePeriod } from '@/components/kit/period-picker';
+import { ResponsiveDialog } from '@/components/kit/responsive-dialog';
+import { RowActions } from '@/components/kit/row-actions';
+import { SearchInput } from '@/components/kit/search-input';
+import { StatusBadge } from '@/components/kit/status-badge';
+
+import TransactionSummary from '../components/TransactionSummary';
+import { TRANSACTION_FILTERS, type TransactionFilter } from '../components/transactions/transaction-filters';
+import MonthlyAggregationsCard from '../components/MonthlyAggregationsCard';
+
+const TransactionForm = dynamic(() => import('../components/TransactionForm'), { ssr: false, loading: () => <Skeleton className="h-96 w-full" /> });
+const TransactionFilterFields = dynamic(() => import('../components/transactions/transaction-filters'), {
+  ssr: false,
+  loading: () => <Skeleton className="h-64 w-full" />,
+});
+const EmailExportModal = dynamic(() => import('../../components/EmailExportModal'), { ssr: false });
+
+const FILTERS = TRANSACTION_FILTERS;
+type Filter = TransactionFilter;
+const SORTS = ['date', 'type', 'amount', 'partnerBalance', 'totalBalance', 'createdAt'] as const;
+
+const typeLabel = (type: string) => type.toLowerCase().replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+const TYPE_OPTIONS = [{ value: '', label: 'All types' }, ...Object.values(TRANSACTION_TYPES_CONFIG).map((value) => ({ value, label: typeLabel(value) }))];
+const SORT_OPTIONS = [
+  { value: 'default', label: 'Newest recorded first' },
+  { value: 'date:desc', label: 'Date, newest first' },
+  { value: 'date:asc', label: 'Date, oldest first' },
+  { value: 'amount:desc', label: 'Amount, high to low' },
+  { value: 'amount:asc', label: 'Amount, low to high' },
+  { value: 'type:asc', label: 'Type, A to Z' },
+];
+
+// ─────────────────────────────────────────────────────────────── row helpers (as the list always showed them)
+
+const isManualEntry = (t: TransactionRecord) => t.type === 'PARTNER_TO_PARTNER' || t.type === 'RECORD_AMOUNT';
+
+/** Strip the system "Transfer to/from X - " prefix to show only the reason. */
+const manualReason = (note?: string | null) =>
+  note ? note.replace(/^Transfer (?:to|from) .+? - /, '').replace(/^Transfer (?:to|from) [^-]+$/, '').trim() : '';
+
+function extractMemberName(note?: string | null): string {
+  if (!note) return '-';
+  let match = note.match(/Repayment from ([^-]+?)(?: -|$)/i);
+  if (match) return match[1].trim();
+  match = note.match(/Loan disbursed to ([^-]+?)(?: -|$)/i);
+  if (match) return match[1].trim();
+  match = note.match(/Auction payout to ([^-]+?)(?: -|$)/i);
+  if (match) return match[1].trim();
+  match = note.match(/Chit contribution from ([^-]+?)(?: -|$)/i);
+  if (match) return match[1].trim();
+  match = note.match(/from ([^-]+?)(?: -|$)/i);
+  if (match) return match[1].trim();
+  match = note.match(/to ([^-]+?)(?: -|$)/i);
+  if (match) return match[1].trim();
+  return '-';
+}
+
+function getCrDr(t: TransactionRecord, partner: string | null): 'Credit' | 'Debit' | '-' {
+  if (t.type === 'PARTNER_TO_PARTNER') {
+    if (t.from_partner && !t.to_partner) return 'Debit';
+    if (t.to_partner && !t.from_partner) return 'Credit';
+    if (t.from_partner && t.to_partner) {
+      if (partner) {
+        if (t.to_partner === partner) return 'Credit';
+        if (t.from_partner === partner) return 'Debit';
+      }
+      return '-';
+    }
+  }
+  if (t.type === 'RECORD_AMOUNT') {
+    if (t.to_partner) return 'Credit';
+    if (t.from_partner) return 'Debit';
+  }
+  if (partner) {
+    if (t.to_partner && t.to_partner === partner) return 'Credit';
+    if (t.from_partner && t.from_partner === partner) return 'Debit';
+    if (t.type === 'LOAN_REPAYMENT' || t.type === 'DOCUMENT_CHARGE') return 'Credit';
+    if (t.type === 'LOAN_DISBURSEMENT' || t.type === 'AUCTION_PAYOUT') return 'Debit';
+  }
+  if (['LOAN_DISBURSEMENT', 'AUCTION_PAYOUT'].includes(t.type)) return 'Debit';
+  if (['LOAN_REPAYMENT', 'CHIT_CONTRIBUTION', 'DOCUMENT_CHARGE'].includes(t.type)) return 'Credit';
+  if (typeof t.amount === 'number') {
+    if (t.amount > 0) return 'Credit';
+    if (t.amount < 0) return 'Debit';
+  }
+  return 'Credit';
+}
+
+function getPartnerName(t: TransactionRecord, partner: string | null): string {
+  if (t.type === 'PARTNER_TO_PARTNER') {
+    if (t.from_partner && !t.to_partner) return t.from_partner;
+    if (t.to_partner && !t.from_partner) return t.to_partner;
+    if (t.from_partner && t.to_partner) return t.from_partner === partner ? t.from_partner : t.to_partner;
+  }
+  return t.action_performer || '-';
+}
+
+function AmountCell({ t, partner }: { t: TransactionRecord; partner: string | null }) {
+  const side = getCrDr(t, partner);
   return (
-    <Suspense fallback={null}>
-      <TransactionsPageContent />
-    </Suspense>
+    <div className="text-right">
+      <Money value={t.amount} tone={side === 'Credit' ? 'inflow' : 'plain'} className="font-semibold" />
+      <div className="text-[11px] font-normal uppercase tracking-wide text-muted-foreground">{side}</div>
+    </div>
   );
 }
 
-function TransactionsPageContent() {
-  const [activeTab, setActiveTab] = useState("summary" as "summary" | "record-transactions");
-  const [refreshList, setRefreshList] = useState(false);
-  const { selectedPartner, partners, refreshPartners } = usePartner();
-  const [partnersWithBalances, setPartnersWithBalances] = useState([] as { id: number; name: string; isActive: boolean; createdAt: string; balance?: number }[]);
-  const [loadingBalances, setLoadingBalances] = useState(false);
-  const [selectedPartnerId, setSelectedPartnerId] = useState("ALL");
-  const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
-  // Only show transaction history for the active/selected partner, with filter and pagination
-  const [filterType, setFilterType] = useState("");
-  const [filterMember, setFilterMember] = useState("");
+// ─────────────────────────────────────────────────────────────── page
 
-  // Advanced filter state
-  const [showAdvanced, setShowAdvanced] = useState(false);
-  const [advType, setAdvType] = useState(""); // 'loan' or 'chit'
-  const [advMember, setAdvMember] = useState("");
-  const [advEntity, setAdvEntity] = useState(""); // loanId or chitFundId
-  const [advSubType, setAdvSubType] = useState(""); // 'disbursement' | 'repayment' | 'contribution' | 'auction'
-  const [members, setMembers] = useState([] as any[]);
-  const [entities, setEntities] = useState([] as any[]);
-  const [entityLoading, setEntityLoading] = useState(false);
+export default function TransactionsPage() {
+  return (
+    <PageContainer>
+      <Transactions />
+    </PageContainer>
+  );
+}
 
-  // Date filter state
-  const [startDate, setStartDate] = useState("");
-  const [endDate, setEndDate] = useState("");
+function Transactions() {
+  const { partners } = usePartner();
+  const list = useListParams<Filter>({ id: 'transactions', filters: FILTERS, sortable: SORTS });
+  const p = list.params;
+  const focusIds = p.txn && /^\d+(,\d+){0,19}$/.test(p.txn) ? p.txn : '';
+  const partner = p.partner || null;
+  const advancedOn = !!(p.advType || p.advMember);
 
-  // Email modal state
-  const [showEmailModal, setShowEmailModal] = useState(false);
-  
-  // Database export state
-  const [isExportingDB, setIsExportingDB] = useState(false);
+  // The API's names for the URL's filters (from/to are startDate/endDate on the server).
+  const filterParams = React.useMemo(() => {
+    const out: Record<string, string> = {};
+    if (p.partner) out.partner = p.partner;
+    if (p.type) out.type = p.type;
+    if (p.from) out.startDate = p.from;
+    if (p.to) out.endDate = p.to;
+    if (p.q) out.q = p.q;
+    for (const name of ['advType', 'advMember', 'advEntity', 'advSubType'] as const) if (p[name]) out[name] = p[name] as string;
+    return out;
+  }, [p]);
 
-  // ?txn=12,13 (from a notification) focuses the list on those transactions
-  const router = useRouter();
-  const txnParam = useSearchParams().get("txn") || "";
-  const focusIds = /^\d+(,\d+){0,19}$/.test(txnParam) ? txnParam : "";
-  useEffect(() => {
-    if (focusIds) setActiveTab("summary");
-  }, [focusIds]);
-  const clearFocus = () => router.replace("/transactions");
-
-  const fetchPartnersWithBalances = async () => {
-    try {
-      setLoadingBalances(true);
-      const response = await fetch('/api/partners?includeBalances=true');
-      if (!response.ok) throw new Error('Failed to fetch partner balances');
-      const data = await response.json();
-      setPartnersWithBalances(data.partners || []);
-    } catch {
-      setPartnersWithBalances(partners.map(p => ({ ...p, balance: 0 })));
-    } finally {
-      setLoadingBalances(false);
+  const request = React.useMemo(() => {
+    if (focusIds) return { page: 1, pageSize: 20, ids: focusIds };
+    const out: Record<string, string | number> = { page: p.page, pageSize: p.pageSize, ...filterParams };
+    if (p.sort) {
+      out.sort = p.sort;
+      if (p.order) out.order = p.order;
     }
+    return out;
+  }, [focusIds, p.page, p.pageSize, p.sort, p.order, filterParams]);
+
+  const query = useListQuery<TransactionRecord>(TRANSACTIONS, { apiParams: request, ready: list.ready, setParams: list.setParams }, { itemsKey: 'transactions' });
+  const meta = query.meta;
+
+  // Preload the next page once this one has settled.
+  React.useEffect(() => {
+    if (!list.ready || !meta?.hasNext || query.isRefreshing || focusIds) return;
+    const next = queryKeys.list(TRANSACTIONS, { ...request, page: meta.page + 1 });
+    return whenIdle(() => prefetchQuery(next));
+  }, [list.ready, request, meta, query.isRefreshing, focusIds]);
+
+  const balances = usePartnerBalances();
+  const [recordOpen, setRecordOpen] = React.useState<boolean | null>(null);
+  const [emailOpen, setEmailOpen] = React.useState<boolean | null>(null);
+  const [recalcOpen, setRecalcOpen] = React.useState(false);
+  const [detail, setDetail] = React.useState<TransactionRecord | null>(null);
+  const [exportingDb, setExportingDb] = React.useState(false);
+
+  const exportFilters: TransactionFilters = {
+    selectedPartnerId: partner ?? 'ALL',
+    filterType: p.type ?? '',
+    filterMember: '',
+    startDate: p.from ?? '',
+    endDate: p.to ?? '',
+    q: p.q || undefined,
+    showAdvanced: advancedOn || !!p.advEntity || !!p.advSubType,
+    advType: p.advType ?? '',
+    advMember: p.advMember ?? '',
+    advEntity: p.advEntity ?? '',
+    advSubType: p.advSubType ?? '',
   };
 
-  const handlePartnerDelete = (partnerId: number) => {
-    setPartnersWithBalances(prev => prev.filter(p => p.id !== partnerId));
-    refreshPartners();
+  const exportExcel = () => {
+    const params = buildTransactionFilterParams(exportFilters);
+    window.open(`/api/transactions/export?${params.toString()}`, '_blank');
   };
 
-  useEffect(() => {
-    if (partners.length > 0) fetchPartnersWithBalances();
-  }, [partners]);
-
-  // Fetch all members on mount
-  useEffect(() => {
-    if (showAdvanced) {
-      memberAPI.getAll(1, 1000).then((res) => {
-        setMembers(res.members || res.data || []);
-      });
-    }
-  }, [showAdvanced]);
-
-  // Fetch loans/chit funds for selected member and type
-  useEffect(() => {
-    if (!showAdvanced || !advType || !advMember) {
-      setEntities([]);
-      setAdvEntity("");
-      return;
-    }
-    setEntityLoading(true);
-    const fetchEntities = async () => {
-      if (advType === "loan") {
-        const res = await loanAPI.getAll(1, 1000);
-        // Filter loans by borrowerId (global member id)
-        const filtered = (res.loans || res.data || []).filter(
-          (l: any) => l.borrowerId == advMember
-        );
-        setEntities(filtered);
-      } else if (advType === "chit") {
-        // Use new API to get chit funds for the selected member
-        const res = await fetch(
-          `/api/chit-funds/by-member?globalMemberId=${advMember}`
-        );
-        const data = await res.json();
-        setEntities(data.chitFunds || []);
-      }
-      setEntityLoading(false);
-    };
-    fetchEntities();
-  }, [advType, advMember, showAdvanced]);
-
-  // Handle date filter changes
-  const handleDateRangeChange = (start?: string, end?: string) => {
-    setStartDate(start || "");
-    setEndDate(end || "");
-  };
-
-  // Handle export functionality
-  const getCurrentFilters = (): TransactionFilters => ({
-    selectedPartnerId,
-    filterType,
-    filterMember,
-    startDate,
-    endDate,
-    showAdvanced,
-    advType,
-    advMember,
-    advEntity,
-    advSubType,
-  });
-
-  const handleExport = () => {
-    const params = buildTransactionFilterParams(getCurrentFilters());
-    const exportUrl = `/api/transactions/export?${params.toString()}`;
-    window.open(exportUrl, "_blank");
-  };
-
-  const handleDatabaseExport = async () => {
-    setIsExportingDB(true);
+  const exportDatabase = async () => {
+    setExportingDb(true);
     try {
       const response = await fetch('/api/db-backup');
-      
-      if (!response.ok) {
-        throw new Error('Database export failed');
-      }
-      
-      // Get the filename from the response headers
-      const contentDisposition = response.headers.get('content-disposition');
-      const filename = contentDisposition
-        ? contentDisposition.split('filename=')[1]?.replace(/"/g, '')
-        : 'database-backup.zip';
-      
-      // Create blob and download
+      if (!response.ok) throw new Error('Database export failed');
+      const disposition = response.headers.get('content-disposition');
+      const filename = disposition ? disposition.split('filename=')[1]?.replace(/"/g, '') : 'database-backup.zip';
       const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
+      const href = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.style.display = 'none';
-      a.href = url;
-      a.download = filename;
+      a.href = href;
+      a.download = filename || 'database-backup.zip';
       document.body.appendChild(a);
       a.click();
-      window.URL.revokeObjectURL(url);
+      window.URL.revokeObjectURL(href);
       document.body.removeChild(a);
-      
-      // Show success message (you can implement a toast notification system)
-      alert('Database backup downloaded successfully!');
+      toast.success('Database backup downloaded');
     } catch (error) {
       console.error('Database export failed:', error);
-      alert('Database export failed. Please try again.');
+      toast.error('Database export failed', { description: 'Please try again.' });
     } finally {
-      setIsExportingDB(false);
+      setExportingDb(false);
     }
   };
 
+  const recalculate = async () => {
+    const data = await transactionWrites.recalculateBalances();
+    toast.success('Balance recalculation completed', {
+      description: `Transactions processed: ${data?.transactionsProcessed ?? 0} · Final total balance: ₹${data?.finalTotalBalance?.toLocaleString('en-IN') || '0'}`,
+    });
+    void invalidateTransactions();
+  };
+
+  const setFilter = (patch: ListPatch<Filter>) => list.setParams({ ...patch, txn: null });
+
+  const columns: DataTableColumn<TransactionRecord>[] = [
+    {
+      id: 'date',
+      header: 'Date',
+      sortable: true,
+      cell: (t) => (
+        <div>
+          <DateText value={t.date} />
+          {formatDate(t.createdAt) !== formatDate(t.date) ? <div className="text-[11px] text-muted-foreground">Recorded {formatDate(t.createdAt)}</div> : null}
+        </div>
+      ),
+    },
+    {
+      id: 'type',
+      header: 'Type',
+      sortable: true,
+      cell: (t) => (
+        <div className="min-w-0">
+          <div className="whitespace-nowrap font-medium text-foreground">{typeLabel(t.type)}</div>
+          {isManualEntry(t) ? (
+            <div className="max-w-[16rem] truncate text-xs text-muted-foreground" title={t.note || ''}>
+              {manualReason(t.note) || <span className="italic text-warning-text">No reason recorded</span>}
+            </div>
+          ) : null}
+        </div>
+      ),
+    },
+    { id: 'member', header: 'Member', cell: (t) => <span className="whitespace-nowrap">{isManualEntry(t) ? '-' : extractMemberName(t.note)}</span> },
+    { id: 'partner', header: 'Partner', hideBelow: 'lg', cell: (t) => <span className="whitespace-nowrap">{getPartnerName(t, partner)}</span> },
+    { id: 'amount', header: 'Amount', numeric: true, sortable: true, cell: (t) => <AmountCell t={t} partner={partner} /> },
+    { id: 'partnerBalance', header: 'Partner balance', numeric: true, sortable: true, hideBelow: 'xl', cell: (t) => (t.partnerBalance == null ? <span className="text-muted-foreground">-</span> : <Money value={t.partnerBalance} tone="plain" />) },
+    { id: 'totalBalance', header: 'Total balance', numeric: true, sortable: true, cell: (t) => (t.totalBalance == null ? <span className="text-muted-foreground">-</span> : <Money value={t.totalBalance} tone="plain" className="font-medium" />) },
+  ];
+
+  const chipLabel = (name: string, value: string): string | null => {
+    if (name === 'q') return `Search: ${value}`;
+    if (name === 'type') return `Type: ${typeLabel(value)}`;
+    if (name === 'partner') return `Partner: ${value}`;
+    if (name === 'from') return `From ${formatDate(value)}`;
+    if (name === 'to') return `To ${formatDate(value)}`;
+    if (name === 'advType') return value === 'loan' ? 'Loans only' : 'Chit funds only';
+    if (name === 'advMember') return `Member: ${p.advMemberName || `#${value}`}`;
+    if (name === 'advEntity') return `${p.advType === 'loan' ? 'Loan' : 'Chit fund'} #${value}`;
+    if (name === 'advSubType') return `Subtype: ${value}`;
+    return null;
+  };
+  const chips = list.activeFilters
+    .filter((f) => f.name !== 'txn' && f.name !== 'advMemberName')
+    .map((f) => ({
+      key: f.name,
+      label: chipLabel(f.name, f.value) ?? f.value,
+      onRemove: () => {
+        if (f.name === 'advType') return setFilter({ advType: null, advEntity: null, advSubType: null });
+        if (f.name === 'advMember') return setFilter({ advMember: null, advMemberName: null, advEntity: null, advSubType: null });
+        if (f.name === 'advEntity') return setFilter({ advEntity: null, advSubType: null });
+        return setFilter({ [f.name]: null } as ListPatch<Filter>);
+      },
+    }));
+  const filterCount = ['partner', 'from', 'to', 'advType', 'advMember', 'advEntity', 'advSubType'].filter((n) => !!p[n as Filter]).length;
+  const narrowed = list.activeFilters.some((f) => f.name !== 'txn');
+
+  const totalBalance = (balances.data?.partners ?? []).reduce((sum, x) => sum + (x.balance || 0), 0);
+
   return (
-    <div className="page-container">
-      {/* Page header */}
-      <div className="flex flex-row flex-wrap items-center justify-between gap-2 mb-4 sm:mb-6">
-        <h1 className="page-title">Transactions</h1>
-        <div className="flex gap-2">
-          <button
-            onClick={handleExport}
-            className="btn-primary text-sm"
-            title="Export transactions to Excel"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-            </svg>
-            Export
-          </button>
-          <button
-            onClick={handleDatabaseExport}
-            disabled={isExportingDB}
-            className="btn-primary text-sm disabled:opacity-50 disabled:cursor-not-allowed"
-            title="Export database backup"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10" />
-            </svg>
-            {isExportingDB ? 'Exporting...' : 'Export DB'}
-          </button>
-          <button
-            onClick={() => setShowEmailModal(true)}
-            className="flex items-center px-4 py-2 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700 transition duration-300"
-            title="Email transactions data"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-            </svg>
-            Email
-          </button>
-        </div>
-      </div>
-
-      <div>
-      {/* Tab navigation */}
-      <div className="border-b border-gray-200 dark:border-surface-border mb-4 sm:mb-6">
-        <nav className="flex gap-0 -mb-px overflow-x-auto" aria-label="Transaction tabs">
-          {(["summary", "record-transactions"] as const).map((tab) => {
-            const labels = { summary: "Summary", "record-transactions": "Record Transactions" };
-            const isActive = activeTab === tab;
-            return (
-              <button
-                key={tab}
-                onClick={() => setActiveTab(tab)}
-                className={`flex-shrink-0 px-4 sm:px-6 py-3 text-sm font-medium border-b-2 transition-colors duration-150 whitespace-nowrap focus:outline-none ${
-                  isActive
-                    ? "border-green-600 text-green-700 dark:text-green-400 dark:border-green-400"
-                    : "border-transparent text-gray-500 dark:text-theme-muted hover:text-gray-700 dark:hover:text-theme-secondary hover:border-gray-300"
-                }`}
-              >
-                {labels[tab]}
-              </button>
-            );
-          })}
-        </nav>
-      </div>
-
-      {/* Tab panels (swipeable on mobile) */}
-      <SwipeableTabs
-        tabs={["summary", "record-transactions"] as const}
-        activeTab={activeTab}
-        onTabChange={setActiveTab}
-      >
-        {/* Summary panel */}
-        <div className="space-y-4 sm:space-y-6">
-          {/* Balance cards: Total + per-partner */}
-          <div>
-            <div className="flex items-center justify-between mb-3">
-              <h2 className="text-base font-semibold text-gray-700 dark:text-theme-secondary uppercase tracking-wide">Partner Balances</h2>
-              {loadingBalances && (
-                <div className="flex items-center gap-2 text-sm text-gray-500">
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600" />
-                  Loading...
-                </div>
-              )}
-            </div>
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
-              {/* Total Balance card */}
-              {(() => {
-                const total = partnersWithBalances.reduce((sum, p) => sum + (p.balance || 0), 0);
-                const isPositive = total >= 0;
-                return (
-                  <div className="themed-card p-3 border-l-4 border-purple-500 flex flex-col items-start gap-2 min-w-[180px] max-w-xs h-32 justify-between">
-                    <div className="flex items-center justify-between w-full mb-1">
-                      <h3 className="text-base font-semibold text-gray-900 dark:text-theme-primary truncate">Total</h3>
-                      <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">All</span>
-                    </div>
-                    <div className="flex items-center justify-between w-full mt-2">
-                      <span className="text-xs text-gray-700 dark:text-theme-secondary">Balance:</span>
-                      <span className={`text-base font-bold ${isPositive ? 'text-green-600' : 'text-red-600'}`}>
-                        {isPositive ? '+' : ''}{new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(total)}
-                      </span>
-                    </div>
-                  </div>
-                );
-              })()}
-              {/* Per-partner cards */}
-              {partnersWithBalances.map((partner) => (
-                <PartnerBalanceCard key={partner.id} partner={partner} onDelete={handlePartnerDelete} />
-              ))}
-            </div>
-          </div>
-
-          <MonthlyAggregationsCard
-            startDate={startDate}
-            endDate={endDate}
-            refreshTrigger={refreshList}
-          />
-
-          {/* Filters row */}
-          <div className="themed-card p-4 sm:p-5 space-y-4">
-            <div className="grid grid-cols-2 sm:flex sm:flex-row gap-3">
-              <div className="flex-1">
-                <label className="block text-xs font-medium text-gray-700 dark:text-theme-secondary mb-1">Partner</label>
-                <select className="themed-input w-full text-sm" value={selectedPartnerId} onChange={(e) => setSelectedPartnerId(e.target.value)}>
-                  <option value="ALL">All Partners</option>
-                  {partners.map((p) => (
-                    <option key={p.id} value={p.name}>{p.name}</option>
-                  ))}
-                </select>
-              </div>
-              <div className="flex-1">
-                <label className="block text-xs font-medium text-gray-700 dark:text-theme-secondary mb-1">Date Filter</label>
-                <DateFilter onDateRangeChange={handleDateRangeChange} />
-              </div>
-              <div className="flex-1">
-                <label className="block text-xs font-medium text-gray-700 dark:text-theme-secondary mb-1">Transaction Type</label>
-                <select value={filterType} onChange={(e) => setFilterType(e.target.value)} className="themed-input w-full text-sm">
-                  <option value="">All Types</option>
-                  {Object.entries(TRANSACTION_TYPES_CONFIG).map(([key, value]) => (
-                    <option key={value} value={value}>{key.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())}</option>
-                  ))}
-                </select>
-              </div>
-              <div className="flex-1">
-                <label className="block text-xs font-medium text-gray-700 dark:text-theme-secondary mb-1">Member</label>
-                <input
-                  type="text"
-                  value={filterMember}
-                  onChange={(e) => setFilterMember(e.target.value)}
-                  placeholder="Enter member name"
-                  className="themed-input w-full text-sm"
-                />
-              </div>
-            </div>
-
-            {/* Advanced filter toggle */}
-            <div>
-              <button
-                className="px-3 py-1.5 bg-gray-100 dark:bg-surface-elevated text-gray-700 dark:text-theme-secondary border border-gray-300 dark:border-surface-border rounded hover:bg-gray-200 dark:hover:bg-surface-hover text-xs"
-                onClick={() => setShowAdvanced((v) => !v)}
-              >
-                {showAdvanced ? "Hide Advanced Filter" : "Show Advanced Filter"}
-              </button>
-            </div>
-
-            {showAdvanced && (
-              <div className="flex flex-col sm:flex-row flex-wrap gap-3 pt-2 border-t border-gray-200 dark:border-surface-border">
-                <div className="flex-1 min-w-[140px]">
-                  <label className="block text-xs font-medium text-gray-700 dark:text-theme-secondary mb-1">Type</label>
-                  <select value={advType} onChange={(e) => { setAdvType(e.target.value); setAdvEntity(""); setAdvSubType(""); }} className="themed-input w-full text-sm">
-                    <option value="">Select Type</option>
-                    <option value="loan">Loan</option>
-                    <option value="chit">Chit Fund</option>
-                  </select>
-                </div>
-                <div className="flex-1 min-w-[140px]">
-                  <label className="block text-xs font-medium text-gray-700 dark:text-theme-secondary mb-1">Member</label>
-                  <select value={advMember} onChange={(e) => { setAdvMember(e.target.value); setAdvEntity(""); setAdvSubType(""); }} className="themed-input w-full text-sm">
-                    <option value="">Select Member</option>
-                    {members.map((m: any) => <option key={m.id} value={m.id}>{m.name}</option>)}
-                  </select>
-                </div>
-                <div className="flex-1 min-w-[140px]">
-                  <label className="block text-xs font-medium text-gray-700 dark:text-theme-secondary mb-1">{advType === "loan" ? "Loan" : advType === "chit" ? "Chit Fund" : "Entity"}</label>
-                  <select value={advEntity} onChange={(e) => { setAdvEntity(e.target.value); setAdvSubType(""); }} className="themed-input w-full text-sm" disabled={!advType || !advMember || entityLoading}>
-                    <option value="">Select {advType === "loan" ? "Loan" : advType === "chit" ? "Chit Fund" : "Entity"}</option>
-                    {entities.map((ent: any) =>
-                      advType === "loan"
-                        ? <option key={ent.id} value={ent.id}>{`Loan #${ent.id} - ₹${ent.amount?.toLocaleString?.() || ent.amount}`}</option>
-                        : <option key={ent.id} value={ent.id}>{ent.name || ent.title || `ID ${ent.id}`}</option>
-                    )}
-                  </select>
-                </div>
-                <div className="flex-1 min-w-[140px]">
-                  <label className="block text-xs font-medium text-gray-700 dark:text-theme-secondary mb-1">Subtype</label>
-                  <select value={advSubType} onChange={(e) => setAdvSubType(e.target.value)} className="themed-input w-full text-sm" disabled={!advEntity}>
-                    <option value="">Select Subtype</option>
-                    {advType === "loan" && advEntity && (<><option value="disbursement">Disbursement</option><option value="repayment">Repayment</option></>)}
-                    {advType === "chit" && advEntity && (<><option value="contribution">Contribution</option><option value="auction">Auction</option></>)}
-                  </select>
-                </div>
-                <div className="flex-1 min-w-[100px] flex items-end">
-                  <button className="btn-neutral w-full px-3 py-2 rounded text-sm" onClick={() => { setAdvType(""); setAdvMember(""); setAdvEntity(""); setAdvSubType(""); }} type="button">Clear</button>
-                </div>
-              </div>
-            )}
-          </div>
-
-          <TransactionSummary
-            selectedPartnerId={selectedPartnerId}
-            filterType={filterType}
-            filterMember={filterMember}
-            advType={showAdvanced ? advType : ""}
-            advMember={showAdvanced ? advMember : ""}
-            advEntity={showAdvanced ? advEntity : ""}
-            advSubType={showAdvanced ? advSubType : ""}
-            startDate={startDate}
-            endDate={endDate}
-            refreshTrigger={refreshList}
-          />
-
-          {focusIds && (
-            <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-blue-200 dark:border-blue-500/40 bg-blue-50 dark:bg-blue-500/10 px-4 py-3">
-              <p className="text-sm text-blue-800 dark:text-blue-300">
-                Showing the transaction{focusIds.includes(",") ? "s" : ""} from a notification (#{focusIds.split(",").join(", #")}). Filters are ignored.
-              </p>
-              <button onClick={clearFocus} className="text-sm font-medium text-blue-700 dark:text-blue-300 hover:underline">
-                Show all transactions
-              </button>
-            </div>
-          )}
-
-          <TransactionList
-            focusIds={focusIds}
-            refresh={refreshList}
-            filterType={filterType}
-            filterMember={filterMember}
-            activePartner={selectedPartnerId}
-            currentPage={currentPage}
-            setCurrentPage={setCurrentPage}
-            pageSize={pageSize}
-            setPageSize={setPageSize}
-            advType={showAdvanced ? advType : ""}
-            advMember={showAdvanced ? advMember : ""}
-            advEntity={showAdvanced ? advEntity : ""}
-            advSubType={showAdvanced ? advSubType : ""}
-            startDate={startDate}
-            endDate={endDate}
-          />
-        </div>
-
-        {/* Record Transactions panel */}
-        <div className="themed-card p-4 sm:p-6 max-w-xl">
-          <h2 className="text-lg font-semibold mb-1 text-gray-900 dark:text-theme-primary">Record Manual Transaction</h2>
-          <p className="text-sm text-gray-500 dark:text-theme-muted mb-4">Every manual entry needs a reason and is reviewed before it is saved.</p>
-          <TransactionForm onSuccess={() => { fetchPartnersWithBalances(); setRefreshList((v) => !v); }} />
-        </div>
-      </SwipeableTabs>
-      </div>
-
-      {/* Email Export Modal */}
-      <EmailExportModal
-        isOpen={showEmailModal}
-        onClose={() => setShowEmailModal(false)}
-        exportType="Transactions"
-        startDate={startDate}
-        endDate={endDate}
-        transactionFilters={getCurrentFilters()}
+    <div>
+      <PageHeader
+        title="Transactions"
+        count={meta?.totalCount}
+        actions={
+          <>
+            <Button className={iconOnPhone} onClick={() => setRecordOpen(true)}>
+              <Plus aria-hidden="true" />
+              <span className="max-sm:sr-only">Record transaction</span>
+            </Button>
+            <Button className={iconOnPhone} variant="outline" onClick={exportExcel} aria-label="Export to Excel">
+              <Download aria-hidden="true" />
+              <span className="max-sm:sr-only">Export</span>
+            </Button>
+            <RowActions
+              label="More transaction actions"
+              actions={[
+                { label: 'Email transactions', icon: Mail, opensDialog: true, onSelect: () => setEmailOpen(true) },
+                { label: exportingDb ? 'Exporting database…' : 'Download database backup', icon: Database, disabled: exportingDb, onSelect: () => void exportDatabase() },
+                { label: 'Recalculate all balances', icon: Calculator, separatorBefore: true, opensDialog: true, onSelect: () => setRecalcOpen(true) },
+              ]}
+            />
+          </>
+        }
       />
+
+      <section aria-labelledby="partner-balances" className="mb-6">
+        <h2 id="partner-balances" className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+          Partner balances
+        </h2>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <BalanceTile name="Total" badge="All" amount={balances.data ? totalBalance : null} loading={!balances.data && !balances.error} />
+          {(balances.data?.partners ?? []).map((x) => (
+            <BalanceTile key={x.id} name={x.name} badge={x.isActive ? 'Active' : 'Inactive'} amount={x.balance || 0} />
+          ))}
+        </div>
+      </section>
+
+      <div className="mb-6 space-y-4">
+        <MonthlyAggregationsCard startDate={p.from} endDate={p.to} />
+        <TransactionSummary params={list.ready ? filterParams : null} partnerLabel={partner} />
+      </div>
+
+      {focusIds ? (
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-info-border bg-info-subtle px-4 py-3">
+          <p className="text-sm text-info-text">
+            Showing the transaction{focusIds.includes(',') ? 's' : ''} from a notification (#{focusIds.split(',').join(', #')}). Filters are ignored.
+          </p>
+          <Button variant="outline" size="sm" onClick={() => list.setParams({ txn: null })}>
+            Show all transactions
+          </Button>
+        </div>
+      ) : null}
+
+      <ListToolbar
+        search={<SearchInput value={p.q} onChange={(q) => setFilter({ q })} placeholder="Search notes, members, partners" label="Search transactions" />}
+        primaryFilter={
+          <NativeSelect
+            aria-label="Transaction type"
+            className="w-48"
+            value={p.type ?? ''}
+            disabled={advancedOn}
+            title={advancedOn ? 'The advanced filter decides the types' : undefined}
+            onValueChange={(value) => setFilter({ type: value || null })}
+            options={TYPE_OPTIONS}
+          />
+        }
+        filters={<TransactionFilterFields list={list} partners={partners} setFilter={setFilter} />}
+        filterCount={filterCount}
+        sort={
+          <NativeSelect
+            aria-label="Sort by"
+            size="sm"
+            value={p.sort ? `${p.sort}:${p.order ?? 'asc'}` : 'default'}
+            onValueChange={(value) => {
+              if (value === 'default') return list.setParams({ sort: null, order: null });
+              const [sort, order] = value.split(':');
+              list.setParams({ sort, order: order as 'asc' | 'desc' });
+            }}
+            options={SORT_OPTIONS}
+          />
+        }
+        chips={<FilterChips chips={chips} onClearAll={list.clearFilters} />}
+        resultSummary={meta ? `${formatRange(meta.page, meta.pageSize, meta.totalCount)}${p.from || p.to ? ` · ${describePeriod(p.from, p.to)}` : ''}` : null}
+      />
+
+      <DataTable<TransactionRecord>
+        label="Transactions"
+        columns={columns}
+        rows={query.items}
+        getRowId={(t) => t.id}
+        isInitialLoading={query.isInitialLoading}
+        isRefreshing={query.isRefreshing}
+        error={query.error}
+        onRetry={() => void query.mutate()}
+        sort={{ sort: p.sort, order: p.order }}
+        onSortChange={(next) => list.setParams({ sort: next.sort, order: next.order })}
+        onRowClick={(t) => setDetail(t)}
+        rowClassName={() => (focusIds ? 'bg-info-subtle' : undefined)}
+        emptyState={
+          narrowed ? (
+            <EmptyState variant="no-results" onClearFilters={list.clearFilters} />
+          ) : (
+            <EmptyState
+              title="No transactions yet"
+              description="Loan, chit fund and manual entries appear here as they are recorded."
+              action={
+                <Button size="sm" onClick={() => setRecordOpen(true)}>
+                  <Plus aria-hidden="true" />
+                  Record a transaction
+                </Button>
+              }
+            />
+          )
+        }
+        pagination={
+          meta && !focusIds
+            ? {
+                page: meta.page,
+                pageSize: p.pageSize,
+                totalCount: meta.totalCount,
+                onPageChange: (page) => list.setParams({ page }),
+                onPageSizeChange: (pageSize) => list.setParams({ pageSize }),
+              }
+            : undefined
+        }
+        renderCard={(t) => (
+          <div className="space-y-2">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="font-medium text-foreground">{typeLabel(t.type)}</p>
+                <p className="truncate text-xs text-muted-foreground">
+                  {isManualEntry(t) ? manualReason(t.note) || 'No reason recorded' : extractMemberName(t.note)} · {getPartnerName(t, partner)}
+                </p>
+              </div>
+              <AmountCell t={t} partner={partner} />
+            </div>
+            <div className="flex items-center justify-between gap-3 text-xs text-muted-foreground">
+              <DateText value={t.date} />
+              <span>
+                Total balance {t.totalBalance == null ? '-' : <Money value={t.totalBalance} tone="plain" className="text-foreground" />}
+              </span>
+            </div>
+          </div>
+        )}
+      />
+
+      {recordOpen !== null ? (
+        <ResponsiveDialog open={recordOpen} onOpenChange={setRecordOpen} title="Record manual transaction" description="Every manual entry needs a reason and is reviewed before it is saved." size="lg">
+          <div className="max-h-[70vh] overflow-y-auto px-0.5 pb-1">
+            <TransactionForm onClose={() => setRecordOpen(false)} />
+          </div>
+        </ResponsiveDialog>
+      ) : null}
+
+      {emailOpen !== null ? (
+        <EmailExportModal isOpen={emailOpen} onClose={() => setEmailOpen(false)} exportType="Transactions" startDate={p.from ?? ''} endDate={p.to ?? ''} transactionFilters={exportFilters} />
+      ) : null}
+
+      <ConfirmDialog
+        open={recalcOpen}
+        onOpenChange={setRecalcOpen}
+        tone="default"
+        title="Recalculate all balances?"
+        description="Only use this if a transaction was deleted. Every transaction is processed in date order, partner balances and each row's total balance are recalculated, and inconsistencies are fixed."
+        confirmLabel="Yes, recalculate"
+        onConfirm={recalculate}
+      />
+
+      <ResponsiveDialog open={detail !== null} onOpenChange={(open) => !open && setDetail(null)} title={detail ? typeLabel(detail.type) : ''} description={detail ? `Transaction #${detail.id}` : undefined}>
+        {detail ? (
+          <DescriptionList
+            items={[
+              { label: 'Amount', value: <AmountCell t={detail} partner={partner} /> },
+              { label: 'Date', value: <DateText value={detail.date} /> },
+              { label: 'Recorded', value: <DateText value={detail.createdAt} withTime /> },
+              { label: 'Partner', value: getPartnerName(detail, partner) },
+              { label: 'Entered by', value: detail.entered_by || '-' },
+              { label: 'Partner balance', value: detail.partnerBalance == null ? '-' : <Money value={detail.partnerBalance} tone="plain" /> },
+              { label: 'Total balance', value: detail.totalBalance == null ? '-' : <Money value={detail.totalBalance} tone="plain" /> },
+              { label: 'Note', value: <span className="whitespace-pre-line break-words">{detail.note || '—'}</span>, full: true },
+            ]}
+          />
+        ) : null}
+      </ResponsiveDialog>
+    </div>
+  );
+}
+
+function BalanceTile({ name, badge, amount, loading = false }: { name: string; badge: string; amount: number | null; loading?: boolean }) {
+  return (
+    <div className="rounded-xl border bg-card p-3 text-card-foreground shadow-sm sm:p-4">
+      <div className="flex items-center justify-between gap-2">
+        <h3 className="truncate text-sm font-semibold text-foreground">{name}</h3>
+        {badge === 'Active' || badge === 'Inactive' ? <StatusBadge status={badge === 'Active' ? 'Active' : 'Cancelled'} label={badge} /> : <span className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">{badge}</span>}
+      </div>
+      <p className="mt-3 text-xs text-muted-foreground">Balance</p>
+      <div className="text-lg font-semibold">{loading || amount === null ? <Skeleton className="h-6 w-24" /> : <Money value={amount} decimals={2} tone="plain" className={cn(amount < 0 && 'text-destructive-text')} />}</div>
     </div>
   );
 }

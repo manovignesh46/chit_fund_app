@@ -1,44 +1,43 @@
-// @ts-nocheck
 'use client';
 
-import React, { useState, useEffect, FormEvent, useCallback } from 'react';
-import { loanAPI } from '../../../lib/api';
-import { usePartner } from '../../contexts/PartnerContext';
-import { formatDate } from '../../../lib/formatUtils';
+/**
+ * Record a loan repayment. Used on the loan detail page (Record Payment tab) and on
+ * /loans/[id]/repayments/new. The parent sends the write (`onSubmit`): the detail page
+ * shows the payment optimistically, the standalone page navigates afterwards.
+ *
+ * Kept from before Phase 4: the request body, the prefill rules (first unpaid period by
+ * due date; interest amount for Reducing Balance or Interest Only), the Interest Only
+ * toggle (Monthly and Reducing Balance loans) and the validation messages.
+ * Submitting is disabled while a request is pending and is never retried automatically
+ * (POST add-repayment is not idempotent).
+ */
+import * as React from 'react';
+import Link from 'next/link';
+import { Loader2 } from 'lucide-react';
 
-interface Loan {
-  id: number;
-  borrowerId: number;
-  borrower: {
-    name: string;
-  };
-  amount: number;
-  remainingAmount: number;
-  loanType: string;
-  installmentAmount?: number;
-  interestRate?: number;
-  repaymentType?: string;
-  interestPercentage?: number;
-}
+import { usePartner } from '@/app/contexts/PartnerContext';
+import { formatDate, formatMoney } from '@/lib/format';
+import { useLoan, useLoanSchedules, type AddRepaymentBody, type LoanRecord, type LoanSchedule } from '@/lib/query/loans';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Switch } from '@/components/ui/switch';
+import { Textarea } from '@/components/ui/textarea';
+import { DateInput } from '@/components/kit/date-input';
+import { errorMessage } from '@/components/kit/error-state';
+import { FormActions } from '@/components/kit/form-actions';
+import { FormField } from '@/components/kit/form-field';
+import { NativeSelect } from '@/components/kit/native-select';
+import { SectionCard } from '@/components/kit/section-card';
 
-interface PaymentSchedule {
-  id: number;
-  period: number;
-  dueDate: string;
-  amount: number;
-  interestAmount?: number;
-  status: string;
-}
+type PaymentType = 'REGULAR' | 'INTEREST_ONLY';
 
-interface FormData {
+interface FormState {
   amount: string;
   paidDate: string;
-  paymentType: 'REGULAR' | 'INTEREST_ONLY' | 'PARTIAL';
+  paymentType: PaymentType;
   scheduleId: string;
-  collected_by_id?: string;
-  collected_by?: string;
-  entered_by_id?: string;
-  notes?: string;
+  notes: string;
 }
 
 interface FormErrors {
@@ -46,327 +45,191 @@ interface FormErrors {
   paidDate?: string;
   scheduleId?: string;
   general?: string;
-  collected_by_id?: string;
-  entered_by_id?: string;
 }
 
-interface RepaymentFormProps {
+export interface RepaymentFormProps {
   loanId: number;
-  onSuccess: () => void;
+  /** The loan when the parent already has it (detail page); otherwise it is loaded. */
+  initialLoan?: LoanRecord | null;
+  /**
+   * Send the repayment. Resolve on success (the form then resets); throw to keep the
+   * entered values (the error is shown in the form).
+   */
+  onSubmit: (body: AddRepaymentBody, schedule: LoanSchedule | undefined) => Promise<void>;
   onCancel?: () => void;
-  initialLoan?: Loan | null;
+  /** Disable submitting (e.g. while another payment for this loan is being saved). */
+  busy?: boolean;
+  /** Render without the card (when the parent provides the frame). */
+  bare?: boolean;
 }
 
-export default function RepaymentForm({ loanId, onSuccess, onCancel, initialLoan }: RepaymentFormProps) {
+const isUnpaid = (s: LoanSchedule) => s.status !== 'PAID' && s.status !== 'COMPLETED' && s.status !== 'Interest Only' && s.status !== 'Paid';
+const today = () => new Date().toISOString().split('T')[0];
+
+export default function RepaymentForm({ loanId, initialLoan, onSubmit, onCancel, busy = false, bare = false }: RepaymentFormProps) {
   const { selectedPartner } = usePartner();
+  const loanQuery = useLoan(initialLoan ? null : loanId);
+  const loan = initialLoan ?? loanQuery.data ?? null;
+  const schedulesQuery = useLoanSchedules(loanId, true);
 
-  const [loan, setLoan] = useState<Loan | null>(initialLoan || null);
-  const [loading, setLoading] = useState(!initialLoan);
-  const [submitting, setSubmitting] = useState(false);
-  const [pendingSchedules, setPendingSchedules] = useState<PaymentSchedule[]>([]);
-  const [loadingSchedules, setLoadingSchedules] = useState(false);
-  
-  const [formData, setFormData] = useState<FormData>(() => ({
-    amount: '',
-    paidDate: new Date().toISOString().split('T')[0],
-    paymentType: 'REGULAR',
-    scheduleId: '',
-    collected_by_id: selectedPartner?.id?.toString() || undefined,
-    collected_by: selectedPartner?.id?.toString() || undefined,
-    entered_by_id: selectedPartner?.id?.toString() || undefined,
-    notes: ''
-  }));
-  const [errors, setErrors] = useState<FormErrors>({});
+  const pending = React.useMemo(() => [...schedulesQuery.schedules].sort((a, b) => a.period - b.period), [schedulesQuery.schedules]);
+  const unpaid = React.useMemo(() => pending.filter(isUnpaid), [pending]);
 
-  // Fetch payment schedules
-  const fetchPendingSchedules = useCallback(async () => {
-    if (!loanId) return;
+  const [form, setForm] = React.useState<FormState>(() => ({ amount: '', paidDate: today(), paymentType: 'REGULAR', scheduleId: '', notes: '' }));
+  const [errors, setErrors] = React.useState<FormErrors>({});
+  const [submitting, setSubmitting] = React.useState(false);
+  const submittingRef = React.useRef(false);
 
-    try {
-      setLoadingSchedules(true);
-      const data = await loanAPI.getPaymentSchedules(loanId, true);
+  // Preselect the first unpaid period (by due date) whenever nothing valid is selected.
+  React.useEffect(() => {
+    if (unpaid.length === 0) return;
+    if (form.scheduleId && unpaid.some((s) => s.id.toString() === form.scheduleId)) return;
+    const next = [...unpaid].sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime())[0];
+    setForm((prev) => ({ ...prev, scheduleId: next.id.toString() }));
+  }, [unpaid, form.scheduleId]);
 
-      if (Array.isArray(data)) {
-        const sortedSchedules = [...data].sort((a, b) => a.period - b.period);
-        setPendingSchedules(sortedSchedules);
-        
-        // Find the next unpaid schedule and pre-select it
-        const sortedByDueDate = [...sortedSchedules]
-          .filter(s => s.status !== 'PAID' && s.status !== 'COMPLETED' && s.status !== 'Interest Only' && s.status !== 'Paid')
-          .sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime());
-        
-        if (sortedByDueDate.length > 0) {
-          const nextDue = sortedByDueDate[0];
-          setFormData(prev => ({
-            ...prev,
-            scheduleId: nextDue.id.toString()
-          }));
-        }
-      } else if (data.schedules && Array.isArray(data.schedules)) {
-        const sortedSchedules = [...data.schedules].sort((a, b) => a.period - b.period);
-        setPendingSchedules(sortedSchedules);
-        
-        const sortedByDueDate = [...sortedSchedules]
-          .filter(s => s.status !== 'PAID' && s.status !== 'COMPLETED' && s.status !== 'Interest Only' && s.status !== 'Paid')
-          .sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime());
-        
-        if (sortedByDueDate.length > 0) {
-          const nextDue = sortedByDueDate[0];
-          setFormData(prev => ({
-            ...prev,
-            scheduleId: nextDue.id.toString()
-          }));
-        }
-      }
-    } catch (error) {
-      console.error('Error fetching payment schedules:', error);
-    } finally {
-      setLoadingSchedules(false);
-    }
-  }, [loanId]);
-
-  useEffect(() => {
-    const fetchLoanDetails = async () => {
-      if (initialLoan) return;
-      try {
-        setLoading(true);
-        const data = await loanAPI.getById(loanId);
-        setLoan(data);
-      } catch (error) {
-        console.error('Error fetching loan details:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchLoanDetails();
-    fetchPendingSchedules();
-  }, [loanId, initialLoan, fetchPendingSchedules]);
-
-  // Prefill the payment amount based on the selected schedule, the Interest
-  // Only toggle, and the loan type (Reducing Balance always defaults to interest-only).
-  useEffect(() => {
-    if (!formData.scheduleId || pendingSchedules.length === 0) return;
-
-    const schedule = pendingSchedules.find(s => s.id.toString() === formData.scheduleId);
+  // Prefill the amount from the selected period, the Interest Only toggle and the loan type.
+  const prefillKey = `${form.scheduleId}|${form.paymentType}|${loan?.loanType ?? ''}|${pending.length > 0}`;
+  React.useEffect(() => {
+    if (!form.scheduleId || pending.length === 0) return;
+    const schedule = pending.find((s) => s.id.toString() === form.scheduleId);
     if (!schedule) return;
+    const useInterestOnly = loan?.loanType === 'Reducing Balance' || form.paymentType === 'INTEREST_ONLY';
+    const amount = useInterestOnly ? schedule.interestAmount : schedule.amount;
+    setForm((prev) => ({ ...prev, amount: amount != null ? amount.toString() : prev.amount }));
+    // Only when the selection changes, not on every background refresh of the schedule list.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [prefillKey]);
 
-    const useInterestOnly = loan?.loanType === 'Reducing Balance' || formData.paymentType === 'INTEREST_ONLY';
-    const newAmount = useInterestOnly ? schedule.interestAmount : schedule.amount;
+  const set = (name: keyof FormState, value: string) => setForm((prev) => ({ ...prev, [name]: value }));
 
-    setFormData(prev => ({
-      ...prev,
-      amount: newAmount != null ? newAmount.toString() : prev.amount
-    }));
-  }, [formData.scheduleId, formData.paymentType, loan?.loanType, pendingSchedules]);
-
-  // Update collector info when partner changes
-  useEffect(() => {
-    if (selectedPartner?.id) {
-      setFormData(prev => ({
-        ...prev,
-        collected_by_id: selectedPartner.id.toString(),
-        collected_by: selectedPartner.id.toString(),
-        entered_by_id: selectedPartner.id.toString()
-      }));
-    }
-  }, [selectedPartner]);
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }));
+  const validate = (): boolean => {
+    const next: FormErrors = {};
+    if (!form.amount) next.amount = 'Payment amount is required';
+    else if (isNaN(Number(form.amount)) || Number(form.amount) <= 0) next.amount = 'Please enter a valid amount';
+    if (!form.paidDate) next.paidDate = 'Payment date is required';
+    if (!form.scheduleId) next.scheduleId = 'Please select a payment schedule';
+    if (!selectedPartner || !selectedPartner.id) next.general = 'Please select a partner from the top dropdown first';
+    setErrors(next);
+    return Object.keys(next).length === 0;
   };
 
-  const validateForm = (): boolean => {
-    const newErrors: FormErrors = {};
-
-    if (!formData.amount) {
-      newErrors.amount = 'Payment amount is required';
-    } else if (isNaN(Number(formData.amount)) || Number(formData.amount) <= 0) {
-      newErrors.amount = 'Please enter a valid amount';
-    }
-
-    if (!formData.paidDate) {
-      newErrors.paidDate = 'Payment date is required';
-    }
-
-    if (!formData.scheduleId) {
-      newErrors.scheduleId = 'Please select a payment schedule';
-    }
-
-    if (!selectedPartner || !selectedPartner.id) {
-      newErrors.general = 'Please select a partner from the top dropdown first';
-    }
-
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
-
-  const handleSubmit = async (e: FormEvent) => {
-    e.preventDefault();
-    if (!validateForm()) return;
-
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (submittingRef.current || busy) return;
+    if (!validate() || !selectedPartner) return;
+    submittingRef.current = true;
     setSubmitting(true);
+    const body: AddRepaymentBody = {
+      amount: parseFloat(form.amount),
+      paidDate: form.paidDate,
+      paymentType: form.paymentType,
+      scheduleId: parseInt(form.scheduleId),
+      collected_by_id: parseInt(String(selectedPartner.id)),
+      collected_by: selectedPartner.id.toString(),
+      entered_by_id: selectedPartner.id,
+      notes: form.notes?.trim() || undefined,
+    };
     try {
-      const requestData = {
-        amount: parseFloat(formData.amount),
-        paidDate: formData.paidDate,
-        paymentType: formData.paymentType,
-        scheduleId: parseInt(formData.scheduleId),
-        collected_by_id: parseInt(selectedPartner.id),
-        collected_by: selectedPartner.id.toString(),
-        entered_by_id: selectedPartner.id,
-        notes: formData.notes?.trim() || undefined
-      };
-
-      await loanAPI.addRepayment(loanId, requestData);
-      onSuccess();
-      
-      // Reset form (except collector); amount gets re-derived once the next
-      // schedule is auto-selected by fetchPendingSchedules below.
-      setFormData(prev => ({
-        ...prev,
-        amount: '',
-        notes: '',
-        scheduleId: ''
-      }));
-      fetchPendingSchedules();
-      
+      await onSubmit(body, pending.find((s) => s.id === body.scheduleId));
+      setForm((prev) => ({ ...prev, amount: '', notes: '', scheduleId: '' }));
+      setErrors({});
     } catch (error) {
-      console.error('Error recording payment:', error);
-      setErrors({ general: error instanceof Error ? error.message : 'Failed to record payment' });
+      setErrors({ general: errorMessage(error) ?? 'Failed to record payment' });
     } finally {
+      submittingRef.current = false;
       setSubmitting(false);
     }
   };
 
-  if (loading) return <div className="p-6 text-center text-gray-500">Loading form...</div>;
-  if (loan?.status === 'Non-Recoverable') return <div className="themed-card p-6 text-sm">
-    This loan is Non-Recoverable. <a className="text-green-700 underline" href={`/loans/${loanId}#loan-recovery`}>Record an offline recovery on Loan Details.</a>
-  </div>;
+  const frame = (children: React.ReactNode) => (bare ? <>{children}</> : <SectionCard title="Record payment">{children}</SectionCard>);
 
-  return (
-    <div className="themed-card overflow-hidden">
-      <div className="p-6 border-b bg-gray-50 dark:bg-surface-elevated">
-        <h2 className="text-xl font-semibold text-gray-900 dark:text-theme-heading">Record Payment</h2>
+  if (!loan) {
+    return frame(
+      <div className="space-y-4" aria-busy="true">
+        <span className="sr-only">Loading form…</span>
+        <Skeleton className="h-9 w-full" />
+        <Skeleton className="h-9 w-full" />
+        <Skeleton className="h-20 w-full" />
       </div>
-      <form onSubmit={handleSubmit} className="p-6">
-        {errors.general && (
-          <div className="mb-6 alert-error px-4 py-3 rounded">
-            <p>{errors.general}</p>
-          </div>
-        )}
+    );
+  }
 
-        {/* Interest Only Toggle */}
-        {(loan?.loanType === 'Monthly' || loan?.loanType === 'Reducing Balance') && (
-          <div className="mb-6">
-            <div className="flex items-center justify-between p-4 form-panel rounded-lg">
-              <div>
-                <h3 className="font-semibold text-gray-900 dark:text-theme-heading">Interest Only Payment</h3>
-                <p className="text-xs text-gray-500 dark:text-theme-muted">No principal reduction</p>
-              </div>
-              <div className="flex items-center">
-                <div
-                  className={`relative w-12 h-6 rounded-full cursor-pointer transition-colors duration-300 ${
-                    formData.paymentType === 'INTEREST_ONLY' ? 'bg-blue-600' : 'bg-surface-border'
-                  }`}
-                  onClick={() => {
-                    const newType = formData.paymentType === 'INTEREST_ONLY' ? 'REGULAR' : 'INTEREST_ONLY';
-                    setFormData(prev => ({ ...prev, paymentType: newType }));
-                  }}
-                >
-                  <div className={`absolute top-0.5 left-0.5 bg-white dark:bg-surface-card border border-gray-200 dark:border-surface-border rounded-full h-5 w-5 shadow transition-transform duration-300 transform ${
-                    formData.paymentType === 'INTEREST_ONLY' ? 'translate-x-6' : 'translate-x-0'
-                  }`}></div>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
+  if (loan.status === 'Non-Recoverable') {
+    return frame(
+      <p className="text-sm text-foreground">
+        This loan is Non-Recoverable.{' '}
+        <Link className="font-medium text-primary-text underline" href={`/loans/${loanId}#loan-recovery`}>
+          Record an offline recovery on Loan Details.
+        </Link>
+      </p>
+    );
+  }
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-theme-secondary mb-1">Amount (₹)*</label>
-            <input
-              type="number"
-              name="amount"
-              value={formData.amount}
-              onChange={handleChange}
-              className={`themed-input w-full ${errors.amount ? 'border-red-500' : ''}`}
-            />
-            {errors.amount && <p className="mt-1 text-xs text-red-500">{errors.amount}</p>}
-          </div>
+  const showInterestToggle = loan.loanType === 'Monthly' || loan.loanType === 'Reducing Balance';
+  const scheduleOptions = unpaid.map((s) => ({
+    value: s.id.toString(),
+    label: `${loan.repaymentType === 'Weekly' ? `Week ${s.period}` : `Month ${s.period}`} - Due: ${formatDate(s.dueDate)}${
+      loan.loanType === 'Reducing Balance' ? ` (Interest: ${formatMoney(s.interestAmount)})` : ` - ${formatMoney(s.amount)}`
+    }`,
+  }));
+  const disabled = submitting || busy;
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-theme-secondary mb-1">Date*</label>
-            <input
-              type="date"
-              name="paidDate"
-              value={formData.paidDate}
-              onChange={handleChange}
-              className={`themed-input w-full ${errors.paidDate ? 'border-red-500' : ''}`}
-            />
-          </div>
+  return frame(
+    <form onSubmit={handleSubmit} className="space-y-5" aria-busy={submitting || undefined}>
+      {errors.general ? (
+        <p role="alert" className="rounded-md border border-destructive-border bg-destructive-subtle px-3 py-2 text-sm text-destructive-text">
+          {errors.general}
+        </p>
+      ) : null}
 
-          <div className="md:col-span-2">
-            <label className="block text-sm font-medium text-gray-700 dark:text-theme-secondary mb-1">Payment Schedule*</label>
-            <select
-              name="scheduleId"
-              value={formData.scheduleId}
-              onChange={handleChange}
-              className={`themed-input w-full ${errors.scheduleId ? 'border-red-500' : ''}`}
-            >
-              <option value="">-- Select Schedule --</option>
-              {pendingSchedules
-                .filter(s => s.status !== 'PAID' && s.status !== 'COMPLETED' && s.status !== 'Interest Only' && s.status !== 'Paid')
-                .map(s => (
-                  <option key={s.id} value={s.id}>
-                    {loan?.repaymentType === 'Weekly' ? `Week ${s.period}` : `Month ${s.period}`} - Due: {formatDate(s.dueDate)} 
-                    {loan?.loanType === 'Reducing Balance' 
-                      ? ` (Interest: ${new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(s.interestAmount)})`
-                      : ` - ${new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(s.amount)}`
-                    }
-                  </option>
-                ))}
-            </select>
-            {errors.scheduleId && <p className="mt-1 text-xs text-red-500">{errors.scheduleId}</p>}
-          </div>
+      {showInterestToggle ? (
+        <label className="flex cursor-pointer items-center justify-between gap-4 rounded-lg border bg-elevated p-4">
+          <span>
+            <span className="block text-sm font-semibold text-foreground">Interest only payment</span>
+            <span className="block text-xs text-muted-foreground">No principal reduction</span>
+          </span>
+          <Switch
+            checked={form.paymentType === 'INTEREST_ONLY'}
+            onCheckedChange={(checked) => set('paymentType', checked ? 'INTEREST_ONLY' : 'REGULAR')}
+            aria-label="Interest only payment"
+            disabled={disabled}
+          />
+        </label>
+      ) : null}
 
-          <div className="md:col-span-2">
-            <label className="block text-sm font-medium text-gray-700 dark:text-theme-secondary mb-1">Notes</label>
-            <textarea
-              name="notes"
-              value={formData.notes}
-              onChange={handleChange}
-              rows={2}
-              className="themed-input w-full"
-              placeholder="Add any additional notes..."
-            />
-          </div>
-        </div>
+      <div className="grid grid-cols-1 gap-x-6 gap-y-5 md:grid-cols-2">
+        <FormField label="Amount (₹)" required nativeRequired={false} id="repayment-amount" error={errors.amount}>
+          <Input type="number" inputMode="decimal" name="amount" value={form.amount} onChange={(e) => set('amount', e.target.value)} />
+        </FormField>
+        <FormField label="Date" required nativeRequired={false} id="repayment-date" error={errors.paidDate}>
+          <DateInput name="paidDate" value={form.paidDate} onValueChange={(v) => set('paidDate', v)} />
+        </FormField>
+        <FormField label="Payment schedule" required nativeRequired={false} id="repayment-schedule" error={errors.scheduleId} className="md:col-span-2">
+          <NativeSelect
+            name="scheduleId"
+            value={form.scheduleId}
+            onValueChange={(v) => set('scheduleId', v)}
+            placeholder={schedulesQuery.isLoading ? 'Loading schedules…' : '-- Select Schedule --'}
+            options={scheduleOptions}
+          />
+        </FormField>
+        <FormField label="Notes" id="repayment-notes" className="md:col-span-2">
+          <Textarea name="notes" rows={2} value={form.notes} onChange={(e) => set('notes', e.target.value)} placeholder="Add any additional notes..." />
+        </FormField>
+      </div>
 
-        <div className="mt-6 flex justify-end space-x-3">
-          {onCancel && (
-            <button
-              type="button"
-              onClick={onCancel}
-              className="btn-secondary"
-            >
-              Cancel
-            </button>
-          )}
-          <button
-            type="submit"
-            disabled={submitting}
-            className="btn-primary disabled:opacity-50"
-          >
-            {submitting ? 'Recording...' : 'Record Payment'}
-          </button>
-        </div>
-      </form>
-    </div>
+      <FormActions>
+        {onCancel ? (
+          <Button type="button" variant="outline" onClick={onCancel}>
+            Cancel
+          </Button>
+        ) : null}
+        <Button type="submit" disabled={disabled}>
+          {submitting ? <Loader2 aria-hidden="true" className="motion-safe:animate-spin" /> : null}
+          {submitting ? 'Recording…' : 'Record payment'}
+        </Button>
+      </FormActions>
+    </form>
   );
 }

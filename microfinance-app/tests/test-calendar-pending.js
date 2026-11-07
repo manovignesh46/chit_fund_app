@@ -80,7 +80,8 @@ async function checkUi(kind, data, expected) {
     effects = [],
     calls = [];
   const page = load(
-    "app/calendar/page.tsx",
+    // The calendar's tested parts live in their own module (the page itself uses the kit).
+    "app/components/calendar/month-panels.tsx",
     {
       react: {
         ...React,
@@ -100,11 +101,10 @@ async function checkUi(kind, data, expected) {
       },
       "next/link": ({ href, children, ...props }) =>
         React.createElement("a", { href, ...props }, children),
-      "../../lib/api": {},
-      "../components/common/BackTitle": () => null,
       "date-fns": require("date-fns"),
+      "../../../lib/format": load("lib/format.ts", {}),
     },
-    "\nexport { PendingMembersModal, MonthlyStatsCards };",
+    "",
     {
       AbortController,
       fetch: async (url, options) => {

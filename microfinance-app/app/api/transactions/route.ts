@@ -9,6 +9,18 @@ import { buildTransactionWhereClause } from '../../../lib/transactionWhereBuilde
 import { generateTransactionExportName } from '../../../lib/transactionExportNameGenerator';
 import { notifyOtherAdmins, getActorName } from '../../../lib/notifications';
 import { validateManualTransaction, isManualTransactionType, firstError } from '../../../lib/transactionValidation';
+import { parseListParams } from '../../../lib/list/server';
+import { buildMeta, MAX_PAGE_SIZE } from '../../../lib/list/types';
+
+/** Sort keys accepted by the list (list contract); anything else keeps the legacy order. */
+const TRANSACTION_SORTS = {
+  date: 'date',
+  amount: 'amount',
+  type: 'type',
+  createdAt: 'createdAt',
+  partnerBalance: 'partnerBalance',
+  totalBalance: 'totalBalance',
+} as const;
 
 // GET /api/transactions
 export async function GET(request: NextRequest) {
@@ -23,7 +35,7 @@ export async function GET(request: NextRequest) {
 
     // Regular transaction fetching logic
     const page = parseInt(searchParams.get('page') || '1');
-    const pageSize = parseInt(searchParams.get('pageSize') || '10');
+    const pageSize = Math.min(parseInt(searchParams.get('pageSize') || '10'), MAX_PAGE_SIZE);
     const type = searchParams.get('type');
     const partner = searchParams.get('partner');
     const member = searchParams.get('member');
@@ -34,6 +46,8 @@ export async function GET(request: NextRequest) {
     const advMember = searchParams.get('advMember');
     const advEntity = searchParams.get('advEntity');
     const advSubType = searchParams.get('advSubType');
+    // Optional list-contract params (q, sort, order). Absent: today's query exactly.
+    const list = parseListParams(searchParams, { sortable: TRANSACTION_SORTS });
 
     // Get the current user ID
     const currentUserId = await getCurrentUserId(request);
@@ -59,7 +73,8 @@ export async function GET(request: NextRequest) {
       advType,
       advMember,
       advEntity,
-      advSubType
+      advSubType,
+      q: list.q
     });
 
     // Focus on specific transactions (e.g. opened from a notification)
@@ -84,7 +99,7 @@ export async function GET(request: NextRequest) {
     // Get paginated transactions
     const transactions = await prisma.transaction.findMany({
       where,
-      orderBy: [
+      orderBy: list.orderBy ?? [
         { createdAt: 'desc' },
         { date: 'desc' }
       ],
@@ -102,7 +117,9 @@ export async function GET(request: NextRequest) {
       totalCount,
       page: validPage,
       pageSize: validPageSize,
-      totalPages: Math.ceil(totalCount / validPageSize)
+      totalPages: Math.ceil(totalCount / validPageSize),
+      // List metadata alongside the keys above; rows stay under `transactions` only (read with itemsKey).
+      meta: buildMeta({ page: validPage, pageSize: validPageSize, totalCount, sort: list.sort, order: list.order, q: list.q }),
     });
   } catch (error) {
     console.error('Error fetching transactions:', error);
@@ -541,7 +558,8 @@ async function handleEmailExport(request: NextRequest) {
       advType,
       advMember,
       advEntity,
-      advSubType
+      advSubType,
+      q
     } = body;
 
     if (!recipients || recipients.length === 0) {
@@ -573,7 +591,8 @@ async function handleEmailExport(request: NextRequest) {
       advType,
       advMember,
       advEntity,
-      advSubType
+      advSubType,
+      q
     });
 
     // Get transactions

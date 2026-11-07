@@ -64,7 +64,43 @@ export function calculateLoanCurrentMonth(disbursementDate: string | Date, durat
   return Math.min(newCurrentPeriod, duration);
 }
 
+// The recalculation below used to run in full on every loans / chit-funds / dashboard
+// read. One page load makes several such reads, so they now share a single run, and the
+// result is reused for a short time. Any write through the loans or chit-funds routes
+// calls invalidateCurrentMonths() so the next read recalculates immediately.
+const CURRENT_MONTH_REUSE_MS = 60_000;
+const currentMonthLastRun = new Map<number, number>();
+const currentMonthInFlight = new Map<number, Promise<void>>();
+const currentMonthVersion = new Map<number, number>();
+
+export function invalidateCurrentMonths(userId: number) {
+  currentMonthLastRun.delete(userId);
+  currentMonthVersion.set(userId, (currentMonthVersion.get(userId) || 0) + 1);
+}
+
 export async function autoUpdateCurrentMonths(userId: number) {
+  const lastRun = currentMonthLastRun.get(userId);
+  if (lastRun && Date.now() - lastRun < CURRENT_MONTH_REUSE_MS) return;
+
+  const running = currentMonthInFlight.get(userId);
+  if (running) return running;
+
+  const versionAtStart = currentMonthVersion.get(userId) || 0;
+  const run = recalculateCurrentMonths(userId)
+    .then((succeeded) => {
+      // Only remember the run if it succeeded and nothing was written while it was in progress.
+      if (succeeded && (currentMonthVersion.get(userId) || 0) === versionAtStart) {
+        currentMonthLastRun.set(userId, Date.now());
+      }
+    })
+    .finally(() => {
+      currentMonthInFlight.delete(userId);
+    });
+  currentMonthInFlight.set(userId, run);
+  return run;
+}
+
+async function recalculateCurrentMonths(userId: number): Promise<boolean> {
   try {
     // 1. Check and update Active Chit Funds
     const activeChitFunds = await prisma.chitFund.findMany({
@@ -103,7 +139,9 @@ export async function autoUpdateCurrentMonths(userId: number) {
         });
       }
     }
+    return true;
   } catch (error) {
     console.error('Error auto updating current months:', error);
+    return false;
   }
 }

@@ -1,339 +1,231 @@
-// @ts-nocheck
-"use client";
+'use client';
 
-import React, { useState, useEffect } from "react";
-import { dashboardAPI, FinancialDataPoint } from "../../lib/api";
-import FinancialGraph from "../components/FinancialGraph";
+/**
+ * Financial trends (Report template): period in the URL (`?period=weekly|monthly|yearly`,
+ * default monthly), export, KPI strip over the periods shown, chart cards (one measure per
+ * chart) and the per-period breakdown table. Rows open the period's detail.
+ */
+import * as React from 'react';
+import dynamic from 'next/dynamic';
+import { Download } from 'lucide-react';
+
+import { dashboardAPI } from '@/lib/api';
+import { toast } from '@/lib/toast';
+import { useUrlState } from '@/lib/list/useUrlState';
+import { prefetchQuery } from '@/lib/query/prefetch';
+import { TREND_LIMITS, trendKeys, useFinancialData, type FinancialDataResponse, type FinancialPeriod, type TrendDuration } from '@/lib/query/dashboard';
+import { Button } from '@/components/ui/button';
+import { Label } from '@/components/ui/label';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Switch } from '@/components/ui/switch';
+import { ChartCard } from '@/components/kit/chart-card';
+import { DataTable, RefreshProgress, type DataTableColumn } from '@/components/kit/data-table';
+import { ErrorState } from '@/components/kit/error-state';
+import { Money } from '@/components/kit/money';
+import { PageContainer } from '@/components/kit/page-container';
+import { iconOnPhone, PageHeader } from '@/components/kit/page-header';
+import { SegmentedControl } from '@/components/kit/period-picker';
+import { StatCard } from '@/components/kit/stat-card';
+
+const FinancialGraph = dynamic(() => import('../components/FinancialGraph'), {
+  ssr: false,
+  loading: () => <Skeleton className="h-full w-full" />,
+});
+const FinancialDetailModal = dynamic(() => import('../components/FinancialDetailModal'), { ssr: false });
+
+// Start loading the chart code with the page's code (in parallel with the data), not after
+// the data arrives; a document load of the page also starts its data request right here.
+if (typeof window !== 'undefined') {
+  void import('../components/FinancialGraph');
+  if (window.location.pathname === '/financial-trends') {
+    const period = new URLSearchParams(window.location.search).get('period');
+    prefetchQuery(trendKeys.financialData(period === 'weekly' || period === 'yearly' ? period : 'monthly'));
+  }
+}
+
+const PERIODS: { value: TrendDuration; label: string }[] = [
+  { value: 'weekly', label: 'Weekly' },
+  { value: 'monthly', label: 'Monthly' },
+  { value: 'yearly', label: 'Yearly' },
+];
+const isDuration = (v: string): v is TrendDuration => v === 'weekly' || v === 'monthly' || v === 'yearly';
+
+/** The API's parallel arrays as one row per period, with each period's detail (as the page always built it). */
+function toPeriods(api: FinancialDataResponse | undefined): { periods: FinancialPeriod[]; error: string | null } {
+  if (!api || !Array.isArray(api.labels) || api.labels.length === 0) return { periods: [], error: 'No financial data available' };
+  const { labels, cashInflow, cashOutflow, profit, outsideAmount } = api;
+  if (![cashInflow, cashOutflow, profit, outsideAmount].every(Array.isArray)) return { periods: [], error: 'Missing required data in API response' };
+  if (![cashInflow!, cashOutflow!, profit!, outsideAmount!].every((a) => a.length === labels.length)) {
+    return { periods: [], error: 'Inconsistent data format received from API' };
+  }
+  return {
+    error: null,
+    periods: labels.map((label, i) => ({
+      label,
+      period: label,
+      cashInflow: cashInflow![i],
+      cashOutflow: cashOutflow![i],
+      profit: profit![i],
+      outsideAmount: outsideAmount![i],
+      ...(api.periodsData?.[i] ?? {}),
+    })) as FinancialPeriod[],
+  };
+}
 
 export default function FinancialTrendsPage() {
-  // Financial graph data and controls
-  const [financialData, setFinancialData] = useState<FinancialDataPoint[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [selectedDuration, setSelectedDuration] = useState<
-    "weekly" | "monthly" | "yearly"
-  >("monthly");
+  return (
+    <PageContainer>
+      <FinancialTrends />
+    </PageContainer>
+  );
+}
 
-  // Fetch dashboard data for summary (needed for fallback when no data)
-  const [dashboardSummary, setDashboardSummary] = useState({
-    totalCashInflow: 0,
-    totalCashOutflow: 0,
-    totalProfit: 0,
-    totalOutsideAmount: 0,
-  });
+function FinancialTrends() {
+  const url = useUrlState({ period: 'monthly' });
+  const duration: TrendDuration = isDuration(url.values.period) ? url.values.period : 'monthly';
+  const query = useFinancialData(url.ready ? duration : null);
+  const [showProfit, setShowProfit] = React.useState(false);
+  const [selected, setSelected] = React.useState<FinancialPeriod | null>(null);
+  const [detailMounted, setDetailMounted] = React.useState(false);
 
-  useEffect(() => {
-    // Fetch basic dashboard summary
-    const fetchDashboardSummary = async () => {
-      try {
-        const data = await dashboardAPI.getSummary();
-        setDashboardSummary({
-          totalCashInflow: data.totalCashInflow,
-          totalCashOutflow: data.totalCashOutflow,
-          totalProfit: data.totalProfit,
-          totalOutsideAmount: data.totalOutsideAmount,
-        });
-      } catch (err) {
-        console.error("Error fetching dashboard summary:", err);
-      }
-    };
+  const { periods, error: shapeError } = React.useMemo(() => toPeriods(query.data), [query.data]);
+  const loaded = query.data !== undefined;
+  const refreshing = loaded && query.isLoading;
+  const error = query.error ?? (loaded ? shapeError : null);
 
-    fetchDashboardSummary();
-  }, []);
+  const totals = React.useMemo(
+    () => ({
+      inflow: periods.reduce((s, p) => s + (p.cashInflow || 0), 0),
+      outflow: periods.reduce((s, p) => s + (p.cashOutflow || 0), 0),
+      profit: periods.reduce((s, p) => s + (p.profit || 0), 0),
+      outside: periods.length ? periods[periods.length - 1].outsideAmount : 0,
+    }),
+    [periods]
+  );
 
-  // Fetch financial data for the graph based on selected duration
-  useEffect(() => {
-    const fetchFinancialData = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-        console.log(
-          `Fetching financial data with duration: ${selectedDuration}`
-        );
+  const open = (period: string) => {
+    const row = periods.find((p) => p.period === period);
+    if (!row) return;
+    setDetailMounted(true);
+    setSelected(row);
+  };
 
-        // Determine limit based on duration
-        const limit =
-          selectedDuration === "weekly"
-            ? 8
-            : selectedDuration === "monthly"
-            ? 12
-            : 5;
+  const chartData = periods.map((p) => ({ period: p.period, cashInflow: p.cashInflow, cashOutflow: p.cashOutflow, outsideAmount: p.outsideAmount, profit: p.profit }));
+  const unit = duration === 'weekly' ? 'weeks' : duration === 'monthly' ? 'months' : 'years';
+  const span = `Last ${TREND_LIMITS[duration]} ${unit}`;
 
-        // Fetch data using the API client
-        const apiData = await dashboardAPI.getFinancialData(
-          selectedDuration,
-          limit
-        );
-        console.log("Fetched financial data from API:", apiData);
-
-        // Transform the API response into the format expected by FinancialGraph
-        if (
-          apiData &&
-          apiData.labels &&
-          Array.isArray(apiData.labels) &&
-          apiData.labels.length > 0
-        ) {
-          // Validate that all required arrays exist and have the same length
-          if (
-            !apiData.cashInflow ||
-            !Array.isArray(apiData.cashInflow) ||
-            !apiData.cashOutflow ||
-            !Array.isArray(apiData.cashOutflow) ||
-            !apiData.profit ||
-            !Array.isArray(apiData.profit) ||
-            !apiData.outsideAmount ||
-            !Array.isArray(apiData.outsideAmount)
-          ) {
-            console.error(
-              "Missing required data arrays in API response:",
-              apiData
-            );
-            setError("Missing required data in API response");
-            return;
-          }
-
-          // Ensure all arrays have the same length
-          const labelsLength = apiData.labels.length;
-          if (
-            apiData.cashInflow.length !== labelsLength ||
-            apiData.cashOutflow.length !== labelsLength ||
-            apiData.profit.length !== labelsLength ||
-            apiData.outsideAmount.length !== labelsLength
-          ) {
-            console.error("Data arrays have inconsistent lengths:", {
-              labels: apiData.labels.length,
-              cashInflow: apiData.cashInflow.length,
-              cashOutflow: apiData.cashOutflow.length,
-              profit: apiData.profit.length,
-              outsideAmount: apiData.outsideAmount.length,
-            });
-            setError("Inconsistent data format received from API");
-            return;
-          }
-
-          // Check if all values are zero
-          const allZeros =
-            apiData.cashInflow.every((val) => val === 0) &&
-            apiData.cashOutflow.every((val) => val === 0) &&
-            apiData.profit.every((val) => val === 0) &&
-            apiData.outsideAmount.every((val) => val === 0);
-
-          // If all values are zero, create sample data based on dashboard summary
-          if (allZeros) {
-            console.log(
-              `All zeros detected in ${selectedDuration} data, creating sample data from dashboard summary`
-            );
-
-            // Create sample data based on the selected duration
-            let periodLabel: string;
-            let startDate: Date;
-            let endDate: Date = new Date();
-
-            if (selectedDuration === "yearly") {
-              // For yearly, use the current year
-              periodLabel = new Date().getFullYear().toString();
-              startDate = new Date(new Date().getFullYear(), 0, 1);
-            } else if (selectedDuration === "monthly") {
-              // For monthly, use the current month
-              const now = new Date();
-              periodLabel = now.toLocaleString("default", {
-                month: "long",
-                year: "numeric",
-              });
-              startDate = new Date(now.getFullYear(), now.getMonth(), 1);
-            } else {
-              // For weekly, use the current week
-              const now = new Date();
-              const startOfWeek = new Date(now);
-              startOfWeek.setDate(now.getDate() - now.getDay());
-              periodLabel = `Week of ${startOfWeek.toLocaleDateString()}`;
-              startDate = startOfWeek;
-            }
-
-            // Transform to FinancialDataPoint format using summary data
-            const transformedData: FinancialDataPoint[] = [
-              {
-                label: periodLabel,
-                period: periodLabel,
-                cashInflow: dashboardSummary.totalCashInflow,
-                cashOutflow: dashboardSummary.totalCashOutflow,
-                profit: dashboardSummary.totalProfit,
-                outsideAmount: dashboardSummary.totalOutsideAmount,
-                periodRange: {
-                  startDate: startDate.toISOString(),
-                  endDate: endDate.toISOString()
-                },
-                cashFlowDetails: {
-                  contributionInflow: 0,
-                  repaymentInflow: 0,
-                  auctionOutflow: 0,
-                  loanOutflow: 0,
-                  netCashFlow: dashboardSummary.totalCashInflow - dashboardSummary.totalCashOutflow
-                },
-                profitDetails: {
-                  interestPayments: 0,
-                  documentCharges: 0,
-                  auctionCommissions: 0
-                },
-                outsideAmountBreakdown: {
-                  loanRemainingAmount: 0,
-                  chitFundOutsideAmount: 0
-                },
-                transactionCounts: {
-                  contributions: 0,
-                  repayments: 0,
-                  auctions: 0,
-                  loans: 0
-                }
-              },
-            ];
-
-            setFinancialData(transformedData);
-          } else {
-            // Transform API data to FinancialDataPoint format
-            // Include detailed period data from periodsData if available
-            const transformedData: FinancialDataPoint[] = apiData.labels.map(
-              (label: string, index: number) => {
-                const periodDetail = apiData.periodsData?.[index] || {};
-                return {
-                  label,
-                  period: label, // Use label as period for graph display
-                  cashInflow: apiData.cashInflow[index],
-                  cashOutflow: apiData.cashOutflow[index],
-                  profit: apiData.profit[index],
-                  outsideAmount: apiData.outsideAmount[index],
-                  // Include detailed period information if available
-                  ...periodDetail
-                };
-              }
-            );
-
-            console.log("Transformed financial data:", transformedData);
-            setFinancialData(transformedData);
-          }
-        } else {
-          console.error("Invalid or empty financial data response:", apiData);
-          setError("No financial data available");
-        }
-      } catch (err) {
-        console.error("Error fetching financial data:", err);
-        setError("Failed to load financial data. Please try again later.");
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchFinancialData();
-  }, [selectedDuration, dashboardSummary]);
+  const columns: DataTableColumn<FinancialPeriod>[] = [
+    { id: 'period', header: 'Period', cell: (p) => <span className="font-medium text-foreground">{p.period}</span> },
+    { id: 'cashInflow', header: 'Cash inflow', numeric: true, cell: (p) => <Money value={p.cashInflow} tone="inflow" /> },
+    { id: 'cashOutflow', header: 'Cash outflow', numeric: true, cell: (p) => <Money value={p.cashOutflow} tone="plain" /> },
+    { id: 'net', header: 'Net cash flow', numeric: true, hideBelow: 'sm', cell: (p) => <Money value={p.cashFlowDetails?.netCashFlow ?? p.cashInflow - p.cashOutflow} tone="auto" /> },
+    ...(showProfit ? [{ id: 'profit', header: 'Profit', numeric: true, cell: (p: FinancialPeriod) => <Money value={p.profit} tone="auto" /> }] : []),
+    { id: 'outsideAmount', header: 'Outside amount', numeric: true, cell: (p) => <Money value={p.outsideAmount} tone="plain" /> },
+  ];
 
   return (
-    <div className="page-container">
-      {/* Header */}
-      <div className="mb-6 sm:mb-8">
-        <h1 className="page-title mb-2">
-          Financial Trends
-        </h1>
-        <p className="text-gray-700 dark:text-theme-secondary">
-          Visualize your financial data over time with interactive charts
-        </p>
-      </div>
+    <div>
+      <PageHeader
+        title="Financial trends"
+        description="Cash flow, profit and money outside, period by period."
+        actionsLayout="stack"
+        actions={
+          <>
+            <SegmentedControl aria-label="Period" value={duration} onChange={(next) => url.set({ period: next === 'monthly' ? null : next })} options={PERIODS} />
+            <Button className={iconOnPhone}
+              variant="outline"
+              onClick={() => {
+                void dashboardAPI.exportFinancialData(duration, TREND_LIMITS[duration]);
+                toast('Downloading the financial report');
+              }}
+            >
+              <Download aria-hidden="true" />
+              <span className="max-sm:sr-only">Export</span>
+            </Button>
+          </>
+        }
+      />
 
-      {/* Duration selector */}
-      <div className="mb-6 flex flex-wrap gap-2">
-        <button
-          onClick={() => setSelectedDuration("weekly")}
-          className={`px-4 py-2 rounded-lg font-medium transition duration-300 ${
-            selectedDuration === "weekly"
-              ? "bg-blue-600 text-white"
-              : "btn-neutral"
-          }`}
-        >
-          Weekly
-        </button>
-        <button
-          onClick={() => setSelectedDuration("monthly")}
-          className={`px-4 py-2 rounded-lg font-medium transition duration-300 ${
-            selectedDuration === "monthly"
-              ? "bg-blue-600 text-white"
-              : "btn-neutral"
-          }`}
-        >
-          Monthly
-        </button>
-        <button
-          onClick={() => setSelectedDuration("yearly")}
-          className={`px-4 py-2 rounded-lg font-medium transition duration-300 ${
-            selectedDuration === "yearly"
-              ? "bg-blue-600 text-white"
-              : "btn-neutral"
-          }`}
-        >
-          Yearly
-        </button>
-      </div>
+      {error && periods.length === 0 ? (
+        <ErrorState title="Failed to load financial data" error={error} onRetry={() => void query.mutate()} />
+      ) : (
+        <div className="relative space-y-6" aria-busy={refreshing || undefined}>
+          <RefreshProgress active={refreshing} />
+          <section aria-label={`Totals, ${span.toLowerCase()}`} className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <StatCard loading={!loaded} label="Cash inflow" value={<Money value={totals.inflow} tone="inflow" />} hint={span} />
+            <StatCard loading={!loaded} label="Cash outflow" value={<Money value={totals.outflow} tone="plain" />} hint={span} />
+            {showProfit ? (
+              <StatCard loading={!loaded} label="Profit" value={<Money value={totals.profit} tone="auto" />} hint={span} />
+            ) : (
+              <StatCard loading={!loaded} label="Net cash flow" value={<Money value={totals.inflow - totals.outflow} tone="auto" />} hint={span} />
+            )}
+            <StatCard loading={!loaded} label="Outside amount" value={<Money value={totals.outside} tone="plain" />} hint="At the end of the latest period" />
+          </section>
 
-      {/* Financial Graph */}
-      <div className="themed-card p-4 sm:p-6">
-        {loading ? (
-          <div className="flex items-center justify-center h-96">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+          <div className="flex items-center gap-2">
+            <Switch id="trends-show-profit" checked={showProfit} onCheckedChange={setShowProfit} />
+            <Label htmlFor="trends-show-profit" className="text-sm font-normal">
+              Show profit
+            </Label>
           </div>
-        ) : error ? (
-          <div className="alert-error px-4 py-3 rounded">
-            <p className="font-bold">Error</p>
-            <p>{error}</p>
-          </div>
-        ) : (
-          <FinancialGraph
-            data={financialData}
-            duration={selectedDuration}
-            loading={loading}
-          />
-        )}
-      </div>
 
-      {/* Information cards */}
-      <div className="mt-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="themed-card p-4">
-          <div className="flex items-center justify-between mb-2">
-            <h3 className="text-sm font-medium text-gray-700 dark:text-theme-secondary">Cash Inflow</h3>
-            <svg className="w-4 h-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 11l5-5m0 0l5 5m-5-5v12" />
-            </svg>
+          <div className={`grid grid-cols-1 gap-4 transition-opacity lg:grid-cols-2 ${refreshing ? 'opacity-60' : ''}`}>
+            <ChartCard
+              title="Cash flow"
+              description="Money in (repayments, contributions) and out (loans given, auction payouts)"
+              legend={[
+                { label: 'Cash inflow', slot: 1 },
+                { label: 'Cash outflow', slot: 2 },
+              ]}
+              tableNote="Every figure is listed in the table below. Click a period for its breakdown."
+              className="lg:col-span-2"
+              height={300}
+            >
+              {loaded ? (
+                <FinancialGraph
+                  kind="bar"
+                  data={chartData}
+                  onSelect={open}
+                  series={[
+                    { key: 'cashInflow', label: 'Cash inflow', slot: 1 },
+                    { key: 'cashOutflow', label: 'Cash outflow', slot: 2 },
+                  ]}
+                />
+              ) : (
+                <Skeleton className="h-full w-full" />
+              )}
+            </ChartCard>
+            <ChartCard title="Outside amount" description="Loans and chit funds still to be collected" height={240} className={showProfit ? undefined : 'lg:col-span-2'}>
+              {loaded ? <FinancialGraph kind="line" data={chartData} onSelect={open} series={[{ key: 'outsideAmount', label: 'Outside amount', slot: 1 }]} /> : <Skeleton className="h-full w-full" />}
+            </ChartCard>
+            {showProfit ? (
+              <ChartCard title="Profit" description="Interest, document charges and auction commissions" height={240}>
+                {loaded ? <FinancialGraph kind="bar" data={chartData} onSelect={open} series={[{ key: 'profit', label: 'Profit', slot: 1 }]} /> : <Skeleton className="h-full w-full" />}
+              </ChartCard>
+            ) : null}
           </div>
-          <p className="text-xs text-gray-500 dark:text-theme-muted">Money coming in from loans, contributions, and repayments</p>
+
+          <section aria-labelledby="trends-breakdown" className="space-y-3">
+            <h2 id="trends-breakdown" className="text-base font-semibold text-foreground">
+              Breakdown by period
+            </h2>
+            <DataTable<FinancialPeriod>
+              label="Breakdown by period"
+              mode="client"
+              columns={columns}
+              rows={periods}
+              getRowId={(p) => p.period}
+              isInitialLoading={!loaded}
+              isRefreshing={refreshing}
+              skeletonRows={TREND_LIMITS[duration]}
+              onRowClick={(p) => open(p.period)}
+              emptyState={<p className="p-6 text-center text-sm text-muted-foreground">No periods to show.</p>}
+            />
+          </section>
         </div>
+      )}
 
-        <div className="themed-card p-4">
-          <div className="flex items-center justify-between mb-2">
-            <h3 className="text-sm font-medium text-gray-700 dark:text-theme-secondary">Cash Outflow</h3>
-            <svg className="w-4 h-4 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 13l-5 5m0 0l-5-5m5 5V6" />
-            </svg>
-          </div>
-          <p className="text-xs text-gray-500 dark:text-theme-muted">Money going out for loan disbursements and payouts</p>
-        </div>
-
-        <div className="themed-card p-4">
-          <div className="flex items-center justify-between mb-2">
-            <h3 className="text-sm font-medium text-gray-700 dark:text-theme-secondary">Profit</h3>
-            <svg className="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
-            </svg>
-          </div>
-          <p className="text-xs text-gray-500 dark:text-theme-muted">Net profit from interest and fees</p>
-        </div>
-
-        <div className="themed-card p-4">
-          <div className="flex items-center justify-between mb-2">
-            <h3 className="text-sm font-medium text-gray-700 dark:text-theme-secondary">Outside Amount</h3>
-            <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
-            </svg>
-          </div>
-          <p className="text-xs text-gray-500 dark:text-theme-muted">Total amount owed (loans + chit funds)</p>
-        </div>
-      </div>
+      {detailMounted ? <FinancialDetailModal isOpen={selected !== null} onClose={() => setSelected(null)} periodData={selected} /> : null}
     </div>
   );
 }

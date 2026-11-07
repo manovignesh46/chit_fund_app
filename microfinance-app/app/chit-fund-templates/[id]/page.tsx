@@ -1,101 +1,128 @@
-// @ts-nocheck
 'use client';
 
-import React, { useEffect, useState } from 'react';
-import { useParams } from 'next/navigation';
+/** One chit fund template (Detail template): its structural fields and fixed amounts. */
+import * as React from 'react';
 import Link from 'next/link';
-import { chitFundTemplateAPI } from '../../../lib/api';
-import { formatCurrency } from '../../../lib/formatUtils';
+import { useParams } from 'next/navigation';
+import { Pencil, PlusCircle } from 'lucide-react';
+
+import { ApiError } from '@/lib/query/fetcher';
+import { useChitFundTemplate } from '@/lib/query/chit-fund-templates';
+import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
+import { useBreadcrumbLabel } from '@/components/kit/app-shell/breadcrumb-labels';
+import { DescriptionList } from '@/components/kit/description-list';
+import { EmptyState } from '@/components/kit/empty-state';
+import { ErrorState } from '@/components/kit/error-state';
+import { Money } from '@/components/kit/money';
+import { PageContainer } from '@/components/kit/page-container';
+import { iconOnPhone, PageHeader } from '@/components/kit/page-header';
+import { SectionCard } from '@/components/kit/section-card';
+import { StatusBadge } from '@/components/kit/status-badge';
+
+function DetailSkeleton() {
+  return (
+    <div aria-hidden="true" className="space-y-6">
+      <Skeleton className="h-8 w-64" />
+      <Skeleton className="h-64 w-full max-w-2xl rounded-xl" />
+    </div>
+  );
+}
 
 export default function ChitFundTemplateDetailPage() {
-  const params = useParams();
-  const id = Number(params.id);
-  const [template, setTemplate] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  return (
+    <PageContainer fallback={<DetailSkeleton />}>
+      <TemplateDetail />
+    </PageContainer>
+  );
+}
 
-  useEffect(() => {
-    const load = async () => {
-      try {
-        const data = await chitFundTemplateAPI.getById(id);
-        setTemplate(data);
-      } catch (e) {
-        setError(e?.message || 'Failed to load template');
-      } finally {
-        setLoading(false);
+function TemplateDetail() {
+  const params = useParams<{ id: string }>();
+  const id = parseInt(params.id, 10) || 0;
+  const { data: template, error, mutate } = useChitFundTemplate(id || null);
+  useBreadcrumbLabel(id ? `/chit-fund-templates/${id}` : null, template?.name);
+
+  if (!template) {
+    if (error) {
+      const status = error instanceof ApiError ? error.status : 0;
+      if (status === 404 || status === 403 || status === 400) {
+        return (
+          <EmptyState
+            title="Template not found"
+            action={
+              <Button size="sm" variant="outline" asChild>
+                <Link href="/chit-fund-templates">Back to templates</Link>
+              </Button>
+            }
+          />
+        );
       }
-    };
-    load();
-  }, [id]);
-
-  if (loading) {
-    return (
-      <div className="container mx-auto px-4 py-8">
-        <div className="flex justify-center items-center h-64">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-700"></div>
-        </div>
-      </div>
-    );
-  }
-
-  if (error || !template) {
-    return (
-      <div className="container mx-auto px-4 py-8">
-        <p className="text-red-500">{error || 'Template not found'}</p>
-        <Link href="/chit-fund-templates" className="text-blue-600 hover:underline">Back to templates</Link>
-      </div>
-    );
+      return <ErrorState title="Failed to load template" error={error} onRetry={() => void mutate()} />;
+    }
+    return <DetailSkeleton />;
   }
 
   const isFixed = template.chitFundType === 'Fixed';
   const pattern = template.fixedAmountsPattern || {};
   const months = Object.keys(pattern).map(Number).sort((a, b) => a - b);
-
-  const Row = ({ label, value }) => (
-    <div className="flex justify-between py-2 border-b border-gray-100 dark:border-surface-border">
-      <span className="text-sm text-gray-500 dark:text-theme-secondary">{label}</span>
-      <span className="text-sm font-medium">{value}</span>
-    </div>
-  );
+  const usedBy = template._count?.chitFunds ?? 0;
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="flex flex-wrap justify-between items-center gap-3 mb-6">
-        <h1 className="page-title">{template.name}</h1>
-        <div className="flex gap-3">
-          <Link href="/chit-fund-templates" className="btn-neutral px-4 py-2 rounded-lg transition duration-300">Back</Link>
-          <Link href={`/chit-fund-templates/${id}/edit`} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-300">Edit</Link>
-          <Link href={`/chit-funds/new?template=${id}`} className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition duration-300">Create fund from this</Link>
-        </div>
-      </div>
+    <div>
+      <PageHeader
+        eyebrow={`Template #${template.id}`}
+        title={template.name}
+        status={template.isArchived ? <StatusBadge status="Archived" label="Archived" size="md" /> : null}
+        description={template.description || undefined}
+        actions={
+          <>
+            <Button className={iconOnPhone} asChild>
+              <Link href={`/chit-funds/new?template=${template.id}`}>
+                <PlusCircle aria-hidden="true" />
+                <span className="max-sm:sr-only">Create fund from this</span>
+              </Link>
+            </Button>
+            <Button className={iconOnPhone} variant="outline" asChild>
+              <Link href={`/chit-fund-templates/${template.id}/edit`}>
+                <Pencil aria-hidden="true" />
+                <span className="max-sm:sr-only">Edit</span>
+              </Link>
+            </Button>
+          </>
+        }
+      />
 
-      <div className="themed-card p-6 max-w-2xl">
-        {template.description && (
-          <p className="text-sm text-gray-600 dark:text-theme-secondary mb-4">{template.description}</p>
-        )}
-        <Row label="Type" value={template.chitFundType} />
-        <Row label="Total Amount" value={formatCurrency(template.totalAmount)} />
-        <Row label={isFixed ? 'Monthly Contribution (2nd+)' : 'Monthly Contribution'} value={formatCurrency(template.monthlyContribution)} />
-        {isFixed && <Row label="1st Month Contribution" value={formatCurrency(template.firstMonthContribution)} />}
-        <Row label="Duration" value={`${template.duration} months`} />
-        <Row label="Members" value={template.membersCount} />
-        <Row label="Used by" value={`${template._count?.chitFunds ?? 0} chit fund(s)`} />
-        {template.isArchived && <Row label="Status" value="Archived" />}
-      </div>
+      <div className="max-w-3xl space-y-6">
+        <SectionCard title="Structure">
+          <DescriptionList
+            layout="inline"
+            items={[
+              { label: 'Type', value: template.chitFundType },
+              { label: 'Total amount', value: <Money value={template.totalAmount} tone="plain" />, numeric: true },
+              { label: isFixed ? 'Monthly contribution (2nd+)' : 'Monthly contribution', value: <Money value={template.monthlyContribution} tone="plain" />, numeric: true },
+              ...(isFixed ? [{ label: '1st month contribution', value: <Money value={template.firstMonthContribution} tone="plain" />, numeric: true }] : []),
+              { label: 'Duration', value: `${template.duration} months`, numeric: true },
+              { label: 'Members', value: template.membersCount, numeric: true },
+              { label: 'Used by', value: `${usedBy} chit fund(s)`, numeric: true },
+              ...(template.isArchived ? [{ label: 'Status', value: 'Archived' }] : []),
+            ]}
+          />
+        </SectionCard>
 
-      {isFixed && months.length > 0 && (
-        <div className="themed-card p-6 max-w-2xl mt-6">
-          <h2 className="text-lg font-semibold mb-4">Fixed Amounts by Month</h2>
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-            {months.map((m) => (
-              <div key={m} className="flex justify-between border border-gray-100 dark:border-surface-border rounded px-3 py-2">
-                <span className="text-sm text-gray-500 dark:text-theme-secondary">Month {m}</span>
-                <span className="text-sm font-medium tabular-nums">{formatCurrency(pattern[m])}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
+        {isFixed && months.length > 0 ? (
+          <SectionCard title="Fixed amounts by month">
+            <ul className="grid grid-cols-2 gap-3 md:grid-cols-3">
+              {months.map((m) => (
+                <li key={m} className="flex items-center justify-between gap-3 rounded-md border px-3 py-2">
+                  <span className="text-sm text-muted-foreground">Month {m}</span>
+                  <Money value={pattern[String(m)]} tone="plain" className="text-sm font-medium" />
+                </li>
+              ))}
+            </ul>
+          </SectionCard>
+        ) : null}
+      </div>
     </div>
   );
 }

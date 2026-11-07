@@ -12,6 +12,12 @@ import { autoUpdateCurrentMonths } from '../../../../lib/timeUtils';
 import { sendEmail, emailTemplates } from '../../../../lib/emailConfig';
 import * as XLSX from 'xlsx';
 import { getFinancialDataForExport as getCommonFinancialData, generateCommonExcelReport } from '../../../../lib/commonExportUtils';
+import { buildTransactionWhereClause } from '../../../../lib/transactionWhereBuilder';
+import { GET as getAggregations } from '../../transactions/aggregations/route';
+import { GET as getTransactionSummary } from '../../transactions/summary/route';
+import { GET as getMonthlyChitProfit } from '../../chit-funds/monthly-profit/route';
+import { getActivitiesList, parseActivitiesQuery, wantsActivitiesList } from '../../../../lib/activitiesList';
+import { MAX_PAGE_SIZE } from '../../../../lib/list/types';
 
 // Use ISR with a 5-minute revalidation period
 export const revalidate = 300; // 5 minutes
@@ -51,14 +57,21 @@ export async function GET(request: NextRequest) {
       case 'email-export':
         return await handleEmailExport(request, currentUserId);
       case 'activities':
+        // With any list param (q, type, from, to, sort, order) the page is read in SQL
+        // and the response gains `meta`; without, the legacy handler runs unchanged.
+        if (wantsActivitiesList(searchParams)) {
+          return NextResponse.json(await getActivitiesList(currentUserId, parseActivitiesQuery(searchParams)));
+        }
         // Get pagination parameters
         const page = parseInt(searchParams.get('page') || '1', 10);
-        const pageSize = parseInt(searchParams.get('pageSize') || '10', 10);
+        const pageSize = Math.min(parseInt(searchParams.get('pageSize') || '10', 10), MAX_PAGE_SIZE);
         const filter = searchParams.get('filter') || 'all';
 
         // Get activities with pagination
         const activitiesData = await getActivitiesWithPagination(currentUserId, page, pageSize, filter);
         return NextResponse.json(activitiesData);
+      case 'calendar-month':
+        return await getCalendarMonth(request, currentUserId);
       case 'events':
         // Get the view parameter
         const view = searchParams.get('view');
@@ -137,6 +150,66 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
+}
+
+/**
+ * Everything the calendar shows for one month in one request: the month's events plus the
+ * figures the page used to fetch separately (aggregations, transaction summary, chit
+ * commission from the 24-month trend, auction payouts). Each figure comes from the same
+ * handler or query as before, so the numbers are unchanged; they now run in parallel on
+ * the server instead of as five browser requests.
+ */
+async function getCalendarMonth(request: NextRequest, currentUserId: number) {
+  const { searchParams } = new URL(request.url);
+  const now = new Date();
+  const year = parseInt(searchParams.get('year') || String(now.getFullYear()), 10);
+  const month = parseInt(searchParams.get('month') || String(now.getMonth() + 1), 10);
+  if (!Number.isInteger(year) || year < 1900 || year > 3000 || !Number.isInteger(month) || month < 1 || month > 12) {
+    return NextResponse.json({ error: 'year and month must be a valid calendar month' }, { status: 400 });
+  }
+  const pad = (n: number) => String(n).padStart(2, '0');
+  const startDate = `${year}-${pad(month)}-01`;
+  const endDate = `${year}-${pad(month)}-${pad(new Date(year, month, 0).getDate())}`;
+  const monthKey = `${year}-${pad(month)}`;
+
+  // Same handlers the page called directly, with the caller's cookies.
+  const call = async (handler: (req: NextRequest) => Promise<Response>, path: string) => {
+    const response = await handler(new NextRequest(new URL(path, request.url), { headers: request.headers }));
+    return response.ok ? response.json() : null;
+  };
+  const auctionWhere = await buildTransactionWhereClause(currentUserId, { type: 'AUCTION_PAYOUT', startDate, endDate });
+
+  const [events, aggregations, summary, chitProfit, auctionPayouts] = await Promise.all([
+    getEventsForMonth(currentUserId, year, month),
+    call(getAggregations, `/api/transactions/aggregations?startDate=${startDate}&endDate=${endDate}`),
+    call(getTransactionSummary, `/api/transactions/summary?startDate=${startDate}&endDate=${endDate}`),
+    call(getMonthlyChitProfit, `/api/chit-funds/monthly-profit?months=24`),
+    // As the page's old request: newest first, at most 1000 rows.
+    prisma.transaction.findMany({
+      where: auctionWhere,
+      orderBy: [{ createdAt: 'desc' }, { date: 'desc' }],
+      take: 1000,
+      select: { amount: true },
+    }),
+  ]);
+
+  const monthProfit = chitProfit?.months?.find((m: { key: string }) => m.key === monthKey) ?? null;
+  return NextResponse.json({
+    year,
+    month,
+    events,
+    aggregations,
+    summary: summary
+      ? {
+          totalLoanDisbursement: summary.totalLoanDisbursement,
+          totalDocumentCharges: summary.totalDocumentCharges,
+          totalTransactions: summary.totalTransactions,
+          totalAmount: summary.totalAmount,
+        }
+      : null,
+    chitCommission: monthProfit ? { commission: monthProfit.commission, auctionCount: monthProfit.auctionCount } : null,
+    auctionPayoutTotal: auctionPayouts.reduce((sum, t) => sum + Math.abs(t.amount ?? 0), 0),
+  });
 }
 
 // Helper function to get dashboard summary

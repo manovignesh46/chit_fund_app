@@ -2,53 +2,22 @@
  * Utility functions for formatting data consistently across the application
  */
 
+import { formatMoney, formatDate as formatDateText } from './format';
 import { calculateLoanProfit, calculateChitFundProfit, calculateChitFundProfitUpToCurrentMonth, calculateChitFundOutsideAmount } from './financialUtils';
 
 /**
- * Format a currency value consistently
- * @param value The value to format
- * @param currency The currency code (default: INR)
- * @returns Formatted currency string
+ * Format a currency value: ₹1,25,000 (Indian grouping, no decimals).
+ * Delegates to lib/format.ts; null, undefined and unparsable input give "N/A" as before.
  */
 export function formatCurrency(value: number | string | null | undefined): string {
-  if (value === null || value === undefined) return 'N/A';
-
-  const numValue = typeof value === 'string' ? parseFloat(value) : value;
-
-  if (isNaN(numValue)) return 'N/A';
-
-  // Use a more consistent approach that doesn't rely on locale-specific formatting
-  // Format as INR with ₹ symbol and no decimal places
-  const formattedValue = numValue.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-  return `₹${formattedValue}`;
+  return formatMoney(value, { fallback: 'N/A' });
 }
 
 /**
- * Format a date consistently
- * @param date The date to format
- * @returns Formatted date string in format: 01-Jan-25
+ * Format a date: 06 Nov 2026. Delegates to lib/format.ts; missing or invalid input gives "N/A".
  */
 export function formatDate(date: Date | string | null | undefined): string {
-  if (!date) return 'N/A';
-
-  try {
-    const d = new Date(date);
-
-    if (isNaN(d.getTime())) return 'N/A';
-
-    // Format as: 01-Jan-25
-    const day = String(d.getDate()).padStart(2, '0');
-    const month = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
-    ][d.getMonth()];
-    const year = String(d.getFullYear()).slice(-2); // Last 2 digits of year
-
-    return `${day}-${month}-${year}`;
-  } catch (error) {
-    console.error('Error formatting date:', error);
-    return 'N/A';
-  }
+  return formatDateText(date, { fallback: 'N/A' });
 }
 
 /**
@@ -76,25 +45,6 @@ export function formatDateForInput(date: Date | string | null | undefined): stri
  * These functions are now defined in financialUtils.ts
  */
 export { calculateLoanProfit, calculateChitFundProfit, calculateChitFundProfitUpToCurrentMonth, calculateChitFundOutsideAmount };
-
-/**
- * Get status color class for loan status
- * @param status The loan status
- * @returns CSS class for the status color
- */
-export function getStatusColor(status: string): string {
-  switch (status) {
-    case 'Active':
-      return 'bg-green-100 text-green-800 dark:status-badge-active';
-    case 'Completed':
-      return 'bg-blue-100 text-blue-800 dark:status-badge-upcoming';
-    case 'Defaulted':
-    case 'Non-Recoverable':
-      return 'bg-red-100 text-red-800 dark:badge-overdue';
-    default:
-      return 'bg-gray-100 text-gray-800 dark:status-badge-completed';
-  }
-}
 
 /**
  * Calculate installment amount for a loan

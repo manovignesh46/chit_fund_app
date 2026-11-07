@@ -1,1778 +1,655 @@
-// @ts-nocheck
-"use client";
+'use client';
 
-import React, { useState, useEffect } from "react";
-import { useParams, useRouter, useSearchParams } from "next/navigation";
-import Link from "next/link";
-import { apiGet, apiPost, apiPut, apiDelete } from "../../../lib/apiUtils";
-import BackTitle from "../../../components/common/BackTitle";
-import { formatDate as formatDateUtil, formatCurrency as formatCurrencyUtil } from "../../../../lib/formatUtils";
-import PayContributionBalanceModal from "../../../../components/chit-funds/PayContributionBalanceModal";
+/**
+ * A fund's contributions (List template over a month × member grid).
+ *
+ * Without `?month=` the page lists every month of the fund (1..duration) with its counts and
+ * totals; with `?month=m` it lists every member for that month. The month, the member search
+ * and the paid/unpaid filter live in the URL (replace), so refresh and Back keep them.
+ *
+ * Requests: the fund (usually cached from its page) and the contributions endpoint as the
+ * documented "all rows for this fund" request (`chitFundKeys.contributionStatus`, a 1-row
+ * `contributions` page: `allContributions` and `members` are always complete). The grid is
+ * built from one month → member index (O(contributions + months × members)) instead of
+ * scanning every contribution for every cell.
+ *
+ * Recording a contribution is optimistic: the member's cell shows "Saving" at once, the
+ * server-computed balance and the month's totals show "Updating…" until the fund has been
+ * refetched; on failure the row goes away and the form reopens with its values.
+ */
+import * as React from 'react';
+import dynamic from 'next/dynamic';
+import Link from 'next/link';
+import { useParams } from 'next/navigation';
+import { ArrowLeft, Plus, Trash2, Users, Wallet } from 'lucide-react';
 
-interface GlobalMember {
-  id: number;
-  name: string;
-  contact: string;
-  email: string | null;
-  address: string | null;
-}
+import { toast } from '@/lib/toast';
+import { formatMoney } from '@/lib/format';
+import { calendarMonth, monthLabel } from '@/lib/chitMonths';
+import { useListParams } from '@/lib/list/useListParams';
+import { ApiError } from '@/lib/query/fetcher';
+import { useChitFund, useChitFundContributionStatus, type ContributionStatusRow, type ContributionsResponse } from '@/lib/query/chit-funds';
+import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
+import { useBreadcrumbLabel } from '@/components/kit/app-shell/breadcrumb-labels';
+import { ConfirmDialog } from '@/components/kit/confirm-dialog';
+import { DataTable, type DataTableColumn } from '@/components/kit/data-table';
+import { DateText } from '@/components/kit/date-text';
+import { EmptyState } from '@/components/kit/empty-state';
+import { ErrorState, errorMessage } from '@/components/kit/error-state';
+import { FilterChips } from '@/components/kit/filter-chips';
+import { ListToolbar } from '@/components/kit/list-toolbar';
+import { Money } from '@/components/kit/money';
+import { NativeSelect } from '@/components/kit/native-select';
+import { PageContainer } from '@/components/kit/page-container';
+import { iconOnPhone, PageHeader } from '@/components/kit/page-header';
+import { SearchInput } from '@/components/kit/search-input';
+import { StatusBadge } from '@/components/kit/status-badge';
+import { Updating } from '@/components/kit/updating';
+import { BalanceCell, hasPendingBalance, type ShownContribution } from '@/app/components/chit-funds/contribution-display';
+import { ContributionBusyError, pendingFor, useContributionWrites, type PendingContribution } from '@/app/components/chit-funds/contribution-writes';
+import { contributionBody, emptyContributionForm, type ContributionFormValues } from '@/app/components/chit-funds/ContributionFormDialog';
 
-interface Member {
-  id: number;
-  globalMember: GlobalMember;
-  contribution: number;
-}
+// Dialogs (and their Radix code) load on first use.
+const ContributionFormDialog = dynamic(() => import('@/app/components/chit-funds/ContributionFormDialog'), { ssr: false });
+const PayBalanceDialog = dynamic(() => import('@/app/components/chit-funds/PayBalanceDialog'), { ssr: false });
+const ContributionDetailsDialog = dynamic(() => import('@/app/components/chit-funds/contribution-display').then((m) => m.ContributionDetailsDialog), { ssr: false });
 
-interface Contribution {
-  id: number;
-  amount: number;
+type StatusMember = ContributionsResponse['members'][number];
+const FILTERS = ['month', 'status'] as const;
+type Filter = (typeof FILTERS)[number];
+const STATUS_OPTIONS = [
+  { value: '', label: 'All members' },
+  { value: 'paid', label: 'Paid' },
+  { value: 'pending', label: 'Not paid' },
+];
+
+interface MonthRow {
   month: number;
-  paidDate: string;
-  memberId: number;
-  member: Member;
-  balance: number;
-  balancePaymentDate: string | null;
-  balancePaymentStatus: string | null;
-  actualBalancePaymentDate: string | null;
-  notes: string | null;
+  pendingMembers: StatusMember[];
+  totalExpected: number;
+  totalCollected: number;
+  totalBalance: number;
+  contributionCount: number;
+  pendingCount: number;
+  memberCount: number;
+  saving: boolean;
 }
 
-interface ChitFund {
-  id: number;
-  name: string;
-  totalAmount: number;
-  monthlyContribution: number;
-  duration: number;
-  membersCount: number;
-  status: string;
-  currentMonth: number;
+interface MemberMonthRow {
+  member: StatusMember;
+  contribution: ContributionStatusRow | null;
+  pending: PendingContribution | undefined;
 }
 
-// This component has been optimized for performance
-export default function ChitFundContributionsPage() {
-  const params = useParams();
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const chitFundId = params.id;
+/** month → memberId → contribution (one pass over the fund's contributions). */
+function indexByMonth(all: ContributionStatusRow[]) {
+  const index = new Map<number, Map<number, ContributionStatusRow>>();
+  for (const c of all) {
+    let byMember = index.get(c.month);
+    if (!byMember) index.set(c.month, (byMember = new Map()));
+    // allContributions is newest first; keep the first row seen per member and month (as .find did).
+    if (!byMember.has(c.memberId)) byMember.set(c.memberId, c);
+  }
+  return index;
+}
 
-  const [chitFund, setChitFund] = useState<ChitFund | null>(null);
-  const [contributions, setContributions] = useState<Contribution[]>([]);
-  const [allContributions, setAllContributions] = useState<any[]>([]); // All contributions for status checking
-  const [members, setMembers] = useState<Member[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [memberDetail, setMemberDetail] = useState(false);
-
-  // For adding new contribution
-  const [showAddForm, setShowAddForm] = useState(false);
-  const [newContribution, setNewContribution] = useState({
-    memberId: "",
-    month: "",
-    amount: "",
-    paidDate: new Date().toISOString().split("T")[0], // Today's date in YYYY-MM-DD format
-    balancePaymentDate: "",
-    balancePaymentStatus: "Pending",
-    actualBalancePaymentDate: "",
-  });
-  const [formErrors, setFormErrors] = useState<{ [key: string]: string }>({});
-  const [isSubmitting, setIsSubmitting] = useState(false);
-
-  // For filtering - Initialize from URL params
-  const monthParam = searchParams.get('month');
-  const [selectedMonth, setSelectedMonth] = useState<string>(monthParam || "all");
-  const [selectedMember, setSelectedMember] = useState<string>("all");
-
-  // For deletion
-  const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const [contributionToDelete, setContributionToDelete] = useState<
-    number | null
-  >(null);
-
-  // For editing
-  const [showEditForm, setShowEditForm] = useState(false);
-  const [contributionToEdit, setContributionToEdit] =
-    useState<Contribution | null>(null);
-  const [editFormData, setEditFormData] = useState({
-    amount: "",
-    paidDate: "",
-    balancePaymentDate: "",
-    balancePaymentStatus: "",
-    actualBalancePaymentDate: "",
-  });
-
-  // For viewing contribution details
-  const [showDetailModal, setShowDetailModal] = useState(false);
-  const [selectedContribution, setSelectedContribution] =
-    useState<Contribution | null>(null);
-  const [editFormErrors, setEditFormErrors] = useState<{
-    [key: string]: string;
-  }>({});
-  const [isEditing, setIsEditing] = useState(false);
-
-  // For paying a contribution's pending balance
-  const [contributionToPay, setContributionToPay] = useState<Contribution | null>(null);
-
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setLoading(true);
-
-        // Fetch chit fund details using the consolidated API endpoint
-        try {
-          const chitFundData = await apiGet(
-            `/api/chit-funds/consolidated?action=detail&id=${chitFundId}`,
-            "Failed to fetch chit fund details"
-          );
-          // console.log("Chit Fund Data:", chitFundData);
-          setChitFund(chitFundData);
-        } catch (error: any) {
-          // Handle 404 errors specifically
-          if (error.message.includes("not found")) {
-            setChitFund(null);
-            setError(
-              `Chit fund with ID ${chitFundId} not found. It may have been deleted or you don't have permission to view it.`
-            );
-            setLoading(false);
-            return; // Exit early
-          }
-
-          // Handle authentication errors
-          if (
-            error.message.includes("Authentication") ||
-            error.message.includes("Unauthorized")
-          ) {
-            setError("Authentication error. Please log in again to continue.");
-            // Redirect to login page after a short delay
-            setTimeout(() => {
-              window.location.href = `/login?from=/chit-funds/${chitFundId}/contributions&error=session_expired`;
-            }, 3000);
-            return; // Exit early
-          }
-
-          // Re-throw the error to be caught by the outer catch block
-          throw error;
-        }
-
-        // Fetch contributions and members using the consolidated API endpoint
-        // The contributions endpoint now returns both contributions and members data
-        const contributionsData = await apiGet(
-          `/api/chit-funds/consolidated?action=contributions&id=${chitFundId}`,
-          "Failed to fetch contributions and members"
-        );
-        // console.log("Contributions Data:", contributionsData);
-
-        // Check if the response has a contributions property (new format) or is an array (old format)
-        if (
-          contributionsData.contributions &&
-          Array.isArray(contributionsData.contributions)
-        ) {
-          setContributions(contributionsData.contributions);
-
-          // Set all contributions for status checking
-          if (contributionsData.allContributions && Array.isArray(contributionsData.allContributions)) {
-            setAllContributions(contributionsData.allContributions);
-          } else {
-            // Fallback: use paginated contributions if allContributions not available
-            setAllContributions(contributionsData.contributions);
-          }
-
-          // Use members data from contributions response if available
-          if (contributionsData.members && Array.isArray(contributionsData.members)) {
-            setMembers(contributionsData.members);
-          }
-        } else {
-          // Fallback for backward compatibility - fetch members separately
-          const contributionsArray = Array.isArray(contributionsData) ? contributionsData : [];
-          setContributions(contributionsArray);
-          setAllContributions(contributionsArray); // Use same data for status checking in fallback
-
-          try {
-            const membersData = await apiGet(
-              `/api/chit-funds/consolidated?action=members&id=${chitFundId}`,
-              "Failed to fetch members"
-            );
-
-            if (membersData.members && Array.isArray(membersData.members)) {
-              setMembers(membersData.members);
-            } else {
-              setMembers(Array.isArray(membersData) ? membersData : []);
-            }
-          } catch (membersError) {
-            console.warn('Failed to fetch members as fallback:', membersError);
-            setMembers([]);
-          }
-        }
-
-        setError(null);
-      } catch (err) {
-        console.error("Error fetching data:", err);
-        setError(
-          `Failed to load data: ${
-            err instanceof Error ? err.message : "Unknown error"
-          }. Please try again later.`
-        );
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    if (chitFundId) {
-      fetchData();
-    }
-  }, [chitFundId]);
-
-  // Effect to handle URL month parameter
-  useEffect(() => {
-    if (monthParam && monthParam !== "all") {
-      setSelectedMonth(monthParam);
-      setMemberDetail(true); // Show member detail view for the specific month
-    }
-  }, [monthParam]);
-
-  const handleInputChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
-  ) => {
-    const { name, value } = e.target;
-    // If month is changed, pre-populate amount
-    if (name === "month") {
-      let amount = "";
-      if (value === "1") {
-        amount = chitFund?.firstMonthContribution?.toString() || "";
-      } else if (value) {
-        amount = chitFund?.monthlyContribution?.toString() || "";
-      }
-      setNewContribution((prev) => ({
-        ...prev,
-        month: value,
-        amount,
-      }));
-    } else {
-      setNewContribution((prev) => ({
-        ...prev,
-        [name]: value,
-      }));
-    }
-  };
-
-  const validateForm = () => {
-    const errors: { [key: string]: string } = {};
-
-    if (!newContribution.memberId) {
-      errors.memberId = "Member is required";
-    }
-
-    if (!newContribution.month) {
-      errors.month = "Month is required";
-    } else if (
-      isNaN(Number(newContribution.month)) ||
-      Number(newContribution.month) < 1 ||
-      Number(newContribution.month) > (chitFund?.duration || 0)
-    ) {
-      errors.month = `Month must be between 1 and ${chitFund?.duration || 0}`;
-    }
-
-    if (!newContribution.amount) {
-      errors.amount = "Amount is required";
-    } else if (
-      isNaN(Number(newContribution.amount)) ||
-      Number(newContribution.amount) <= 0
-    ) {
-      errors.amount = "Amount must be a positive number";
-    }
-
-    if (!newContribution.paidDate) {
-      errors.paidDate = "Paid date is required";
-    }
-
-    setFormErrors(errors);
-    return Object.keys(errors).length === 0;
-  };
-
-  const handleAddContribution = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    if (!validateForm()) {
-      return;
-    }
-
-    setIsSubmitting(true);
-
-    try {
-      console.log("Submitting contribution data:", {
-        ...newContribution,
-        chitFundId: Number(chitFundId),
-        memberId: Number(newContribution.memberId),
-        month: Number(newContribution.month),
-        amount: Number(newContribution.amount),
-      });
-
-      // Use the apiPost utility function
-      const responseData = await apiPost(
-        `/api/chit-funds/consolidated?action=add-contribution&id=${chitFundId}`,
-        {
-          ...newContribution,
-          chitFundId: Number(chitFundId),
-          memberId: Number(newContribution.memberId),
-          month: Number(newContribution.month),
-          amount: Number(newContribution.amount),
-          balancePaymentDate: newContribution.balancePaymentDate || null,
-          balancePaymentStatus:
-            chitFund &&
-            Number(newContribution.amount) < chitFund.monthlyContribution
-              ? "Pending"
-              : null,
-          actualBalancePaymentDate:
-            newContribution.actualBalancePaymentDate || null,
-          notes: null, // Add notes field with null value
-        },
-        "Failed to add contribution"
-      );
-
-      console.log("API Response:", responseData);
-
-      // Use the saved record to update both the list and monthly payment summaries.
-      // Match the API's newest-month/newest-payment ordering without reloading.
-      const addSavedContribution = (previous: Contribution[]) =>
-        [...previous, responseData].sort(
-          (a, b) =>
-            b.month - a.month ||
-            new Date(b.paidDate).getTime() - new Date(a.paidDate).getTime()
-        );
-      setContributions(addSavedContribution);
-      setAllContributions(addSavedContribution);
-
-      // Reset form
-      setNewContribution({
-        memberId: "",
-        month: "",
-        amount: chitFund?.monthlyContribution?.toString() || "",
-        paidDate: new Date().toISOString().split("T")[0],
-        balancePaymentDate: "",
-        balancePaymentStatus: "Pending",
-        actualBalancePaymentDate: "",
-      });
-      setShowAddForm(false);
-    } catch (error: any) {
-      console.error("Error adding contribution:", error);
-      setFormErrors({
-        submit:
-          error.message || "Failed to add contribution. Please try again.",
-      });
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  // Format currency
-  const formatCurrency = (amount: number) => {
-    return formatCurrencyUtil(amount);
-  };
-
-  // Format date
-  const formatDate = (dateString: string) => {
-    return formatDateUtil(dateString);
-  };
-
-  // Filter contributions based on selected month and member
-  const filteredContributions = contributions.filter((contribution) => {
-    const monthMatch =
-      selectedMonth === "all" ||
-      contribution.month.toString() === selectedMonth;
-    const memberMatch =
-      selectedMember === "all" ||
-      contribution.memberId.toString() === selectedMember;
-    return monthMatch && memberMatch;
-  });
-
-  // Generate months array for the filter dropdown
-  const months = chitFund
-    ? Array.from({ length: chitFund.duration }, (_, i) => i + 1)
-    : [];
-
-  // Generate all members with their contribution status for a specific month
-  const getMembersWithStatusForMonth = (month: number) => {
-    if (!chitFund || !members || members.length === 0) return [];
-
-    const result = [];
-
-    // For each member, check if they have a contribution for this month
-    // Use allContributions (not paginated) for accurate status checking
-    for (const member of members) {
-      const contribution = allContributions.find(
-        (c) => c.memberId === member.id && c.month === month
-      );
-
-      if (contribution) {
-        // Member has paid for this month
-        result.push({
-          member,
-          status: "paid",
-          contribution,
-        });
-      } else {
-        // Member has not paid for this month
-        result.push({
-          member,
-          status: "pending",
-          contribution: null,
-        });
-      }
-    }
-
-
-
-    return result;
-  };
-
-  // Organize contributions by month
-  const getContributionsByMonth = () => {
-    if (!chitFund) return [];
-
-    const monthlyContributions = [];
-
-    // Create an array of all months up to the chit fund duration
-    for (let month = 1; month <= (chitFund?.duration || 0); month++) {
-      const contributionsForMonth = allContributions.filter(
-        (c) => c.month === month
-      );
-
-      // Get all members with their status for this month
-      const membersWithStatus = getMembersWithStatusForMonth(month);
-      const pendingMembers = membersWithStatus.filter(
-        (m) => m.status === "pending"
-      );
-      const pendingCount = pendingMembers.length;
-      const contributionCount = contributionsForMonth.length;
-
-      // Calculate totals for this month
-      // Use actual members count instead of stored membersCount to handle discrepancies
-      const actualMembersCount = members ? members.length : (chitFund?.membersCount || 0);
-      const totalExpected = chitFund
-        ? chitFund.monthlyContribution * actualMembersCount
-        : 0;
-      const totalCollected = contributionsForMonth.reduce(
-        (sum, c) => sum + c.amount,
-        0
-      );
-
-      // Calculate total balance including both:
-      // 1. Balance from partial payments (where balance > 0)
-      // 2. Expected contributions from pending members
-      const balanceFromPartialPayments = contributionsForMonth.reduce(
-        (sum, c) => sum + (c.balance || 0),
-        0
-      );
-      const pendingMembersExpectedAmount =
-        pendingCount > 0
-          ? pendingCount * (chitFund?.monthlyContribution || 0)
-          : 0;
-      const totalBalance =
-        balanceFromPartialPayments + pendingMembersExpectedAmount;
-
-
-
-      monthlyContributions.push({
-        month,
-        contributionsForMonth,
-        pendingMembers,
-        totalExpected,
-        totalCollected,
-        totalBalance,
-        contributionCount,
-        pendingCount,
-        memberCount: actualMembersCount,
-      });
-    }
-
-    return monthlyContributions;
-  };
-
-  // Get contributions organized by month
-  const contributionsByMonth = getContributionsByMonth();
-
-  // A part-paid contribution whose balance has not been settled yet
-  const hasPendingBalance = (contribution: Contribution | null) =>
-    !!contribution &&
-    contribution.balance > 0 &&
-    contribution.balancePaymentStatus !== "Paid";
-
-  // Month-view rows come without the member relation, so fall back to the members list
-  const getMemberName = (contribution: Contribution) =>
-    contribution.member?.globalMember?.name ||
-    members.find((m) => m.id === contribution.memberId)?.globalMember?.name ||
-    `Member ID: ${contribution.memberId}`;
-
-  // Apply the server's updated contribution after a balance payment
-  const handleBalancePaid = (updated: Contribution) => {
-    const merge = (list: any[]) =>
-      list.map((c) => (c.id === updated.id ? { ...c, ...updated } : c));
-    setContributions(merge);
-    setAllContributions(merge);
-    setSelectedContribution((current) =>
-      current && current.id === updated.id ? { ...current, ...updated } : current
-    );
-    setContributionToPay(null);
-  };
-
-  // Handle viewing contribution details
-  const handleViewContribution = (contribution: Contribution) => {
-    setSelectedContribution(contribution);
-    setShowDetailModal(true);
-  };
-
-  // Handle edit contribution
-  const handleEditContribution = (contribution: Contribution) => {
-    setContributionToEdit(contribution);
-    setEditFormData({
-      amount: contribution.amount.toString(),
-      paidDate: new Date(contribution.paidDate).toISOString().split("T")[0],
-      balancePaymentDate: contribution.balancePaymentDate
-        ? new Date(contribution.balancePaymentDate).toISOString().split("T")[0]
-        : "",
-      balancePaymentStatus: contribution.balancePaymentStatus || "Pending",
-      actualBalancePaymentDate: contribution.actualBalancePaymentDate
-        ? new Date(contribution.actualBalancePaymentDate)
-            .toISOString()
-            .split("T")[0]
-        : "",
+/**
+ * The month list, with the page's own formulas (unchanged): expected = monthly × members;
+ * collected = Σ amounts of the month; outstanding = Σ month balances + pending members × monthly.
+ */
+function buildMonthRows(fund: { duration: number; monthlyContribution: number; membersCount: number }, data: ContributionsResponse, index: Map<number, Map<number, ContributionStatusRow>>, pending: PendingContribution[]): MonthRow[] {
+  const members = data.members ?? [];
+  const all = data.allContributions ?? [];
+  const sums = new Map<number, { count: number; collected: number; balance: number }>();
+  for (const c of all) {
+    const s = sums.get(c.month) ?? { count: 0, collected: 0, balance: 0 };
+    s.count += 1;
+    s.collected += c.amount;
+    s.balance += c.balance || 0;
+    sums.set(c.month, s);
+  }
+  const memberCount = members ? members.length : fund.membersCount || 0;
+  const out: MonthRow[] = [];
+  for (let month = 1; month <= (fund.duration || 0); month++) {
+    const paid = index.get(month);
+    const pendingMembers = members.length ? members.filter((m) => !paid?.has(m.id)) : [];
+    const s = sums.get(month) ?? { count: 0, collected: 0, balance: 0 };
+    const pendingCount = pendingMembers.length;
+    out.push({
+      month,
+      pendingMembers,
+      totalExpected: fund.monthlyContribution * memberCount,
+      totalCollected: s.collected,
+      totalBalance: s.balance + (pendingCount > 0 ? pendingCount * (fund.monthlyContribution || 0) : 0),
+      contributionCount: s.count,
+      pendingCount,
+      memberCount,
+      saving: pending.some((p) => p.month === month),
     });
-    setEditFormErrors({});
-    setShowEditForm(true);
-  };
-
-  // Handle edit form input change
-  const handleEditFormChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setEditFormData({
-      ...editFormData,
-      [name]: value,
-    });
-  };
-
-  // Handle edit form submission
-  const handleEditFormSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    if (!contributionToEdit) return;
-
-    // Validate form
-    const errors: { [key: string]: string } = {};
-
-    if (!editFormData.amount) {
-      errors.amount = "Amount is required";
-    } else if (
-      isNaN(Number(editFormData.amount)) ||
-      Number(editFormData.amount) <= 0
-    ) {
-      errors.amount = "Amount must be a positive number";
-    }
-
-    if (!editFormData.paidDate) {
-      errors.paidDate = "Paid date is required";
-    }
-
-    if (Object.keys(errors).length > 0) {
-      setEditFormErrors(errors);
-      return;
-    }
-
-    // Submit form
-    setIsEditing(true);
-
-    try {
-      // Use the apiPut utility function
-      const updatedContribution = await apiPut(
-        `/api/chit-funds/consolidated?action=update-contribution&id=${chitFundId}`,
-        {
-          contributionId: contributionToEdit.id,
-          amount: Number(editFormData.amount),
-          paidDate: editFormData.paidDate,
-          balancePaymentDate: editFormData.balancePaymentDate || null,
-          balancePaymentStatus: editFormData.balancePaymentStatus || null,
-          actualBalancePaymentDate:
-            editFormData.actualBalancePaymentDate || null,
-          notes: null, // Add notes field with null value
-        },
-        "Failed to update contribution"
-      );
-
-      // Update the contributions list
-      setContributions(
-        contributions.map((c) =>
-          c.id === updatedContribution.id ? updatedContribution : c
-        )
-      );
-
-      // Close the form
-      setShowEditForm(false);
-      setContributionToEdit(null);
-    } catch (error: any) {
-      console.error("Error updating contribution:", error);
-      setEditFormErrors({
-        submit:
-          error.message || "Failed to update contribution. Please try again.",
-      });
-    } finally {
-      setIsEditing(false);
-    }
-  };
-
-  // Handle delete contribution
-  const handleDeleteContribution = (id: number) => {
-    setContributionToDelete(id);
-    setShowDeleteModal(true);
-  };
-
-  // Confirm delete contribution
-  const confirmDeleteContribution = async () => {
-    if (!contributionToDelete) return;
-
-    try {
-      // Use the apiDelete utility function
-      await apiDelete(
-        `/api/chit-funds/consolidated?action=delete-contribution&id=${chitFundId}`,
-        {
-          contributionId: contributionToDelete,
-        },
-        "Failed to delete contribution"
-      );
-
-      // Remove the deleted contribution from both arrays
-      setContributions(
-        contributions.filter((c) => c.id !== contributionToDelete)
-      );
-      setAllContributions(
-        allContributions.filter((c) => c.id !== contributionToDelete)
-      );
-
-      // Close the modal
-      setShowDeleteModal(false);
-      setContributionToDelete(null);
-    } catch (error: any) {
-      console.error("Error deleting contribution:", error);
-    }
-  };
-
-  if (loading) {
-    return (
-      <div className="container mx-auto px-4 py-8">
-        <div className="flex justify-center items-center h-64">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-700 mx-auto mb-4"></div>
-            <p className="text-gray-700 dark:text-theme-secondary">Loading contributions data...</p>
-          </div>
-        </div>
-      </div>
-    );
   }
+  return out;
+}
 
-  if (error) {
-    return (
-      <div className="container mx-auto px-4 py-8">
-        <div className="alert-error px-4 py-3 rounded">
-          <p className="font-bold">Error</p>
-          <p>{error}</p>
-          <button
-            onClick={() => router.back()}
-            className="mt-4 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition duration-300"
-          >
-            Go Back
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  if (!chitFund) {
-    return (
-      <div className="container mx-auto px-4 py-8">
-        <div className="bg-yellow-100 border border-yellow-400 text-yellow-700 px-4 py-3 rounded">
-          <p className="font-bold">Chit Fund Not Found</p>
-          <p>
-            The chit fund you are looking for does not exist or has been
-            removed.
-          </p>
-          <Link
-            href="/chit-funds"
-            className="mt-4 inline-block px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-300"
-          >
-            Back to Chit Funds
-          </Link>
-        </div>
-      </div>
-    );
-  }
-
+function PageSkeleton() {
   return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-6 gap-4">
-        <div>
-          <BackTitle title="Contributions" href={`/chit-funds/${chitFundId}`} ariaLabel="Back to Chit Fund" />
-          <p className="text-gray-700 dark:text-theme-secondary text-sm sm:text-base">
-            Month {chitFund.currentMonth} of {chitFund.duration} | Monthly Contribution: {formatCurrency(chitFund.monthlyContribution)}
-          </p>
-        </div>
-        <div className="grid grid-cols-3 gap-2 w-full sm:w-auto sm:flex sm:space-x-4">
-          <Link
-            href={`/chit-funds/${chitFundId}/members`}
-            className="flex flex-col items-center justify-center p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-300 sm:flex-row sm:px-4 sm:py-2"
-            aria-label="View Members"
-          >
-            <svg className="h-6 w-6 sm:mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 20h5v-2a4 4 0 00-3-3.87M9 20H4v-2a4 4 0 013-3.87m9-4a4 4 0 10-8 0 4 4 0 008 0z" /></svg>
-            <span className="hidden sm:inline">View Members</span>
-          </Link>
-          <button
-            onClick={() => setShowAddForm(true)}
-            className="btn-primary p-2 sm:px-4 sm:py-2"
-            aria-label="Record Contribution"
-          >
-            <svg className="h-6 w-6 sm:mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" /></svg>
-            <span className="hidden sm:inline">Record Contribution</span>
-          </button>
-        </div>
+    <div aria-hidden="true" className="space-y-6">
+      <div className="space-y-2">
+        <Skeleton className="h-4 w-40" />
+        <Skeleton className="h-8 w-56" />
       </div>
+      <Skeleton className="h-10 w-full max-w-xl" />
+      <Skeleton className="h-96 w-full rounded-xl" />
+    </div>
+  );
+}
 
-      {/* Contributions Table */}
-      <div className="themed-card overflow-hidden mb-8">
-        <div className="table-shell" style={{maxWidth: '85vw'}}>
-          {memberDetail ? (
-            // Member View
-            <table className="w-full min-w-[700px] divide-y divide-surface-border text-xs sm:text-sm">
-              <thead className="bg-gray-50 dark:bg-surface-elevated">
-                <tr>
-                  <th scope="col" className="px-2 sm:px-6 py-2 sm:py-3 text-left font-medium text-gray-500 uppercase tracking-wider">Member</th>
-                  <th scope="col" className="px-2 sm:px-6 py-2 sm:py-3 text-left font-medium text-gray-500 uppercase tracking-wider">Month</th>
-                  <th scope="col" className="px-2 sm:px-6 py-2 sm:py-3 text-left font-medium text-gray-500 uppercase tracking-wider">Amount</th>
-                  <th scope="col" className="px-2 sm:px-6 py-2 sm:py-3 text-left font-medium text-gray-500 uppercase tracking-wider">Paid Date</th>
-                  <th scope="col" className="px-2 sm:px-6 py-2 sm:py-3 text-left font-medium text-gray-500 uppercase tracking-wider">Balance</th>
-                  <th scope="col" className="px-2 sm:px-6 py-2 sm:py-3 text-right font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {selectedMonth !== "all" &&
-                chitFund &&
-                members &&
-                members.length > 0 ? (
-                  // Show all members with their status for the selected month
-                  getMembersWithStatusForMonth(parseInt(selectedMonth)).map(
-                    (memberData) => (
-                      <tr
-                        key={memberData.member.id}
-                        className={`hover:bg-gray-50 dark:hover:bg-surface-hover ${
-                          memberData.status === "paid" ? "cursor-pointer" : ""
-                        }`}
-                        onClick={() =>
-                          memberData.status === "paid" &&
-                          handleViewContribution(memberData.contribution!)
-                        }
-                      >
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm font-medium text-blue-600">
-                            {memberData.member.globalMember.name}
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-gray-900 dark:text-theme-primary">
-                            Month {selectedMonth}
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          {memberData.status === "paid" ? (
-                            <div className="text-sm text-gray-900 dark:text-theme-primary">
-                              {formatCurrency(memberData.contribution!.amount)}
-                            </div>
-                          ) : (
-                            <div className="text-sm text-gray-400">
-                              {formatCurrency(chitFund.monthlyContribution)}
-                            </div>
-                          )}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          {memberData.status === "paid" ? (
-                            <div className="text-sm text-gray-900 dark:text-theme-primary">
-                              {formatDate(memberData.contribution!.paidDate)}
-                            </div>
-                          ) : (
-                            <div className="text-sm text-red-600 font-semibold">
-                              Pending
-                            </div>
-                          )}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          {memberData.status === "paid" ? (
-                            memberData.contribution!.balance > 0 ||
-                            memberData.contribution!.balancePaymentStatus ===
-                              "Paid" ? (
-                              <div>
-                                {memberData.contribution!
-                                  .balancePaymentStatus === "Paid" ? (
-                                  <div className="text-sm text-green-600 font-semibold">
-                                    Paid in full
-                                  </div>
-                                ) : (
-                                  <div className="text-sm text-red-600 font-semibold">
-                                    {formatCurrency(
-                                      memberData.contribution!.balance
-                                    )}
-                                  </div>
-                                )}
+export default function ChitFundContributionsPage() {
+  return (
+    <PageContainer fallback={<PageSkeleton />}>
+      <ContributionsView />
+    </PageContainer>
+  );
+}
 
-                                <div className="text-xs mt-1">
-                                  <span
-                                    className={`px-2 py-1 rounded-full ${
-                                      memberData.contribution!
-                                        .balancePaymentStatus === "Paid"
-                                        ? "bg-green-100 text-green-800"
-                                        : memberData.contribution!
-                                            .balancePaymentStatus === "Overdue"
-                                        ? "bg-red-100 text-red-800"
-                                        : "bg-yellow-100 text-yellow-800"
-                                    }`}
-                                  >
-                                    {memberData.contribution!
-                                      .balancePaymentStatus || "Pending"}
-                                  </span>
-                                </div>
+function ContributionsView() {
+  const params = useParams<{ id: string }>();
+  const id = parseInt(params.id, 10) || 0;
+  const fundQuery = useChitFund(id || null);
+  const fund = fundQuery.data;
+  useBreadcrumbLabel(id ? `/chit-funds/${id}` : null, fund?.name);
+  const statusQuery = useChitFundContributionStatus(id || null);
+  const data = statusQuery.data;
+  const list = useListParams<Filter>({ id: 'chit-fund-contributions', filters: FILTERS });
+  const writes = useContributionWrites(id);
 
-                                {memberData.contribution!
-                                  .balancePaymentDate && (
-                                  <div className="text-xs text-gray-500 mt-1">
-                                    Expected payment:{" "}
-                                    {formatDate(
-                                      memberData.contribution!
-                                        .balancePaymentDate
-                                    )}
-                                  </div>
-                                )}
+  const monthParam = list.params.month ? parseInt(list.params.month, 10) : NaN;
+  const selectedMonth = fund && monthParam >= 1 && monthParam <= fund.duration ? monthParam : null;
 
-                                {memberData.contribution!
-                                  .actualBalancePaymentDate && (
-                                  <div className="text-xs text-green-600 mt-1">
-                                    Paid on:{" "}
-                                    {formatDate(
-                                      memberData.contribution!
-                                        .actualBalancePaymentDate
-                                    )}
-                                  </div>
-                                )}
-                              </div>
-                            ) : (
-                              <div className="text-sm text-green-600 font-semibold">
-                                Paid in full
-                              </div>
-                            )
-                          ) : (
-                            <div className="text-sm text-gray-400">-</div>
-                          )}
-                        </td>
-                        <td
-                          className="px-6 py-4 whitespace-nowrap text-right"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <div className="flex justify-end space-x-3">
-                            {/* Only show Add Payment or Delete, never Edit */}
-                            {memberData.status === "paid" ? (
-                              <>
-                                {hasPendingBalance(memberData.contribution) && (
-                                  <button
-                                    onClick={() => setContributionToPay(memberData.contribution)}
-                                    className="text-green-600 hover:text-green-900 flex items-center"
-                                    title="Pay pending balance"
-                                  >
-                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 block sm:hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" /></svg>
-                                    <span className="hidden sm:inline-flex items-center"><svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" /></svg>Pay Balance</span>
-                                  </button>
-                                )}
-                              <button
-                                onClick={() => handleDeleteContribution(memberData.contribution!.id)}
-                                className="text-red-600 hover:text-red-900 flex items-center"
-                                title="Delete contribution"
-                              >
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 block sm:hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                                <span className="hidden sm:inline-flex items-center"><svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>Delete</span>
-                              </button>
-                              </>
-                            ) : (
-                              <button
-                                onClick={() => {
-                                  setNewContribution({
-                                    ...newContribution,
-                                    memberId: memberData.member.id.toString(),
-                                    month: selectedMonth,
-                                  });
-                                  setShowAddForm(true);
-                                }}
-                                className="text-green-600 hover:text-green-900 flex items-center"
-                                title="Add payment"
-                              >
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 block sm:hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" /></svg>
-                                <span className="hidden sm:inline-flex items-center"><svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" /></svg>Add Payment</span>
-                              </button>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
-                    )
-                  )
-                ) : filteredContributions.length === 0 ? (
-                  <tr>
-                    <td
-                      colSpan={6}
-                      className="px-6 py-4 text-center text-gray-500"
-                    >
-                      No contributions found. Record contributions for this chit
-                      fund.
-                    </td>
-                  </tr>
-                ) : (
-                  filteredContributions.map((contribution) => (
-                    <tr
-                      key={contribution.id}
-                      className="hover:bg-gray-50 dark:hover:bg-surface-hover cursor-pointer"
-                      onClick={() => handleViewContribution(contribution)}
-                    >
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm font-medium text-blue-600">
-                          {contribution.member?.globalMember?.name ||
-                            `Member ID: ${contribution.memberId}`}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900 dark:text-theme-primary">
-                          Month {contribution.month}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900 dark:text-theme-primary">
-                          {formatCurrency(contribution.amount)}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900 dark:text-theme-primary">
-                          {formatDate(contribution.paidDate)}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        {contribution.balance > 0 ||
-                        contribution.balancePaymentStatus === "Paid" ? (
-                          <div>
-                            {contribution.balancePaymentStatus === "Paid" ? (
-                              <div className="text-sm text-green-600 font-semibold">
-                                Paid in full
-                              </div>
-                            ) : (
-                              <div className="text-sm text-red-600 font-semibold">
-                                {formatCurrency(contribution.balance)}
-                              </div>
-                            )}
+  // Form: values are kept between openings and reset after a save (as the page always did).
+  const [formOpen, setFormOpen] = React.useState(false);
+  const [formMounted, setFormMounted] = React.useState(false);
+  const [formValues, setFormValues] = React.useState<ContributionFormValues>(() => emptyContributionForm());
+  const [formError, setFormError] = React.useState<string | null>(null);
+  const [detailsId, setDetailsId] = React.useState<number | null>(null);
+  const [payId, setPayId] = React.useState<number | null>(null);
+  const [deleteId, setDeleteId] = React.useState<number | null>(null);
+  const [mounted, setMounted] = React.useState({ details: false, pay: false });
+  const [detailsOpen, setDetailsOpen] = React.useState(false);
+  const [payOpen, setPayOpen] = React.useState(false);
 
-                            <div className="text-xs mt-1">
-                              <span
-                                className={`px-2 py-1 rounded-full ${
-                                  contribution.balancePaymentStatus === "Paid"
-                                    ? "bg-green-100 text-green-800"
-                                    : contribution.balancePaymentStatus ===
-                                      "Overdue"
-                                    ? "bg-red-100 text-red-800"
-                                    : "bg-yellow-100 text-yellow-800"
-                                }`}
-                              >
-                                {contribution.balancePaymentStatus || "Pending"}
-                              </span>
-                            </div>
+  const index = React.useMemo(() => indexByMonth(data?.allContributions ?? []), [data]);
+  const names = React.useMemo(() => new Map((data?.members ?? []).map((m) => [m.id, m])), [data]);
+  const monthRows = React.useMemo(
+    () => (fund && data ? buildMonthRows(fund, data, index, writes.pending) : []),
+    [fund, data, index, writes.pending]
+  );
+  const memberRows = React.useMemo<MemberMonthRow[]>(() => {
+    if (!data || selectedMonth === null) return [];
+    const byMember = index.get(selectedMonth);
+    return (data.members ?? []).map((member) => ({ member, contribution: byMember?.get(member.id) ?? null, pending: pendingFor(writes.pending, member.id, selectedMonth) }));
+  }, [data, index, selectedMonth, writes.pending]);
+  const visibleMemberRows = React.useMemo(() => {
+    const q = list.params.q.trim().toLowerCase();
+    return memberRows.filter((r) => {
+      if (q && !(r.member.globalMember?.name ?? '').toLowerCase().includes(q) && !(r.member.globalMember?.contact ?? '').toLowerCase().includes(q)) return false;
+      const paid = !!r.contribution || !!r.pending;
+      if (list.params.status === 'paid' && !paid) return false;
+      if (list.params.status === 'pending' && paid) return false;
+      return true;
+    });
+  }, [memberRows, list.params.q, list.params.status]);
 
-                            {contribution.balancePaymentDate && (
-                              <div className="text-xs text-gray-500 mt-1">
-                                Expected payment:{" "}
-                                {formatDate(contribution.balancePaymentDate)}
-                              </div>
-                            )}
+  const allContributions = data?.allContributions;
+  const byId = React.useMemo(() => new Map((allContributions ?? []).map((c) => [c.id, c])), [allContributions]);
+  const memberName = (memberId: number) => names.get(memberId)?.globalMember?.name || `Member ID: ${memberId}`;
 
-                            {contribution.actualBalancePaymentDate && (
-                              <div className="text-xs text-green-600 mt-1">
-                                Paid on:{" "}
-                                {formatDate(
-                                  contribution.actualBalancePaymentDate
-                                )}
-                              </div>
-                            )}
-                          </div>
-                        ) : (
-                          <div className="text-sm text-green-600 font-semibold">
-                            Paid in full
-                          </div>
-                        )}
-                      </td>
-                      <td
-                        className="px-6 py-4 whitespace-nowrap text-right"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        <div className="flex justify-end space-x-3">
-                          {/* Icon only on mobile, icon+text on desktop */}
-                          {/* <button
-                            onClick={() => handleEditContribution(contribution)}
-                            className="text-blue-600 hover:text-blue-900 flex items-center"
-                            title="Edit contribution"
-                          >
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 block sm:hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
-                            <span className="hidden sm:inline-flex items-center"><svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>Edit</span>
-                          </button> */}
-                          {hasPendingBalance(contribution) && (
-                            <button
-                              onClick={() => setContributionToPay(contribution)}
-                              className="text-green-600 hover:text-green-900 flex items-center"
-                              title="Pay pending balance"
-                            >
-                              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 block sm:hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" /></svg>
-                              <span className="hidden sm:inline-flex items-center"><svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" /></svg>Pay Balance</span>
-                            </button>
-                          )}
-                          <button
-                            onClick={() => handleDeleteContribution(contribution.id)}
-                            className="text-red-600 hover:text-red-900 flex items-center"
-                            title="Delete contribution"
-                          >
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 block sm:hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                            <span className="hidden sm:inline-flex items-center"><svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>Delete</span>
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
+  if (!fund) {
+    if (fundQuery.error) {
+      const status = fundQuery.error instanceof ApiError ? fundQuery.error.status : 0;
+      if (status === 404 || status === 403 || status === 400) {
+        return (
+          <EmptyState
+            title="Chit fund not found"
+            description={status === 404 ? `Chit fund with ID ${params.id} not found. It may have been deleted or you don't have permission to view it.` : 'The chit fund you are looking for does not exist or has been removed.'}
+            action={
+              <Button size="sm" variant="outline" asChild>
+                <Link href="/chit-funds">Back to chit funds</Link>
+              </Button>
+            }
+          />
+        );
+      }
+      return <ErrorState title="Couldn't load this chit fund" error={fundQuery.error} onRetry={() => void fundQuery.mutate()} />;
+    }
+    return <PageSkeleton />;
+  }
+
+  const openForm = (preset?: Partial<ContributionFormValues>) => {
+    if (preset) setFormValues((prev) => ({ ...prev, ...preset }));
+    setFormError(null);
+    setFormMounted(true);
+    setFormOpen(true);
+  };
+
+  const submitContribution = (values: ContributionFormValues) => {
+    setFormOpen(false);
+    const body = contributionBody(values, fund);
+    const member = names.get(Number(values.memberId));
+    void writes
+      .record(body, member?.globalMemberId)
+      .then(() => {
+        toast.success('Contribution recorded', { description: `${member?.globalMember?.name ?? 'Member'} · Month ${values.month} · ${formatMoney(Number(values.amount))}` });
+        setFormValues(emptyContributionForm(fund.monthlyContribution?.toString() || ''));
+      })
+      .catch((error) => {
+        const message = error instanceof ContributionBusyError ? error.message : errorMessage(error) ?? 'Failed to add contribution. Please try again.';
+        toast.error('Contribution not recorded', { description: message });
+        setFormValues(values);
+        setFormError(message);
+        setFormOpen(true);
+      });
+  };
+
+  const detailsRow = detailsId !== null ? byId.get(detailsId) ?? null : null;
+  const payRow = payId !== null ? byId.get(payId) ?? null : null;
+  const deleteRow = deleteId !== null ? byId.get(deleteId) ?? null : null;
+  const openPay = (c: ShownContribution) => {
+    setDetailsOpen(false);
+    setMounted((m) => ({ ...m, pay: true }));
+    setPayId(c.id);
+    setPayOpen(true);
+  };
+
+  const loadingGrid = !data && !statusQuery.error;
+  const refreshing = !!data && statusQuery.isValidating && !writes.saving;
+
+  // ── Month list ────────────────────────────────────────────────────────────
+  const monthColumns: DataTableColumn<MonthRow>[] = [
+    {
+      id: 'month',
+      header: 'Month',
+      cell: (r) => (
+        <span className="block whitespace-nowrap">
+          <span className="font-medium text-primary-text">Month {r.month}</span>
+          {calendarMonth(fund.startDate, r.month) ? <span className="block text-xs text-muted-foreground">{calendarMonth(fund.startDate, r.month)}</span> : null}
+        </span>
+      ),
+    },
+    {
+      id: 'contributions',
+      header: 'Contributions',
+      cell: (r) => (
+        <Updating active={r.saving}>
+          <div className="min-w-[12rem]">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="tabular-nums">
+                {r.contributionCount} of {r.memberCount} members
+              </span>
+              {r.pendingCount > 0 ? <StatusBadge status="Overdue" label={`${r.pendingCount} pending`} /> : null}
+            </div>
+            {r.pendingCount > 0 ? (
+              <details className="mt-2 text-xs text-muted-foreground" onClick={(e) => e.stopPropagation()}>
+                <summary className="cursor-pointer text-primary-text hover:underline">Show pending members</summary>
+                <ul className="mt-1 list-disc pl-4">
+                  {r.pendingMembers.map((m) => (
+                    <li key={m.id} className="text-destructive-text">
+                      {m.globalMember.name}
+                    </li>
+                  ))}
+                </ul>
+              </details>
+            ) : null}
+          </div>
+        </Updating>
+      ),
+    },
+    { id: 'expected', header: 'Expected amount', numeric: true, cell: (r) => <Money value={r.totalExpected} tone="plain" /> },
+    { id: 'collected', header: 'Collected amount', numeric: true, cell: (r) => <Updating active={r.saving}><Money value={r.totalCollected} tone="plain" /></Updating> },
+    {
+      id: 'outstanding',
+      header: 'Outstanding balance',
+      numeric: true,
+      cell: (r) => (
+        <Updating active={r.saving}>
+          {r.totalBalance > 0 ? (
+            <div className="text-right">
+              <Money value={r.totalBalance} tone="overdue" className="font-semibold" />
+              {r.pendingCount > 0 ? (
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Includes {r.pendingCount} pending member{r.pendingCount > 1 ? 's' : ''}
+                </p>
+              ) : null}
+            </div>
           ) : (
-            // Month View
-            <table className="w-full min-w-[700px] divide-y divide-surface-border text-xs sm:text-sm">
-              <thead className="bg-gray-50 dark:bg-surface-elevated">
-                <tr>
-                  <th scope="col" className="px-2 sm:px-6 py-2 sm:py-3 text-left font-medium text-gray-500 uppercase tracking-wider">Month</th>
-                  <th scope="col" className="px-2 sm:px-6 py-2 sm:py-3 text-left font-medium text-gray-500 uppercase tracking-wider">Contributions</th>
-                  <th scope="col" className="px-2 sm:px-6 py-2 sm:py-3 text-left font-medium text-gray-500 uppercase tracking-wider">Expected Amount</th>
-                  <th scope="col" className="px-2 sm:px-6 py-2 sm:py-3 text-left font-medium text-gray-500 uppercase tracking-wider">Collected Amount</th>
-                  <th scope="col" className="px-2 sm:px-6 py-2 sm:py-3 text-left font-medium text-gray-500 uppercase tracking-wider">Outstanding Balance</th>
-                </tr>
-              </thead>
-              <tbody>
-                {contributionsByMonth.length === 0 ? (
-                  <tr>
-                    <td
-                      colSpan={5}
-                      className="px-6 py-4 text-center text-gray-500"
-                    >
-                      No contributions found. Record contributions for this chit
-                      fund.
-                    </td>
-                  </tr>
-                ) : (
-                  contributionsByMonth
-                    .filter(
-                      (monthData) =>
-                        selectedMonth === "all" ||
-                        monthData.month.toString() === selectedMonth
-                    )
-                    .map((monthData) => (
-                      <tr
-                        key={monthData.month}
-                        className="hover:bg-gray-50 dark:hover:bg-surface-hover cursor-pointer"
-                        onClick={() => {
-                          setMemberDetail(true);
-                          setSelectedMonth(String(monthData.month));
-                        }}
-                      >
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm font-medium text-blue-600">
-                            Month {monthData.month}
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-gray-900 dark:text-theme-primary">
-                            {monthData.contributionCount} of{" "}
-                            {monthData.memberCount} members
-                            {monthData.pendingCount > 0 && (
-                              <span className="ml-2 px-2 py-1 bg-red-100 text-red-800 text-xs rounded-full">
-                                {monthData.pendingCount} pending
-                              </span>
-                            )}
-                          </div>
-                          {monthData.pendingCount > 0 && (
-                            <div className="mt-2 text-xs text-gray-500">
-                              <details>
-                                <summary className="cursor-pointer text-blue-600 hover:text-blue-800">
-                                  Show pending members
-                                </summary>
-                                <ul className="mt-1 pl-4 list-disc">
-                                  {monthData.pendingMembers.map(
-                                    (memberData) => (
-                                      <li
-                                        key={memberData.member.id}
-                                        className="text-red-600"
-                                      >
-                                        {memberData.member.globalMember.name}
-                                      </li>
-                                    )
-                                  )}
-                                </ul>
-                              </details>
-                            </div>
-                          )}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-gray-900 dark:text-theme-primary">
-                            {formatCurrency(monthData.totalExpected)}
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-gray-900 dark:text-theme-primary">
-                            {formatCurrency(monthData.totalCollected)}
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          {monthData.totalBalance > 0 ? (
-                            <div>
-                              <div className="text-sm text-red-600 font-semibold">
-                                {formatCurrency(monthData.totalBalance)}
-                              </div>
-                              {monthData.pendingCount > 0 && (
-                                <div className="text-xs text-gray-500 mt-1">
-                                  Includes {monthData.pendingCount} pending
-                                  member{monthData.pendingCount > 1 ? "s" : ""}
-                                </div>
-                              )}
-                            </div>
-                          ) : (
-                            <div className="text-sm text-green-600 font-semibold">
-                              Fully collected
-                            </div>
-                          )}
-                        </td>
-                      </tr>
-                    ))
-                )}
-              </tbody>
-            </table>
+            <span className="font-semibold text-success-text">Fully collected</span>
+          )}
+        </Updating>
+      ),
+    },
+  ];
+
+  // ── One month's members ───────────────────────────────────────────────────
+  const memberColumns: DataTableColumn<MemberMonthRow>[] = [
+    { id: 'member', header: 'Member', cell: (r) => <span className="font-medium text-foreground">{r.member.globalMember.name}</span> },
+    { id: 'month', header: 'Month', hideBelow: 'lg', cell: () => <span className="whitespace-nowrap">{monthLabel(fund.startDate, selectedMonth as number)}</span> },
+    {
+      id: 'amount',
+      header: 'Amount',
+      numeric: true,
+      cell: (r) =>
+        r.contribution ? <Money value={r.contribution.amount} tone="plain" /> : r.pending ? <Money value={r.pending.amount} tone="plain" /> : <Money value={fund.monthlyContribution} tone="plain" className="text-muted-foreground" />,
+    },
+    {
+      id: 'paidDate',
+      header: 'Paid date',
+      cell: (r) =>
+        r.contribution ? (
+          <DateText value={r.contribution.paidDate} />
+        ) : r.pending ? (
+          <span className="flex flex-col items-start gap-1">
+            <DateText value={r.pending.paidDate} />
+            <StatusBadge status="saving" />
+          </span>
+        ) : (
+          <span className="font-semibold text-destructive-text">Pending</span>
+        ),
+    },
+    {
+      id: 'balance',
+      header: 'Balance',
+      cell: (r) =>
+        r.contribution ? (
+          <BalanceCell c={r.contribution} updating={writes.updatingIds.has(r.contribution.id)} />
+        ) : r.pending ? (
+          <Updating active>
+            <span className="text-muted-foreground">—</span>
+          </Updating>
+        ) : (
+          <span className="text-muted-foreground">-</span>
+        ),
+    },
+    {
+      id: 'actions',
+      header: <span className="sr-only">Actions</span>,
+      align: 'right',
+      cell: (r) => (
+        <div className="flex flex-wrap justify-end gap-1.5">
+          {r.contribution ? (
+            <>
+              {hasPendingBalance(r.contribution) ? (
+                <Button size="sm" variant="outline" disabled={writes.busy} onClick={() => openPay(r.contribution!)}>
+                  <Wallet aria-hidden="true" />
+                  Pay balance
+                </Button>
+              ) : null}
+              <Button size="sm" variant="ghost" className="text-destructive-text hover:bg-destructive-subtle hover:text-destructive-text" aria-label="Delete contribution" disabled={writes.busy} onClick={() => setDeleteId(r.contribution!.id)}>
+                <Trash2 aria-hidden="true" />
+                <span className="hidden sm:inline">Delete</span>
+              </Button>
+            </>
+          ) : r.pending ? null : (
+            <Button size="sm" variant="outline" disabled={writes.busy} onClick={() => openForm({ memberId: r.member.id.toString(), month: String(selectedMonth) })}>
+              <Plus aria-hidden="true" />
+              Add payment
+            </Button>
           )}
         </div>
-      </div>
+      ),
+    },
+  ];
 
-      {/* Delete Confirmation Modal */}
-      {showDeleteModal && (
-        <div className="modal-overlay flex items-center justify-center z-50">
-          <div className="themed-card p-6 w-full max-w-md">
-            <h2 className="text-xl font-bold text-red-700 mb-4">
-              Confirm Deletion
-            </h2>
-            <p className="mb-6">
-              Are you sure you want to delete this contribution? This action
-              cannot be undone.
-            </p>
-            <div className="flex justify-end space-x-4">
-              <button
-                type="button"
-                onClick={() => {
-                  setShowDeleteModal(false);
-                  setContributionToDelete(null);
-                }}
-                className="btn-neutral px-4 py-2 rounded-lg transition duration-300"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={confirmDeleteContribution}
-                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition duration-300"
-              >
-                Delete
-              </button>
-            </div>
+  const chips = [
+    ...(list.params.q ? [{ key: 'q', label: `Search: ${list.params.q}`, onRemove: () => list.setParams({ q: null }) }] : []),
+    ...(list.params.status ? [{ key: 'status', label: list.params.status === 'paid' ? 'Paid' : 'Not paid', onRemove: () => list.setParams({ status: null }) }] : []),
+  ];
+  const memberFilterActive = chips.length > 0;
+
+  return (
+    <div>
+      <PageHeader
+        eyebrow={`Chit fund #${fund.id} · ${fund.name}`}
+        title={selectedMonth ? `Contributions · Month ${selectedMonth}` : 'Contributions'}
+        description={
+          selectedMonth ? (
+            <>
+              {calendarMonth(fund.startDate, selectedMonth) ? <>{calendarMonth(fund.startDate, selectedMonth)} · </> : null}
+              Monthly contribution <Money value={fund.monthlyContribution} tone="plain" />
+            </>
+          ) : (
+            <>
+              Month {fund.currentMonth} of {fund.duration}
+              {calendarMonth(fund.startDate, fund.currentMonth) ? <> ({calendarMonth(fund.startDate, fund.currentMonth)})</> : null} · Monthly contribution{' '}
+              <Money value={fund.monthlyContribution} tone="plain" />
+            </>
+          )
+        }
+        actions={
+          <>
+            <Button variant="outline" className={iconOnPhone} asChild>
+              <Link href={`/chit-funds/${fund.id}/members`}>
+                <Users aria-hidden="true" />
+                <span className="max-sm:sr-only">View members</span>
+              </Link>
+            </Button>
+            <Button className={iconOnPhone} onClick={() => openForm()} disabled={!data}>
+              <Plus aria-hidden="true" />
+              <span className="max-sm:sr-only">Record contribution</span>
+            </Button>
+          </>
+        }
+      />
+
+      <ListToolbar
+        search={
+          selectedMonth ? (
+            <SearchInput value={list.params.q} onChange={(q) => list.setParams({ q })} placeholder="Search members" label="Search members of this month" />
+          ) : undefined
+        }
+        primaryFilter={
+          // Phones: the month and payment selects share one row; the month select's "All months"
+          // option replaces the back button there.
+          <div className={selectedMonth ? 'grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center' : 'flex flex-wrap items-center gap-2'}>
+            {selectedMonth ? (
+              <Button variant="ghost" size="sm" className="hidden sm:inline-flex" onClick={() => list.setParams({ month: null, q: null, status: null })}>
+                <ArrowLeft aria-hidden="true" />
+                All months
+              </Button>
+            ) : null}
+            <NativeSelect
+              aria-label="Month"
+              className="w-full sm:w-48"
+              value={selectedMonth ? String(selectedMonth) : ''}
+              onValueChange={(value) => list.setParams(value ? { month: value } : { month: null, q: null, status: null })}
+              options={[{ value: '', label: 'All months' }, ...Array.from({ length: fund.duration }, (_, i) => ({ value: String(i + 1), label: monthLabel(fund.startDate, i + 1) }))]}
+            />
+            {selectedMonth ? (
+              <NativeSelect aria-label="Payment" className="w-full sm:w-40" value={list.params.status ?? ''} onValueChange={(value) => list.setParams({ status: value || null })} options={STATUS_OPTIONS} />
+            ) : null}
           </div>
-        </div>
-      )}
+        }
+        chips={selectedMonth && chips.length ? <FilterChips chips={chips} onClearAll={() => list.setParams({ q: null, status: null })} /> : undefined}
+        resultSummary={selectedMonth && data ? `${visibleMemberRows.length} of ${memberRows.length} members` : null}
+      />
 
-      {/* Edit Contribution Form */}
-      {showEditForm && contributionToEdit && (
-        <div className="modal-overlay flex items-center justify-center z-50">
-          <div className="themed-card p-6 w-full max-w-md">
-            <h2 className="section-heading mb-4">
-              Edit Contribution
-            </h2>
-            <form onSubmit={handleEditFormSubmit}>
-              <div className="mb-4">
-                <label
-                  htmlFor="amount"
-                  className="block text-sm font-medium text-gray-700 dark:text-theme-secondary mb-1"
-                >
-                  Amount <span className="text-red-500">*</span>
-                </label>
-                <div className="flex items-center">
-                  <input
-                    type="number"
-                    id="amount"
-                    name="amount"
-                    value={editFormData.amount}
-                    onChange={handleEditFormChange}
-                    className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                      editFormErrors.amount
-                        ? "border-red-500"
-                        : "border-gray-200 dark:border-surface-border"
-                    }`}
-                  />
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setEditFormData({
-                        ...editFormData,
-                        amount: chitFund.monthlyContribution.toString(),
-                      })
-                    }
-                    className="btn-neutral ml-2 px-3 py-2 rounded-lg transition duration-300"
-                  >
-                    Full Amount
-                  </button>
+      {selectedMonth ? (
+        <DataTable<MemberMonthRow>
+          label={`Contributions for month ${selectedMonth}`}
+          mode="client"
+          columns={memberColumns}
+          rows={visibleMemberRows}
+          getRowId={(r) => r.member.id}
+          isInitialLoading={loadingGrid}
+          isRefreshing={refreshing}
+          error={statusQuery.error}
+          onRetry={() => void statusQuery.mutate()}
+          skeletonRows={8}
+          onRowClick={(r) => {
+            if (!r.contribution) return;
+            setMounted((m) => ({ ...m, details: true }));
+            setDetailsId(r.contribution.id);
+            setDetailsOpen(true);
+          }}
+          rowClassName={(r) => (r.pending ? 'bg-info-subtle/60' : undefined)}
+          renderCard={(r) => (
+            <div className="space-y-2">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="truncate font-medium text-foreground">{r.member.globalMember.name}</p>
+                  <p className="text-xs text-muted-foreground">{monthLabel(fund.startDate, selectedMonth)}</p>
                 </div>
-                {Number(editFormData.amount) < chitFund.monthlyContribution &&
-                  Number(editFormData.amount) > 0 && (
-                    <p className="mt-1 text-sm text-orange-500">
-                      This is a partial payment. Balance of{" "}
-                      {formatCurrency(
-                        chitFund.monthlyContribution -
-                          Number(editFormData.amount)
-                      )}{" "}
-                      will be recorded.
-                    </p>
+                <div className="shrink-0 text-right">
+                  {r.contribution ? (
+                    <Money value={r.contribution.amount} tone="plain" className="font-medium" />
+                  ) : r.pending ? (
+                    <Money value={r.pending.amount} tone="plain" className="font-medium" />
+                  ) : (
+                    <Money value={fund.monthlyContribution} tone="plain" className="font-medium text-muted-foreground" />
                   )}
-                {editFormErrors.amount && (
-                  <p className="mt-1 text-sm text-red-500">
-                    {editFormErrors.amount}
-                  </p>
-                )}
-              </div>
-              <div className="mb-4">
-                <label
-                  htmlFor="paidDate"
-                  className="block text-sm font-medium text-gray-700 dark:text-theme-secondary mb-1"
-                >
-                  Paid Date <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="date"
-                  id="paidDate"
-                  name="paidDate"
-                  value={editFormData.paidDate}
-                  onChange={handleEditFormChange}
-                  className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                    editFormErrors.paidDate
-                      ? "border-red-500"
-                      : "border-gray-200 dark:border-surface-border"
-                  }`}
-                />
-                {editFormErrors.paidDate && (
-                  <p className="mt-1 text-sm text-red-500">
-                    {editFormErrors.paidDate}
-                  </p>
-                )}
-              </div>
-
-              {Number(editFormData.amount) < chitFund.monthlyContribution && (
-                <>
-                  <div className="mb-4">
-                    <label
-                      htmlFor="balancePaymentStatus"
-                      className="block text-sm font-medium text-gray-700 dark:text-theme-secondary mb-1"
-                    >
-                      Balance Payment Status
-                    </label>
-                    <select
-                      id="balancePaymentStatus"
-                      name="balancePaymentStatus"
-                      value={editFormData.balancePaymentStatus}
-                      onChange={(e) =>
-                        setEditFormData({
-                          ...editFormData,
-                          balancePaymentStatus: e.target.value,
-                        })
-                      }
-                      className="w-full px-4 py-2 border border-gray-200 dark:border-surface-border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    >
-                      <option value="Pending">Pending</option>
-                      <option value="Paid">Paid</option>
-                      <option value="Overdue">Overdue</option>
-                    </select>
-                  </div>
-
-                  <div className="mb-4">
-                    <label
-                      htmlFor="balancePaymentDate"
-                      className="block text-sm font-medium text-gray-700 dark:text-theme-secondary mb-1"
-                    >
-                      Expected Payment Date
-                    </label>
-                    <input
-                      type="date"
-                      id="balancePaymentDate"
-                      name="balancePaymentDate"
-                      value={editFormData.balancePaymentDate}
-                      onChange={handleEditFormChange}
-                      className="w-full px-4 py-2 border border-gray-200 dark:border-surface-border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    />
-                    <p className="mt-1 text-xs text-gray-500">
-                      Date when the remaining balance is expected to be paid
-                    </p>
-                  </div>
-
-                  {editFormData.balancePaymentStatus === "Paid" && (
-                    <div className="mb-4">
-                      <label
-                        htmlFor="actualBalancePaymentDate"
-                        className="block text-sm font-medium text-gray-700 dark:text-theme-secondary mb-1"
-                      >
-                        Actual Payment Date
-                      </label>
-                      <input
-                        type="date"
-                        id="actualBalancePaymentDate"
-                        name="actualBalancePaymentDate"
-                        value={editFormData.actualBalancePaymentDate}
-                        onChange={handleEditFormChange}
-                        className="w-full px-4 py-2 border border-gray-200 dark:border-surface-border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      />
-                      <p className="mt-1 text-xs text-gray-500">
-                        Date when the balance was actually paid
-                      </p>
-                    </div>
-                  )}
-                </>
-              )}
-              {editFormErrors.submit && (
-                <div className="mb-4 alert-error px-4 py-3 rounded">
-                  <p>{editFormErrors.submit}</p>
-                </div>
-              )}
-              <div className="flex justify-end space-x-4">
-                <button
-                  type="button"
-                  onClick={() => setShowEditForm(false)}
-                  className="btn-neutral px-4 py-2 rounded-lg transition duration-300"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={isEditing}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-300 disabled:opacity-50"
-                >
-                  {isEditing ? "Updating..." : "Update Contribution"}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Contribution Detail Modal */}
-      {showDetailModal && selectedContribution && (
-        <div className="modal-overlay flex items-center justify-center z-50">
-          <div className="themed-card p-6 w-full max-w-md">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="section-heading">
-                Contribution Details
-              </h2>
-              <button
-                onClick={() => setShowDetailModal(false)}
-                className="text-gray-500 hover:text-gray-700 dark:text-theme-secondary"
-              >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  className="h-6 w-6"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M6 18L18 6M6 6l12 12"
-                  />
-                </svg>
-              </button>
-            </div>
-
-            <div className="bg-gray-50 dark:bg-surface-elevated p-4 rounded-lg mb-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <p className="text-sm text-gray-500">Member</p>
-                  <p className="text-md font-semibold">
-                    {getMemberName(selectedContribution)}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-500">Month</p>
-                  <p className="text-md font-semibold">
-                    Month {selectedContribution.month}
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            <div className="mb-4">
-              <h3 className="text-lg font-semibold mb-2">
-                Payment Information
-              </h3>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <p className="text-sm text-gray-500">Amount Paid</p>
-                  <p className="text-md font-semibold">
-                    {formatCurrency(selectedContribution.amount)}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-500">Payment Date</p>
-                  <p className="text-md font-semibold">
-                    {formatDate(selectedContribution.paidDate)}
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {(selectedContribution.balance > 0 ||
-              selectedContribution.balancePaymentStatus === "Paid") && (
-              <div className="mb-4">
-                <h3 className="text-lg font-semibold mb-2">
-                  Balance Information
-                </h3>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <p className="text-sm text-gray-500">Balance Amount</p>
-                    {selectedContribution.balancePaymentStatus === "Paid" ? (
-                      <p className="text-md font-semibold text-green-600">
-                        Paid in full
-                      </p>
+                  <div className="mt-1 text-xs">
+                    {r.contribution ? (
+                      <span className="text-muted-foreground">
+                        Paid <DateText value={r.contribution.paidDate} />
+                      </span>
+                    ) : r.pending ? (
+                      <StatusBadge status="saving" />
                     ) : (
-                      <p className="text-md font-semibold text-red-600">
-                        {formatCurrency(selectedContribution.balance)}
-                      </p>
+                      <span className="font-semibold text-destructive-text">Pending</span>
                     )}
                   </div>
-                  <div>
-                    <p className="text-sm text-gray-500">Status</p>
-                    <p
-                      className={`text-md font-semibold ${
-                        selectedContribution.balancePaymentStatus === "Paid"
-                          ? "text-green-600"
-                          : selectedContribution.balancePaymentStatus ===
-                            "Overdue"
-                          ? "text-red-600"
-                          : "text-yellow-600"
-                      }`}
-                    >
-                      {selectedContribution.balancePaymentStatus || "Pending"}
-                    </p>
-                  </div>
-
-                  {selectedContribution.balancePaymentDate && (
-                    <div className="col-span-2">
-                      <p className="text-sm text-gray-500">
-                        Expected Payment Date
-                      </p>
-                      <p className="text-md font-semibold">
-                        {formatDate(selectedContribution.balancePaymentDate)}
-                      </p>
-                    </div>
-                  )}
-
-                  {selectedContribution.actualBalancePaymentDate && (
-                    <div className="col-span-2">
-                      <p className="text-sm text-gray-500">
-                        Actual Payment Date
-                      </p>
-                      <p className="text-md font-semibold text-green-600">
-                        {formatDate(
-                          selectedContribution.actualBalancePaymentDate
-                        )}
-                      </p>
-                    </div>
-                  )}
                 </div>
               </div>
-            )}
-
-            <div className="flex justify-end space-x-3 mt-6">
-              {/* <button
-                onClick={() => {
-                  setShowDetailModal(false);
-                  handleEditContribution(selectedContribution);
-                }}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-300"
-              >
-                Edit
-              </button> */}
-              {hasPendingBalance(selectedContribution) && (
-                <button
-                  onClick={() => {
-                    setShowDetailModal(false);
-                    setContributionToPay(selectedContribution);
-                  }}
-                  className="btn-primary"
-                >
-                  Pay Balance
-                </button>
-              )}
-              <button
-                onClick={() => setShowDetailModal(false)}
-                className="btn-neutral px-4 py-2 rounded-lg transition duration-300"
-              >
-                Close
-              </button>
+              {r.contribution && hasPendingBalance(r.contribution) ? (
+                <div className="text-sm">
+                  <BalanceCell c={r.contribution} updating={writes.updatingIds.has(r.contribution.id)} />
+                </div>
+              ) : null}
+              <div onClick={(event) => event.stopPropagation()}>{memberColumns[memberColumns.length - 1].cell(r, 0)}</div>
             </div>
-          </div>
-        </div>
-      )}
-
-      {/* Pay Pending Balance */}
-      {contributionToPay && (
-        <PayContributionBalanceModal
-          chitFundId={chitFundId as string}
-          contribution={contributionToPay}
-          memberName={getMemberName(contributionToPay)}
-          onClose={() => setContributionToPay(null)}
-          onPaid={handleBalancePaid}
+          )}
+          emptyState={
+            memberFilterActive ? (
+              <EmptyState variant="no-results" description="No members of this month match these filters." onClearFilters={() => list.setParams({ q: null, status: null })} />
+            ) : (
+              <EmptyState
+                title="No members yet"
+                description="No contributions found. Add members to this chit fund, then record their contributions."
+                action={
+                  <Button size="sm" asChild>
+                    <Link href={`/chit-funds/${fund.id}/members`}>Add members</Link>
+                  </Button>
+                }
+              />
+            )
+          }
+        />
+      ) : (
+        <DataTable<MonthRow>
+          label="Contributions by month"
+          mode="client"
+          columns={monthColumns}
+          rows={monthRows}
+          getRowId={(r) => r.month}
+          isInitialLoading={loadingGrid}
+          isRefreshing={refreshing}
+          error={statusQuery.error}
+          onRetry={() => void statusQuery.mutate()}
+          skeletonRows={8}
+          onRowClick={(r) => list.setParams({ month: String(r.month) })}
+          rowClassName={(r) => (r.saving ? 'bg-info-subtle/60' : undefined)}
+          renderCard={(r) => (
+            <Updating active={r.saving}>
+              <div className="space-y-2">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="font-medium text-primary-text">Month {r.month}</p>
+                    {calendarMonth(fund.startDate, r.month) ? <p className="text-xs text-muted-foreground">{calendarMonth(fund.startDate, r.month)}</p> : null}
+                  </div>
+                  <div className="shrink-0 text-right">
+                    <p className="text-sm tabular-nums text-foreground">
+                      {r.contributionCount} of {r.memberCount} paid
+                    </p>
+                    {r.pendingCount > 0 ? <StatusBadge status="Overdue" label={`${r.pendingCount} pending`} className="mt-1" /> : <span className="text-xs font-medium text-success-text">Fully collected</span>}
+                  </div>
+                </div>
+                <dl className="grid grid-cols-3 gap-2 text-xs">
+                  <div>
+                    <dt className="text-muted-foreground">Expected</dt>
+                    <dd className="font-medium text-foreground"><Money value={r.totalExpected} tone="plain" /></dd>
+                  </div>
+                  <div>
+                    <dt className="text-muted-foreground">Collected</dt>
+                    <dd className="font-medium text-foreground"><Money value={r.totalCollected} tone="plain" /></dd>
+                  </div>
+                  <div>
+                    <dt className="text-muted-foreground">Outstanding</dt>
+                    <dd className="font-medium">{r.totalBalance > 0 ? <Money value={r.totalBalance} tone="overdue" /> : <span className="text-success-text">None</span>}</dd>
+                  </div>
+                </dl>
+              </div>
+            </Updating>
+          )}
+          emptyState={<EmptyState title="No contributions found" description="Record contributions for this chit fund." />}
         />
       )}
 
-      {/* Add Contribution Form */}
-      {showAddForm && (
-        <div className="modal-overlay flex items-center justify-center z-50">
-          <div className="themed-card p-6 w-full max-w-md">
-            <h2 className="section-heading mb-4">
-              Record New Contribution
-            </h2>
-            <form onSubmit={handleAddContribution}>
-              <div className="mb-4">
-                <label
-                  htmlFor="memberId"
-                  className="block text-sm font-medium text-gray-700 dark:text-theme-secondary mb-1"
-                >
-                  Member <span className="text-red-500">*</span>
-                </label>
-                <select
-                  id="memberId"
-                  name="memberId"
-                  value={newContribution.memberId}
-                  onChange={handleInputChange}
-                  className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                    formErrors.memberId ? "border-red-500" : "border-gray-200 dark:border-surface-border"
-                  }`}
-                >
-                  <option value="">Select a member</option>
-                  {members.map((member) => (
-                    <option key={member.id} value={member.id}>
-                      {member.globalMember.name}
-                    </option>
-                  ))}
-                </select>
-                {formErrors.memberId && (
-                  <p className="mt-1 text-sm text-red-500">
-                    {formErrors.memberId}
-                  </p>
-                )}
-              </div>
-              <div className="mb-4">
-                <label
-                  htmlFor="month"
-                  className="block text-sm font-medium text-gray-700 dark:text-theme-secondary mb-1"
-                >
-                  Month <span className="text-red-500">*</span>
-                </label>
-                <select
-                  id="month"
-                  name="month"
-                  value={newContribution.month}
-                  onChange={handleInputChange}
-                  className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                    formErrors.month ? "border-red-500" : "border-gray-200 dark:border-surface-border"
-                  }`}
-                >
-                  <option value="">Select a month</option>
-                  {months.map((month) => (
-                    <option key={month} value={month}>
-                      Month {month}
-                    </option>
-                  ))}
-                </select>
-                {formErrors.month && (
-                  <p className="mt-1 text-sm text-red-500">
-                    {formErrors.month}
-                  </p>
-                )}
-              </div>
-              <div className="mb-4">
-                <label
-                  htmlFor="amount"
-                  className="block text-sm font-medium text-gray-700 dark:text-theme-secondary mb-1"
-                >
-                  Amount <span className="text-red-500">*</span>
-                </label>
-                <div className="flex items-center">
-                  <input
-                    type="number"
-                    id="amount"
-                    name="amount"
-                    value={newContribution.amount}
-                    onChange={handleInputChange}
-                    placeholder={chitFund.monthlyContribution.toString()}
-                    className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                      formErrors.amount ? "border-red-500" : "border-gray-200 dark:border-surface-border"
-                    }`}
-                  />
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setNewContribution({
-                        ...newContribution,
-                        amount: chitFund.monthlyContribution.toString(),
-                      })
-                    }
-                    className="btn-neutral ml-2 px-3 py-2 rounded-lg transition duration-300"
-                  >
-                    Full Amount
-                  </button>
-                </div>
-                {Number(newContribution.amount) <
-                  chitFund.monthlyContribution &&
-                  Number(newContribution.amount) > 0 && (
-                    <p className="mt-1 text-sm text-orange-500">
-                      This is a partial payment. Balance of{" "}
-                      {formatCurrency(
-                        chitFund.monthlyContribution -
-                          Number(newContribution.amount)
-                      )}{" "}
-                      will be recorded.
-                    </p>
-                  )}
-                {formErrors.amount && (
-                  <p className="mt-1 text-sm text-red-500">
-                    {formErrors.amount}
-                  </p>
-                )}
-              </div>
-              <div className="mb-4">
-                <label
-                  htmlFor="paidDate"
-                  className="block text-sm font-medium text-gray-700 dark:text-theme-secondary mb-1"
-                >
-                  Paid Date <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="date"
-                  id="paidDate"
-                  name="paidDate"
-                  value={newContribution.paidDate}
-                  onChange={handleInputChange}
-                  className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                    formErrors.paidDate ? "border-red-500" : "border-gray-200 dark:border-surface-border"
-                  }`}
-                />
-                {formErrors.paidDate && (
-                  <p className="mt-1 text-sm text-red-500">
-                    {formErrors.paidDate}
-                  </p>
-                )}
-              </div>
+      {formMounted ? (
+        <ContributionFormDialog
+          open={formOpen}
+          onOpenChange={setFormOpen}
+          fund={fund}
+          members={(data?.members ?? []).map((m) => ({ id: m.id, name: m.globalMember.name }))}
+          values={formValues}
+          onValuesChange={setFormValues}
+          submitError={formError}
+          onSubmit={submitContribution}
+          busy={writes.busy}
+        />
+      ) : null}
 
-              {Number(newContribution.amount) > 0 &&
-                Number(newContribution.amount) <
-                  chitFund.monthlyContribution && (
-                  <>
-                    <div className="mb-4">
-                      <label
-                        htmlFor="balancePaymentStatus"
-                        className="block text-sm font-medium text-gray-700 dark:text-theme-secondary mb-1"
-                      >
-                        Balance Payment Status
-                      </label>
-                      <select
-                        id="balancePaymentStatus"
-                        name="balancePaymentStatus"
-                        value={newContribution.balancePaymentStatus}
-                        onChange={handleInputChange}
-                        className="w-full px-4 py-2 border border-gray-200 dark:border-surface-border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      >
-                        <option value="Pending">Pending</option>
-                        <option value="Paid">Paid</option>
-                        <option value="Overdue">Overdue</option>
-                      </select>
-                    </div>
+      {mounted.details ? (
+        <ContributionDetailsDialog
+          open={detailsOpen && detailsRow !== null}
+          onOpenChange={setDetailsOpen}
+          contribution={detailsRow}
+          memberName={detailsRow ? memberName(detailsRow.memberId) : ''}
+          onPayBalance={openPay}
+          updating={detailsRow ? writes.updatingIds.has(detailsRow.id) : false}
+        />
+      ) : null}
 
-                    <div className="mb-4">
-                      <label
-                        htmlFor="balancePaymentDate"
-                        className="block text-sm font-medium text-gray-700 dark:text-theme-secondary mb-1"
-                      >
-                        Expected Payment Date
-                      </label>
-                      <input
-                        type="date"
-                        id="balancePaymentDate"
-                        name="balancePaymentDate"
-                        value={newContribution.balancePaymentDate}
-                        onChange={handleInputChange}
-                        className="w-full px-4 py-2 border border-gray-200 dark:border-surface-border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      />
-                      <p className="mt-1 text-xs text-gray-500">
-                        Date when the remaining balance is expected to be paid
-                      </p>
-                    </div>
+      {mounted.pay ? (
+        <PayBalanceDialog
+          open={payOpen && payRow !== null}
+          onOpenChange={setPayOpen}
+          contribution={payRow}
+          memberName={payRow ? memberName(payRow.memberId) : ''}
+          onSubmit={async (body) => {
+            const member = payRow ? names.get(payRow.memberId) : undefined;
+            await writes.payBalance(body, member?.globalMemberId);
+            toast.success('Balance payment recorded', { description: `${member?.globalMember?.name ?? 'Member'} · Month ${payRow?.month} · ${formatMoney(body.amount)}` });
+          }}
+        />
+      ) : null}
 
-                    {newContribution.balancePaymentStatus === "Paid" && (
-                      <div className="mb-4">
-                        <label
-                          htmlFor="actualBalancePaymentDate"
-                          className="block text-sm font-medium text-gray-700 dark:text-theme-secondary mb-1"
-                        >
-                          Actual Payment Date
-                        </label>
-                        <input
-                          type="date"
-                          id="actualBalancePaymentDate"
-                          name="actualBalancePaymentDate"
-                          value={newContribution.actualBalancePaymentDate}
-                          onChange={handleInputChange}
-                          className="w-full px-4 py-2 border border-gray-200 dark:border-surface-border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                        />
-                        <p className="mt-1 text-xs text-gray-500">
-                          Date when the balance was actually paid
-                        </p>
-                      </div>
-                    )}
-                  </>
-                )}
-              {formErrors.submit && (
-                <div className="mb-4 alert-error px-4 py-3 rounded">
-                  <p>{formErrors.submit}</p>
-                </div>
-              )}
-              <div className="flex justify-end space-x-4">
-                <button
-                  type="button"
-                  onClick={() => setShowAddForm(false)}
-                  className="btn-neutral px-4 py-2 rounded-lg transition duration-300"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={isSubmitting}
-                  className="btn-primary disabled:opacity-50"
-                >
-                  {isSubmitting ? "Recording..." : "Record Contribution"}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      <ConfirmDialog
+        open={deleteRow !== null}
+        onOpenChange={(open) => !open && setDeleteId(null)}
+        title="Delete this contribution?"
+        description="Are you sure you want to delete this contribution? This action cannot be undone."
+        confirmLabel="Delete"
+        onConfirm={async () => {
+          if (!deleteRow) return;
+          await writes.remove(deleteRow.id, names.get(deleteRow.memberId)?.globalMemberId);
+          toast.success('Contribution deleted', { description: `${memberName(deleteRow.memberId)} · Month ${deleteRow.month}` });
+        }}
+      >
+        {deleteRow ? (
+          <p className="text-sm text-muted-foreground">
+            {memberName(deleteRow.memberId)} · Month {deleteRow.month} · <Money value={deleteRow.amount} tone="plain" />
+          </p>
+        ) : null}
+      </ConfirmDialog>
     </div>
   );
 }

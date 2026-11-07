@@ -27,7 +27,9 @@
 - ✅ Protection against brute force attacks
 - ✅ API-specific rate limiting utilities
 
-### 5. **Security Utilities** (lib/security.ts)
+### 5. **Security Utilities** (lib/security.ts, since removed)
+> `lib/security.ts` was never imported and was deleted in the UI-standard cleanup. Authentication and rate limiting run in `middleware.ts` and `lib/auth.ts`; the example below shows the pattern, not a module you can import.
+
 - ✅ Input sanitization functions
 - ✅ Email validation
 - ✅ Password strength validation

@@ -1,5 +1,7 @@
 # Skeleton Loader Updates - December 5, 2025
 
+> Historical. These skeleton files (`app/components/skeletons/*`) were deleted in the UI-standard cleanup; pages now use the kit `PageSkeleton` (`components/kit/page-container.tsx`) and `components/ui/skeleton.tsx`.
+
 ## Overview
 Updated all skeleton loaders across the application to match the current responsive design patterns and UI structure.
 

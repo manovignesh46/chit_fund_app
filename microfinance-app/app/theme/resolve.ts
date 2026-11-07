@@ -1,4 +1,4 @@
-import { THEME_DARK_CLASS, THEME_DATA_ATTRIBUTE } from './config';
+import { THEME_COLOR_DARK, THEME_COLOR_LIGHT, THEME_DARK_CLASS, THEME_DATA_ATTRIBUTE } from './config';
 import type { ResolvedTheme, ThemePreference } from './types';
 
 export function getSystemTheme(): ResolvedTheme {
@@ -19,4 +19,7 @@ export function applyThemeToDocument(resolved: ResolvedTheme): void {
   root.classList.toggle(THEME_DARK_CLASS, resolved === 'dark');
   root.setAttribute(THEME_DATA_ATTRIBUTE, resolved);
   root.style.colorScheme = resolved;
+  // Phone status bar follows the top bar.
+  const color = resolved === 'dark' ? THEME_COLOR_DARK : THEME_COLOR_LIGHT;
+  document.querySelectorAll('meta[name="theme-color"]').forEach((meta) => meta.setAttribute('content', color));
 }
