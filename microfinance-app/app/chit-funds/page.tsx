@@ -41,7 +41,7 @@ import { ListToolbar } from '@/components/kit/list-toolbar';
 import { Money } from '@/components/kit/money';
 import { NativeSelect } from '@/components/kit/native-select';
 import { PageContainer } from '@/components/kit/page-container';
-import { PageHeader } from '@/components/kit/page-header';
+import { iconOnPhone, PageHeader } from '@/components/kit/page-header';
 import { RowActions } from '@/components/kit/row-actions';
 import { SearchInput } from '@/components/kit/search-input';
 import { StatCard } from '@/components/kit/stat-card';
@@ -334,22 +334,21 @@ function ChitFundsList() {
       <PageHeader
         title="Chit funds"
         count={meta?.totalCount}
-        description="Manage active chit fund schemes and auctions"
         actions={
           <>
             <Button variant="ghost" size="icon" onClick={refresh} aria-label="Refresh" title="Refresh">
               <RotateCw aria-hidden="true" className={query.isValidating ? 'motion-safe:animate-spin' : undefined} />
             </Button>
-            <Button variant="outline" asChild>
+            <Button variant="outline" className={iconOnPhone} asChild>
               <Link href="/chit-fund-templates">
                 <Files aria-hidden="true" />
-                Templates
+                <span className="max-sm:sr-only">Templates</span>
               </Link>
             </Button>
-            <Button asChild>
+            <Button className={iconOnPhone} asChild>
               <Link href="/chit-funds/new">
                 <Plus aria-hidden="true" />
-                Add chit fund
+                <span className="max-sm:sr-only">Add chit fund</span>
               </Link>
             </Button>
           </>

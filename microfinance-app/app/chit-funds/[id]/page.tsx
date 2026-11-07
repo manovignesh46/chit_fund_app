@@ -40,7 +40,7 @@ import { EmptyState } from '@/components/kit/empty-state';
 import { ErrorState, errorMessage } from '@/components/kit/error-state';
 import { Money } from '@/components/kit/money';
 import { PageContainer } from '@/components/kit/page-container';
-import { PageHeader } from '@/components/kit/page-header';
+import { iconOnPhone, PageHeader } from '@/components/kit/page-header';
 import { RowActions, type RowAction } from '@/components/kit/row-actions';
 import { SectionCard } from '@/components/kit/section-card';
 import { StatCard } from '@/components/kit/stat-card';
@@ -286,23 +286,23 @@ function ChitFundDetailView() {
         actions={
           <>
             {canAuction ? (
-              <Button asChild>
+              <Button className={iconOnPhone} asChild>
                 <Link href={`/chit-funds/${fund.id}/auctions`}>
                   <Gavel aria-hidden="true" />
-                  Conduct auction
+                  <span className="max-sm:sr-only">Conduct auction</span>
                 </Link>
               </Button>
             ) : null}
-            <Button variant="outline" asChild>
+            <Button variant="outline" className={iconOnPhone} asChild>
               <Link href={`/chit-funds/${fund.id}/members`}>
                 <Users aria-hidden="true" />
-                Members
+                <span className="max-sm:sr-only">Members</span>
               </Link>
             </Button>
-            <Button variant="outline" asChild>
+            <Button variant="outline" className={iconOnPhone} asChild>
               <Link href={`/chit-funds/${fund.id}/contributions`}>
                 <ListChecks aria-hidden="true" />
-                Contributions
+                <span className="max-sm:sr-only">Contributions</span>
               </Link>
             </Button>
             <RowActions label="More chit fund actions" actions={menu} />

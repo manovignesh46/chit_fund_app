@@ -34,7 +34,7 @@ import { ListToolbar } from '@/components/kit/list-toolbar';
 import { Money } from '@/components/kit/money';
 import { NativeSelect } from '@/components/kit/native-select';
 import { PageContainer } from '@/components/kit/page-container';
-import { PageHeader } from '@/components/kit/page-header';
+import { iconOnPhone, PageHeader } from '@/components/kit/page-header';
 import { RowActions } from '@/components/kit/row-actions';
 import { SearchInput } from '@/components/kit/search-input';
 import { StatCard } from '@/components/kit/stat-card';
@@ -362,14 +362,14 @@ function LoansList() {
         count={meta?.totalCount}
         actions={
           <>
-            <Button variant="outline" onClick={() => { void loanAPI.exportAllLoans(); toast('Downloading all loans'); }}>
+            <Button variant="outline" className={iconOnPhone} onClick={() => { void loanAPI.exportAllLoans(); toast('Downloading all loans'); }}>
               <Download aria-hidden="true" />
-              Export all
+              <span className="max-sm:sr-only">Export all</span>
             </Button>
-            <Button asChild>
+            <Button className={iconOnPhone} asChild>
               <Link href="/loans/new">
                 <Plus aria-hidden="true" />
-                New loan
+                <span className="max-sm:sr-only">New loan</span>
               </Link>
             </Button>
           </>

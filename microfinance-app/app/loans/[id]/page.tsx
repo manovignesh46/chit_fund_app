@@ -30,7 +30,7 @@ import { EmptyState } from '@/components/kit/empty-state';
 import { ErrorState } from '@/components/kit/error-state';
 import { Money } from '@/components/kit/money';
 import { PageContainer } from '@/components/kit/page-container';
-import { PageHeader } from '@/components/kit/page-header';
+import { iconOnPhone, PageHeader } from '@/components/kit/page-header';
 import { RowActions, type RowAction } from '@/components/kit/row-actions';
 import { SectionCard } from '@/components/kit/section-card';
 import { StatCard } from '@/components/kit/stat-card';
@@ -301,16 +301,16 @@ function LoanDetail() {
         actions={
           <>
             {!isNR ? (
-              <Button onClick={() => tabs.setValue('payment')}>
+              <Button className={iconOnPhone} onClick={() => tabs.setValue('payment')}>
                 <Plus aria-hidden="true" />
-                Record payment
+                <span className="max-sm:sr-only">Record payment</span>
               </Button>
             ) : null}
             {!loan.nonRecoverableAt ? (
-              <Button variant="outline" asChild>
+              <Button variant="outline" className={iconOnPhone} asChild>
                 <Link href={`/loans/${loan.id}/edit`}>
                   <Pencil aria-hidden="true" />
-                  Edit
+                  <span className="max-sm:sr-only">Edit</span>
                 </Link>
               </Button>
             ) : null}

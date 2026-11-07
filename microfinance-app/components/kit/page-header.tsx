@@ -15,11 +15,22 @@ export interface PageHeaderProps extends Omit<React.HTMLAttributes<HTMLDivElemen
   eyebrow?: React.ReactNode;
 }
 
-/** The single page-header style for list, detail, form and report pages. */
+/**
+ * Class for a header action button that shows only its icon on phones: wrap the label in
+ * `<span className="max-sm:sr-only">` so the accessible name stays.
+ *
+ *   <Button className={iconOnPhone}><Plus aria-hidden="true" /><span className="max-sm:sr-only">New loan</span></Button>
+ */
+export const iconOnPhone = 'max-sm:h-10 max-sm:w-10 max-sm:px-0';
+
+/**
+ * The single page-header style for list, detail, form and report pages. The actions sit to
+ * the right of the title at every width; on phones they should be icon-only (`iconOnPhone`).
+ */
 export function PageHeader({ title, description, count, status, actions, eyebrow, className, ...props }: PageHeaderProps) {
   return (
-    <div className={cn('mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between', className)} {...props}>
-      <div className="min-w-0 space-y-1">
+    <div className={cn('mb-6 flex items-start justify-between gap-3 sm:gap-4', className)} {...props}>
+      <div className="min-w-0 flex-1 space-y-1">
         {eyebrow ? <p className="text-sm text-muted-foreground">{eyebrow}</p> : null}
         <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
           <h1 className="truncate text-xl font-semibold tracking-tight text-foreground sm:text-2xl">{title}</h1>
@@ -32,7 +43,7 @@ export function PageHeader({ title, description, count, status, actions, eyebrow
         </div>
         {description ? <p className="text-sm text-muted-foreground">{description}</p> : null}
       </div>
-      {actions ? <div className="flex shrink-0 flex-wrap items-center gap-2 sm:justify-end">{actions}</div> : null}
+      {actions ? <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">{actions}</div> : null}
     </div>
   );
 }
