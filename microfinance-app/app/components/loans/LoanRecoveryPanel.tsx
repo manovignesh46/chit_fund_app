@@ -145,17 +145,17 @@ export default function LoanRecoveryPanel({ loan, onChange, mode = 'panel', hide
           {error && <p role="alert" className={ERROR}>{error}</p>}
           {data && <p className="text-sm text-foreground">Principal remaining: {formatCurrency(loan.remainingAmount)} · Unpaid installment dues today: {formatCurrency(data?.preview.duesAtMark)}. The balance and payment history will be retained.</p>}
           <label className={LABEL}>Unpaid interest to track (₹)
-            <input data-ui="" required type="number" min="0" step="0.01" value={unpaidInterest} onChange={(e) => setUnpaidInterest(e.target.value)} className={FIELD} />
+            <input required type="number" min="0" step="0.01" value={unpaidInterest} onChange={(e) => setUnpaidInterest(e.target.value)} className={FIELD} />
             <span className={HINT}>Enter the unpaid interest separately, or 0 if none. Installment dues include principal. New routine dues stop while the loan is Non-Recoverable.</span>
           </label>
-          <label className={LABEL}>Recovery notes (optional)<textarea data-ui="" maxLength={4000} value={notes} onChange={(e) => setNotes(e.target.value)} className={AREA} rows={2} /></label>
+          <label className={LABEL}>Recovery notes (optional)<textarea maxLength={4000} value={notes} onChange={(e) => setNotes(e.target.value)} className={AREA} rows={2} /></label>
         </>}
         {(action === 'collect' || action === 'settle') && <>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <label className={LABEL}>Principal received (₹)<input data-ui="" required type="number" min="0" max={loan.remainingAmount} step="0.01" value={principal} onChange={(e) => setPrincipal(e.target.value)} className={FIELD} /></label>
-            <label className={LABEL}>Interest received (₹)<input data-ui="" required type="number" min="0" max={loan.recoveryInterestOutstanding || 0} step="0.01" value={interest} onChange={(e) => setInterest(e.target.value)} className={FIELD} /></label>
-            <label className={LABEL}>Payment date<input data-ui="" required={Number(principal) + Number(interest) > 0} type="date" min={loan.nonRecoverableAt ? localDate(new Date(loan.nonRecoverableAt)) : undefined} max={localDate(new Date())} value={paidDate} onChange={(e) => setPaidDate(e.target.value)} className={FIELD} /></label>
-            <label className={LABEL}>Collected by<select data-ui="" required={Number(principal) + Number(interest) > 0} disabled={partnerLocked} value={collectorId} onChange={(e) => setCollectorId(e.target.value)} className={FIELD}>
+            <label className={LABEL}>Principal received (₹)<input required type="number" min="0" max={loan.remainingAmount} step="0.01" value={principal} onChange={(e) => setPrincipal(e.target.value)} className={FIELD} /></label>
+            <label className={LABEL}>Interest received (₹)<input required type="number" min="0" max={loan.recoveryInterestOutstanding || 0} step="0.01" value={interest} onChange={(e) => setInterest(e.target.value)} className={FIELD} /></label>
+            <label className={LABEL}>Payment date<input required={Number(principal) + Number(interest) > 0} type="date" min={loan.nonRecoverableAt ? localDate(new Date(loan.nonRecoverableAt)) : undefined} max={localDate(new Date())} value={paidDate} onChange={(e) => setPaidDate(e.target.value)} className={FIELD} /></label>
+            <label className={LABEL}>Collected by<select required={Number(principal) + Number(interest) > 0} disabled={partnerLocked} value={collectorId} onChange={(e) => setCollectorId(e.target.value)} className={FIELD}>
               <option value="">Select collector</option>{partners.filter((p) => p.isActive).map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
             </select></label>
           </div>
@@ -168,7 +168,7 @@ export default function LoanRecoveryPanel({ loan, onChange, mode = 'panel', hide
         </>}
         {action === 'settle' && <label className="flex gap-2 text-sm items-start text-foreground"><input required type="checkbox" checked={confirmed} onChange={(e) => setConfirmed(e.target.checked)} className="mt-0.5 h-4 w-4 shrink-0 accent-primary" />Close this recovery case and waive the remaining principal of {formatCurrency(waivedPrincipal)} and unpaid interest of {formatCurrency(waivedInterest)}. The waiver will be recorded separately from cash received.</label>}
         {action === 'reverse' && <p className="text-sm text-foreground">This removes the incorrect receipt from cash and repayment totals, restores its principal and interest balances, and retains the receipt details and reversal reason in the audit history.</p>}
-        <label className={LABEL}>{action === 'collect' ? 'Recovery notes / reference' : 'Reason'}<textarea data-ui="" required maxLength={2000} value={reason} onChange={(e) => setReason(e.target.value)} rows={2} className={AREA} /></label>
+        <label className={LABEL}>{action === 'collect' ? 'Recovery notes / reference' : 'Reason'}<textarea required maxLength={2000} value={reason} onChange={(e) => setReason(e.target.value)} rows={2} className={AREA} /></label>
         <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
           <button disabled={busy} type="button" className={OUTLINE} onClick={cancel}>Cancel</button>
           <button disabled={busy || !data} type="submit" className={action === 'mark' || action === 'reverse' ? DANGER : PRIMARY}>{busy ? 'Saving…' : action === 'mark' ? 'Confirm Non-Recoverable' : actionLabels[action]}</button>

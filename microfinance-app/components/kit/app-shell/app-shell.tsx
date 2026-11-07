@@ -11,9 +11,8 @@
  * --sidebar-width-icon, --shell-sidebar-width (current), --bottom-nav-height.
  * `/login` renders without the shell. Routes with `layout: 'full'` in nav-config
  * (/messages) fill the viewport between the bars and the document does not scroll.
- * <main> has no padding: pages bring their own container (PageContainer, or the
- * legacy `.page-container` / `container mx-auto px-4 py-8`). It is a block box
- * (a flex column only for full-height pages), so `max-w-* mx-auto` page roots take
+ * <main> has no padding: pages bring their own container (kit PageContainer). It is a
+ * block box (a flex column only for full-height pages), so `max-w-* mx-auto` page roots take
  * the available width instead of shrinking to their content.
  */
 import * as React from 'react';

@@ -8,10 +8,9 @@
  */
 import * as React from 'react';
 import Link from 'next/link';
-import useSWR from 'swr';
 import { Loader2 } from 'lucide-react';
 
-import { loanFormMembersKey } from '@/lib/query/loans';
+import { apiFetch } from '@/lib/query/fetcher';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -68,6 +67,9 @@ export const EMPTY_LOAN_FORM: LoanFormValues = {
   interestPercentage: '24',
   status: 'Active',
 };
+
+/** Members per picker request (the list endpoint's page size cap). */
+const MEMBER_PICKER_PAGE_SIZE = 100;
 
 const CREATE_TYPES = ['Monthly', 'Weekly', 'Reducing Balance'];
 const EDIT_TYPES = ['Monthly', 'Weekly'];
@@ -182,11 +184,21 @@ export function LoanForm({ mode, initialValues, onSubmit, cancelHref }: LoanForm
   const [submitting, setSubmitting] = React.useState(false);
   const formRef = React.useRef<HTMLFormElement>(null);
 
-  const membersQuery = useSWR<{ members?: Member[] }>(mode === 'create' ? loanFormMembersKey : null);
-  const members = React.useMemo(() => membersQuery.data?.members ?? [], [membersQuery.data]);
-  const selectedMember = members.find((m) => m.id.toString() === values.globalMemberId) ?? null;
+  // The member picker searches on the server (first 100 by name, like the old client-side
+  // filter over the whole list); picking one fills the borrower name and contact.
+  const [selectedMember, setSelectedMember] = React.useState<Member | null>(null);
+  const pickMember = (member: Member | null) => {
+    setSelectedMember(member);
+    setValues((prev) => applyChange(mode, prev, 'globalMemberId', member ? member.id.toString() : '', member ? [member] : []));
+  };
+  const loadMembers = React.useCallback(async (query: string, signal: AbortSignal) => {
+    const search = new URLSearchParams({ action: 'list', pageSize: String(MEMBER_PICKER_PAGE_SIZE) });
+    if (query) search.set('search', query);
+    const data = await apiFetch<{ members?: Member[] }>(`/members/consolidated?${search.toString()}`, { signal });
+    return data.members ?? [];
+  }, []);
 
-  const change = (name: keyof LoanFormValues, value: string) => setValues((prev) => applyChange(mode, prev, name, value, members));
+  const change = (name: keyof LoanFormValues, value: string) => setValues((prev) => applyChange(mode, prev, name, value, selectedMember ? [selectedMember] : []));
   const bind = (name: keyof LoanFormValues) => ({
     name,
     value: values[name],
@@ -242,31 +254,21 @@ export function LoanForm({ mode, initialValues, onSubmit, cancelHref }: LoanForm
                 </>
               }
             >
-              {membersQuery.error ? (
-                <div role="alert" className="rounded-md border border-destructive-border bg-destructive-subtle px-3 py-2 text-sm text-destructive-text">
-                  Failed to load members. Please try again.
-                </div>
-              ) : (
-                <EntityCombobox<Member>
-                  value={selectedMember}
-                  onChange={(member) => change('globalMemberId', member ? member.id.toString() : '')}
-                  loadOptions={async (query) => {
-                    const q = query.toLowerCase();
-                    return (q ? members.filter((m) => m.name.toLowerCase().includes(q) || (m.contact ?? '').includes(q)) : members).slice(0, 100);
-                  }}
-                  getOptionValue={(m) => m.id}
-                  getOptionLabel={(m) => `${m.name} (${m.contact})`}
-                  renderOption={(m) => (
-                    <span className="flex min-w-0 flex-1 items-center justify-between gap-3">
-                      <span className="truncate">{m.name}</span>
-                      <span className="shrink-0 text-xs tabular-nums text-muted-foreground">{m.contact}</span>
-                    </span>
-                  )}
-                  placeholder={membersQuery.isLoading ? 'Loading members…' : '-- Select a member --'}
-                  searchPlaceholder="Search by name or phone"
-                  disabled={membersQuery.isLoading}
-                />
-              )}
+              <EntityCombobox<Member>
+                value={selectedMember}
+                onChange={pickMember}
+                loadOptions={loadMembers}
+                getOptionValue={(m) => m.id}
+                getOptionLabel={(m) => `${m.name} (${m.contact})`}
+                renderOption={(m) => (
+                  <span className="flex min-w-0 flex-1 items-center justify-between gap-3">
+                    <span className="truncate">{m.name}</span>
+                    <span className="shrink-0 text-xs tabular-nums text-muted-foreground">{m.contact}</span>
+                  </span>
+                )}
+                placeholder="-- Select a member --"
+                searchPlaceholder="Search by name or phone"
+              />
             </FormField>
           ) : null}
           <FormField label="Borrower name" required nativeRequired={false} id="borrowerName" error={errors.borrowerName}>

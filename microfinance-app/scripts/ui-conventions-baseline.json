@@ -5,35 +5,16 @@
     "alert": 0,
     "confirm": 0,
     "hardNav": 1,
-    "palette": 30
+    "palette": 0,
+    "heroicons": 0,
+    "swipeable": 0,
+    "tsNocheck": 0,
+    "bigPage": 0,
+    "legacyClass": 0
   },
   "files": {
-    "app/components/common/SortableTableHeader.tsx": {
-      "palette": 2
-    },
     "app/login/page.tsx": {
       "hardNav": 1
-    },
-    "components/EmailExportModal.tsx": {
-      "palette": 4
-    },
-    "components/SchedulerManager.tsx": {
-      "palette": 3
-    },
-    "components/chit-funds/ChitFundCard.tsx": {
-      "palette": 2
-    },
-    "components/chit-funds/ChitFundContributionsOverview.tsx": {
-      "palette": 4
-    },
-    "components/chit-funds/ChitFundFinancialSummary.tsx": {
-      "palette": 2
-    },
-    "components/chit-funds/ChitFundMembersList.tsx": {
-      "palette": 1
-    },
-    "components/chit-funds/ChitFundTable.tsx": {
-      "palette": 12
     }
   }
 }

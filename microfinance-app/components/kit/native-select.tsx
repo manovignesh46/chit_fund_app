@@ -20,14 +20,12 @@ export interface NativeSelectProps extends Omit<React.SelectHTMLAttributes<HTMLS
 
 /**
  * A styled native <select>: best on phones (OS picker) and for short fixed lists.
- * `data-ui` opts it out of the legacy dark-mode field rules in styles/theme/base.css.
  */
 export const NativeSelect = React.forwardRef<HTMLSelectElement, NativeSelectProps>(
   ({ options, placeholder, size = 'md', className, children, onChange, onValueChange, ...props }, ref) => (
     <div className={cn('relative', props.disabled && 'opacity-50')}>
       <select
         ref={ref}
-        data-ui=""
         className={cn(
           'w-full cursor-pointer appearance-none rounded-md border border-input bg-field pl-3 pr-9 text-foreground shadow-sm transition-colors',
           'focus-visible:border-ring focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40',

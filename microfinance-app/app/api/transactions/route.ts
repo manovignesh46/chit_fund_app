@@ -10,7 +10,7 @@ import { generateTransactionExportName } from '../../../lib/transactionExportNam
 import { notifyOtherAdmins, getActorName } from '../../../lib/notifications';
 import { validateManualTransaction, isManualTransactionType, firstError } from '../../../lib/transactionValidation';
 import { parseListParams } from '../../../lib/list/server';
-import { buildMeta } from '../../../lib/list/types';
+import { buildMeta, MAX_PAGE_SIZE } from '../../../lib/list/types';
 
 /** Sort keys accepted by the list (list contract); anything else keeps the legacy order. */
 const TRANSACTION_SORTS = {
@@ -35,7 +35,7 @@ export async function GET(request: NextRequest) {
 
     // Regular transaction fetching logic
     const page = parseInt(searchParams.get('page') || '1');
-    const pageSize = parseInt(searchParams.get('pageSize') || '10');
+    const pageSize = Math.min(parseInt(searchParams.get('pageSize') || '10'), MAX_PAGE_SIZE);
     const type = searchParams.get('type');
     const partner = searchParams.get('partner');
     const member = searchParams.get('member');

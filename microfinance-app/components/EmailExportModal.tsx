@@ -1,6 +1,13 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { Plus, Trash2 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { ResponsiveDialog } from '@/components/kit/responsive-dialog';
 import { emailAPI, dashboardAPI } from '../lib/api';
 import { buildTransactionFilterObject, type TransactionFilters } from '../lib/transactionFilterUtils';
 
@@ -160,34 +167,39 @@ export default function EmailExportModal({
     }
   };
 
-  if (!isOpen) return null;
+  const periodLabel = duration === 'single' ? period : `Last ${limit} ${duration}`;
 
   return (
-    <div className="modal-overlay flex items-center justify-center z-50">
-      <div className="themed-card rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-        <div className="flex justify-between items-center mb-6">
-          <h2 className="text-xl font-semibold text-gray-900 dark:text-theme-primary">Email Export</h2>
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-gray-700 dark:text-theme-secondary"
-          >
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
-
-        {/* Email Configuration Status */}
+    <ResponsiveDialog
+      open={isOpen}
+      onOpenChange={(open) => { if (!open) onClose(); }}
+      title="Email Export"
+      description={`Send the ${exportType.toLowerCase()} export by email.`}
+      hideDescription
+      size="lg"
+      footer={
+        <>
+          <Button type="button" variant="outline" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button type="button" onClick={handleSendEmail} disabled={isLoading || !emailStatus?.configured}>
+            {isLoading ? 'Sending...' : 'Send Email'}
+          </Button>
+        </>
+      }
+    >
+      <div className="max-h-[65vh] space-y-4 overflow-y-auto">
+        {/* Email configuration status */}
         {emailStatus && (
-          <div className={`mb-4 p-3 rounded-lg ${emailStatus.configured ? 'bg-green-50 border border-green-200' : 'bg-yellow-50 border border-yellow-200'}`}>
+          <div className={`rounded-lg border p-3 ${emailStatus.configured ? 'border-success-border bg-success-subtle' : 'border-warning-border bg-warning-subtle'}`}>
             <div className="flex items-center">
-              <div className={`w-2 h-2 rounded-full mr-2 ${emailStatus.configured ? 'bg-green-500' : 'bg-yellow-500'}`}></div>
-              <span className={`text-sm font-medium ${emailStatus.configured ? 'text-green-800' : 'text-yellow-800'}`}>
+              <span aria-hidden="true" className={`mr-2 h-2 w-2 rounded-full ${emailStatus.configured ? 'bg-success' : 'bg-warning'}`} />
+              <span className={`text-sm font-medium ${emailStatus.configured ? 'text-success-text' : 'text-warning-text'}`}>
                 Email Configuration: {emailStatus.configured ? 'Configured' : 'Not Configured'}
               </span>
             </div>
             {emailStatus.configured && (
-              <div className="mt-2 text-xs text-gray-700 dark:text-theme-secondary">
+              <div className="mt-2 text-xs text-muted-foreground">
                 <p>Host: {emailStatus.settings.host}</p>
                 <p>User: {emailStatus.settings.user}</p>
               </div>
@@ -195,135 +207,102 @@ export default function EmailExportModal({
           </div>
         )}
 
-        {/* Test Configuration Button */}
         {emailStatus && !emailStatus.configured && (
-          <div className="mb-4">
-            <button
-              onClick={testEmailConfiguration}
-              disabled={isLoading}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
-            >
-              {isLoading ? 'Testing...' : 'Test Email Configuration'}
-            </button>
-          </div>
+          <Button type="button" variant="outline" onClick={testEmailConfiguration} disabled={isLoading}>
+            {isLoading ? 'Testing...' : 'Test Email Configuration'}
+          </Button>
         )}
 
-        {/* Export Details */}
-        <div className="mb-6 p-4 bg-gray-50 dark:bg-surface-elevated rounded-lg">
-          <h3 className="font-medium text-gray-900 dark:text-theme-primary mb-2">Export Details</h3>
-          <div className="text-sm text-gray-700 dark:text-theme-secondary space-y-1">
-            <p><strong>Type:</strong> {exportType}</p>
-            <p><strong>Period:</strong> {duration === 'single' ? period : `Last ${limit} ${duration}`}</p>
+        {/* Export details */}
+        <div className="rounded-lg bg-muted p-4">
+          <h3 className="mb-2 font-medium text-foreground">Export Details</h3>
+          <div className="space-y-1 text-sm text-muted-foreground">
+            <p><strong className="text-foreground">Type:</strong> {exportType}</p>
+            <p><strong className="text-foreground">Period:</strong> {periodLabel}</p>
             {duration === 'single' && startDate && endDate && (
-              <p><strong>Date Range:</strong> {startDate} to {endDate}</p>
+              <p><strong className="text-foreground">Date Range:</strong> {startDate} to {endDate}</p>
             )}
           </div>
         </div>
 
         {/* Recipients */}
-        <div className="mb-4">
-          <label className="block text-sm font-medium text-gray-700 dark:text-theme-secondary mb-2">
-            Email Recipients *
-          </label>
-
-          {/* Default Recipients Toggle */}
-          <div className="mb-3">
-            <label className="flex items-center">
-              <input
-                type="checkbox"
-                checked={useDefaultRecipients}
-                onChange={(e) => setUseDefaultRecipients(e.target.checked)}
-                className="mr-2 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-200 dark:border-surface-border rounded"
-              />
-              <span className="text-sm text-gray-700 dark:text-theme-secondary">
-                Use default recipients from configuration
-              </span>
-            </label>
-            {useDefaultRecipients && (
-              <p className="text-xs text-gray-500 mt-1 ml-6">
-                Emails will be sent to the default recipients configured in the system
-              </p>
-            )}
+        <fieldset className="space-y-2">
+          <legend className="mb-2 text-sm font-medium text-foreground">Email Recipients</legend>
+          <div className="flex items-center gap-2">
+            <Checkbox
+              id="email-export-default-recipients"
+              checked={useDefaultRecipients}
+              onCheckedChange={(checked) => setUseDefaultRecipients(checked === true)}
+            />
+            <Label htmlFor="email-export-default-recipients" className="text-sm font-normal text-foreground">
+              Use default recipients from configuration
+            </Label>
           </div>
+          {useDefaultRecipients && (
+            <p className="ml-6 text-xs text-muted-foreground">
+              Emails will be sent to the default recipients configured in the system
+            </p>
+          )}
 
-          {/* Custom Recipients Input */}
           {!useDefaultRecipients && (
             <>
               {recipients.map((recipient, index) => (
-                <div key={index} className="flex items-center mb-2">
-                  <input
+                <div key={index} className="flex items-center gap-2">
+                  <Input
                     type="email"
                     value={recipient}
                     onChange={(e) => updateRecipient(index, e.target.value)}
                     placeholder="Enter email address"
-                    className="flex-1 px-3 py-2 border border-gray-200 dark:border-surface-border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    aria-label={`Recipient ${index + 1}`}
+                    className="flex-1"
                   />
                   {recipients.length > 1 && (
-                    <button
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
                       onClick={() => removeRecipient(index)}
-                      className="ml-2 p-2 text-red-600 hover:text-red-800"
+                      aria-label={`Remove recipient ${index + 1}`}
+                      className="text-destructive-text hover:text-destructive-text"
                     >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                      </svg>
-                    </button>
+                      <Trash2 className="h-4 w-4" aria-hidden="true" />
+                    </Button>
                   )}
                 </div>
               ))}
-              <button
-                onClick={addRecipient}
-                className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 text-sm font-medium"
-              >
-                + Add another recipient
-              </button>
+              <Button type="button" variant="link" size="sm" onClick={addRecipient} className="h-auto px-0">
+                <Plus className="h-4 w-4" aria-hidden="true" />
+                Add another recipient
+              </Button>
             </>
           )}
-        </div>
+        </fieldset>
 
-        {/* Custom Message */}
-        <div className="mb-6">
-          <label className="block text-sm font-medium text-gray-700 dark:text-theme-secondary mb-2">
+        {/* Custom message */}
+        <div className="space-y-1.5">
+          <Label htmlFor="email-export-message" className="text-sm font-medium text-foreground">
             Custom Message (Optional)
-          </label>
-          <textarea
+          </Label>
+          <Textarea
+            id="email-export-message"
             value={customMessage}
             onChange={(e) => setCustomMessage(e.target.value)}
             placeholder="Add a custom message to include in the email..."
             rows={3}
-            className="w-full px-3 py-2 border border-gray-200 dark:border-surface-border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
           />
         </div>
 
-        {/* Error/Success Messages */}
         {error && (
-          <div className="mb-4 p-3 alert-error rounded-lg">
-            <p className="text-red-800 text-sm">{error}</p>
-          </div>
+          <p role="alert" className="rounded-lg border border-destructive-border bg-destructive-subtle p-3 text-sm text-destructive-text">
+            {error}
+          </p>
         )}
-
         {success && (
-          <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg">
-            <p className="text-green-800 text-sm">{success}</p>
-          </div>
+          <p role="status" className="rounded-lg border border-success-border bg-success-subtle p-3 text-sm text-success-text">
+            {success}
+          </p>
         )}
-
-        {/* Action Buttons */}
-        <div className="flex justify-end space-x-3">
-          <button
-            onClick={onClose}
-            className="px-4 py-2 text-gray-700 dark:text-theme-secondary bg-gray-100 rounded-lg hover:bg-gray-200"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={handleSendEmail}
-            disabled={isLoading || !emailStatus?.configured}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {isLoading ? 'Sending...' : 'Send Email'}
-          </button>
-        </div>
       </div>
-    </div>
+    </ResponsiveDialog>
   );
 }

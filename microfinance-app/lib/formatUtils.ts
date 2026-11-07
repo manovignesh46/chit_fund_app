@@ -47,25 +47,6 @@ export function formatDateForInput(date: Date | string | null | undefined): stri
 export { calculateLoanProfit, calculateChitFundProfit, calculateChitFundProfitUpToCurrentMonth, calculateChitFundOutsideAmount };
 
 /**
- * Get status color class for loan status
- * @param status The loan status
- * @returns CSS class for the status color
- */
-export function getStatusColor(status: string): string {
-  switch (status) {
-    case 'Active':
-      return 'bg-green-100 text-green-800 dark:status-badge-active';
-    case 'Completed':
-      return 'bg-blue-100 text-blue-800 dark:status-badge-upcoming';
-    case 'Defaulted':
-    case 'Non-Recoverable':
-      return 'bg-red-100 text-red-800 dark:badge-overdue';
-    default:
-      return 'bg-gray-100 text-gray-800 dark:status-badge-completed';
-  }
-}
-
-/**
  * Calculate installment amount for a loan
  * @param loan The loan object
  * @returns Calculated installment amount

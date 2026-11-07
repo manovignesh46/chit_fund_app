@@ -1,4 +1,3 @@
-// @ts-nocheck
 import React from 'react';
 import '../styles/globals.css';
 import { PartnerProvider } from './contexts/PartnerContext';

@@ -13,9 +13,9 @@
  * Every new parameter is optional: with none supplied, `orderBy` and `searchWhere`
  * are undefined and the handler runs exactly the query it ran before.
  * Sorting only goes through the whitelist (never a raw column name from the URL),
- * with `id` as the tiebreaker. No page-size cap yet (callers still send 1000).
+ * with `id` as the tiebreaker. `pageSize` is capped at MAX_PAGE_SIZE (100).
  */
-import { ALL, buildMeta, DEFAULT_PAGE_SIZE, type ListEnvelope, type ListMeta, type SortOrder } from './types';
+import { ALL, buildMeta, DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE, type ListEnvelope, type ListMeta, type SortOrder } from './types';
 
 /** Prisma orderBy fragment, e.g. `{ amount: 'desc' }` or `{ borrower: { name: 'asc' } }`. */
 export type OrderByFragment = Record<string, unknown>;
@@ -70,7 +70,7 @@ export function parseListParams<F extends string = never>(
   config: ParseListConfig<F> = {}
 ): ParsedListParams<F> {
   const page = positiveInt(searchParams.get('page'), 1);
-  const pageSize = positiveInt(searchParams.get('pageSize'), config.defaultPageSize ?? DEFAULT_PAGE_SIZE);
+  const pageSize = Math.min(positiveInt(searchParams.get('pageSize'), config.defaultPageSize ?? DEFAULT_PAGE_SIZE), MAX_PAGE_SIZE);
 
   const rawQ = (searchParams.get('q') ?? '').trim();
   const q = rawQ ? rawQ.slice(0, 200) : null;

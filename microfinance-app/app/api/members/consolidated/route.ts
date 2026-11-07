@@ -6,7 +6,7 @@ import { updateOverdueAmountFromRepayments, calculateNextPaymentDate } from '../
 import { computeChitMemberDuePeriods } from '../../../../lib/duesTracker';
 import { buildDueAccounts } from '../../../../lib/duesAccounts';
 import { parseListParams, type SortTarget } from '../../../../lib/list/server';
-import { buildMeta } from '../../../../lib/list/types';
+import { buildMeta, MAX_PAGE_SIZE } from '../../../../lib/list/types';
 
 // List-contract sort keys for the members list (stored columns, plus relation counts that
 // Postgres computes in the same query). Anything else in ?sort= is ignored.
@@ -239,7 +239,7 @@ async function getMembersList(request: NextRequest, currentUserId: number) {
   try {
     const { searchParams } = new URL(request.url);
     const page = parseInt(searchParams.get('page') || '1');
-    const pageSize = parseInt(searchParams.get('pageSize') || '10');
+    const pageSize = Math.min(parseInt(searchParams.get('pageSize') || '10'), MAX_PAGE_SIZE);
 
     // Validate pagination parameters
     const validPage = page > 0 ? page : 1;
@@ -473,7 +473,7 @@ async function getMemberPaymentHistory(request: NextRequest, id: number, current
   try {
     const { searchParams } = new URL(request.url);
     const page = Math.max(1, parseInt(searchParams.get('page') || '1') || 1);
-    const pageSize = Math.min(100, Math.max(1, parseInt(searchParams.get('pageSize') || '20') || 20));
+    const pageSize = Math.min(MAX_PAGE_SIZE, Math.max(1, parseInt(searchParams.get('pageSize') || '20') || 20));
     const kind = searchParams.get('kind'); // 'contribution' | 'repayment' | null
     const accountKey = searchParams.get('account'); // e.g. 'loan-12' | 'chit-3'
 

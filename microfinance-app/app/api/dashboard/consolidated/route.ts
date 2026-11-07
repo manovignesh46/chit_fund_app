@@ -17,6 +17,7 @@ import { GET as getAggregations } from '../../transactions/aggregations/route';
 import { GET as getTransactionSummary } from '../../transactions/summary/route';
 import { GET as getMonthlyChitProfit } from '../../chit-funds/monthly-profit/route';
 import { getActivitiesList, parseActivitiesQuery, wantsActivitiesList } from '../../../../lib/activitiesList';
+import { MAX_PAGE_SIZE } from '../../../../lib/list/types';
 
 // Use ISR with a 5-minute revalidation period
 export const revalidate = 300; // 5 minutes
@@ -63,7 +64,7 @@ export async function GET(request: NextRequest) {
         }
         // Get pagination parameters
         const page = parseInt(searchParams.get('page') || '1', 10);
-        const pageSize = parseInt(searchParams.get('pageSize') || '10', 10);
+        const pageSize = Math.min(parseInt(searchParams.get('pageSize') || '10', 10), MAX_PAGE_SIZE);
         const filter = searchParams.get('filter') || 'all';
 
         // Get activities with pagination

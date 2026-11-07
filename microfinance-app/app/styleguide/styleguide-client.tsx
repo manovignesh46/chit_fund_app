@@ -522,18 +522,9 @@ export default function StyleguideClient() {
               Disabled outline
             </Button>
           </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="text-sm text-muted-foreground">Legacy classes (unconverted pages):</span>
-            <button type="button" className="btn-primary">btn-primary</button>
-            <button type="button" className="btn-secondary">btn-secondary</button>
-            <button type="button" className="btn-neutral">btn-neutral</button>
-            <button type="button" className="btn-danger">btn-danger</button>
-            <span className="filter-chip">filter-chip</span>
-            <span className="filter-chip-active-blue">active chip</span>
-          </div>
         </Section>
 
-        <Section id="fields" title="Fields" description="Kit fields carry data-ui so they look the same in main and in dialogs.">
+        <Section id="fields" title="Fields" description="Kit fields look the same in pages and in dialogs.">
           <div className="grid gap-6 md:grid-cols-2">
             <div className="space-y-4">
               <FormField label="Borrower name" description="As on the ID proof.">
@@ -547,9 +538,6 @@ export default function StyleguideClient() {
               </FormField>
               <FormField label="Notes">
                 <Textarea placeholder="Anything the collector should know" />
-              </FormField>
-              <FormField label="Legacy themed-input">
-                <input type="text" className="themed-input" placeholder="unconverted page field" />
               </FormField>
             </div>
             <div className="space-y-4">
@@ -737,13 +725,6 @@ export default function StyleguideClient() {
             {['Active', 'Overdue', 'Defaulted', 'Non-Recoverable', 'Completed'].map((s) => (
               <StatusBadge key={s} status={s} size="md" />
             ))}
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <span className="status-badge-active">legacy active</span>
-            <span className="status-badge-upcoming">legacy upcoming</span>
-            <span className="status-badge-completed">legacy completed</span>
-            <span className="badge-amber">legacy amber</span>
-            <span className="badge-overdue">legacy overdue</span>
           </div>
         </Section>
 

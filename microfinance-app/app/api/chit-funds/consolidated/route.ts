@@ -8,7 +8,7 @@ import { autoUpdateCurrentMonths, invalidateCurrentMonths } from '../../../../li
 import { notifyOtherAdmins, getActorName } from '../../../../lib/notifications';
 import { BalancePaymentError, planBalancePayment } from '../../../../lib/contributionBalance';
 import { parseListParams, type SortTarget } from '../../../../lib/list/server';
-import { buildMeta } from '../../../../lib/list/types';
+import { buildMeta, MAX_PAGE_SIZE } from '../../../../lib/list/types';
 
 // Use ISR with a 5-minute revalidation period
 export const revalidate = 300; // 5 minutes
@@ -421,7 +421,7 @@ async function fundCompletionRules(funds: FundCompletionInput[]) {
 async function getChitFundsList(request: NextRequest, currentUserId: number) {
   const { searchParams } = new URL(request.url);
   const page = parseInt(searchParams.get('page') || '1');
-  const pageSize = parseInt(searchParams.get('pageSize') || '10');
+  const pageSize = Math.min(parseInt(searchParams.get('pageSize') || '10'), MAX_PAGE_SIZE);
   const status = searchParams.get('status') || null;
   const list = parseListParams(searchParams, { sortable: CHIT_FUND_SORTS, searchable: CHIT_FUND_SEARCH });
 
@@ -647,7 +647,7 @@ const CHIT_MEMBER_SEARCH = ['globalMember.name', 'globalMember.contact'] as cons
 async function getChitFundMembers(request: NextRequest, id: number, currentUserId: number) {
   const { searchParams } = new URL(request.url);
   const page = parseInt(searchParams.get('page') || '1');
-  const pageSize = parseInt(searchParams.get('pageSize') || '20');
+  const pageSize = Math.min(parseInt(searchParams.get('pageSize') || '20'), MAX_PAGE_SIZE);
   const all = searchParams.get('all') === '1';
   const list = parseListParams(searchParams, { sortable: CHIT_MEMBER_SORTS, searchable: CHIT_MEMBER_SEARCH, filters: ['auction'] });
   const auctionFilter = list.filters.auction === 'won' || list.filters.auction === 'notwon' ? list.filters.auction : null;
@@ -843,7 +843,7 @@ async function getMemberDetail(request: NextRequest, id: number, memberId: numbe
 async function getContributions(request: NextRequest, id: number, memberId: number | null, currentUserId: number) {
   const { searchParams } = new URL(request.url);
   const page = parseInt(searchParams.get('page') || '1');
-  const pageSize = parseInt(searchParams.get('pageSize') || '10');
+  const pageSize = Math.min(parseInt(searchParams.get('pageSize') || '10'), MAX_PAGE_SIZE);
 
   // Validate pagination parameters
   const validPage = page > 0 ? page : 1;
@@ -2221,7 +2221,7 @@ async function deleteAuction(request: NextRequest, id: number, currentUserId: nu
 async function getAuctions(request: NextRequest, id: number, currentUserId: number) {
   const { searchParams } = new URL(request.url);
   const page = parseInt(searchParams.get('page') || '1');
-  const pageSize = parseInt(searchParams.get('pageSize') || '10');
+  const pageSize = Math.min(parseInt(searchParams.get('pageSize') || '10'), MAX_PAGE_SIZE);
 
   // Validate pagination parameters
   const validPage = page > 0 ? page : 1;

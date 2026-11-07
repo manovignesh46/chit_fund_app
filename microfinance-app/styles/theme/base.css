@@ -1,61 +1,14 @@
-/* Document body and form controls */
+/* Document body, native option lists, toasts and reduced motion */
 
 @layer base {
   body {
     @apply antialiased bg-background text-foreground;
   }
 
-  /*
-   * Dark-mode field styling for UNCONVERTED pages (they style inputs with light
-   * classes only). Every selector skips [data-ui] (inside :where() so specificity is unchanged), which marks kit/shadcn fields
-   * (components/ui/input.tsx, textarea.tsx, kit NativeSelect and DateInput) so
-   * those look the same inside <main> and inside portalled dialogs.
-   * Delete this block once all pages use the kit (cleanup phase).
-   */
-  html.dark main select:not([size]):where(:not([data-ui])),
-  html.dark main input[type="text"]:where(:not([data-ui])),
-  html.dark main input[type="number"]:where(:not([data-ui])),
-  html.dark main input[type="date"]:where(:not([data-ui])),
-  html.dark main input[type="email"]:where(:not([data-ui])),
-  html.dark main input[type="password"]:where(:not([data-ui])),
-  html.dark main input[type="search"]:where(:not([data-ui])),
-  html.dark main textarea:where(:not([data-ui])) {
-    background-color: hsl(var(--field));
-    border-color: hsl(var(--border));
-    color: hsl(var(--foreground));
-    border-width: 1px;
-    border-style: solid;
-    border-radius: 0.5rem;
-    padding: 0.5rem 0.75rem;
-    font-size: 0.875rem;
-  }
-
-  html.dark main select:not([size]):where(:not([data-ui])),
-  html.dark main select.themed-input:where(:not([data-ui])) {
-    background-color: hsl(var(--field)) !important;
-    border-color: hsl(var(--border)) !important;
-    color: hsl(var(--foreground)) !important;
-  }
-
-  html.dark main input[type="checkbox"]:where(:not([data-ui])) {
-    @apply h-4 w-4 text-primary border-border bg-field rounded focus:ring-ring focus:ring-opacity-50;
-  }
-
+  /* Native <select> option lists follow the theme (kit NativeSelect). */
   html.dark option {
     background-color: hsl(var(--popover));
     color: hsl(var(--popover-foreground));
-  }
-
-  /* Native date picker styling in dark mode */
-  html.dark input[type="date"]:where(:not([data-ui])) {
-    color-scheme: dark;
-    background-color: hsl(var(--field)) !important;
-    border-color: hsl(var(--border)) !important;
-    color: hsl(var(--foreground)) !important;
-  }
-
-  html.dark input[type="date"]:where(:not([data-ui]))::-webkit-calendar-picker-indicator {
-    filter: invert(0.8);
   }
 
   /*

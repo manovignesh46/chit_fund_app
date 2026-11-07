@@ -34,25 +34,13 @@ html[data-keyboard-open] {
 
 /*
  * The document scrolls: anchors and scrollIntoView keep clear of the sticky top bar.
- * scrollbar-gutter keeps the width constant when a page grows past the viewport (or
- * a legacy modal hides the scrollbar), so the shell and page do not jump sideways on
- * desktops with classic scrollbars.
+ * scrollbar-gutter keeps the width constant when a page grows past the viewport, so
+ * the shell and page do not jump sideways on desktops with classic scrollbars.
  */
 html {
   scroll-padding-top: calc(var(--topbar-height) + 0.5rem);
   scroll-padding-bottom: var(--bottom-nav-height);
   scrollbar-gutter: stable;
-}
-
-/*
- * Legacy in-page modals (.modal-overlay and the hand-written full-screen overlays)
- * used to sit over a scrolling <main>; now that the document scrolls, keep the page
- * behind them still. Kit dialogs (Radix) lock scrolling themselves.
- */
-body:has(.modal-overlay),
-body:has(main .fixed.inset-0),
-body:has(main .fixed.w-screen.h-screen) {
-  overflow: hidden;
 }
 
 /*

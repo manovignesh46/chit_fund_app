@@ -11,15 +11,14 @@ export interface DateInputProps extends Omit<React.InputHTMLAttributes<HTMLInput
 
 /**
  * Native date picker (<input type="date">) with the kit field style; the OS picker
- * is the most reliable choice on phones. `data-ui` opts it out of the legacy
- * dark-mode rules; `color-scheme` keeps the picker readable in both themes.
+ * is the most reliable choice on phones; `color-scheme` keeps the picker readable
+ * in both themes.
  */
 export const DateInput = React.forwardRef<HTMLInputElement, DateInputProps>(
   ({ className, onChange, onValueChange, ...props }, ref) => (
     <input
       ref={ref}
       type="date"
-      data-ui=""
       className={cn(
         'flex h-11 w-full rounded-md border border-input bg-field px-3 py-1 text-base tabular-nums text-foreground shadow-sm transition-colors [color-scheme:light] dark:[color-scheme:dark]',
         'focus-visible:border-ring focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40',

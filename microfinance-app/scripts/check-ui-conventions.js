@@ -2,17 +2,27 @@
 /**
  * UI conventions ratchet (no dependencies).
  *
- * Counts, in every .tsx file under app/ and components/:
+ * Counts, in every .ts/.tsx/.js/.jsx file under app/, components/ and lib/:
  *   reload        window.location.reload
  *   alert         alert( / window.alert(
  *   confirm       confirm( / window.confirm(
- *   hardNav       window.location.href = …   (use router.push or <Link>)
- *   palette       raw brand-palette classes: bg-blue-600, text-blue-600, bg-red-600,
- *                 bg-green-600, and any purple/indigo/orange/teal/pink utility
+ *   hardNav       window.location.href = …   (use router.push or <Link>). Export downloads to
+ *                 an /api/ URL are not counted; login's post-login full load is the one counted
+ *   palette       any raw Tailwind palette colour (bg-blue-600, dark:hover:text-gray-300, …):
+ *                 use the tokens (bg-primary, text-muted-foreground, text-success-text, …).
+ *                 Allowed in PALETTE_ALLOW only
+ *   heroicons     imports from @heroicons/react (the app uses lucide-react)
+ *   swipeable     imports from react-swipeable (SwipeableTabs has its own gesture code)
+ *   tsNocheck     // @ts-nocheck (counted in comments too)
+ *   bigPage       a client request for more than 100 rows (pageSize=1000, pageSize: 500, limit=200):
+ *                 list endpoints cap pageSize at 100; use the endpoint's explicit all-rows request
+ *                 (e.g. all=1) or a server search
+ *   legacyClass   the deleted legacy CSS classes (.btn-*, .themed-*, .badge-*, .page-container,
+ *                 .table-*, .modal-overlay, …): use components/ui and components/kit
  *
  * Fails (exit 1) when a rule's total is above the checked-in baseline, or when
  * anything matches inside components/ui or components/kit (those must stay clean).
- * Comments are ignored.
+ * Comments are ignored (except by tsNocheck).
  *
  *   node scripts/check-ui-conventions.js            check
  *   node scripts/check-ui-conventions.js --update   lower the baseline to today's counts
@@ -25,23 +35,67 @@ const fs = require('fs');
 const path = require('path');
 
 const ROOT = path.resolve(__dirname, '..');
-const SCAN_DIRS = ['app', 'components'];
+const SCAN_DIRS = ['app', 'components', 'lib'];
 const CLEAN_DIRS = ['components/ui', 'components/kit'];
 const BASELINE_FILE = path.join(__dirname, 'ui-conventions-baseline.json');
+const EXTENSIONS = /\.(?:tsx?|jsx?)$/;
 
-const PALETTE_FAMILIES = 'purple|indigo|orange|teal|pink';
-const UTILITY_PREFIX = '(?:bg|text|border|ring|ring-offset|from|via|to|fill|stroke|divide|outline|shadow|accent|decoration|placeholder|caret)';
+/**
+ * Where raw palette colours are allowed:
+ *   app/styleguide/  the dev-only reference page may show raw colours next to the tokens.
+ * Charts need no entry: they take their series colours from chartColor() (--chart-1..6).
+ */
+const PALETTE_ALLOW = ['app/styleguide/'];
+
+const PALETTE_FAMILIES =
+  'gray|slate|zinc|neutral|stone|red|orange|amber|yellow|lime|green|emerald|teal|cyan|sky|blue|indigo|violet|purple|fuchsia|pink|rose';
+const UTILITY_PREFIX = '(?:bg|text|border|ring|from|to|via|fill|stroke)';
+
+const LEGACY_CLASSES = [
+  'themed-[a-z-]+',
+  'dark-(?:card|input|table)',
+  'btn-(?:primary|secondary|neutral|danger)',
+  'badge-(?:base|green|paid|blue|amber|overdue)',
+  'status-badge-(?:active|upcoming|completed)',
+  'page-container',
+  'table-(?:shell|card|toolbar|footer|th|td|foot-row|sticky-cell|sticky-head|row-overdue|row-due-soon)',
+  'modal-overlay',
+  'filter-chip(?:-active-(?:blue|green))?',
+  'pagination-(?:nav-btn|page|page-active|info|btn|btn-active|bordered)',
+  'alert-(?:error|success)',
+  'form-panel',
+  'dropdown-(?:trigger|item|item-active)',
+  'nav-active',
+  'metric-row(?:-(?:blue|green|red|highlight))?',
+  'list-item-row',
+  'progress-track',
+  'card-title',
+  'section-heading',
+  'page-title',
+  'detail-(?:label|value)',
+  'calendar-(?:day|day-header|day-empty|day-today|event|event-(?:loan|paid|chit|due|overdue))',
+].join('|');
 
 const RULES = {
   reload: /window\.location\.reload\b/g,
   alert: /(?:\bwindow\.alert|(?<![\w$.])alert)\s*\(/g,
   confirm: /(?:\bwindow\.confirm|(?<![\w$.])confirm)\s*\(/g,
-  hardNav: /window\.location\.href\s*=(?!=)/g,
-  palette: new RegExp(
-    `(?<![\\w-])(?:bg-blue-600|text-blue-600|bg-red-600|bg-green-600|${UTILITY_PREFIX}-(?:${PALETTE_FAMILIES})-\\d{2,3})(?![\\w-])`,
-    'g'
-  ),
+  hardNav: /window\.location\.href\s*=(?!=)(?!\s*[`'"]\/api\/)/g,
+  // Bare or behind any variant chain (dark:, hover:, md:dark:hover:, …), with an optional /opacity.
+  palette: new RegExp(`(?<![\\w-])${UTILITY_PREFIX}-(?:${PALETTE_FAMILIES})-\\d{2,3}(?![\\w-])`, 'g'),
+  heroicons: /(?:from\s*|import\s*\(\s*|require\s*\(\s*|import\s+)['"]@heroicons\/react(?:\/[^'"]*)?['"]/g,
+  swipeable: /(?:from\s*|import\s*\(\s*|require\s*\(\s*|import\s+)['"]react-swipeable['"]/g,
+  tsNocheck: /\/\/\s*@ts-nocheck\b/g,
+  // pageSize=…, pageSize: …, limit=… (query string) or limit: … (params object); not `limit = 200` defaults.
+  bigPage: /\b(?:pageSize['"]?\s*[:=]\s*|limit(?:=|['"]?\s*:\s*))['"`]?(?:[1-9]\d{3,}|[2-9]\d{2}|1(?:0[1-9]|[1-9]\d))(?!\d)/g,
+  // Not after "/" or "-" so module paths such as '@/components/kit/page-container' do not count.
+  legacyClass: new RegExp(`(?<![\\w/.-])(?:${LEGACY_CLASSES})(?![\\w-])`, 'g'),
 };
+
+/** Rules that read the raw source (comments included). */
+const RAW_RULES = new Set(['tsNocheck']);
+/** Rules that skip server code (app/api/**): they are about what the browser does or asks for. */
+const CLIENT_ONLY = new Set(['hardNav', 'bigPage']);
 
 function walk(dir, out) {
   if (!fs.existsSync(dir)) return out;
@@ -49,7 +103,7 @@ function walk(dir, out) {
     if (entry.name === 'node_modules' || entry.name.startsWith('.')) continue;
     const full = path.join(dir, entry.name);
     if (entry.isDirectory()) walk(full, out);
-    else if (entry.isFile() && entry.name.endsWith('.tsx')) out.push(full);
+    else if (entry.isFile() && EXTENSIONS.test(entry.name)) out.push(full);
   }
   return out;
 }
@@ -103,9 +157,12 @@ function count() {
   for (const dir of SCAN_DIRS) {
     for (const file of walk(path.join(ROOT, dir), [])) {
       const rel = path.relative(ROOT, file).split(path.sep).join('/');
-      const text = stripComments(fs.readFileSync(file, 'utf8'));
+      const raw = fs.readFileSync(file, 'utf8');
+      const text = stripComments(raw);
       for (const [rule, re] of Object.entries(RULES)) {
-        const n = (text.match(re) || []).length;
+        if (rule === 'palette' && PALETTE_ALLOW.some((p) => rel.startsWith(p))) continue;
+        if (CLIENT_ONLY.has(rule) && rel.startsWith('app/api/')) continue;
+        const n = ((RAW_RULES.has(rule) ? raw : text).match(re) || []).length;
         if (!n) continue;
         totals[rule] += n;
         (files[rel] ||= {})[rule] = n;
@@ -148,13 +205,13 @@ function main() {
     process.exit(failed ? 1 : 0);
   }
 
-  console.log('rule       baseline  now');
+  console.log('rule        baseline  now');
   for (const rule of Object.keys(RULES)) {
     const was = baseline.totals[rule] ?? 0;
     const now = totals[rule];
     const mark = now > was ? '✗ up' : now < was ? '↓ down (run --update to lock in)' : '';
     if (now > was) failed = true;
-    console.log(`${rule.padEnd(10)} ${String(was).padStart(8)}  ${String(now).padStart(3)}  ${mark}`);
+    console.log(`${rule.padEnd(11)} ${String(was).padStart(8)}  ${String(now).padStart(3)}  ${mark}`);
     if (now > was) {
       for (const [file, counts] of Object.entries(sortedFiles)) {
         const before = baseline.files?.[file]?.[rule] ?? 0;

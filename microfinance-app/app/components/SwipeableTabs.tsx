@@ -33,7 +33,7 @@ const SETTLE = "transform 280ms cubic-bezier(0.22, 0.61, 0.36, 1)";
  *  - `preventDefault` is called ONLY on a locked horizontal drag we own, so
  *    vertical page scrolling is never blocked.
  *  - A horizontal swipe over a still-scrollable element (e.g. a wide table in
- *    `.table-shell`) is handed off to the browser so the table scrolls.
+ *    a DataTable scroller) is handed off to the browser so the table scrolls.
  *  - Desktop (>= 1024px) has no drag; tab clicks still animate the slide.
  */
 export default function SwipeableTabs<T extends string>({

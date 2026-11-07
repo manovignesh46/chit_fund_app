@@ -5,8 +5,6 @@
  * shadcn names: background, foreground, card, popover, primary, secondary, muted,
  * accent, destructive, border, input, ring, sidebar.
  * App additions: success, warning, info, elevated, field, subtle, overlay, chart.
- * Legacy keys kept for unconverted pages: surface.*, theme.*, danger.*,
- * success/warning .light and .border, primary.light and primary.border.
  */
 const token = (name) => `hsl(var(--${name}) / <alpha-value>)`;
 
@@ -36,8 +34,6 @@ module.exports = {
           text: token('primary-text'),
           subtle: token('primary-subtle'),
           border: token('primary-border'),
-          /* legacy name */
-          light: token('primary-subtle'),
         },
         destructive: {
           DEFAULT: token('destructive'),
@@ -52,8 +48,6 @@ module.exports = {
           text: token('success-text'),
           subtle: token('success-subtle'),
           border: token('success-border'),
-          /* legacy name */
-          light: token('success-subtle'),
         },
         warning: {
           DEFAULT: token('warning'),
@@ -61,8 +55,6 @@ module.exports = {
           text: token('warning-text'),
           subtle: token('warning-subtle'),
           border: token('warning-border'),
-          /* legacy name */
-          light: token('warning-subtle'),
         },
         info: {
           text: token('info-text'),
@@ -86,28 +78,6 @@ module.exports = {
           'accent-foreground': token('sidebar-accent-foreground'),
           border: token('sidebar-border'),
           ring: token('sidebar-ring'),
-        },
-
-        /* ── Legacy (unconverted pages) ── */
-        surface: {
-          DEFAULT: token('background'),
-          sidebar: token('sidebar-background'),
-          card: token('card'),
-          elevated: token('elevated'),
-          hover: token('accent'),
-          border: token('border'),
-        },
-        theme: {
-          primary: token('foreground'),
-          secondary: token('muted-foreground'),
-          muted: token('subtle-foreground'),
-          heading: token('foreground'),
-        },
-        /* Legacy `danger` was a text colour; it stays one. */
-        danger: {
-          DEFAULT: token('destructive-text'),
-          light: token('destructive-subtle'),
-          border: token('destructive-border'),
         },
       },
       borderRadius: {

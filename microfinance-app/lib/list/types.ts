@@ -5,6 +5,8 @@ export type SortOrder = 'asc' | 'desc';
 export const PAGE_SIZES = [10, 25, 50, 100] as const;
 export type PageSize = (typeof PAGE_SIZES)[number];
 export const DEFAULT_PAGE_SIZE: PageSize = 10;
+/** Largest page a list endpoint returns (the biggest rows-per-page choice); larger requests get this many. */
+export const MAX_PAGE_SIZE = 100;
 
 /** Filter value meaning "no filter" when the list has a non-empty default (e.g. loans status=Active). */
 export const ALL = 'all';

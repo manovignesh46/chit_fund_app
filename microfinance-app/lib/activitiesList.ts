@@ -10,7 +10,7 @@
  *              day, the same clock that formats each row's `date` text, so a row is in range
  *              exactly when its shown date is (on a UTC server these are UTC days)
  *   sort       'date' (default) | 'amount';  order 'desc' (default) | 'asc'
- *   pageSize   at most MAX_PAGE_SIZE (the legacy handler stays uncapped)
+ *   pageSize   at most MAX_PAGE_SIZE (100, as the legacy handler)
  *
  * Rows have exactly the legacy shape and text (id, type, action, details, date, amount,
  * entityId, entityType). Ties are broken by source (repayment, contribution, auction,
@@ -23,7 +23,7 @@
 import { format } from 'date-fns';
 import { Prisma } from '@prisma/client';
 import prisma from './prisma';
-import { buildMeta, type ListMeta, type SortOrder } from './list/types';
+import { buildMeta, MAX_PAGE_SIZE, type ListMeta, type SortOrder } from './list/types';
 
 export const ACTIVITY_SORTS = ['date', 'amount'] as const;
 export type ActivitySort = (typeof ACTIVITY_SORTS)[number];
@@ -67,7 +67,6 @@ export interface ActivitiesListResult {
 type SearchParamsLike = Pick<URLSearchParams, 'get' | 'has'>;
 
 const DAY = /^\d{4}-\d{2}-\d{2}$/;
-export const MAX_PAGE_SIZE = 100;
 
 function positiveInt(value: string | null, fallback: number): number {
   const n = parseInt(value ?? '', 10);

@@ -16,7 +16,7 @@ import { computeLoanDuePeriods, getLoanDueDate } from "../../../../lib/duesTrack
 import { calculateLoanProfit } from "../../../../lib/financialUtils";
 import { NON_RECOVERABLE, RecoveryError } from "../../../../lib/loanRecovery";
 import { parseListParams, type SortTarget } from "../../../../lib/list/server";
-import { buildMeta } from "../../../../lib/list/types";
+import { buildMeta, MAX_PAGE_SIZE } from "../../../../lib/list/types";
 
 // List contract (lib/list/server.ts): public sort keys -> Prisma orderBy, never a raw column.
 const LOAN_SORTS: Record<string, SortTarget> = {
@@ -312,7 +312,7 @@ async function getLoansList(request: NextRequest, currentUserId: number) {
   try {
     const { searchParams } = new URL(request.url);
     const page = parseInt(searchParams.get("page") || "1");
-    const pageSize = parseInt(searchParams.get("pageSize") || "10");
+    const pageSize = Math.min(parseInt(searchParams.get("pageSize") || "10"), MAX_PAGE_SIZE);
     const status = searchParams.get("status") || null;
     // Optional list-contract params (q, sort, order). Absent: today's query exactly.
     const list = parseListParams(searchParams, { sortable: LOAN_SORTS, searchable: LOAN_SEARCH });
@@ -380,8 +380,8 @@ async function getLoansList(request: NextRequest, currentUserId: number) {
       pageSize: validPageSize,
       totalPages: Math.ceil(totalCount / validPageSize),
       // List metadata, added alongside the keys above (existing callers keep reading them).
-      // The rows are not repeated under `items`: callers that send pageSize=1000 would get
-      // a response twice the size. The client reads them through `itemsKey: 'loans'`.
+      // The rows are not repeated under `items` (it would double the response); the client
+      // reads them through `itemsKey: 'loans'`.
       meta: buildMeta({ page: validPage, pageSize: validPageSize, totalCount, sort: list.sort, order: list.order, q: list.q }),
     });
   } catch (error) {
@@ -443,7 +443,7 @@ async function getRepayments(
   try {
     const { searchParams } = new URL(request.url);
     const page = parseInt(searchParams.get("page") || "1");
-    const pageSize = parseInt(searchParams.get("pageSize") || "10");
+    const pageSize = Math.min(parseInt(searchParams.get("pageSize") || "10"), MAX_PAGE_SIZE);
     // Optional list-contract params (q, sort, order). Absent: today's query exactly.
     const list = parseListParams(searchParams, { sortable: REPAYMENT_SORTS, searchable: REPAYMENT_SEARCH });
     const repaymentWhere: any = { loanId: id, ...(list.searchWhere ?? {}) };

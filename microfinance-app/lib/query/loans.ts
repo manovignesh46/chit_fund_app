@@ -133,9 +133,6 @@ export const loanKeys = {
   recovery: (id: number): QueryKey => queryKeys.action(LOANS, 'recovery', id),
 };
 
-/** Members list used by the loan form (unchanged request: pageSize=1000). */
-export const loanFormMembersKey: QueryKey = queryKeys.list('members', { pageSize: 1000 });
-
 // ─────────────────────────────────────────────────────────────── reads
 
 export function useLoan(id: number | null, config?: SWRConfiguration<LoanRecord>) {

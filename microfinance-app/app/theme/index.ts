@@ -22,8 +22,6 @@ export {
   writeStoredPreference,
 } from './storage';
 
-// Tailwind class helpers
-export { themeText, themeSurface, themeBtn, themeFilter, themePagination } from './classes';
 
 // React API
 export { ThemeProvider } from './ThemeProvider';

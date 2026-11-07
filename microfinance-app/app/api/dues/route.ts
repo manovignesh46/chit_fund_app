@@ -3,7 +3,7 @@ import prisma from "../../../lib/prisma";
 import { getCurrentUserId } from "../../../lib/auth";
 import { buildDueAccounts } from "../../../lib/duesAccounts";
 import { DUES_LIST_PARAMS, filterDueAccounts } from "../../../lib/duesList";
-import { buildMeta } from "../../../lib/list/types";
+import { buildMeta, MAX_PAGE_SIZE } from "../../../lib/list/types";
 
 /**
  * GET /api/dues?asOf=YYYY-MM-DD&horizonDays=30
@@ -52,7 +52,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ asOf: asOf.toISOString(), horizonDays, summary, accounts: filtered, filtered: filteredTotals });
     }
     const page = Math.max(1, parseInt(params.get("page") || "1") || 1);
-    const pageSize = Math.max(1, parseInt(params.get("pageSize") || "25") || 25);
+    const pageSize = Math.min(MAX_PAGE_SIZE, Math.max(1, parseInt(params.get("pageSize") || "25") || 25));
     const sort = params.get("sort");
     return NextResponse.json({
       asOf: asOf.toISOString(),

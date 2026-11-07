@@ -43,8 +43,6 @@ const CommandInput = React.forwardRef<
     <Search className="mr-2 h-4 w-4 shrink-0 opacity-50" />
     <CommandPrimitive.Input
       ref={ref}
-      // data-ui opts this field out of the legacy dark-mode input rules in styles/theme/base.css
-      data-ui=""
       className={cn(
         "flex h-11 w-full rounded-md bg-transparent py-3 text-base text-foreground outline-none md:h-10 md:text-sm placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50",
         className
