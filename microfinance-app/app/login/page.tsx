@@ -1,10 +1,19 @@
-// @ts-nocheck
 'use client';
 
+/**
+ * Sign in. Rendered without the app shell (nav-config `isShellless`).
+ * Inputs `#username` and `#password` are relied on by tests and scripts: keep the ids.
+ * The request, the stored partner keys and the `?from=` / `?error=` handling are the ones
+ * this page always had.
+ */
 import React, { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { Loader2 } from 'lucide-react';
 import { authAPI } from '../../lib/api';
 import PasswordInput from '../components/ui/PasswordInput';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 
 function LoginForm() {
   const [username, setUsername] = useState('');
@@ -55,74 +64,68 @@ function LoginForm() {
       }
 
       const from = searchParams.get('from') || '/dashboard';
+      // Deliberately a full page load, not router.push: the signed-in identity has just
+      // changed, so every client cache, context (partner, user) and SSE connection must
+      // start again from scratch for the new account.
       window.location.href = from;
-    } catch (error: any) {
-      setError(error.message || 'Login failed. Please try again.');
+    } catch (error: unknown) {
+      setError((error instanceof Error && error.message) || 'Login failed. Please try again.');
       setLoading(false);
     }
   };
 
+  const disabled = loading || !username.trim();
+
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-surface py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md w-full space-y-8 themed-card p-10 rounded-lg shadow-md">
-        <div>
-          <h2 className="mt-2 text-center text-3xl font-extrabold text-gray-900 dark:text-theme-primary">
-            AM Fincorp
-          </h2>
-          <p className="mt-2 text-center text-sm text-gray-700 dark:text-theme-secondary">
-            Sign in with your username or email
-          </p>
+    <div className="flex min-h-dvh items-center justify-center bg-background px-4 py-12 sm:px-6 lg:px-8">
+      <div className="w-full max-w-md space-y-8 rounded-xl border bg-card p-6 text-card-foreground shadow-md sm:p-10">
+        <div className="text-center">
+          <h1 className="mt-2 text-3xl font-extrabold tracking-tight text-foreground">AM Fincorp</h1>
+          <p className="mt-2 text-sm text-muted-foreground">Sign in with your username or email</p>
         </div>
 
-        {error && (
-          <div className="alert-error px-4 py-3 rounded relative text-sm" role="alert">
+        {error ? (
+          <div role="alert" className="rounded-md border border-destructive-border bg-destructive-subtle px-4 py-3 text-sm text-destructive-text">
             {error}
           </div>
-        )}
+        ) : null}
 
         <form className="mt-6 space-y-5" onSubmit={handleSubmit}>
-          <div>
-            <label htmlFor="username" className="block text-sm font-medium text-gray-700 dark:text-theme-secondary mb-1">
+          <div className="space-y-1.5">
+            <Label htmlFor="username" className="text-sm font-medium text-foreground">
               Username or Email
-            </label>
-            <input
+            </Label>
+            <Input
               id="username"
               name="username"
               type="text"
               autoComplete="username"
               required
-              className="appearance-none relative block w-full px-3 py-2 border border-gray-200 dark:border-surface-border placeholder-gray-500 text-gray-900 dark:text-theme-primary rounded-lg focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
               placeholder="e.g. Username or partner@email.com"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
             />
           </div>
 
-          <div>
-            <label htmlFor="password" className="block text-sm font-medium text-gray-700 dark:text-theme-secondary mb-1">
+          <div className="space-y-1.5">
+            <Label htmlFor="password" className="text-sm font-medium text-foreground">
               Password
-            </label>
+            </Label>
             <PasswordInput
               id="password"
               name="password"
               autoComplete="current-password"
               required
-              className="appearance-none relative block w-full px-3 py-2 border border-gray-200 dark:border-surface-border placeholder-gray-500 text-gray-900 dark:text-theme-primary rounded-lg focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
               placeholder="Enter password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
             />
           </div>
 
-          <button
-            type="submit"
-            disabled={loading || !username.trim()}
-            className={`w-full flex justify-center py-2.5 px-4 border border-transparent text-sm font-medium rounded-lg text-white ${
-              loading || !username.trim() ? 'bg-blue-400' : 'bg-blue-600 hover:bg-blue-700'
-            } focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:cursor-not-allowed`}
-          >
+          <Button type="submit" disabled={disabled} className="w-full" aria-busy={loading || undefined}>
+            {loading ? <Loader2 aria-hidden="true" className="motion-safe:animate-spin" /> : null}
             {loading ? 'Signing in...' : 'Sign In'}
-          </button>
+          </Button>
         </form>
       </div>
     </div>
@@ -131,7 +134,7 @@ function LoginForm() {
 
 export default function LoginPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen flex items-center justify-center">Loading...</div>}>
+    <Suspense fallback={<div className="flex min-h-dvh items-center justify-center bg-background text-muted-foreground">Loading...</div>}>
       <LoginForm />
     </Suspense>
   );

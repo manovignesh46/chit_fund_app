@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { ChatBubbleLeftRightIcon } from '@heroicons/react/24/outline';
+import { MessagesSquare } from 'lucide-react';
 
 export default function MessageBadge() {
   const pathname = usePathname();
@@ -62,16 +62,16 @@ export default function MessageBadge() {
       aria-label={unreadCount > 0 && !isOnMessagesPage ? `Messages, ${unreadCount} unread` : 'Messages'}
       aria-current={isOnMessagesPage ? 'page' : undefined}
     >
-      <ChatBubbleLeftRightIcon aria-hidden="true" className="w-5 h-5" />
+      <MessagesSquare aria-hidden="true" className="h-5 w-5" />
       {unreadCount > 0 && !isOnMessagesPage && (
-        <span aria-hidden="true" className="absolute top-0.5 right-0.5 flex items-center justify-center min-w-[18px] h-[18px] px-1 text-[10px] font-bold text-white bg-red-500 rounded-full">
+        <span aria-hidden="true" className="absolute right-0.5 top-0.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-bold text-destructive-foreground">
           {unreadCount > 99 ? '99+' : unreadCount}
         </span>
       )}
       {connected && (
         <span
           aria-hidden="true"
-          className="absolute bottom-1.5 right-1.5 w-2 h-2 bg-green-500 rounded-full border border-sidebar"
+          className="absolute bottom-1.5 right-1.5 h-2 w-2 rounded-full border border-sidebar bg-success"
           title="Live"
         />
       )}

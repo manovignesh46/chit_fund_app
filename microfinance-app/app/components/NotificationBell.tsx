@@ -1,21 +1,31 @@
 'use client';
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import dynamic from 'next/dynamic';
 import Link from 'next/link';
-import { BellIcon } from '@heroicons/react/24/outline';
+import { Bell } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
-import NotificationDetailSheet, { notificationSummary, type NotificationItem } from './NotificationDetailSheet';
+import { cn } from '@/lib/utils';
+import { announceNotificationsRead, notificationSummary, NOTIFICATIONS_READ_EVENT, type NotificationItem, type NotificationsReadDetail } from '@/lib/query/notifications';
+
+// The detail sheet (Radix dialog) loads on the first opened notification, not with the shell.
+const NotificationDetailSheet = dynamic(() => import('./NotificationDetailSheet'), { ssr: false });
 
 type Notification = NotificationItem;
 
 export default function NotificationBell() {
   const [notifications, setNotifications] = useState([] as Notification[]);
+  // Latest list for event handlers (read outside state updaters).
+  const notificationsRef = useRef(notifications);
+  notificationsRef.current = notifications;
   const [unreadCount, setUnreadCount] = useState(0);
   const [isOpen, setIsOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [connected, setConnected] = useState(false);
   const [openNotification, setOpenNotification] = useState(null as Notification | null);
+  const [sheetUsed, setSheetUsed] = useState(false);
   const dropdownRef = useRef(null as HTMLDivElement | null);
+  const bellRef = useRef(null as HTMLButtonElement | null);
   const eventSourceRef = useRef(null as EventSource | null);
 
   const fetchNotifications = useCallback(async () => {
@@ -89,6 +99,30 @@ export default function NotificationBell() {
     };
   }, [fetchNotifications]);
 
+  // The notifications page marks notifications read too: follow it without a refetch.
+  useEffect(() => {
+    const onRead = (event: Event) => {
+      const detail = (event as CustomEvent<NotificationsReadDetail>).detail;
+      if (!detail || detail.source === 'bell') return;
+      if ('all' in detail) {
+        setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+        setUnreadCount(0);
+        return;
+      }
+      const hit = notificationsRef.current.find((n) => n.id === detail.id);
+      if (!hit) {
+        // Older than the bell's latest 15: only the server knows the new unread count.
+        void fetchNotifications();
+        return;
+      }
+      if (hit.read) return;
+      setNotifications((prev) => prev.map((n) => (n.id === detail.id ? { ...n, read: true } : n)));
+      setUnreadCount((count) => Math.max(0, count - 1));
+    };
+    window.addEventListener(NOTIFICATIONS_READ_EVENT, onRead);
+    return () => window.removeEventListener(NOTIFICATIONS_READ_EVENT, onRead);
+  }, [fetchNotifications]);
+
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
@@ -105,7 +139,7 @@ export default function NotificationBell() {
     const onKey = (event: KeyboardEvent) => {
       if (event.key !== 'Escape') return;
       setIsOpen(false);
-      dropdownRef.current?.querySelector<HTMLButtonElement>('button')?.focus();
+      bellRef.current?.focus();
     };
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
@@ -132,6 +166,7 @@ export default function NotificationBell() {
         prev.map((n) => (n.id === id ? { ...n, read: true } : n))
       );
       setUnreadCount((prev) => Math.max(0, prev - 1));
+      announceNotificationsRead({ id, source: 'bell' });
     } catch (error) {
       console.error('Error marking notification as read:', error);
     }
@@ -146,6 +181,7 @@ export default function NotificationBell() {
       });
       setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
       setUnreadCount(0);
+      announceNotificationsRead({ all: true, source: 'bell' });
     } catch (error) {
       console.error('Error marking all notifications as read:', error);
     }
@@ -157,6 +193,7 @@ export default function NotificationBell() {
       markAsRead(notification.id);
     }
     setIsOpen(false);
+    setSheetUsed(true);
     setOpenNotification({ ...notification, read: true });
   };
 
@@ -165,67 +202,69 @@ export default function NotificationBell() {
   return (
     <div className="relative" ref={dropdownRef}>
       <button
+        ref={bellRef}
         type="button"
         onClick={handleToggle}
         className="relative inline-flex h-10 w-10 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring aria-expanded:bg-sidebar-accent"
         aria-label={unreadCount > 0 ? `Notifications, ${unreadCount} unread` : 'Notifications'}
         aria-expanded={isOpen}
       >
-        <BellIcon aria-hidden="true" className="w-5 h-5" />
+        <Bell aria-hidden="true" className="h-5 w-5" />
         {unreadCount > 0 && (
-          <span aria-hidden="true" className="absolute top-0.5 right-0.5 flex items-center justify-center min-w-[18px] h-[18px] px-1 text-[10px] font-bold text-white bg-red-500 rounded-full">
+          <span aria-hidden="true" className="absolute right-0.5 top-0.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-bold text-destructive-foreground">
             {unreadCount > 99 ? '99+' : unreadCount}
           </span>
         )}
         {connected && (
-          <span aria-hidden="true" className="absolute bottom-1.5 right-1.5 w-2 h-2 bg-green-500 rounded-full border border-sidebar" title="Live" />
+          <span aria-hidden="true" className="absolute bottom-1.5 right-1.5 h-2 w-2 rounded-full border border-sidebar bg-success" title="Live" />
         )}
       </button>
 
       {isOpen && (
-        <div className="fixed inset-x-3 top-[calc(var(--topbar-height)+0.5rem)] sm:absolute sm:inset-x-auto sm:top-auto sm:right-0 sm:mt-2 w-auto sm:w-80 md:w-96 max-w-[calc(100vw-1.5rem)] sm:max-w-none themed-card border border-gray-200 dark:border-surface-border z-50 shadow-lg">
-          <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 dark:border-surface-border">
-            <h3 className="text-sm font-semibold text-gray-900 dark:text-theme-primary">Notifications</h3>
+        <div className="fixed inset-x-3 top-[calc(var(--topbar-height)+0.5rem)] z-50 w-auto max-w-[calc(100vw-1.5rem)] rounded-xl border bg-popover text-popover-foreground shadow-lg sm:absolute sm:inset-x-auto sm:right-0 sm:top-auto sm:mt-2 sm:w-80 sm:max-w-none md:w-96">
+          <div className="flex items-center justify-between border-b px-4 py-3">
+            <h3 className="text-sm font-semibold text-foreground">Notifications</h3>
             {unreadCount > 0 && (
               <button
+                type="button"
                 onClick={markAllAsRead}
-                className="text-xs text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
+                className="rounded-sm text-xs font-medium text-primary-text hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
                 Mark all read
               </button>
             )}
           </div>
 
-          <div className="max-h-[60vh] sm:max-h-80 overflow-y-auto overscroll-contain">
+          <div className="max-h-[60vh] overflow-y-auto overscroll-contain sm:max-h-80">
             {loading ? (
-              <div className="px-4 py-6 text-center text-sm text-gray-500">Loading...</div>
+              <div className="px-4 py-6 text-center text-sm text-muted-foreground">Loading...</div>
             ) : notifications.length === 0 ? (
-              <div className="px-4 py-6 text-center text-sm text-gray-500">No notifications yet</div>
+              <div className="px-4 py-6 text-center text-sm text-muted-foreground">No notifications yet</div>
             ) : (
               notifications.map((notification) => {
                 const { message, reason } = notificationSummary(notification);
                 const unread = !notification.read;
                 return (
                   <button
+                    type="button"
                     key={notification.id}
                     onClick={() => handleNotificationClick(notification)}
-                    className={`w-full text-left px-3 sm:px-4 py-3.5 border-b border-l-2 border-b-gray-100 dark:border-b-surface-border transition-colors min-h-[44px] hover:bg-gray-50 active:bg-gray-100 dark:hover:bg-surface-hover dark:active:bg-surface-hover ${
-                      unread ? 'border-l-blue-500 bg-blue-50/60 dark:bg-blue-500/10' : 'border-l-transparent'
-                    }`}
+                    className={cn(
+                      'min-h-[44px] w-full border-b border-l-2 px-3 py-3.5 text-left transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring sm:px-4',
+                      unread ? 'border-l-primary bg-primary-subtle/60' : 'border-l-transparent'
+                    )}
                   >
                     <div className="flex items-start gap-2">
-                      {unread && (
-                        <span className="mt-1.5 w-2 h-2 bg-blue-500 rounded-full flex-shrink-0" aria-label="Unread" />
-                      )}
-                      <div className={`min-w-0 ${unread ? '' : 'ml-4'}`}>
-                        <p className={`text-sm text-gray-900 dark:text-theme-primary ${unread ? 'font-semibold' : 'font-normal'}`}>{notification.title}</p>
-                        <p className="text-xs text-gray-700 dark:text-theme-secondary mt-0.5 break-words">{message}</p>
+                      {unread && <span className="mt-1.5 h-2 w-2 flex-shrink-0 rounded-full bg-primary" aria-label="Unread" />}
+                      <div className={cn('min-w-0', !unread && 'ml-4')}>
+                        <p className={cn('text-sm text-foreground', unread ? 'font-semibold' : 'font-normal')}>{notification.title}</p>
+                        <p className="mt-0.5 break-words text-xs text-muted-foreground">{message}</p>
                         {reason && (
-                          <p className="text-xs text-gray-600 dark:text-theme-secondary mt-0.5 line-clamp-2 break-words">
-                            <span className="font-medium text-gray-500 dark:text-theme-muted">Reason:</span> {reason}
+                          <p className="mt-0.5 line-clamp-2 break-words text-xs text-muted-foreground">
+                            <span className="font-medium text-foreground">Reason:</span> {reason}
                           </p>
                         )}
-                        <p className="text-xs text-gray-400 dark:text-theme-muted mt-1">
+                        <p className="mt-1 text-xs text-muted-foreground">
                           {formatDistanceToNow(new Date(notification.createdAt), { addSuffix: true })}
                         </p>
                       </div>
@@ -236,18 +275,18 @@ export default function NotificationBell() {
             )}
           </div>
 
-          <div className="px-3 sm:px-4 py-3 border-t border-gray-100 dark:border-surface-border bg-gray-50 dark:bg-surface-elevated rounded-b-lg">
+          <div className="rounded-b-xl border-t bg-muted/50 px-3 py-3 sm:px-4">
             <Link
               href="/notifications"
               onClick={() => setIsOpen(false)}
-              className="w-full text-center text-sm text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 font-medium py-2 min-h-[44px] flex items-center justify-center"
+              className="flex min-h-[44px] w-full items-center justify-center rounded-md py-2 text-center text-sm font-medium text-primary-text hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               View all notifications
             </Link>
           </div>
         </div>
       )}
-      <NotificationDetailSheet notification={openNotification} onClose={closeDetails} />
+      {sheetUsed ? <NotificationDetailSheet notification={openNotification} onClose={closeDetails} returnFocusRef={bellRef} /> : null}
     </div>
   );
 }

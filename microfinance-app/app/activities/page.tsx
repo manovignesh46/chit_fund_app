@@ -1,365 +1,262 @@
-// @ts-nocheck
 'use client';
 
-import React, { useState, useEffect } from 'react';
+/**
+ * Activities (List template): every loan repayment, chit contribution, auction and loan
+ * disbursement, newest first. List state is in the URL (q, type, from, to, sort, order,
+ * page, pageSize); the server pages the whole dataset in SQL (lib/activitiesList.ts), so
+ * search, filters and sort cover every activity, not just the current page.
+ * A row opens its loan or chit fund.
+ */
+import * as React from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { formatCurrency } from '../../lib/formatUtils';
-import BackTitle from '../components/common/BackTitle';
+import { ArrowUpRight } from 'lucide-react';
 
-// Define activity interface
-interface Activity {
-  id: string | number;
-  type: 'Loan' | 'Chit Fund';
-  action: string;
-  details: string;
-  date: string;
-  amount?: number;
-  entityId?: number;
-  entityType?: string;
+import { formatDate } from '@/lib/format';
+import { useListParams } from '@/lib/list/useListParams';
+import { useListQuery } from '@/lib/list/useListQuery';
+import { ALL } from '@/lib/list/types';
+import { queryKeys } from '@/lib/query/keys';
+import { prefetchQuery, whenIdle } from '@/lib/query/prefetch';
+import { ACTIVITIES, activityHref, type ActivityRow } from '@/lib/query/activities';
+
+import { DataTable, type DataTableColumn } from '@/components/kit/data-table';
+import { EmptyState } from '@/components/kit/empty-state';
+import { FilterChips } from '@/components/kit/filter-chips';
+import { FormField } from '@/components/kit/form-field';
+import { formatRange } from '@/components/kit/list-pagination';
+import { ListToolbar } from '@/components/kit/list-toolbar';
+import { Money, type MoneyTone } from '@/components/kit/money';
+import { NativeSelect } from '@/components/kit/native-select';
+import { PageContainer } from '@/components/kit/page-container';
+import { PageHeader } from '@/components/kit/page-header';
+import { DateRangePicker, describePeriod } from '@/components/kit/period-picker';
+import { SearchInput } from '@/components/kit/search-input';
+
+const FILTERS = ['type', 'from', 'to'] as const;
+type Filter = (typeof FILTERS)[number];
+const SORTS = ['date', 'amount'] as const;
+
+const TYPE_OPTIONS = [
+  { value: ALL, label: 'Loans and chit funds' },
+  { value: 'loan', label: 'Loans' },
+  { value: 'chit', label: 'Chit funds' },
+];
+const TYPE_LABEL: Record<string, string> = { loan: 'Loans only', chit: 'Chit funds only' };
+const SORT_OPTIONS = [
+  { value: 'default', label: 'Newest first' },
+  { value: 'date:asc', label: 'Oldest first' },
+  { value: 'amount:desc', label: 'Largest amount' },
+  { value: 'amount:asc', label: 'Smallest amount' },
+];
+
+/** Money received shows as an inflow (+₹, green); disbursements and auctions as plain amounts. */
+function amountTone(activity: ActivityRow): MoneyTone {
+  return activity.action === 'Repayment Received' || activity.action === 'Contribution Received' ? 'inflow' : 'plain';
+}
+
+/**
+ * The server already formats the date ("06 Nov 2026", the same text as formatDate); it is
+ * shown as is because re-parsing that text with `new Date()` is not reliable in every browser.
+ */
+function ActivityDate({ value }: { value: string }) {
+  return <span className="whitespace-nowrap tabular-nums">{value || '—'}</span>;
+}
+
+function TypeBadge({ type }: { type: string }) {
+  return (
+    <span className="inline-flex h-6 items-center whitespace-nowrap rounded-full border bg-muted px-2 text-xs font-medium text-muted-foreground">
+      {type}
+    </span>
+  );
 }
 
 export default function ActivitiesPage() {
+  return (
+    <PageContainer>
+      <ActivitiesList />
+    </PageContainer>
+  );
+}
+
+function ActivitiesList() {
   const router = useRouter();
-  // State for activities and pagination
-  const [activities, setActivities] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [filter, setFilter] = useState('all');
+  const list = useListParams<Filter>({ id: 'activities', filters: FILTERS, sortable: SORTS });
+  const p = list.params;
 
-  // Pagination state
-  const [currentPage, setCurrentPage] = useState(1);
-  const [totalActivities, setTotalActivities] = useState(0);
-  const [pageSize, setPageSize] = useState(10);
-  const [totalPages, setTotalPages] = useState(1);
+  // The server's default order is newest first; it is sent explicitly so every request
+  // takes the SQL-paged path (a request without list params runs the legacy handler).
+  const request = React.useMemo(() => {
+    const out: Record<string, string | number> = { ...list.apiParams };
+    if (!p.sort) {
+      out.sort = 'date';
+      out.order = 'desc';
+    }
+    return out;
+  }, [list.apiParams, p.sort]);
 
-  // Fetch activities from API
-  useEffect(() => {
-    const fetchActivities = async () => {
-      try {
-        setLoading(true);
+  const query = useListQuery<ActivityRow>(ACTIVITIES, { apiParams: request, ready: list.ready, setParams: list.setParams }, { itemsKey: 'activities' });
+  const meta = query.meta;
 
-        // Fetch activities with pagination
-        const response = await fetch(`/api/dashboard/consolidated?action=activities&page=${currentPage}&pageSize=${pageSize}&filter=${filter}`);
-        const data = await response.json();
+  // Preload the next page once this one has settled.
+  React.useEffect(() => {
+    if (!list.ready || !meta?.hasNext || query.isRefreshing) return;
+    const next = queryKeys.list(ACTIVITIES, { ...request, page: meta.page + 1 });
+    return whenIdle(() => prefetchQuery(next));
+  }, [list.ready, request, meta, query.isRefreshing]);
 
-        if (data.activities && Array.isArray(data.activities)) {
-          setActivities(data.activities);
-          setTotalActivities(data.totalCount || data.activities.length);
-          setTotalPages(Math.ceil((data.totalCount || data.activities.length) / pageSize));
-        } else {
-          setActivities([]);
-          setTotalActivities(0);
-          setTotalPages(1);
-        }
+  const columns: DataTableColumn<ActivityRow>[] = [
+    { id: 'type', header: 'Type', cell: (a) => <TypeBadge type={a.type} /> },
+    { id: 'action', header: 'Action', cell: (a) => <span className="whitespace-nowrap font-medium text-foreground">{a.action}</span> },
+    { id: 'details', header: 'Details', cell: (a) => <span className="text-muted-foreground">{a.details}</span> },
+    { id: 'amount', header: 'Amount', numeric: true, sortable: true, cell: (a) => <Money value={a.amount} tone={amountTone(a)} /> },
+    { id: 'date', header: 'Date', sortable: true, cell: (a) => <ActivityDate value={a.date} /> },
+    {
+      id: 'view',
+      header: <span className="sr-only">Open</span>,
+      align: 'right',
+      width: '5rem',
+      cell: (a) => {
+        const href = activityHref(a);
+        return href ? (
+          <Link
+            href={href}
+            className="inline-flex items-center gap-1 rounded-sm text-sm font-medium text-primary-text hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            View
+            <span className="sr-only"> {a.entityType === 'loan' ? 'loan' : 'chit fund'}</span>
+          </Link>
+        ) : (
+          <span className="text-sm text-muted-foreground">N/A</span>
+        );
+      },
+    },
+  ];
 
-        setError(null);
-      } catch (err) {
-        console.error('Error fetching activities:', err);
-        const errorMessage = err && typeof err === 'object' && 'message' in err
-          ? err.message
-          : 'Failed to load activities';
-        setError(errorMessage);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchActivities();
-  }, [currentPage, pageSize, filter]);
-
-  // Handle page change
-  const handlePageChange = (page) => {
-    setCurrentPage(page);
+  const chipLabel = (name: string, value: string): string => {
+    if (name === 'q') return `Search: ${value}`;
+    if (name === 'type') return TYPE_LABEL[value] ?? value;
+    if (name === 'from') return `From ${formatDate(value)}`;
+    if (name === 'to') return `To ${formatDate(value)}`;
+    return value;
   };
+  const chips = list.activeFilters.map((f) => ({
+    key: f.name,
+    label: chipLabel(f.name, f.value),
+    onRemove: () => list.setParams({ [f.name]: null } as Parameters<typeof list.setParams>[0]),
+  }));
+  const filterCount = (p.from ? 1 : 0) + (p.to ? 1 : 0);
 
-  // Handle page size change
-  const handlePageSizeChange = (e) => {
-    setPageSize(Number(e.target.value));
-    setCurrentPage(1); // Reset to first page when changing page size
-  };
-
-  // Loading state
-  if (loading && activities.length === 0) {
-    return (
-      <div className="container mx-auto px-4 py-8">
-        <div className="flex justify-between items-center mb-6">
-          <BackTitle title="Recent Activities" href="/dashboard" ariaLabel="Back to Dashboard" />
-        </div>
-        <div className="themed-card p-6">
-          <div className="animate-pulse">
-            <div className="h-8 bg-gray-200 rounded w-1/4 mb-6"></div>
-            <div className="space-y-4">
-              {[...Array(5)].map((_, i) => (
-                <div key={i} className="h-16 bg-gray-100 rounded"></div>
-              ))}
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // Error state
-  if (error) {
-    return (
-      <div className="container mx-auto px-4 py-8">
-        <div className="flex justify-between items-center mb-6">
-          <BackTitle title="Recent Activities" href="/dashboard" ariaLabel="Back to Dashboard" />
-        </div>
-        <div className="alert-error px-4 py-3 rounded">
-          <p className="font-bold">Error</p>
-          <p>{error}</p>
-        </div>
-      </div>
-    );
-  }
+  const emptyState = list.isFiltered ? (
+    <EmptyState
+      variant="no-results"
+      description={p.q ? `No activities match "${p.q}".` : 'No activities match these filters.'}
+      onClearFilters={list.clearFilters}
+    />
+  ) : (
+    <EmptyState title="No activities yet" description="Loan repayments, chit contributions, auctions and loan disbursements appear here as they are recorded." />
+  );
 
   return (
-    <div className="page-container">
-      <div className="flex flex-row flex-wrap items-center justify-between gap-2 mb-6 sm:mb-8">
-        <BackTitle title="Recent Activities" href="/dashboard" ariaLabel="Back to Dashboard" />
-      </div>
+    <div>
+      <PageHeader
+        title="Activities"
+        count={meta?.totalCount}
+        description="Repayments, contributions, auctions and loan disbursements."
+      />
 
-      <div className="themed-card p-2 sm:p-6">
-        {/* Filter Controls */}
-        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 sm:gap-4 mb-6">
-          <div className="flex flex-row gap-2 flex-wrap">
-            <button
-              onClick={() => setFilter('all')}
-              className={`p-2 rounded-lg text-sm sm:text-base transition duration-300 flex items-center justify-center ${
-                filter === 'all' ? 'bg-blue-600 text-white' : 'btn-neutral'
-              }`}
-              aria-label="Show All Activities"
-            >
-              {/* AdjustmentsHorizontal icon: icon-only on mobile, icon+text on desktop */}
-              <svg className="h-5 w-5 block sm:hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h8m-8 6h16" />
-              </svg>
-              <span className="hidden sm:inline-flex items-center">
-                <svg className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h8m-8 6h16" />
-                </svg>
-                All
-              </span>
-            </button>
-            <button
-              onClick={() => setFilter('Loan')}
-              className={`p-2 rounded-lg text-sm sm:text-base transition duration-300 flex items-center justify-center ${
-                filter === 'Loan' ? 'filter-chip-active-blue' : 'filter-chip'
-              }`}
-              aria-label="Show Loan Activities"
-            >
-              {/* AdjustmentsHorizontal icon: icon-only on mobile, icon+text on desktop */}
-              <svg className="h-5 w-5 block sm:hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h8m-8 6h16" />
-              </svg>
-              <span className="hidden sm:inline-flex items-center">
-                <svg className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h8m-8 6h16" />
-                </svg>
-                Loans
-              </span>
-            </button>
-            <button
-              onClick={() => setFilter('Chit Fund')}
-              className={`p-2 rounded-lg text-sm sm:text-base transition duration-300 flex items-center justify-center ${
-                filter === 'Chit Fund' ? 'bg-blue-600 text-white' : 'btn-neutral'
-              }`}
-              aria-label="Show Chit Fund Activities"
-            >
-              {/* AdjustmentsHorizontal icon: icon-only on mobile, icon+text on desktop */}
-              <svg className="h-5 w-5 block sm:hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h8m-8 6h16" />
-              </svg>
-              <span className="hidden sm:inline-flex items-center">
-                <svg className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h8m-8 6h16" />
-                </svg>
-                Chit Funds
-              </span>
-            </button>
-          </div>
-          <div className="flex items-center gap-2 w-full sm:w-auto">
-            <span className="text-sm text-gray-700 dark:text-theme-secondary">Show:</span>
-            <select
-              value={pageSize}
-              onChange={handlePageSizeChange}
-              className="border rounded p-1 text-sm w-full sm:w-auto"
-            >
-              <option value={5}>5</option>
-              <option value={10}>10</option>
-              <option value={20}>20</option>
-              <option value={50}>50</option>
-            </select>
-          </div>
-        </div>
+      <ListToolbar
+        search={<SearchInput value={p.q} onChange={(q) => list.setParams({ q })} placeholder="Search by borrower or chit fund" label="Search activities by borrower or chit fund name" />}
+        primaryFilter={
+          <NativeSelect
+            aria-label="Type"
+            className="w-52"
+            value={p.type ?? ALL}
+            onValueChange={(value) => list.setParams({ type: value === ALL ? null : value })}
+            options={TYPE_OPTIONS}
+          />
+        }
+        filters={
+          <FormField label="Period">
+            <DateRangePicker from={p.from} to={p.to} onChange={(from, to) => list.setParams({ from, to })} />
+          </FormField>
+        }
+        filterCount={filterCount}
+        sort={
+          <NativeSelect
+            aria-label="Sort by"
+            size="sm"
+            value={p.sort ? `${p.sort}:${p.order ?? 'asc'}` : 'default'}
+            onValueChange={(value) => {
+              if (value === 'default') return list.setParams({ sort: null, order: null });
+              const [sort, order] = value.split(':');
+              list.setParams({ sort, order: order as 'asc' | 'desc' });
+            }}
+            options={SORT_OPTIONS}
+          />
+        }
+        chips={<FilterChips chips={chips} onClearAll={list.clearFilters} />}
+        resultSummary={meta ? `${formatRange(meta.page, meta.pageSize, meta.totalCount)}${p.from || p.to ? ` · ${describePeriod(p.from, p.to)}` : ''}` : null}
+      />
 
-        {/* Activities Table */}
-        <div className="themed-card overflow-x-auto w-full">
-          {activities.length === 0 ? (
-            <div className="text-center py-8">
-              <div className="text-gray-400 mb-4">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-16 w-16 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
+      <DataTable<ActivityRow>
+        label="Activities"
+        columns={columns}
+        rows={query.items}
+        getRowId={(a) => a.id}
+        isInitialLoading={query.isInitialLoading}
+        isRefreshing={query.isRefreshing}
+        error={query.error}
+        onRetry={() => void query.mutate()}
+        sort={{ sort: p.sort, order: p.order }}
+        onSortChange={(next) => list.setParams({ sort: next.sort, order: next.order })}
+        onRowClick={(a) => {
+          const href = activityHref(a);
+          if (href) router.push(href);
+        }}
+        emptyState={emptyState}
+        pagination={
+          meta
+            ? {
+                page: meta.page,
+                pageSize: p.pageSize,
+                totalCount: meta.totalCount,
+                onPageChange: (page) => list.setParams({ page }),
+                onPageSizeChange: (pageSize) => list.setParams({ pageSize }),
+              }
+            : undefined
+        }
+        renderCard={(a) => {
+          const href = activityHref(a);
+          return (
+            <div className="space-y-2">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="font-medium text-foreground">{a.action}</p>
+                  <p className="text-sm text-muted-foreground">{a.details}</p>
+                </div>
+                <Money value={a.amount} tone={amountTone(a)} className="font-medium" />
               </div>
-              <h3 className="text-xl font-semibold text-gray-700 dark:text-theme-secondary mb-2">No activities found</h3>
-              <p className="text-gray-500">There are no recent activities to display.</p>
+              <div className="flex items-center justify-between gap-3 text-xs text-muted-foreground">
+                <div className="flex items-center gap-2">
+                  <TypeBadge type={a.type} />
+                  <ActivityDate value={a.date} />
+                </div>
+                {href ? (
+                  <Link
+                    href={href}
+                    onClick={(event) => event.stopPropagation()}
+                    className="inline-flex min-h-[44px] items-center gap-1 text-sm font-medium text-primary-text"
+                  >
+                    {a.entityType === 'loan' ? 'Open loan' : 'Open chit fund'}
+                    <ArrowUpRight aria-hidden="true" className="h-4 w-4" />
+                  </Link>
+                ) : null}
+              </div>
             </div>
-          ) : (
-            <div className="table-shell" style={{maxWidth: '85vw'}}>
-              <table className="themed-table text-xs sm:text-sm" style={{minWidth: '600px'}}>
-              <thead className="bg-gray-50 dark:bg-surface-elevated">
-                <tr>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-theme-muted uppercase tracking-wider">
-                    Type
-                  </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-theme-muted uppercase tracking-wider">
-                    Action
-                  </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-theme-muted uppercase tracking-wider">
-                    Details
-                  </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-theme-muted uppercase tracking-wider">
-                    Amount
-                  </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-theme-muted uppercase tracking-wider">
-                    Date
-                  </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-theme-muted uppercase tracking-wider">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {activities.map((activity) => {
-                  // Generate link based on entity type
-                  let entityLink = '#';
-                  if (activity.entityType === 'loan' && activity.entityId) {
-                    entityLink = `/loans/${activity.entityId}`;
-                  } else if (activity.entityType === 'chitFund' && activity.entityId) {
-                    entityLink = `/chit-funds/${activity.entityId}`;
-                  }
-
-                  return (
-                    <tr
-                      key={activity.id}
-                      className="hover:bg-gray-50 dark:hover:bg-surface-hover cursor-pointer"
-                      onClick={e => {
-                        // Prevent navigation when clicking on action buttons/links in the Actions column
-                        if (
-                          e.target instanceof HTMLButtonElement ||
-                          (e.target instanceof HTMLElement && e.target.closest('button')) ||
-                          (e.target instanceof HTMLElement && e.target.closest('a'))
-                        ) {
-                          return;
-                        }
-                        if (entityLink !== '#') {
-                          router.push(entityLink);
-                        }
-                      }}
-                    >
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                          activity.type === 'Chit Fund' ? 'bg-blue-100 text-blue-800' : 'bg-green-100 text-green-800'
-                        }`}>
-                          {activity.type}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-theme-primary">
-                        {activity.action}
-                      </td>
-                      <td className="px-6 py-4 text-sm text-gray-500">
-                        {activity.details}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-theme-primary">
-                        {activity.amount ? formatCurrency(activity.amount) : '-'}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {activity.date}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                        {entityLink !== '#' ? (
-                          <Link
-                            href={entityLink}
-                            className="text-blue-600 dark:text-blue-400 hover:text-blue-900 dark:hover:text-blue-300"
-                            onClick={e => e.stopPropagation()}
-                          >
-                            View
-                          </Link>
-                        ) : (
-                          <span className="text-gray-400">N/A</span>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-
-        {/* Pagination */}
-        {totalPages > 1 && (
-          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mt-6 gap-2 sm:gap-0">
-            <div className="text-xs sm:text-sm text-gray-700 dark:text-theme-secondary">
-              Showing <span className="font-medium">{(currentPage - 1) * pageSize + 1}</span> to{' '}
-              <span className="font-medium">{Math.min(currentPage * pageSize, totalActivities)}</span> of{' '}
-              <span className="font-medium">{totalActivities}</span> results
-            </div>
-            <div className="flex flex-row gap-2 flex-wrap">
-              <button
-                onClick={() => handlePageChange(currentPage - 1)}
-                disabled={currentPage === 1}
-                className={`p-2 rounded-lg text-sm sm:text-base transition duration-300 flex items-center justify-center ${
-                  currentPage === 1
-                    ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                    : 'btn-neutral'
-                }`}
-                aria-label="Previous Page"
-              >
-                {/* ChevronLeft icon: icon-only on mobile, icon+text on desktop */}
-                <svg className="h-5 w-5 block sm:hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" />
-                </svg>
-                <span className="hidden sm:inline-flex items-center">Previous</span>
-              </button>
-              {[...Array(totalPages)].map((_, i) => (
-                <button
-                  key={i}
-                  onClick={() => handlePageChange(i + 1)}
-                  className={`p-2 rounded-lg text-sm sm:text-base transition duration-300 flex items-center justify-center ${
-                    currentPage === i + 1
-                      ? 'bg-blue-600 text-white'
-                      : 'btn-neutral'
-                  }`}
-                  aria-label={`Go to page ${i + 1}`}
-                >
-                  {i + 1}
-                </button>
-              ))}
-              <button
-                onClick={() => handlePageChange(currentPage + 1)}
-                disabled={currentPage === totalPages}
-                className={`p-2 rounded-lg text-sm sm:text-base transition duration-300 flex items-center justify-center ${
-                  currentPage === totalPages
-                    ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                    : 'btn-neutral'
-                }`}
-                aria-label="Next Page"
-              >
-                {/* ChevronRight icon: icon-only on mobile, icon+text on desktop */}
-                <svg className="h-5 w-5 block sm:hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
-                </svg>
-                <span className="hidden sm:inline-flex items-center">Next</span>
-              </button>
-            </div>
-          </div>
-        )}
-      </div>
+          );
+        }}
+      />
     </div>
   );
 }

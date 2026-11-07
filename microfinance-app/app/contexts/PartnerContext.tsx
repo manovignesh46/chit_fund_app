@@ -1,8 +1,12 @@
 'use client';
 
 import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
-import PartnerSelectionModal from '../components/partners/PartnerSelectionModal';
+import dynamic from 'next/dynamic';
+import { NativeSelect } from '@/components/kit/native-select';
 import { clearAllCaches, revalidateAll } from '../../lib/query/invalidate';
+
+// The selection dialog (Radix dialog/sheet) loads the first time it is needed, not with every page.
+const PartnerSelectionModal = dynamic(() => import('../components/partners/PartnerSelectionModal'), { ssr: false });
 
 interface Partner {
   id: number;
@@ -49,13 +53,27 @@ export function PartnerProvider({ children }: PartnerProviderProps) {
   const [showPartnerModal, setShowPartnerModal] = useState(false);
   const [userProfileLoaded, setUserProfileLoaded] = useState(false);
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
+  // Mounted from the first time the dialog opens (keeps its close animation afterwards).
+  const [partnerModalUsed, setPartnerModalUsed] = useState(false);
+  useEffect(() => {
+    if (showPartnerModal) setPartnerModalUsed(true);
+  }, [showPartnerModal]);
+
+  /** Who is signed in. Set from the profile alone, so it does not depend on the partners list. */
+  const applyIdentity = (profile: any) => {
+    setCurrentUser(profile?.id ? { id: profile.id, name: profile.name || '', email: profile.email || '', role: profile.role || '' } : null);
+    setPartnerLocked(!!profile?.partnerLocked);
+    setIsPrimaryAdmin(!!profile?.isPrimaryAdmin);
+  };
 
   const refreshPartners = async (retryCount = 0) => {
+    // Start the profile request alongside the partners request instead of after it.
+    let profilePromise: Promise<{ res: Response | null; failure: unknown }> | null = null;
+    let identityApplied = false;
     try {
       setLoading(true);
       setError(null);
-      // Start the profile request alongside the partners request instead of after it.
-      const profilePromise = fetch('/api/user?action=me').then(
+      profilePromise = fetch('/api/user?action=me').then(
         (res) => ({ res, failure: null as unknown }),
         (failure) => ({ res: null as Response | null, failure })
       );
@@ -80,11 +98,10 @@ export function PartnerProvider({ children }: PartnerProviderProps) {
 
       if (profileResponse.ok) {
         const profile = await profileResponse.json();
-        setCurrentUser(profile?.id ? { id: profile.id, name: profile.name || '', email: profile.email || '', role: profile.role || '' } : null);
+        identityApplied = true;
+        applyIdentity(profile);
         profilePartnerLocked = !!profile.partnerLocked;
         profileIsPrimaryAdmin = !!profile.isPrimaryAdmin;
-        setPartnerLocked(profilePartnerLocked);
-        setIsPrimaryAdmin(profileIsPrimaryAdmin);
 
         if (profile.partner?.id) {
           const linkedPartner = data.partners.find(
@@ -126,6 +143,17 @@ export function PartnerProvider({ children }: PartnerProviderProps) {
         }
       }
     } catch (err) {
+      // The partners request failed: still record who is signed in, so pages that only need
+      // the identity (users, settings) keep working. The partner prompt stays closed
+      // (it needs userProfileLoaded and a partners list).
+      if (profilePromise && !identityApplied) {
+        try {
+          const { res } = await profilePromise;
+          if (res?.ok && !res.bodyUsed) applyIdentity(await res.json());
+        } catch {
+          /* the error below is what the user sees */
+        }
+      }
       const errMsg = err instanceof Error ? err.message : 'Failed to fetch partners';
       if (errMsg.includes('Server did not return JSON') && retryCount < 3) {
         setTimeout(() => refreshPartners(retryCount + 1), 700);
@@ -204,7 +232,7 @@ export function PartnerProvider({ children }: PartnerProviderProps) {
   return (
     <PartnerContext.Provider value={value}>
       {children}
-      {isPrimaryAdmin && !partnerLocked && (
+      {isPrimaryAdmin && !partnerLocked && partnerModalUsed && (
         <PartnerSelectionModal
           isOpen={showPartnerModal}
           onClose={() => setShowPartnerModal(false)}
@@ -235,6 +263,7 @@ export function PartnerSelector({
   variant = 'default'
 }: PartnerSelectorProps) {
   const { selectedPartner, setSelectedPartner, partners, loading, partnerLocked } = usePartner();
+  const selectId = React.useId();
 
   if (loading) {
     return null;
@@ -244,8 +273,8 @@ export function PartnerSelector({
   if (partnerLocked && selectedPartner) {
     return (
       <div className={`flex flex-row items-center gap-2 ${className}`.trim()}>
-        <span className="text-sm text-gray-600 dark:text-gray-400 hidden sm:inline">Logged in as</span>
-        <span className="px-3 py-1.5 bg-blue-50 text-blue-800 dark:bg-transparent dark:text-blue-400 text-sm font-medium rounded-lg border border-blue-200 dark:border-blue-500">
+        <span className="hidden text-sm text-muted-foreground sm:inline">Logged in as</span>
+        <span className="rounded-lg border border-primary-border bg-primary-subtle px-3 py-1.5 text-sm font-medium text-primary-text">
           {selectedPartner.name}
         </span>
       </div>
@@ -258,21 +287,18 @@ export function PartnerSelector({
     setSelectedPartner(partner || null);
   };
 
+  const options = partners.map((partner) => ({ value: String(partner.id), label: partner.name }));
+
   if (variant === 'sidebar') {
     return (
       <div className={className}>
-        <select
+        <NativeSelect
+          aria-label="Active partner"
           value={selectedPartner?.id || ''}
           onChange={selectPartnerHandler}
-          className="block w-full px-3 py-2 bg-white dark:bg-surface-card border border-gray-300 dark:border-surface-border rounded-md text-gray-900 dark:text-theme-primary text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-        >
-          <option value="">Select Partner</option>
-          {partners.map((partner) => (
-            <option key={partner.id} value={partner.id}>
-              {partner.name}
-            </option>
-          ))}
-        </select>
+          placeholder="Select Partner"
+          options={options}
+        />
       </div>
     );
   }
@@ -280,30 +306,20 @@ export function PartnerSelector({
   return (
     <div className={`flex flex-row items-center gap-2 ${className}`.trim()}>
       {label && (
-        <label className="block text-sm font-medium text-gray-700 dark:text-theme-secondary mr-1 mb-0 whitespace-nowrap">
+        <label htmlFor={selectId} className="mb-0 mr-1 block whitespace-nowrap text-sm font-medium text-muted-foreground">
           {label}
         </label>
       )}
-      <div className="relative">
-        <select
-          value={selectedPartner?.id || ''}
-          onChange={selectPartnerHandler}
-          className="block px-3 py-2 pr-8 border border-blue-500 dark:border-surface-border rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-blue-600 bg-white dark:bg-surface-elevated text-gray-900 dark:text-theme-primary font-medium transition-all duration-150 appearance-none hover:border-blue-600 dark:hover:border-blue-500"
-          style={{ minWidth: 160 }}
-        >
-          <option value="">Select Partner</option>
-          {partners.map(partner => (
-            <option key={partner.id} value={partner.id}>
-              {partner.name}
-            </option>
-          ))}
-        </select>
-        <span className="pointer-events-none absolute inset-y-0 right-2 flex items-center text-blue-500">
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-          </svg>
-        </span>
-      </div>
+      <NativeSelect
+        id={selectId}
+        aria-label={label ? undefined : 'Active partner'}
+        size="sm"
+        value={selectedPartner?.id || ''}
+        onChange={selectPartnerHandler}
+        placeholder="Select Partner"
+        options={options}
+        className="min-w-[160px] font-medium"
+      />
     </div>
   );
 }

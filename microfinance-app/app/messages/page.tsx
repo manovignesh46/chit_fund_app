@@ -1,9 +1,18 @@
 'use client';
 
+/**
+ * Team chat. The shell gives /messages its full-height layout (nav-config `layout: 'full'`)
+ * and the top bar its title and back link, so the page is only the chat: team list
+ * (desktop), messages, composer. Live messages arrive on the SSE stream; older ones load
+ * when the top of the list scrolls into view, keeping the reading position.
+ */
 import React, { useState, useEffect, useRef, useCallback, useLayoutEffect } from 'react';
-import Link from 'next/link';
 import { format, isToday, isYesterday } from 'date-fns';
-import { PaperAirplaneIcon } from '@heroicons/react/24/solid';
+import { Loader2, MessageSquare, SendHorizontal, X } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Textarea } from '@/components/ui/textarea';
 
 interface Sender {
   id: number;
@@ -261,10 +270,10 @@ export default function MessagesPage() {
   const renderMessages = () => {
     if (loading) {
       return (
-        <div className="flex flex-col gap-3 py-4">
+        <div className="flex flex-col gap-3 py-4" aria-hidden="true">
           {[1, 2, 3, 4].map((i) => (
-            <div key={i} className={`flex ${i % 2 === 0 ? 'justify-end' : 'justify-start'}`}>
-              <div className={`h-10 rounded-2xl animate-pulse bg-gray-200 dark:bg-surface-elevated ${i % 2 === 0 ? 'w-40' : 'w-52'}`} />
+            <div key={i} className={cn('flex', i % 2 === 0 ? 'justify-end' : 'justify-start')}>
+              <Skeleton className={cn('h-10 rounded-2xl', i % 2 === 0 ? 'w-40' : 'w-52')} />
             </div>
           ))}
         </div>
@@ -272,12 +281,12 @@ export default function MessagesPage() {
     }
     if (messages.length === 0) {
       return (
-        <div className="flex flex-col items-center justify-center h-full gap-2 py-12 text-center">
-          <div className="w-12 h-12 rounded-full bg-gray-100 dark:bg-surface-elevated flex items-center justify-center mb-2">
-            <PaperAirplaneIcon className="w-5 h-5 text-gray-400 rotate-45" />
+        <div className="flex h-full flex-col items-center justify-center gap-2 py-12 text-center">
+          <div className="mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-muted text-muted-foreground">
+            <MessageSquare aria-hidden="true" className="h-5 w-5" />
           </div>
-          <p className="text-sm font-medium text-gray-600 dark:text-theme-secondary">No messages yet</p>
-          <p className="text-xs text-gray-400 dark:text-theme-muted">Say hello to your team!</p>
+          <p className="text-sm font-medium text-foreground">No messages yet</p>
+          <p className="text-xs text-muted-foreground">Say hello to your team!</p>
         </div>
       );
     }
@@ -289,34 +298,28 @@ export default function MessagesPage() {
       // Insert a date separator when the day changes
       if (!prevMsg || !isSameDay(prevMsg.createdAt, msg.createdAt)) {
         items.push(
-          <div key={`sep-${msg.id}`} className="flex items-center gap-3 py-2">
-            <div className="flex-1 h-px bg-gray-200 dark:bg-surface-border" />
-            <span className="text-xs text-gray-400 dark:text-theme-muted font-medium px-1 whitespace-nowrap">
-              {formatDateSeparator(msg.createdAt)}
-            </span>
-            <div className="flex-1 h-px bg-gray-200 dark:bg-surface-border" />
+          <div key={`sep-${msg.id}`} className="flex items-center gap-3 py-2" role="separator" aria-label={formatDateSeparator(msg.createdAt)}>
+            <div className="h-px flex-1 bg-border" />
+            <span className="whitespace-nowrap px-1 text-xs font-medium text-muted-foreground">{formatDateSeparator(msg.createdAt)}</span>
+            <div className="h-px flex-1 bg-border" />
           </div>
         );
       }
 
       const isOwn = msg.sender.id === currentUserId;
       items.push(
-        <div key={msg.id} className={`flex ${isOwn ? 'justify-end' : 'justify-start'}`}>
-          <div className={`flex flex-col max-w-xs sm:max-w-md ${isOwn ? 'items-end' : 'items-start'}`}>
-            {!isOwn && (
-              <span className="text-xs font-medium text-gray-500 dark:text-theme-muted mb-0.5 ml-1">
-                {getDisplayName(msg.sender)}
-              </span>
-            )}
+        <div key={msg.id} className={cn('flex', isOwn ? 'justify-end' : 'justify-start')}>
+          <div className={cn('flex max-w-xs flex-col sm:max-w-md', isOwn ? 'items-end' : 'items-start')}>
+            {!isOwn && <span className="mb-0.5 ml-1 text-xs font-medium text-muted-foreground">{getDisplayName(msg.sender)}</span>}
             <div
-              className={`rounded-2xl px-4 py-2 shadow-sm ${
-                isOwn
-                  ? 'bg-blue-600 text-white rounded-br-sm'
-                  : 'bg-white dark:bg-surface-card text-gray-900 dark:text-theme-primary rounded-bl-sm border border-gray-100 dark:border-surface-border'
-              }`}
+              className={cn(
+                'rounded-2xl px-4 py-2 shadow-sm',
+                isOwn ? 'rounded-br-sm bg-primary text-primary-foreground' : 'rounded-bl-sm border bg-card text-card-foreground'
+              )}
             >
-              <p className="text-sm whitespace-pre-wrap break-words leading-snug">{msg.content}</p>
-              <p className={`text-xs mt-1 text-right ${isOwn ? 'text-blue-200' : 'text-gray-400 dark:text-theme-muted'}`}>
+              <p className="whitespace-pre-wrap break-words text-sm leading-snug">{msg.content}</p>
+              <p className={cn('mt-1 text-right text-xs', isOwn ? 'text-primary-foreground/75' : 'text-muted-foreground')}>
+                {isOwn ? <span className="sr-only">You, </span> : null}
                 {formatMessageTime(msg.createdAt)}
               </p>
             </div>
@@ -331,50 +334,29 @@ export default function MessagesPage() {
   return (
     // The shell gives /messages its full-height layout (nav-config `layout: 'full'`):
     // this fills the space between the top bar and the phone bottom bar.
-    <div
-      ref={containerRef}
-      className="messages-fullscreen flex min-h-0 w-full flex-1 flex-col overflow-hidden bg-gray-100 dark:bg-surface sm:bg-gray-50 sm:p-4 sm:dark:bg-surface-elevated"
-    >
-      <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-xl border border-gray-200 dark:border-surface-border themed-card shadow-sm">
-        {/* Chat header */}
-        <div className="flex flex-shrink-0 items-center gap-2 border-b border-gray-200 dark:border-surface-border px-3 py-2.5 sm:px-5 sm:py-3">
-          <Link
-            href="/dashboard"
-            className="rounded-full p-2 text-gray-700 dark:text-theme-secondary hover:bg-gray-50 dark:hover:bg-surface-hover sm:hidden"
-            aria-label="Back"
-          >
-            <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" />
-            </svg>
-          </Link>
-          <div className="min-w-0 flex-1">
-            <h1 className="text-base font-semibold text-gray-900 dark:text-theme-primary sm:text-xl">Team Chat</h1>
-            {participants.length > 0 && (
-              <p className="mt-0.5 truncate text-xs text-gray-500">
-                <span className="sm:hidden">{teamLabel}</span>
-                <span className="hidden sm:inline">Chat with your partners</span>
-              </p>
-            )}
-          </div>
-          <Link
-            href="/dashboard"
-            className="hidden flex-shrink-0 rounded-lg border border-gray-200 bg-gray-100 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-200 dark:border-surface-border dark:bg-surface-hover dark:text-theme-secondary dark:hover:bg-surface-border sm:flex"
-          >
-            Dashboard
-          </Link>
-        </div>
+    <div ref={containerRef} className="flex min-h-0 w-full flex-1 flex-col overflow-hidden bg-background sm:p-4">
+      <h1 className="sr-only">Team chat</h1>
+      <div className="flex h-full min-h-0 flex-col overflow-hidden border-y bg-card text-card-foreground sm:rounded-xl sm:border sm:shadow-sm">
+        {/* Who is in the chat (phones; desktop has the team list) */}
+        {participants.length > 0 && (
+          <p className="flex-shrink-0 truncate border-b px-3 py-2 text-xs text-muted-foreground md:hidden">
+            <span className="font-medium text-foreground">Team:</span> {teamLabel}
+          </p>
+        )}
 
         <div className="flex min-h-0 flex-1">
-          {/* Team sidebar (desktop) */}
-          <div className="hidden w-52 flex-shrink-0 flex-col border-r border-gray-100 dark:border-surface-border bg-gray-50 dark:bg-surface-elevated p-4 md:flex">
-            <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-gray-500">Team</h2>
+          {/* Team list (desktop) */}
+          <div className="hidden w-52 flex-shrink-0 flex-col border-r bg-muted/40 p-4 md:flex">
+            <h2 className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Team</h2>
+            <p className="mb-3 text-xs text-muted-foreground">Chat with your partners</p>
             <ul className="space-y-2">
               {participants.map((p) => (
-                <li key={p.id} className="flex items-center gap-2 text-sm text-gray-700 dark:text-theme-secondary">
-                  <span className={`h-2 w-2 flex-shrink-0 rounded-full ${p.role === 'admin' ? 'bg-blue-500' : 'bg-green-500'}`} />
+                <li key={p.id} className="flex items-center gap-2 text-sm text-foreground">
+                  <span aria-hidden="true" className={cn('h-2 w-2 flex-shrink-0 rounded-full', p.role === 'admin' ? 'bg-primary' : 'bg-success')} />
                   <span className="truncate">
                     {p.partner?.name || p.name}
-                    {p.id === currentUserId && <span className="text-xs text-gray-400"> (you)</span>}
+                    {p.role === 'admin' ? <span className="sr-only"> (admin)</span> : null}
+                    {p.id === currentUserId && <span className="text-xs text-muted-foreground"> (you)</span>}
                   </span>
                 </li>
               ))}
@@ -382,9 +364,12 @@ export default function MessagesPage() {
           </div>
 
           {/* Message area */}
-          <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-gray-100 dark:bg-surface sm:bg-gray-50 sm:dark:bg-surface">
+          <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-muted/40">
             <div
               ref={listRef}
+              role="log"
+              aria-label="Messages"
+              aria-busy={loading || loadingOlder || undefined}
               className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 py-3 sm:px-5 sm:py-4"
             >
               {/* Top sentinel — IntersectionObserver triggers loadOlder when this scrolls into view */}
@@ -393,11 +378,8 @@ export default function MessagesPage() {
               {/* Loading older spinner */}
               {loadingOlder && (
                 <div className="flex justify-center py-3">
-                  <div className="flex items-center gap-2 text-xs text-gray-400 dark:text-theme-muted bg-white dark:bg-surface-elevated px-3 py-1.5 rounded-full shadow-sm border border-gray-200 dark:border-surface-border">
-                    <svg className="animate-spin h-3 w-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                    </svg>
+                  <div className="flex items-center gap-2 rounded-full border bg-card px-3 py-1.5 text-xs text-muted-foreground shadow-sm">
+                    <Loader2 aria-hidden="true" className="h-3 w-3 motion-safe:animate-spin" />
                     Loading older messages…
                   </div>
                 </div>
@@ -405,16 +387,21 @@ export default function MessagesPage() {
 
               {/* Error */}
               {error && (
-                <div className="mb-2 rounded-lg border border-red-200 bg-red-50 dark:bg-danger-light dark:border-danger-border px-3 py-2 text-sm text-red-700 dark:text-red-400">
-                  <span className="break-words">{error}</span>
-                  <button onClick={() => setError(null)} className="ml-2 underline">Dismiss</button>
+                <div role="alert" className="mb-2 flex items-start gap-2 rounded-lg border border-destructive-border bg-destructive-subtle px-3 py-2 text-sm text-destructive-text">
+                  <span className="min-w-0 flex-1 break-words">{error}</span>
+                  <button
+                    type="button"
+                    onClick={() => setError(null)}
+                    className="-my-0.5 inline-flex items-center gap-1 rounded-sm font-medium underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  >
+                    <X aria-hidden="true" className="h-3.5 w-3.5" />
+                    Dismiss
+                  </button>
                 </div>
               )}
 
               {/* Messages + date separators */}
-              <div className="flex flex-col gap-1.5 sm:gap-2">
-                {renderMessages()}
-              </div>
+              <div className="flex flex-col gap-1.5 sm:gap-2">{renderMessages()}</div>
 
               {/* Bottom spacer so last message isn't flush against input */}
               <div className="h-2" />
@@ -423,10 +410,14 @@ export default function MessagesPage() {
             {/* Input bar */}
             <form
               onSubmit={handleSend}
-              className="flex flex-shrink-0 items-end gap-2 border-t border-gray-200 dark:border-surface-border bg-white dark:bg-surface-card px-3 py-2.5 sm:px-5 sm:py-3"
+              className="flex flex-shrink-0 items-end gap-2 border-t bg-card px-3 py-2.5 sm:px-5 sm:py-3"
               style={{ paddingBottom: 'max(0.625rem, env(safe-area-inset-bottom))' }}
             >
-              <textarea
+              <label htmlFor="chat-composer" className="sr-only">
+                Message
+              </label>
+              <Textarea
+                id="chat-composer"
                 ref={textareaRef}
                 value={content}
                 onChange={(e) => setContent(e.target.value)}
@@ -434,24 +425,22 @@ export default function MessagesPage() {
                 rows={1}
                 placeholder="Message"
                 maxLength={2000}
-                className="flex-1 resize-none overflow-hidden rounded-2xl border border-gray-200 dark:border-surface-border bg-gray-50 dark:bg-surface-elevated px-4 py-2.5 text-sm leading-snug text-gray-900 dark:text-theme-primary placeholder-gray-400 dark:placeholder-theme-muted focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors"
+                aria-describedby="chat-composer-hint"
+                className="min-h-0 flex-1 resize-none overflow-hidden rounded-2xl px-4 py-2.5 leading-snug"
                 style={{ maxHeight: '96px' }}
               />
-              <button
+              <span id="chat-composer-hint" className="sr-only">
+                Use the Send button. On larger screens, Control or Command with Enter also sends.
+              </span>
+              <Button
                 type="submit"
+                size="icon"
                 disabled={!content.trim() || sending}
-                className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-blue-600 text-white shadow-sm hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-40 transition-colors"
+                className="h-11 w-11 flex-shrink-0 rounded-full md:h-10 md:w-10"
                 aria-label="Send message"
               >
-                {sending ? (
-                  <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                  </svg>
-                ) : (
-                  <PaperAirplaneIcon className="h-4 w-4" />
-                )}
-              </button>
+                {sending ? <Loader2 aria-hidden="true" className="motion-safe:animate-spin" /> : <SendHorizontal aria-hidden="true" />}
+              </Button>
             </form>
           </div>
         </div>

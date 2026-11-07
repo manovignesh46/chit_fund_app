@@ -1,78 +1,29 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { createPortal } from 'react-dom';
+/**
+ * Opens a notification in place: a side panel on desktop, a bottom sheet on phones
+ * (Radix sheet: focus trap, Escape, backdrop click, scroll lock). Details come from
+ * GET /api/notifications/:id/details each time one is opened (cached for a re-open,
+ * always revalidated). Navigating is an explicit action (the link button at the bottom).
+ *
+ * Used by the notifications page and the top-bar bell; both load it with next/dynamic
+ * so the dialog code stays out of first paint.
+ */
+import * as React from 'react';
 import Link from 'next/link';
-import { XMarkIcon } from '@heroicons/react/24/outline';
 import { format, formatDistanceToNow } from 'date-fns';
 
-export interface NotificationDetails {
-  kind?: string;
-  direction?: 'transfer' | 'credit' | 'debit';
-  amount?: number;
-  reason?: string;
-  date?: string;
-  fromPartner?: string | null;
-  toPartner?: string | null;
-  enteredBy?: string;
-  transactionIds?: number[];
-}
+import { cn } from '@/lib/utils';
+import { formatMoney } from '@/lib/format';
+import { notificationSummary, notificationTypeLabel, useNotificationDetails, type NotificationItem } from '@/lib/query/notifications';
+import { DESKTOP_QUERY, useMediaQuery } from '@/hooks/use-media-query';
+import { Button } from '@/components/ui/button';
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { Skeleton } from '@/components/ui/skeleton';
+import { errorMessage } from '@/components/kit/error-state';
 
-export interface NotificationItem {
-  id: number;
-  type: string;
-  title: string;
-  message: string;
-  link: string | null;
-  read: boolean;
-  createdAt: string;
-  actor?: { id: number; name: string };
-  entityType?: string | null;
-  entityId?: number | null;
-  details?: NotificationDetails | null;
-}
-
-interface TransactionRow {
-  id: number;
-  type: string;
-  amount: number;
-  date: string;
-  note: string | null;
-  from_partner: string | null;
-  to_partner: string | null;
-  entered_by: string;
-  partnerBalance: number | null;
-  totalBalance: number | null;
-  createdAt: string;
-}
-
-const inr = new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', minimumFractionDigits: 2 });
-
-const TYPE_LABELS: Record<string, string> = {
-  transaction: 'Transaction',
-  contribution: 'Contribution',
-  auction: 'Auction',
-  loan_created: 'Loan',
-  loan_repayment: 'Repayment',
-  chit_fund_created: 'Chit Fund',
-  member_created: 'Member',
-};
-
-export function notificationTypeLabel(type: string) {
-  return TYPE_LABELS[type] || type;
-}
-
-/**
- * Split a notification into its headline message and reason, so lists can show the
- * reason on its own line. Older notifications have no structured details.
- */
-export function notificationSummary(n: NotificationItem): { message: string; reason: string | null } {
-  const reason = n.details?.reason?.trim() || null;
-  if (!reason) return { message: n.message, reason: null };
-  const suffix = `: ${reason}`;
-  const message = n.message.endsWith(suffix) ? n.message.slice(0, -suffix.length) : n.message;
-  return { message, reason };
-}
+export type { NotificationDetails, NotificationItem } from '@/lib/query/notifications';
+export { notificationSummary, notificationTypeLabel } from '@/lib/query/notifications';
 
 function linkLabel(link: string) {
   if (link.startsWith('/transactions')) return 'Open in Transactions';
@@ -82,59 +33,44 @@ function linkLabel(link: string) {
   return 'Open';
 }
 
+const money2 = (n: number) => formatMoney(n, { decimals: 2 });
+
 interface Props {
   notification: NotificationItem | null;
   onClose: () => void;
+  /** Where focus goes on close (default: what had focus when the sheet opened). */
+  returnFocusRef?: React.RefObject<HTMLElement | null>;
 }
 
-/** Opens a notification in place (bottom sheet on mobile, side panel on desktop). */
-export default function NotificationDetailSheet({ notification, onClose }: Props) {
-  const [mounted, setMounted] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [data, setData] = useState(null as null | { notification: NotificationItem; transactions: TransactionRow[]; entityMissing: boolean });
+export default function NotificationDetailSheet({ notification, onClose, returnFocusRef }: Props) {
+  const isDesktop = useMediaQuery(DESKTOP_QUERY);
+  const open = notification !== null;
 
-  useEffect(() => setMounted(true), []);
+  // Keep showing the last notification while the sheet animates closed.
+  const [shown, setShown] = React.useState<NotificationItem | null>(notification);
+  React.useEffect(() => {
+    if (notification) setShown(notification);
+  }, [notification]);
 
-  useEffect(() => {
-    if (!notification) return;
-    let cancelled = false;
-    setData(null);
-    setError('');
-    setLoading(true);
-    fetch(`/api/notifications/${notification.id}/details`)
-      .then(async (res) => {
-        const body = await res.json().catch(() => ({}));
-        if (!res.ok) throw new Error(body.error || 'Failed to load details');
-        if (!cancelled) setData(body);
-      })
-      .catch((e) => !cancelled && setError(e.message))
-      .finally(() => !cancelled && setLoading(false));
-    return () => {
-      cancelled = true;
-    };
-  }, [notification?.id]);
+  // What had focus as it opens (read during render, before Radix moves focus inside).
+  const previousFocus = React.useRef<HTMLElement | null>(null);
+  const wasOpen = React.useRef(false);
+  if (open && !wasOpen.current && typeof document !== 'undefined') {
+    previousFocus.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+  }
+  wasOpen.current = open;
 
-  useEffect(() => {
-    if (!notification) return;
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
-    const prevOverflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    window.addEventListener('keydown', onKey);
-    return () => {
-      document.body.style.overflow = prevOverflow;
-      window.removeEventListener('keydown', onKey);
-    };
-  }, [notification, onClose]);
+  const details = useNotificationDetails(notification?.id ?? null);
+  const current = notification ?? shown;
+  if (!current) return null;
 
-  if (!mounted || !notification) return null;
-
-  const n = data?.notification || notification;
+  const data = notification && details.data?.notification?.id === notification.id ? details.data : undefined;
+  const n = data?.notification ?? current;
   const d = n.details || null;
   const { message, reason } = notificationSummary(n);
-  const transactions = data?.transactions || [];
-  const amountClass =
-    d?.direction === 'credit' ? 'text-green-600 dark:text-green-400' : d?.direction === 'debit' ? 'text-red-600 dark:text-red-400' : 'text-gray-900 dark:text-theme-primary';
+  const transactions = data?.transactions ?? [];
+  const loading = open && !data && !details.error;
+  const loadError = open && !data ? errorMessage(details.error) : null;
 
   // Balance after each affected partner's row
   const balances = transactions
@@ -142,129 +78,140 @@ export default function NotificationDetailSheet({ notification, onClose }: Props
     .map((t) => ({ id: t.id, partner: t.to_partner || t.from_partner || '—', balance: t.partnerBalance as number }));
   const totalBalance = transactions.length ? transactions[transactions.length - 1].totalBalance : null;
 
-  return createPortal(
-    <div className="fixed inset-0 z-[60]" role="dialog" aria-modal="true" aria-labelledby="notification-detail-title">
-      <div className="absolute inset-0 bg-black/50 backdrop-blur-[1px]" onClick={onClose} />
-      <div className="absolute inset-x-0 bottom-0 max-h-[88vh] rounded-t-2xl sm:inset-y-0 sm:left-auto sm:right-0 sm:bottom-auto sm:h-full sm:max-h-none sm:w-[420px] sm:rounded-none bg-white dark:bg-surface-card border-t sm:border-t-0 sm:border-l border-gray-200 dark:border-surface-border shadow-2xl flex flex-col">
-        <div className="sm:hidden mx-auto mt-2 h-1.5 w-10 rounded-full bg-gray-300 dark:bg-surface-border" aria-hidden="true" />
-        <div className="flex items-start justify-between gap-3 px-4 sm:px-5 pt-3 sm:pt-5 pb-3 border-b border-gray-100 dark:border-surface-border">
-          <div className="min-w-0">
-            <span className="inline-block text-[11px] font-medium uppercase tracking-wide px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 dark:bg-surface-elevated dark:text-theme-secondary">
-              {notificationTypeLabel(n.type)}
-            </span>
-            <h2 id="notification-detail-title" className="mt-1.5 text-lg font-semibold text-gray-900 dark:text-theme-primary">{n.title}</h2>
-          </div>
-          <button onClick={onClose} className="p-1.5 rounded-md text-gray-500 hover:bg-gray-100 dark:text-theme-muted dark:hover:bg-surface-hover" aria-label="Close">
-            <XMarkIcon className="h-5 w-5" />
-          </button>
-        </div>
+  const amountClass = d?.direction === 'credit' ? 'text-success-text' : d?.direction === 'debit' ? 'text-destructive-text' : 'text-foreground';
+  const created = new Date(n.createdAt);
 
-        <div className="flex-1 overflow-y-auto overscroll-contain px-4 sm:px-5 py-4 space-y-4">
-          {d?.amount !== undefined && (
+  return (
+    <Sheet open={open} onOpenChange={(next) => !next && onClose()}>
+      <SheetContent
+        side={isDesktop ? 'right' : 'bottom'}
+        className={cn('flex flex-col gap-0 p-0', isDesktop ? 'w-full sm:max-w-[420px]' : 'max-h-[88dvh]')}
+        onCloseAutoFocus={(event) => {
+          const target = returnFocusRef?.current ?? previousFocus.current;
+          if (target && target.isConnected) {
+            event.preventDefault();
+            target.focus();
+          }
+        }}
+      >
+        <SheetHeader className="space-y-1.5 border-b px-4 pb-3 pr-14 pt-4 text-left sm:px-5 sm:pt-5">
+          <span className="inline-flex w-fit rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+            {notificationTypeLabel(n.type)}
+          </span>
+          <SheetTitle>{n.title}</SheetTitle>
+          <SheetDescription className="sr-only">Notification details</SheetDescription>
+        </SheetHeader>
+
+        <div className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain px-4 py-4 sm:px-5">
+          {d?.amount !== undefined ? (
             <div>
-              <p className={`text-3xl font-bold tabular-nums ${amountClass}`}>
+              <p className={cn('text-3xl font-bold tabular-nums', amountClass)}>
                 {d.direction === 'credit' ? '+' : d.direction === 'debit' ? '−' : ''}
-                {inr.format(d.amount)}
+                {money2(d.amount)}
               </p>
               {d.direction === 'transfer' ? (
-                <p className="mt-1 text-sm text-gray-700 dark:text-theme-secondary">
-                  <span className="font-medium">{d.fromPartner}</span>
-                  <span className="mx-2 text-gray-400">→</span>
-                  <span className="font-medium">{d.toPartner}</span>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  <span className="font-medium text-foreground">{d.fromPartner}</span>
+                  <span aria-hidden="true" className="mx-2">→</span>
+                  <span className="sr-only"> to </span>
+                  <span className="font-medium text-foreground">{d.toPartner}</span>
                 </p>
               ) : (
-                <p className="mt-1 text-sm text-gray-700 dark:text-theme-secondary">
+                <p className="mt-1 text-sm text-muted-foreground">
                   {d.direction === 'credit' ? 'Credited to' : 'Debited from'}{' '}
-                  <span className="font-medium">{d.toPartner || d.fromPartner}</span>
+                  <span className="font-medium text-foreground">{d.toPartner || d.fromPartner}</span>
                 </p>
               )}
             </div>
-          )}
+          ) : null}
 
           {reason ? (
-            <div className="rounded-lg border-l-4 border-blue-500 bg-blue-50 dark:bg-blue-500/10 px-3 py-2">
-              <p className="text-[11px] font-medium uppercase tracking-wide text-blue-700 dark:text-blue-300">Reason</p>
-              <p className="text-sm text-gray-900 dark:text-theme-primary break-words">{reason}</p>
+            <div className="rounded-lg border-l-4 border-primary bg-info-subtle px-3 py-2">
+              <p className="text-[11px] font-medium uppercase tracking-wide text-info-text">Reason</p>
+              <p className="break-words text-sm text-foreground">{reason}</p>
             </div>
           ) : (
-            <p className="text-sm text-gray-700 dark:text-theme-secondary break-words">{message}</p>
+            <p className="break-words text-sm text-muted-foreground">{message}</p>
           )}
 
           <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-sm">
-            {d?.date && (
+            {d?.date ? (
               <>
-                <dt className="text-gray-500 dark:text-theme-muted">Transaction date</dt>
-                <dd className="text-gray-900 dark:text-theme-primary">{format(new Date(d.date), 'dd MMM yyyy')}</dd>
+                <dt className="text-muted-foreground">Transaction date</dt>
+                <dd className="text-foreground">{format(new Date(d.date), 'dd MMM yyyy')}</dd>
               </>
-            )}
-            {d?.enteredBy && (
+            ) : null}
+            {d?.enteredBy ? (
               <>
-                <dt className="text-gray-500 dark:text-theme-muted">Entered as</dt>
-                <dd className="text-gray-900 dark:text-theme-primary">{d.enteredBy}</dd>
+                <dt className="text-muted-foreground">Entered as</dt>
+                <dd className="text-foreground">{d.enteredBy}</dd>
               </>
-            )}
-            {n.actor?.name && (
+            ) : null}
+            {n.actor?.name ? (
               <>
-                <dt className="text-gray-500 dark:text-theme-muted">Recorded by</dt>
-                <dd className="text-gray-900 dark:text-theme-primary">{n.actor.name}</dd>
+                <dt className="text-muted-foreground">Recorded by</dt>
+                <dd className="text-foreground">{n.actor.name}</dd>
               </>
-            )}
-            <dt className="text-gray-500 dark:text-theme-muted">Recorded</dt>
-            <dd className="text-gray-900 dark:text-theme-primary">
-              {format(new Date(n.createdAt), 'dd MMM yyyy, h:mm a')}
-              <span className="text-gray-500 dark:text-theme-muted"> · {formatDistanceToNow(new Date(n.createdAt), { addSuffix: true })}</span>
+            ) : null}
+            <dt className="text-muted-foreground">Recorded</dt>
+            <dd className="text-foreground">
+              {format(created, 'dd MMM yyyy, h:mm a')}
+              <span className="text-muted-foreground"> · {formatDistanceToNow(created, { addSuffix: true })}</span>
             </dd>
           </dl>
 
-          {loading && (
-            <div className="space-y-2" aria-label="Loading details">
-              <div className="h-4 w-2/3 rounded bg-gray-100 dark:bg-surface-elevated animate-pulse" />
-              <div className="h-4 w-1/2 rounded bg-gray-100 dark:bg-surface-elevated animate-pulse" />
+          {loading ? (
+            <div className="space-y-2" role="status" aria-label="Loading details">
+              <Skeleton className="h-4 w-2/3" />
+              <Skeleton className="h-4 w-1/2" />
             </div>
-          )}
-          {error && (
-            <p className="text-sm rounded-md p-3 bg-red-50 text-red-700 dark:bg-red-500/10 dark:text-red-300">{error}</p>
-          )}
-          {data?.entityMissing && (
-            <p className="text-sm rounded-md p-3 bg-amber-50 text-amber-800 dark:bg-amber-500/10 dark:text-amber-300">
+          ) : null}
+          {loadError ? (
+            <p role="alert" className="rounded-md border border-destructive-border bg-destructive-subtle p-3 text-sm text-destructive-text">
+              {loadError}
+            </p>
+          ) : null}
+          {data?.entityMissing ? (
+            <p className="rounded-md border border-warning-border bg-warning-subtle p-3 text-sm text-warning-text">
               This transaction no longer exists. It may have been deleted after this notification was sent.
             </p>
-          )}
+          ) : null}
 
-          {balances.length > 0 && (
+          {balances.length > 0 ? (
             <div>
-              <p className="text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-theme-muted mb-1.5">Balance after this entry</p>
-              <div className="rounded-lg border border-gray-200 dark:border-surface-border divide-y divide-gray-100 dark:divide-surface-border">
+              <p className="mb-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">Balance after this entry</p>
+              <div className="divide-y rounded-lg border">
                 {balances.map((b) => (
                   <div key={b.id} className="flex items-center justify-between px-3 py-2 text-sm">
-                    <span className="text-gray-700 dark:text-theme-secondary">{b.partner}</span>
-                    <span className={`tabular-nums font-medium ${b.balance < 0 ? 'text-red-600 dark:text-red-400' : 'text-gray-900 dark:text-theme-primary'}`}>{inr.format(b.balance)}</span>
+                    <span className="text-muted-foreground">{b.partner}</span>
+                    <span className={cn('font-medium tabular-nums', b.balance < 0 ? 'text-destructive-text' : 'text-foreground')}>{money2(b.balance)}</span>
                   </div>
                 ))}
-                {totalBalance !== null && (
-                  <div className="flex items-center justify-between px-3 py-2 text-sm bg-gray-50 dark:bg-surface-elevated">
-                    <span className="text-gray-700 dark:text-theme-secondary">Total (all partners)</span>
-                    <span className="tabular-nums font-semibold text-gray-900 dark:text-theme-primary">{inr.format(totalBalance)}</span>
+                {totalBalance !== null ? (
+                  <div className="flex items-center justify-between bg-muted px-3 py-2 text-sm">
+                    <span className="text-muted-foreground">Total (all partners)</span>
+                    <span className="font-semibold tabular-nums text-foreground">{money2(totalBalance)}</span>
                   </div>
-                )}
+                ) : null}
               </div>
-              <p className="mt-1 text-[11px] text-gray-400 dark:text-theme-muted">Running balances as stored when the entry was saved.</p>
+              <p className="mt-1 text-[11px] text-muted-foreground">Running balances as stored when the entry was saved.</p>
             </div>
-          )}
+          ) : null}
         </div>
 
-        <div className="flex gap-2 px-4 sm:px-5 py-3 border-t border-gray-100 dark:border-surface-border pb-[max(0.75rem,env(safe-area-inset-bottom))]">
-          <button onClick={onClose} className="flex-1 px-4 py-2.5 rounded-md text-sm border border-gray-200 dark:border-surface-border text-gray-700 dark:text-theme-secondary hover:bg-gray-50 dark:hover:bg-surface-hover">
+        <div className="flex gap-2 border-t px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:px-5">
+          <Button type="button" variant="outline" className="flex-1" onClick={onClose}>
             Close
-          </button>
-          {n.link && !data?.entityMissing && (
-            <Link href={n.link} onClick={onClose} className="flex-1 px-4 py-2.5 rounded-md text-sm text-center font-medium bg-blue-600 text-white hover:bg-blue-700">
-              {linkLabel(n.link)}
-            </Link>
-          )}
+          </Button>
+          {n.link && !data?.entityMissing ? (
+            <Button asChild className="flex-1">
+              <Link href={n.link} onClick={onClose}>
+                {linkLabel(n.link)}
+              </Link>
+            </Button>
+          ) : null}
         </div>
-      </div>
-    </div>,
-    document.body
+      </SheetContent>
+    </Sheet>
   );
 }

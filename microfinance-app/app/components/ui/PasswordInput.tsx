@@ -1,34 +1,33 @@
 'use client';
 
+/**
+ * A password field with a show/hide toggle (login, change password, new user).
+ * Every prop goes to the <input> (id, name, required, minLength, autoComplete…); only
+ * the input's `type` is managed here. Styled as the kit Input.
+ */
 import React, { useState } from 'react';
-import { EyeIcon, EyeSlashIcon } from '@heroicons/react/24/outline';
+import { Eye, EyeOff } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { Input } from '@/components/ui/input';
 
 interface PasswordInputProps extends React.InputHTMLAttributes<HTMLInputElement> {
   wrapperClassName?: string;
 }
 
-export default function PasswordInput({
-  wrapperClassName = '',
-  className = '',
-  ...inputProps
-}: PasswordInputProps) {
+export default function PasswordInput({ wrapperClassName = '', className = '', ...inputProps }: PasswordInputProps) {
   const [visible, setVisible] = useState(false);
 
   return (
-    <div className={`relative ${wrapperClassName}`.trim()}>
-      <input
-        {...inputProps}
-        type={visible ? 'text' : 'password'}
-        className={`${className} pr-10`}
-      />
+    <div className={cn('relative', wrapperClassName)}>
+      <Input {...inputProps} type={visible ? 'text' : 'password'} className={cn('pr-11', className)} />
       <button
         type="button"
         tabIndex={-1}
         onClick={() => setVisible((v) => !v)}
-        className="absolute inset-y-0 right-0 flex items-center px-3 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+        className="absolute inset-y-0 right-0 flex w-11 items-center justify-center rounded-r-md text-muted-foreground hover:text-foreground"
         aria-label={visible ? 'Hide password' : 'Show password'}
       >
-        {visible ? <EyeSlashIcon className="w-5 h-5" /> : <EyeIcon className="w-5 h-5" />}
+        {visible ? <EyeOff aria-hidden="true" className="h-4 w-4" /> : <Eye aria-hidden="true" className="h-4 w-4" />}
       </button>
     </div>
   );

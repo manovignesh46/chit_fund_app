@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '../../../lib/prisma';
 import { getCurrentUserId, getActorUserId } from '../../../lib/auth';
+import { buildMeta } from '../../../lib/list/types';
 
 export async function GET(request: NextRequest) {
   try {
@@ -53,6 +54,8 @@ export async function GET(request: NextRequest) {
         totalPages: Math.ceil(totalCount / pageSize),
         page,
         pageSize,
+        // List contract envelope (lib/list): paged calls only; the bell's `?limit=` call is unchanged.
+        meta: buildMeta({ page, pageSize, totalCount }),
       }),
     });
   } catch (error) {
