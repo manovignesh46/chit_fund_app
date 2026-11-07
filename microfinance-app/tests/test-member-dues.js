@@ -28,6 +28,8 @@ const json = (v) => JSON.stringify(v);
 
 const tracker = load("lib/duesTracker.ts", { "./monthlyAggregations": load("lib/monthlyAggregations.ts") });
 const duesAccounts = load("lib/duesAccounts.ts", { "./duesTracker": tracker });
+const listTypes = load("lib/list/types.ts");
+const listServer = load("lib/list/server.ts", { "./types": listTypes });
 
 const now = new Date();
 const monthsAgo = (n, day = now.getDate()) => new Date(now.getFullYear(), now.getMonth() - n, day);
@@ -79,6 +81,7 @@ const fakeDb = {
     { id: 3, name: "Other", contact: "1", createdById: 99 },
   ];
   let lastListQuery;
+  let lastListOrder;
   const contributions = [
     { id: 1, amount: 2000, month: 1, paidDate: monthsAgo(1, 2), balance: 3000, notes: "part", chitFund: { id: 21, name: "Gold 1L" }, collectedBy: { name: "Arun" } },
   ];
@@ -87,18 +90,22 @@ const fakeDb = {
     { id: 6, amount: 1000, period: 2, paidDate: monthsAgo(0, 1), paymentType: "interestOnly", loan: { id: 11, loanType: "Monthly", repaymentType: "Monthly" }, collectedBy: null },
   ];
   const historyQueries = [];
+  // History counts and totals come from prisma aggregates (paginated in the database since Phase 5).
+  const totals = (rows) => ({ _count: { _all: rows.length }, _sum: { amount: rows.length ? rows.reduce((s, r) => s + r.amount, 0) : null } });
   const prisma = {
     globalMember: {
       async count({ where }) { lastListQuery = where; return 1; },
-      async findMany({ where }) { lastListQuery = where; return [members[0]]; },
+      async findMany({ where, orderBy }) { lastListQuery = where; lastListOrder = orderBy; return [members[0]]; },
       async findUnique({ where }) { return members.find((m) => m.id === where.id) || null; },
     },
     contribution: {
       async findMany(q) { historyQueries.push(["c", q]); return q.where.chitFundId && q.where.chitFundId !== 21 ? [] : contributions; },
+      async aggregate(q) { return totals(q.where.chitFundId && q.where.chitFundId !== 21 ? [] : contributions); },
       async findFirst() { return { paidDate: contributions[0].paidDate, amount: 2000 }; },
     },
     repayment: {
       async findMany(q) { historyQueries.push(["r", q]); return repayments; },
+      async aggregate() { return totals(repayments); },
       async findFirst() { return { paidDate: repayments[1].paidDate, amount: 1000 }; },
     },
     loan: fakeDb.loan,
@@ -112,6 +119,8 @@ const fakeDb = {
     "../../../../lib/paymentSchedule": {},
     "../../../../lib/duesTracker": tracker,
     "../../../../lib/duesAccounts": duesAccounts,
+    "../../../../lib/list/server": listServer,
+    "../../../../lib/list/types": listTypes,
   }, { URL });
   const get = (qs) => route.GET({ url: `http://x/api/members/consolidated?${qs}` });
 
@@ -153,6 +162,42 @@ const fakeDb = {
   res = await get("action=history&id=1&account=loan-11");
   assert.ok(res.body.items.every((i) => i.accountKey === "loan-11"));
   assert.equal((await get("action=history&id=3")).status, 403);
+  // history is paginated in the database: each table returns at most page × pageSize rows, newest first
+  historyQueries.length = 0;
+  res = await get("action=history&id=1&page=2&pageSize=2");
+  assert.equal(json(historyQueries.map(([, q]) => q.take)), json([4, 4]));
+  assert.equal(json(historyQueries[0][1].orderBy), json([{ paidDate: "desc" }, { id: "desc" }]));
+  assert.equal(json(res.body.items.map((i) => i.key)), json(["r-5"]));
+  assert.equal(json(res.body.meta), json({ page: 2, pageSize: 2, totalCount: 3, totalPages: 2, hasPrev: true, hasNext: false, sort: null, order: null, q: null }));
+
+  // list contract (Phase 5): no new params → today's query; q / sort / has go through whitelists
+  res = await get("action=list&page=1&pageSize=10");
+  assert.equal(json(lastListOrder), json({ name: "asc" }));
+  assert.equal(json(Object.keys(res.body)), json(["members", "totalCount", "search", "page", "pageSize", "totalPages", "meta"]));
+  await get("action=list&q=98765&sort=loans&order=desc&has=none");
+  assert.equal(json(lastListQuery.OR), json([{ name: { contains: "98765", mode: "insensitive" } }, { contact: { contains: "98765", mode: "insensitive" } }]));
+  assert.equal(json(lastListOrder), json([{ loans: { _count: "desc" } }, { id: "desc" }]));
+  assert.equal(json(lastListQuery.loans), json({ none: {} }));
+  await get("action=list&sort=createdById");
+  assert.equal(json(lastListOrder), json({ name: "asc" }), "unknown sort keys are ignored");
+
+  // dues list params filter the computed accounts with the Dues Tracker's rules
+  const duesList = load("lib/duesList.ts");
+  const accts = [
+    { key: "a", kind: "loan", memberName: "Zed", entityName: "Loan #1", contact: "9000", overdueAmount: 100, upcomingAmount: 0, maxDaysOverdue: 95, totalOutstanding: 100 },
+    { key: "b", kind: "chit", memberName: "Amy", entityName: "Gold", contact: "", overdueAmount: 0, upcomingAmount: 50, maxDaysOverdue: 0, totalOutstanding: 50 },
+    { key: "c", kind: "loan", memberName: "Bob", entityName: "Loan #2", contact: "8000", overdueAmount: 300, upcomingAmount: 10, maxDaysOverdue: 12, totalOutstanding: 310 },
+  ];
+  const keys = (q) => duesList.filterDueAccounts(accts, q).map((a) => a.key).join("");
+  assert.equal(keys({}), "acb");
+  assert.equal(keys({ sort: "amount" }), "cab");
+  assert.equal(keys({ sort: "name" }), "bca");
+  assert.equal(keys({ kind: "loan" }), "ac");
+  assert.equal(keys({ status: "upcoming" }), "cb");
+  assert.equal(keys({ aging: "90+" }), "a");
+  assert.equal(keys({ aging: "1-30" }), "c");
+  assert.equal(keys({ q: "GOLD" }), "b");
+  assert.equal(keys({ q: "8000" }), "c");
 
   console.log("PASS: member search, per-member dues and payment history, shared dues builder.");
 })().catch((e) => {

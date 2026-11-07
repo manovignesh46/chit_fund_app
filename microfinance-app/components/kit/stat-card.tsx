@@ -28,7 +28,10 @@ export interface StatCardProps extends Omit<React.HTMLAttributes<HTMLDivElement>
   loading?: boolean;
 }
 
-/** A key figure: label, value, optional hint/trend. Used in KPI grids and detail key-figure strips. */
+/**
+ * A key figure: label, value, optional hint/trend. Used in KPI grids and detail key-figure strips.
+ * With `href` the card is a link; with `onClick` (and no href) it is a button.
+ */
 export function StatCard({ label, value, hint, icon: Icon, tone = 'neutral', trend, href, loading = false, className, ...props }: StatCardProps) {
   const trendColour =
     trend && trend.direction !== 'flat'
@@ -69,6 +72,23 @@ export function StatCard({ label, value, hint, icon: Icon, tone = 'neutral', tre
 
   const cardClass = cn('block rounded-xl border bg-card p-4 text-card-foreground shadow-sm sm:p-5', className);
 
+  const interactive =
+    'transition-colors hover:border-input hover:bg-elevated focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background';
+  if (!href && props.onClick) {
+    // A card that does something on this page (switch tab, apply a filter): a real button.
+    const { onClick, ...rest } = props;
+    return (
+      <button
+        type="button"
+        onClick={onClick as unknown as React.MouseEventHandler<HTMLButtonElement>}
+        className={cn(cardClass, 'w-full text-left', interactive)}
+        aria-busy={loading || undefined}
+        {...(rest as unknown as React.ButtonHTMLAttributes<HTMLButtonElement>)}
+      >
+        {body}
+      </button>
+    );
+  }
   if (href) {
     return (
       <Link

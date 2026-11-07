@@ -5,7 +5,7 @@
     "alert": 13,
     "confirm": 2,
     "hardNav": 2,
-    "palette": 309
+    "palette": 255
   },
   "files": {
     "app/activities/page.tsx": {
@@ -128,9 +128,6 @@
     "app/components/common/SortableTableHeader.tsx": {
       "palette": 2
     },
-    "app/components/dues/DueAccountCard.tsx": {
-      "palette": 15
-    },
     "app/components/partners/PartnerBalanceCard.tsx": {
       "palette": 1
     },
@@ -140,24 +137,12 @@
     "app/dashboard/page.tsx": {
       "palette": 3
     },
-    "app/dues/page.tsx": {
-      "palette": 3
-    },
     "app/financial-trends/page.tsx": {
       "palette": 3
     },
     "app/login/page.tsx": {
       "hardNav": 1,
       "palette": 1
-    },
-    "app/members/[id]/assign-chit-fund/page.tsx": {
-      "palette": 3
-    },
-    "app/members/[id]/page.tsx": {
-      "palette": 22
-    },
-    "app/members/page.tsx": {
-      "palette": 11
     },
     "app/messages/page.tsx": {
       "palette": 2

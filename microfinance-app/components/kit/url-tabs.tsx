@@ -64,7 +64,20 @@ export interface UrlTabsProps<V extends string> {
 /** Underlined tab bar in the primary colour; scrolls sideways on phones. Arrow keys move between tabs. */
 export function UrlTabs<V extends string>({ tabs, items, className, ...props }: UrlTabsProps<V>) {
   const refs = React.useRef(new Map<V, HTMLButtonElement>());
+  const scroller = React.useRef<HTMLDivElement>(null);
   const enabled = items.filter((i) => !i.disabled);
+
+  // Keep the selected tab visible in the sideways-scrolling bar (phones), e.g. when the page
+  // opens on ?tab=loans. Only the bar scrolls; the page does not move.
+  React.useEffect(() => {
+    const bar = scroller.current;
+    const tab = refs.current.get(tabs.value);
+    if (!bar || !tab || bar.scrollWidth <= bar.clientWidth) return;
+    const left = tab.offsetLeft - bar.offsetLeft;
+    const right = left + tab.offsetWidth;
+    if (left < bar.scrollLeft) bar.scrollLeft = Math.max(0, left - 16);
+    else if (right > bar.scrollLeft + bar.clientWidth) bar.scrollLeft = right - bar.clientWidth + 16;
+  }, [tabs.value]);
 
   const focusTab = (value: V) => {
     tabs.setValue(value);
@@ -86,7 +99,7 @@ export function UrlTabs<V extends string>({ tabs, items, className, ...props }: 
   };
 
   return (
-    <div className={cn('-mx-4 mb-4 overflow-x-auto border-b px-4 sm:mx-0 sm:px-0', className)}>
+    <div ref={scroller} className={cn('-mx-4 mb-4 overflow-x-auto border-b px-4 sm:mx-0 sm:px-0', className)}>
       <div role="tablist" aria-label={props['aria-label']} className="flex min-w-max gap-1">
         {items.map((item) => {
           const selected = item.value === tabs.value;

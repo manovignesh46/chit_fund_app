@@ -148,6 +148,14 @@ function ProgressBar({ visible }: { visible: boolean }) {
   );
 }
 
+/**
+ * The refetch progress bar on its own, for lists that are not a DataTable (e.g. card lists):
+ * put it first inside a `relative` container; it appears after 150 ms of `active`.
+ */
+export function RefreshProgress({ active }: { active: boolean }) {
+  return <ProgressBar visible={useDelayedFlag(active, 150)} />;
+}
+
 function alignClass(column: { align?: 'left' | 'center' | 'right'; numeric?: boolean }): string {
   const align = column.align ?? (column.numeric ? 'right' : 'left');
   return align === 'right' ? 'text-right' : align === 'center' ? 'text-center' : 'text-left';
@@ -247,7 +255,18 @@ export function DataTable<T>({
   const stickyFirst = !renderCard;
 
   const rowInteraction = (row: T) => ({
-    onClick: onRowClick ? () => onRowClick(row) : undefined,
+    onClick: onRowClick
+      ? (event: React.MouseEvent<HTMLElement>) => {
+          // React events bubble through portals: a click inside a menu or dialog opened from
+          // this row (e.g. a delete confirmation) must not open the row.
+          const target = event.target as Element;
+          if (!event.currentTarget.contains(target)) return;
+          // Links, buttons and inputs inside the row do their own thing.
+          const control = target.closest('a, button, input, select, textarea, label, [role="checkbox"], [role="menuitem"]');
+          if (control && control !== event.currentTarget && event.currentTarget.contains(control)) return;
+          onRowClick(row);
+        }
+      : undefined,
     onKeyDown: onRowClick
       ? (event: React.KeyboardEvent) => {
           if (event.target !== event.currentTarget) return;

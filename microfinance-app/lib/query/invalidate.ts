@@ -42,6 +42,21 @@ export async function invalidate(...tags: QueryTag[]): Promise<void> {
   await mutateRef((key) => tags.some((tag) => matches(key, tag)));
 }
 
+/**
+ * Like `invalidate`, but leaves keys matching `exclude` alone (e.g. a record that was just
+ * deleted while its page is still mounted: refetching it would only produce a 404).
+ */
+export async function invalidateExcept(tags: QueryTag[], exclude: QueryTag[]): Promise<void> {
+  if (!mutateRef || tags.length === 0) return;
+  await mutateRef((key) => tags.some((tag) => matches(key, tag)) && !exclude.some((tag) => matches(key, tag)));
+}
+
+/** Drop cached data for keys matching the tag, without refetching (a deleted record). */
+export function dropQueries(tag: QueryTag): void {
+  if (!mutateRef) return;
+  void mutateRef((key) => matches(key, tag), undefined, { revalidate: false });
+}
+
 /** Money-related views that change after any financial write (SPEC "Invalidation"). */
 export const MONEY_TAGS: readonly QueryTag[] = ['dashboard', 'dues', 'transactions', 'calendar', 'trends', 'activities'];
 

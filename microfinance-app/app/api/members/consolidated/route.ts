@@ -5,6 +5,26 @@ import { notifyOtherAdmins, getActorName } from '../../../../lib/notifications';
 import { updateOverdueAmountFromRepayments, calculateNextPaymentDate } from '../../../../lib/paymentSchedule';
 import { computeChitMemberDuePeriods } from '../../../../lib/duesTracker';
 import { buildDueAccounts } from '../../../../lib/duesAccounts';
+import { parseListParams, type SortTarget } from '../../../../lib/list/server';
+import { buildMeta } from '../../../../lib/list/types';
+
+// List-contract sort keys for the members list (stored columns, plus relation counts that
+// Postgres computes in the same query). Anything else in ?sort= is ignored.
+const MEMBER_SORTS: Record<string, SortTarget> = {
+  name: 'name',
+  contact: 'contact',
+  email: 'email',
+  createdAt: 'createdAt',
+  chitFunds: (order) => ({ chitFundMembers: { _count: order } }),
+  loans: (order) => ({ loans: { _count: order } }),
+};
+const MEMBER_SEARCH = ['name', 'contact'] as const;
+// ?has= filter: members with loans, in chit funds, or with neither.
+const MEMBER_HAS: Record<string, Record<string, unknown>> = {
+  loans: { loans: { some: {} } },
+  chits: { chitFundMembers: { some: {} } },
+  none: { loans: { none: {} }, chitFundMembers: { none: {} } },
+};
 
 // Define extended types for the membership object
 interface ChitFundMembershipWithExtras {
@@ -230,6 +250,9 @@ async function getMembersList(request: NextRequest, currentUserId: number) {
 
     // Optional search by name or phone (case-insensitive)
     const search = (searchParams.get('search') || '').trim().slice(0, 100);
+    // Optional list-contract params (q, sort, order, has). Absent: today's query exactly.
+    const list = parseListParams(searchParams, { sortable: MEMBER_SORTS, searchable: MEMBER_SEARCH, filters: ['has'] });
+    const has = list.filters.has ? MEMBER_HAS[list.filters.has] : undefined;
 
     // Filter by the current user
     const where: any = {
@@ -242,6 +265,8 @@ async function getMembersList(request: NextRequest, currentUserId: number) {
             ],
           }
         : {}),
+      ...(list.q && !search ? list.searchWhere : {}),
+      ...(has ?? {}),
     };
 
     // Get total count for pagination
@@ -260,7 +285,7 @@ async function getMembersList(request: NextRequest, currentUserId: number) {
           }
         }
       },
-      orderBy: { name: 'asc' },
+      orderBy: list.orderBy ?? { name: 'asc' },
       skip,
       take: validPageSize,
     });
@@ -271,7 +296,8 @@ async function getMembersList(request: NextRequest, currentUserId: number) {
       search,
       page: validPage,
       pageSize: validPageSize,
-      totalPages: Math.ceil(totalCount / validPageSize)
+      totalPages: Math.ceil(totalCount / validPageSize),
+      meta: buildMeta({ page: validPage, pageSize: validPageSize, totalCount, sort: list.sort, order: list.order, q: list.q ?? (search || null) }),
     });
   } catch (error) {
     console.error('Error fetching members:', error);
@@ -454,34 +480,55 @@ async function getMemberPaymentHistory(request: NextRequest, id: number, current
     const owned = await findOwnedMember(id, currentUserId);
     if (owned.error) return owned.error;
 
-    const [contributions, repayments] = await Promise.all([
-      kind === 'repayment' || accountKey?.startsWith('loan-')
-        ? Promise.resolve([])
-        : prisma.contribution.findMany({
-            where: {
-              member: { globalMemberId: id },
-              chitFund: { createdById: currentUserId },
-              ...(accountKey?.startsWith('chit-') ? { chitFundId: Number(accountKey.slice(5)) } : {}),
-            },
+    const wantContributions = !(kind === 'repayment' || accountKey?.startsWith('loan-'));
+    const wantRepayments = !(kind === 'contribution' || accountKey?.startsWith('chit-'));
+    const contributionWhere = {
+      member: { globalMemberId: id },
+      chitFund: { createdById: currentUserId },
+      ...(accountKey?.startsWith('chit-') ? { chitFundId: Number(accountKey.slice(5)) } : {}),
+    };
+    const repaymentWhere = {
+      loan: { borrowerId: id, createdById: currentUserId },
+      ...(accountKey?.startsWith('loan-') ? { loanId: Number(accountKey.slice(5)) } : {}),
+    };
+
+    // Paginated in the database: the requested page of the merged, newest-first list can
+    // only contain rows from the newest (skip + pageSize) of each table, so each query takes
+    // that many; counts and the amount total come from aggregates over the same filters.
+    const takeEach = page * pageSize;
+    // Same paid date: the most recently entered first (the old order there was Postgres row order).
+    const newestFirst = [{ paidDate: 'desc' as const }, { id: 'desc' as const }];
+    const [contributions, repayments, contributionTotals, repaymentTotals] = await Promise.all([
+      wantContributions
+        ? prisma.contribution.findMany({
+            where: contributionWhere,
             select: {
               id: true, amount: true, month: true, paidDate: true, balance: true, notes: true,
               chitFund: { select: { id: true, name: true } },
               collectedBy: { select: { name: true } },
             },
-          }),
-      kind === 'contribution' || accountKey?.startsWith('chit-')
-        ? Promise.resolve([])
-        : prisma.repayment.findMany({
-            where: {
-              loan: { borrowerId: id, createdById: currentUserId },
-              ...(accountKey?.startsWith('loan-') ? { loanId: Number(accountKey.slice(5)) } : {}),
-            },
+            orderBy: newestFirst,
+            take: takeEach,
+          })
+        : Promise.resolve([]),
+      wantRepayments
+        ? prisma.repayment.findMany({
+            where: repaymentWhere,
             select: {
               id: true, amount: true, period: true, paidDate: true, paymentType: true,
               loan: { select: { id: true, loanType: true, repaymentType: true } },
               collectedBy: { select: { name: true } },
             },
-          }),
+            orderBy: newestFirst,
+            take: takeEach,
+          })
+        : Promise.resolve([]),
+      wantContributions
+        ? prisma.contribution.aggregate({ where: contributionWhere, _count: { _all: true }, _sum: { amount: true } })
+        : Promise.resolve(null),
+      wantRepayments
+        ? prisma.repayment.aggregate({ where: repaymentWhere, _count: { _all: true }, _sum: { amount: true } })
+        : Promise.resolve(null),
     ]);
 
     const items = [
@@ -513,14 +560,16 @@ async function getMemberPaymentHistory(request: NextRequest, id: number, current
       })),
     ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
-    const totalCount = items.length;
+    const totalCount = (contributionTotals?._count._all ?? 0) + (repaymentTotals?._count._all ?? 0);
+    const totalAmount = (contributionTotals?._sum.amount ?? 0) + (repaymentTotals?._sum.amount ?? 0);
     return NextResponse.json({
       items: items.slice((page - 1) * pageSize, page * pageSize),
       totalCount,
-      totalAmount: Math.round(items.reduce((s, i) => s + i.amount, 0) * 100) / 100,
+      totalAmount: Math.round(totalAmount * 100) / 100,
       page,
       pageSize,
       totalPages: Math.max(1, Math.ceil(totalCount / pageSize)),
+      meta: buildMeta({ page, pageSize, totalCount }),
     });
   } catch (error) {
     console.error('Error fetching member payment history:', error);

@@ -1,19 +1,40 @@
-// @ts-nocheck
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+/**
+ * Assign a member to a chit fund (Form template).
+ *
+ * Loads the member (usually cached from the member page) and the chit funds in parallel.
+ * The chit-fund list response is `{ chitFunds, … }`; the page used to treat it as an array
+ * and crashed on load. Only funds with status Active are offered, as before; funds the
+ * member already belongs to are listed but disabled (the server would refuse them).
+ * The body is unchanged (`{ globalMemberId, contribution }`); it now goes to the
+ * consolidated add-member action, because the old target had no POST handler.
+ */
+import * as React from 'react';
 import Link from 'next/link';
-import { memberAPI, chitFundAPI } from '../../../../lib/api';
-import BackTitle from '../../../components/common/BackTitle';
+import useSWR from 'swr';
+import { useParams, useRouter } from 'next/navigation';
+import { Loader2 } from 'lucide-react';
 
-interface GlobalMember {
-  id: number;
-  name: string;
-  contact: string;
-}
+import { toast } from '@/lib/toast';
+import { formatMoney } from '@/lib/format';
+import { queryKeys } from '@/lib/query/keys';
+import { ApiError } from '@/lib/query/fetcher';
+import { invalidateChitMembership, memberWrites, useMember } from '@/lib/query/members';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Skeleton } from '@/components/ui/skeleton';
+import { useBreadcrumbLabel } from '@/components/kit/app-shell/breadcrumb-labels';
+import { EmptyState } from '@/components/kit/empty-state';
+import { ErrorState, errorMessage } from '@/components/kit/error-state';
+import { FormActions } from '@/components/kit/form-actions';
+import { FormField } from '@/components/kit/form-field';
+import { FormSection } from '@/components/kit/form-section';
+import { NativeSelect } from '@/components/kit/native-select';
+import { PageContainer } from '@/components/kit/page-container';
+import { PageHeader } from '@/components/kit/page-header';
 
-interface ChitFund {
+interface ChitFundOption {
   id: number;
   name: string;
   totalAmount: number;
@@ -22,233 +43,165 @@ interface ChitFund {
   status: string;
 }
 
+/** Enough for every fund this app has; a hint appears if there are ever more. */
+const FUND_PAGE_SIZE = 100;
+const fundsKey = queryKeys.list('chit-funds', { page: 1, pageSize: FUND_PAGE_SIZE });
+
+function FormSkeleton() {
+  return (
+    <div aria-hidden="true" className="space-y-6">
+      <Skeleton className="h-8 w-72" />
+      <Skeleton className="h-56 w-full max-w-3xl rounded-xl" />
+    </div>
+  );
+}
+
 export default function AssignChitFundPage() {
-  const params = useParams();
+  return (
+    <PageContainer fallback={<FormSkeleton />}>
+      <AssignChitFund />
+    </PageContainer>
+  );
+}
+
+function AssignChitFund() {
+  const params = useParams<{ id: string }>();
+  const memberId = parseInt(params.id, 10) || 0;
   const router = useRouter();
-  const memberId = params.id;
+  const memberQuery = useMember(memberId || null);
+  const fundsQuery = useSWR<{ chitFunds?: ChitFundOption[]; totalCount?: number }>(memberId ? fundsKey : null);
+  const member = memberQuery.data;
+  useBreadcrumbLabel(memberId ? `/members/${memberId}` : null, member?.name);
 
-  const [member, setMember] = useState<GlobalMember | null>(null);
-  const [chitFunds, setChitFunds] = useState<ChitFund[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [selectedChitFund, setSelectedChitFund] = React.useState('');
+  const [contribution, setContribution] = React.useState('');
+  const [errors, setErrors] = React.useState<{ chitFund?: string; contribution?: string; submit?: string }>({});
+  const [submitting, setSubmitting] = React.useState(false);
 
-  const [selectedChitFund, setSelectedChitFund] = useState<string>('');
-  const [contribution, setContribution] = useState<string>('');
-  const [formErrors, setFormErrors] = useState<{[key: string]: string}>({});
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const activeFunds = React.useMemo(() => (fundsQuery.data?.chitFunds ?? []).filter((cf) => cf.status === 'Active'), [fundsQuery.data]);
+  const joined = React.useMemo(() => new Set((member?.chitFundMembers ?? []).map((m) => m.chitFund.id)), [member]);
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setLoading(true);
-
-        // Fetch member details
-        const memberData = await memberAPI.getById(Number(memberId));
-        setMember(memberData);
-
-        // Fetch all active chit funds
-        const chitFundsData = await chitFundAPI.getAll();
-        // Filter to only show active chit funds
-        const activeChitFunds = chitFundsData.filter((cf: ChitFund) => cf.status === 'Active');
-        setChitFunds(activeChitFunds);
-
-        setError(null);
-      } catch (err: any) {
-        console.error('Error fetching data:', err);
-        setError(err.message || 'Failed to load data. Please try again later.');
-      } finally {
-        setLoading(false);
+  const error = memberQuery.error ?? fundsQuery.error;
+  if (!member || !fundsQuery.data) {
+    if (error) {
+      const status = error instanceof ApiError ? error.status : 0;
+      if (memberQuery.error && (status === 404 || status === 403 || status === 400)) {
+        return (
+          <EmptyState
+            title="Member not found"
+            description="The member you are looking for does not exist or has been removed."
+            action={
+              <Button size="sm" variant="outline" asChild>
+                <Link href="/members">Back to members</Link>
+              </Button>
+            }
+          />
+        );
       }
-    };
-
-    if (memberId) {
-      fetchData();
+      return (
+        <ErrorState
+          title="Couldn't load this form"
+          error={error}
+          onRetry={() => {
+            void memberQuery.mutate();
+            void fundsQuery.mutate();
+          }}
+        />
+      );
     }
-  }, [memberId]);
+    return <FormSkeleton />;
+  }
 
-  const handleChitFundChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const chitFundId = e.target.value;
-    setSelectedChitFund(chitFundId);
-
-    // Set default contribution amount based on selected chit fund
-    if (chitFundId) {
-      const selectedCF = chitFunds.find((cf: ChitFund) => cf.id.toString() === chitFundId);
-      if (selectedCF) {
-        setContribution(selectedCF.monthlyContribution.toString());
-      }
+  const onFundChange = (value: string) => {
+    setSelectedChitFund(value);
+    // Default the contribution to the fund's monthly contribution, as before.
+    if (value) {
+      const fund = activeFunds.find((cf) => cf.id.toString() === value);
+      if (fund) setContribution(fund.monthlyContribution.toString());
     } else {
       setContribution('');
     }
   };
 
-  const validateForm = () => {
-    const errors: {[key: string]: string} = {};
-
-    if (!selectedChitFund) {
-      errors.chitFund = 'Please select a chit fund';
-    }
-
-    if (!contribution) {
-      errors.contribution = 'Contribution amount is required';
-    } else if (isNaN(Number(contribution)) || Number(contribution) <= 0) {
-      errors.contribution = 'Contribution must be a positive number';
-    }
-
-    setFormErrors(errors);
-    return Object.keys(errors).length === 0;
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    if (!validateForm()) {
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (submitting) return;
+    const found: typeof errors = {};
+    if (!selectedChitFund) found.chitFund = 'Please select a chit fund';
+    if (!contribution) found.contribution = 'Contribution amount is required';
+    else if (isNaN(Number(contribution)) || Number(contribution) <= 0) found.contribution = 'Contribution must be a positive number';
+    setErrors(found);
+    if (found.chitFund || found.contribution) {
+      document.getElementById(found.chitFund ? 'chitFund' : 'contribution')?.focus();
       return;
     }
-
-    setIsSubmitting(true);
-
+    setSubmitting(true);
+    const fundId = Number(selectedChitFund);
+    const fund = activeFunds.find((cf) => cf.id === fundId);
     try {
-      // Add member to chit fund
-      await fetch(`/api/chit-funds/${selectedChitFund}/members`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          globalMemberId: Number(memberId),
-          contribution: Number(contribution),
-        }),
-      });
-
-      // Redirect back to member details page
-      router.push(`/members/${memberId}`);
-    } catch (error: any) {
-      console.error('Error assigning member to chit fund:', error);
-      setFormErrors({ submit: error.message || 'Failed to assign member to chit fund. Please try again.' });
-      setIsSubmitting(false);
+      await memberWrites.assignToChitFund(fundId, { globalMemberId: Number(memberId), contribution: Number(contribution) });
+      toast.success(`${member.name} added to ${fund?.name ?? 'the chit fund'}`);
+      void invalidateChitMembership(memberId, fundId);
+      router.push(`/members/${memberId}?tab=chit-funds`);
+    } catch (err) {
+      const message = errorMessage(err) ?? 'Failed to assign member to chit fund. Please try again.';
+      setErrors({ submit: message });
+      toast.error("Couldn't assign the member", { description: message });
+      setSubmitting(false);
     }
   };
 
-  // Format currency
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-IN', {
-      style: 'currency',
-      currency: 'INR',
-      maximumFractionDigits: 0,
-    }).format(amount);
-  };
-
-  if (loading) {
-    return (
-      <div className="container mx-auto px-4 py-8">
-        <div className="flex justify-center items-center h-64">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-700 mx-auto mb-4"></div>
-            <p className="text-gray-700 dark:text-theme-secondary">Loading data...</p>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="container mx-auto px-4 py-8">
-        <div className="alert-error px-4 py-3 rounded">
-          <p className="font-bold">Error</p>
-          <p>{error}</p>
-          <button
-            onClick={() => router.back()}
-            className="mt-4 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition duration-300"
-          >
-            Go Back
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  if (!member) {
-    return (
-      <div className="container mx-auto px-4 py-8">
-        <div className="bg-yellow-100 border border-yellow-400 text-yellow-700 px-4 py-3 rounded">
-          <p className="font-bold">Member Not Found</p>
-          <p>The member you are looking for does not exist or has been removed.</p>
-          <Link href="/members" className="mt-4 inline-block px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-300">
-            Back to Members
-          </Link>
-        </div>
-      </div>
-    );
-  }
+  const options = activeFunds.map((cf) => ({
+    value: cf.id.toString(),
+    label: `${cf.name} - ${formatMoney(cf.totalAmount)} (${cf.duration} months)${joined.has(cf.id) ? ' · already a member' : ''}`,
+    disabled: joined.has(cf.id),
+  }));
+  const moreFunds = (fundsQuery.data.totalCount ?? 0) > FUND_PAGE_SIZE;
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="flex justify-between items-center mb-6">
-        <BackTitle title={`Assign ${member.name} to Chit Fund`} href={`/members/${memberId}`} ariaLabel="Back to Member" />
-      </div>
-
-      <div className="themed-card p-6 mb-8">
-        <form onSubmit={handleSubmit}>
-          <div className="mb-6">
-            <label htmlFor="chitFund" className="block text-sm font-medium text-gray-700 dark:text-theme-secondary mb-1">
-              Select Chit Fund <span className="text-red-500">*</span>
-            </label>
-            <select
-              id="chitFund"
-              value={selectedChitFund}
-              onChange={handleChitFundChange}
-              className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                formErrors.chitFund ? 'border-red-500' : 'border-gray-200 dark:border-surface-border'
-              }`}
-            >
-              <option value="">Select a chit fund</option>
-              {chitFunds.map((chitFund) => (
-                <option key={chitFund.id} value={chitFund.id}>
-                  {chitFund.name} - {formatCurrency(chitFund.totalAmount)} ({chitFund.duration} months)
-                </option>
-              ))}
-            </select>
-            {formErrors.chitFund && (
-              <p className="mt-1 text-sm text-red-500">{formErrors.chitFund}</p>
-            )}
-          </div>
-
-          <div className="mb-6">
-            <label htmlFor="contribution" className="block text-sm font-medium text-gray-700 dark:text-theme-secondary mb-1">
-              Monthly Contribution <span className="text-red-500">*</span>
-            </label>
-            <input
-              type="number"
-              id="contribution"
-              value={contribution}
-              onChange={(e) => setContribution(e.target.value)}
-              className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                formErrors.contribution ? 'border-red-500' : 'border-gray-200 dark:border-surface-border'
-              }`}
-            />
-            {formErrors.contribution && (
-              <p className="mt-1 text-sm text-red-500">{formErrors.contribution}</p>
-            )}
-          </div>
-
-          {formErrors.submit && (
-            <div className="mb-6 alert-error px-4 py-3 rounded">
-              <p>{formErrors.submit}</p>
-            </div>
-          )}
-
-          <div className="flex justify-end">
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-300 disabled:opacity-50"
-            >
-              {isSubmitting ? 'Assigning...' : 'Assign to Chit Fund'}
-            </button>
-          </div>
-        </form>
-      </div>
+    <div>
+      <PageHeader
+        eyebrow={`Member #${member.id}`}
+        title={`Assign ${member.name} to a chit fund`}
+        description="Only active chit funds are listed. The monthly contribution defaults to the fund's."
+      />
+      <form onSubmit={handleSubmit} className="max-w-3xl space-y-6" noValidate>
+        <FormSection title="Chit fund">
+          <FormField
+            label="Select chit fund"
+            required
+            nativeRequired={false}
+            id="chitFund"
+            error={errors.chitFund}
+            description={
+              options.length === 0
+                ? 'There are no active chit funds.'
+                : moreFunds
+                  ? `Showing the first ${FUND_PAGE_SIZE} chit funds.`
+                  : undefined
+            }
+          >
+            <NativeSelect value={selectedChitFund} onValueChange={onFundChange} placeholder="Select a chit fund" options={options} />
+          </FormField>
+          <FormField label="Monthly contribution (₹)" required nativeRequired={false} id="contribution" error={errors.contribution}>
+            <Input type="number" inputMode="decimal" min="1" step="1" value={contribution} onChange={(event) => setContribution(event.target.value)} />
+          </FormField>
+        </FormSection>
+        {errors.submit ? (
+          <p role="alert" className="rounded-md border border-destructive-border bg-destructive-subtle px-3 py-2 text-sm text-destructive-text">
+            {errors.submit}
+          </p>
+        ) : null}
+        <FormActions>
+          <Button variant="outline" asChild>
+            <Link href={`/members/${memberId}`}>Cancel</Link>
+          </Button>
+          <Button type="submit" disabled={submitting} aria-busy={submitting || undefined}>
+            {submitting ? <Loader2 aria-hidden="true" className="motion-safe:animate-spin" /> : null}
+            {submitting ? 'Assigning…' : 'Assign to chit fund'}
+          </Button>
+        </FormActions>
+      </form>
     </div>
   );
 }
