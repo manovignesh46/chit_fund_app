@@ -40,7 +40,8 @@ export async function GET(request: NextRequest) {
       advType,
       advMember,
       advEntity,
-      advSubType
+      advSubType,
+      q: searchParams.get('q')
     });
 
     // Check if this is a request for partner transactions page (only manual transfers)

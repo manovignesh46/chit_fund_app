@@ -1,109 +1,47 @@
-import { useEffect, useState } from 'react';
-import { useFirstLoad, refreshingClass } from '../hooks/useFirstLoad';
-import { formatCurrency } from '../../lib/formatUtils';
+'use client';
 
-interface AggregationData {
-  expectedLoanRepayment: number;
-  actualLoanRepayment: number;
-  expectedChitContribution: number;
-  actualChitContribution: number;
-  totalExpectedAmount: number;
-  totalActualAmount: number;
-}
+import * as React from 'react';
+import { cn } from '@/lib/utils';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Money } from '@/components/kit/money';
+import { useAggregations } from '@/lib/query/transactions';
 
 interface Props {
-  startDate?: string;
-  endDate?: string;
-  refreshTrigger?: boolean;
+  startDate?: string | null;
+  endDate?: string | null;
 }
 
-export default function MonthlyAggregationsCard({ startDate, endDate, refreshTrigger }: Props) {
-  const [data, setData] = useState<AggregationData | null>(null);
-  const [loading, setLoading] = useState(false);
-  const { initialLoading, refreshing } = useFirstLoad(loading);
-
-  useEffect(() => {
-    const fetchAggregations = async () => {
-      if (!startDate || !endDate) {
-        setData(null);
-        return;
-      }
-
-      setLoading(true);
-      try {
-        const response = await fetch(
-          `/api/transactions/aggregations?startDate=${startDate}&endDate=${endDate}`
-        );
-        const aggregations = await response.json();
-        setData(aggregations);
-      } catch (error) {
-        console.error('Error fetching aggregations:', error);
-      }
-      setLoading(false);
-    };
-
-    fetchAggregations();
-  }, [startDate, endDate, refreshTrigger]);
-
+/** Expected vs actual collections for the selected period (shown only when both dates are set). */
+export default function MonthlyAggregationsCard({ startDate, endDate }: Props) {
+  const query = useAggregations(startDate || null, endDate || null);
   if (!startDate || !endDate) return null;
-  if (initialLoading) return <div>Loading aggregations...</div>;
-  if (!data) return null;
-
+  const data = query.data;
+  const groups = data
+    ? [
+        { title: 'Loan Repayments', expected: data.expectedLoanRepayment, actual: data.actualLoanRepayment },
+        { title: 'Chit Fund Contributions', expected: data.expectedChitContribution, actual: data.actualChitContribution },
+        { title: 'Total Collections', expected: data.totalExpectedAmount, actual: data.totalActualAmount },
+      ]
+    : null;
   return (
-    <div className={`grid grid-cols-1 md:grid-cols-3 gap-4 mb-6 ${refreshingClass(refreshing)}`} aria-busy={refreshing}>
-      <div className="themed-card p-4">
-        <h3 className="text-sm font-medium text-gray-500 mb-2">Loan Repayments</h3>
-        <div className="space-y-2">
-          <div className="flex justify-between items-center">
-            <span className="text-xs text-gray-500">Expected</span>
-            <span className="text-sm font-semibold text-blue-600 dark:text-blue-400">
-              {formatCurrency(data.expectedLoanRepayment)}
-            </span>
-          </div>
-          <div className="flex justify-between items-center">
-            <span className="text-xs text-gray-500">Actual</span>
-            <span className="text-sm font-semibold text-green-600">
-              {formatCurrency(data.actualLoanRepayment)}
-            </span>
-          </div>
-        </div>
-      </div>
-
-      <div className="themed-card p-4">
-        <h3 className="text-sm font-medium text-gray-500 mb-2">Chit Fund Contributions</h3>
-        <div className="space-y-2">
-          <div className="flex justify-between items-center">
-            <span className="text-xs text-gray-500">Expected</span>
-            <span className="text-sm font-semibold text-blue-600 dark:text-blue-400">
-              {formatCurrency(data.expectedChitContribution)}
-            </span>
-          </div>
-          <div className="flex justify-between items-center">
-            <span className="text-xs text-gray-500">Actual</span>
-            <span className="text-sm font-semibold text-green-600">
-              {formatCurrency(data.actualChitContribution)}
-            </span>
-          </div>
-        </div>
-      </div>
-
-      <div className="themed-card p-4">
-        <h3 className="text-sm font-medium text-gray-500 mb-2">Total Collections</h3>
-        <div className="space-y-2">
-          <div className="flex justify-between items-center">
-            <span className="text-xs text-gray-500">Expected</span>
-            <span className="text-sm font-semibold text-blue-600 dark:text-blue-400">
-              {formatCurrency(data.totalExpectedAmount)}
-            </span>
-          </div>
-          <div className="flex justify-between items-center">
-            <span className="text-xs text-gray-500">Actual</span>
-            <span className="text-sm font-semibold text-green-600">
-              {formatCurrency(data.totalActualAmount)}
-            </span>
-          </div>
-        </div>
-      </div>
-    </div>
+    <section aria-label="Collections for the period" className={cn('grid grid-cols-1 gap-3 md:grid-cols-3', data && query.isLoading && 'opacity-60')}>
+      {groups
+        ? groups.map((g) => (
+            <div key={g.title} className="rounded-xl border bg-card p-4 text-card-foreground shadow-sm">
+              <h3 className="mb-2 text-sm font-medium text-muted-foreground">{g.title}</h3>
+              <dl className="space-y-1.5 text-sm">
+                <div className="flex items-center justify-between">
+                  <dt className="text-xs text-muted-foreground">Expected</dt>
+                  <dd className="font-medium"><Money value={g.expected} tone="plain" /></dd>
+                </div>
+                <div className="flex items-center justify-between">
+                  <dt className="text-xs text-muted-foreground">Actual</dt>
+                  <dd className="font-semibold"><Money value={g.actual} tone="plain" /></dd>
+                </div>
+              </dl>
+            </div>
+          ))
+        : [1, 2, 3].map((i) => <Skeleton key={i} className="h-24 rounded-xl" />)}
+    </section>
   );
 }

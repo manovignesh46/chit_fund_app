@@ -341,6 +341,11 @@ async function getLoansList(request: NextRequest, currentUserId: number) {
     if (searchParams.get("overdue") === "1") {
       where.overdueAmount = { gt: 0 };
     }
+    // One borrower's loans (the transactions page's advanced filter), instead of loading every loan.
+    const borrowerId = parseInt(searchParams.get("borrowerId") || "", 10);
+    if (borrowerId > 0) {
+      where.borrowerId = borrowerId;
+    }
     if (list.searchWhere) {
       Object.assign(where, list.searchWhere);
     }

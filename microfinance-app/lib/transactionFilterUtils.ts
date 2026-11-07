@@ -10,6 +10,8 @@ export interface TransactionFilters {
   advMember?: string;
   advEntity?: string;
   advSubType?: string;
+  /** Free-text search (list contract `q`). */
+  q?: string;
 }
 
 export function buildTransactionFilterParams(filters: TransactionFilters): URLSearchParams {
@@ -29,6 +31,9 @@ export function buildTransactionFilterParams(filters: TransactionFilters): URLSe
   }
   if (filters.endDate) {
     params.append('endDate', filters.endDate);
+  }
+  if (filters.q) {
+    params.append('q', filters.q);
   }
   if (filters.showAdvanced) {
     if (filters.advType) params.append('advType', filters.advType);
@@ -57,6 +62,9 @@ export function buildTransactionFilterObject(filters: TransactionFilters) {
   }
   if (filters.endDate) {
     filterObject.endDate = filters.endDate;
+  }
+  if (filters.q) {
+    filterObject.q = filters.q;
   }
   if (filters.showAdvanced) {
     if (filters.advType) filterObject.advType = filters.advType;

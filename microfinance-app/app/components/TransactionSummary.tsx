@@ -1,296 +1,102 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { formatCurrency } from '../../lib/formatUtils';
-import { usePartner } from '../contexts/PartnerContext';
+/**
+ * Totals by partner for the current filters (GET /api/transactions/summary): each partner's
+ * repayments, contributions, recorded amounts, disbursements, document charges, auction
+ * payouts, transfers and total, with a total row. Scrolls sideways on narrow screens with
+ * the partner column pinned.
+ */
+import * as React from 'react';
+import { cn } from '@/lib/utils';
+import { Skeleton } from '@/components/ui/skeleton';
+import { ErrorState } from '@/components/kit/error-state';
+import { Money } from '@/components/kit/money';
+import { SectionCard } from '@/components/kit/section-card';
+import { describePeriod } from '@/components/kit/period-picker';
+import { useTransactionSummary } from '@/lib/query/transactions';
+import type { QueryParams } from '@/lib/query/keys';
 
-interface TransactionSummaryProps {
-  // Filter props to determine what data to fetch
-  selectedPartnerId?: string;
-  filterType?: string;
-  filterMember?: string;
-  advType?: string;
-  advMember?: string;
-  advEntity?: string;
-  advSubType?: string;
-  startDate?: string;
-  endDate?: string;
-  refreshTrigger?: boolean;
-}
+const COLUMNS = [
+  { key: 'loanRepayments', total: 'totalLoanRepayment', label: 'Loan repayments', tone: 'plain' },
+  { key: 'chitContributions', total: 'totalChitContributions', label: 'Chit contributions', tone: 'plain' },
+  { key: 'recordedAmounts', total: 'totalRecordedAmount', label: 'Recorded amounts', tone: 'auto' },
+  { key: 'loanDisbursements', total: 'totalLoanDisbursement', label: 'Loan disbursements', tone: 'plain' },
+  { key: 'documentCharges', total: 'totalDocumentCharges', label: 'Document charges', tone: 'plain' },
+  { key: 'auctionPayouts', total: 'totalAuctionPayouts', label: 'Auction payouts', tone: 'plain' },
+  { key: 'partnerTransfers', total: 'totalPartnerTransfers', label: 'Partner transfers', tone: 'plain' },
+  { key: 'partnerTotalAmount', total: 'totalAmount', label: 'Total amount', tone: 'auto' },
+] as const;
 
-interface SummaryData {
-  totalLoanRepayment: number;
-  totalLoanDisbursement: number;
-  totalDocumentCharges: number;
-  totalChitContributions: number;
-  totalAuctionPayouts: number;
-  totalRecordedAmount: number;
-  totalPartnerTransfers: number;
-  totalAmount: number;
-  totalTransactions: number;
-  partnerBreakdown: Array<{
-    partnerName: string;
-    balance: number;
-    totalCredits: number;
-    totalDebits: number;
-    transactionCount: number;
-    loanRepayments: number;
-    loanDisbursements: number;
-    documentCharges: number;
-    chitContributions: number;
-    auctionPayouts: number;
-    recordedAmounts: number;
-    partnerTransfers: number;
-    partnerTotalAmount: number;
-  }>;
-  balanceDifference: number;
-}
-
-export default function TransactionSummary(props: TransactionSummaryProps) {
-  const {
-    selectedPartnerId = 'ALL',
-    filterType = '',
-    filterMember = '',
-    advType = '',
-    advMember = '',
-    advEntity = '',
-    advSubType = '',
-    startDate = '',
-    endDate = '',
-    refreshTrigger,
-  } = props;
-
-  const [summaryData, setSummaryData] = useState(null as SummaryData | null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-
-  useEffect(() => {
-    fetchTransactionSummary();
-  }, [
-    selectedPartnerId,
-    filterType,
-    filterMember,
-    advType,
-    advMember,
-    advEntity,
-    advSubType,
-    startDate,
-    endDate,
-    refreshTrigger,
-  ]);
-
-  async function fetchTransactionSummary() {
-    try {
-      setLoading(true);
-      setError('');
-
-      // Build query parameters for summary API
-      let url = '/api/transactions/summary?';
-      const params = new URLSearchParams();
-
-      if (selectedPartnerId && selectedPartnerId !== 'ALL') {
-        params.append('partner', selectedPartnerId);
-      }
-      if (filterType) params.append('type', filterType);
-      if (filterMember) params.append('member', filterMember);
-      if (advType) params.append('advType', advType);
-      if (advMember) params.append('advMember', advMember);
-      if (advEntity) params.append('advEntity', advEntity);
-      if (advSubType) params.append('advSubType', advSubType);
-      if (startDate) params.append('startDate', startDate);
-      if (endDate) params.append('endDate', endDate);
-
-      url += params.toString();
-
-      const response = await fetch(url);
-      if (!response.ok) {
-        throw new Error('Failed to fetch transaction summary');
-      }
-
-      const data = await response.json();
-      setSummaryData(data);
-    } catch (err: any) {
-      console.error('Error fetching transaction summary:', err);
-      setError(err.message || 'Failed to load transaction summary');
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  if (loading) {
-    return (
-      <div className="themed-card p-6 mb-6">
-        <h3 className="text-lg font-medium text-gray-900 dark:text-theme-primary mb-4">Transaction Summary</h3>
-        <div className="animate-pulse">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {[...Array(8)].map((_, i) => (
-              <div key={i} className="bg-gray-100 rounded-lg p-4">
-                <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
-                <div className="h-6 bg-gray-200 rounded w-1/2"></div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="themed-card p-6 mb-6">
-        <h3 className="text-lg font-medium text-gray-900 dark:text-theme-primary mb-4">Transaction Summary</h3>
-        <div className="text-red-600 text-sm">
-          {error}
-          <button 
-            onClick={fetchTransactionSummary}
-            className="ml-2 text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 underline"
-          >
-            Retry
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  if (!summaryData) {
-    return (
-      <div className="themed-card p-6 mb-6">
-        <h3 className="text-lg font-medium text-gray-900 dark:text-theme-primary mb-4">Transaction Summary</h3>
-        <div className="text-gray-500 text-center py-8">
-          No data available for the selected filters
-        </div>
-      </div>
-    );
-  }
-
-  const formatPeriod = () => {
-    if (startDate && endDate) {
-      const start = new Date(startDate);
-      const end = new Date(endDate);
-      return `${start.toLocaleDateString()} - ${end.toLocaleDateString()}`;
-    } else if (startDate) {
-      return `From ${new Date(startDate).toLocaleDateString()}`;
-    } else if (endDate) {
-      return `Until ${new Date(endDate).toLocaleDateString()}`;
-    }
-    return 'All Time';
-  };
+export default function TransactionSummary({ params, partnerLabel }: { params: QueryParams | null; partnerLabel?: string | null }) {
+  const query = useTransactionSummary(params);
+  const data = query.data;
+  const from = (params?.startDate as string | undefined) ?? null;
+  const to = (params?.endDate as string | undefined) ?? null;
+  const refreshing = !!data && query.isLoading;
 
   return (
-    <div className="themed-card p-6 mb-6">
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h3 className="text-lg font-medium text-gray-900 dark:text-theme-primary">Transaction Summary</h3>
-          <p className="text-sm text-gray-700 dark:text-theme-secondary">
-            {formatPeriod()} • {summaryData.totalTransactions} transactions
-            {selectedPartnerId !== 'ALL' && ` • ${selectedPartnerId}`}
-          </p>
-          <p className="text-xs text-gray-500 mt-1">
-            <span className="text-blue-600 dark:text-blue-400">* Balances calculated from transaction records</span>
-            <br />
-            <span className="text-purple-600 dark:text-purple-400">* Total Amount = (Repayments + Document Charges + Contributions + Net Recorded) - (Disbursements + Auctions)</span>
-            <br />
-            <span className="text-gray-500">* Scroll horizontally to view all columns</span>
-          </p>
-        </div>
-        <button
-          onClick={fetchTransactionSummary}
-          className="text-sm text-gray-500 hover:text-gray-700 dark:text-theme-secondary p-1 rounded"
-          title="Refresh summary"
-        >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-          </svg>
-        </button>
-      </div>
-
-      {/* Transaction Summary Table */}
-      <div className="border border-gray-200 dark:border-surface-border rounded-lg themed-card">
-        <div className="table-shell" style={{maxWidth: '85vw'}}>
-          <table className="themed-table border-collapse" style={{minWidth: '1000px'}}>
-            <thead className="bg-gray-50 dark:bg-surface-elevated">
+    <SectionCard
+      title="Summary by partner"
+      description={
+        data ? (
+          <span className="tabular-nums">
+            {describePeriod(from, to)} · {data.totalTransactions} transactions{partnerLabel ? ` · ${partnerLabel}` : ''}
+          </span>
+        ) : (
+          'Totals for the current filters'
+        )
+      }
+      flush
+      footer={
+        <p className="text-xs text-muted-foreground">
+          Balances are calculated from transaction records. Total amount = (repayments + document charges + contributions + net recorded) − (disbursements + auction payouts).
+        </p>
+      }
+    >
+      {!data ? (
+        query.error ? (
+          <ErrorState compact title="Failed to load transaction summary" error={query.error} onRetry={() => void query.mutate()} />
+        ) : (
+          <div className="space-y-2 p-4">
+            <Skeleton className="h-8 w-full" />
+            <Skeleton className="h-8 w-full" />
+            <Skeleton className="h-8 w-full" />
+          </div>
+        )
+      ) : (
+        <div className={cn('overflow-x-auto transition-opacity', refreshing && 'opacity-60')} aria-busy={refreshing || undefined}>
+          <table className="w-full min-w-[60rem] text-sm">
+            <thead className="bg-muted/60 text-xs text-muted-foreground">
               <tr>
-                <th className="px-3 py-3 text-left font-medium text-gray-700 dark:text-theme-secondary border-r border-gray-200 dark:border-surface-border sticky left-0 bg-gray-50 dark:bg-surface-elevated z-10">Partner</th>
-                <th className="px-3 py-3 text-right font-medium text-gray-700 dark:text-theme-secondary border-r border-gray-200 dark:border-surface-border min-w-[120px]">Loan Repayments</th>
-                <th className="px-3 py-3 text-right font-medium text-gray-700 dark:text-theme-secondary border-r border-gray-200 dark:border-surface-border min-w-[120px]">Chit Contributions</th>
-                <th className="px-3 py-3 text-right font-medium text-gray-700 dark:text-theme-secondary border-r border-gray-200 dark:border-surface-border min-w-[120px]">Recorded Amounts</th>
-                <th className="px-3 py-3 text-right font-medium text-gray-700 dark:text-theme-secondary border-r border-gray-200 dark:border-surface-border min-w-[120px]">Loan Disbursements</th>
-                <th className="px-3 py-3 text-right font-medium text-gray-700 dark:text-theme-secondary border-r border-gray-200 dark:border-surface-border min-w-[120px]">Document Charges</th>
-                <th className="px-3 py-3 text-right font-medium text-gray-700 dark:text-theme-secondary border-r border-gray-200 dark:border-surface-border min-w-[120px]">Auction Payouts</th>
-                <th className="px-3 py-3 text-right font-medium text-gray-700 dark:text-theme-secondary border-r border-gray-200 dark:border-surface-border min-w-[120px]">Partner Transfers</th>
-                <th className="px-3 py-3 text-right font-medium text-gray-700 dark:text-theme-secondary min-w-[120px]">Total Amount</th>
+                <th scope="col" className="sticky left-0 z-10 bg-muted px-4 py-2.5 text-left font-medium">Partner</th>
+                {COLUMNS.map((c) => (
+                  <th key={c.key} scope="col" className="px-3 py-2.5 text-right font-medium">{c.label}</th>
+                ))}
               </tr>
             </thead>
             <tbody>
-              {summaryData.partnerBreakdown.map((partner, index) => (
-                <tr key={index} className="hover:bg-gray-50 dark:hover:bg-surface-hover border-b border-gray-200 dark:border-surface-border">
-                  <td className="px-3 py-3 font-medium text-gray-900 dark:text-theme-primary border-r border-gray-200 dark:border-surface-border sticky left-0 table-sticky-cell">{partner.partnerName}</td>
-                  <td className="px-3 py-3 text-right text-green-600 border-r border-gray-200 dark:border-surface-border">
-                    {formatCurrency(partner.loanRepayments || 0)}
-                  </td>
-                  <td className="px-3 py-3 text-right text-blue-600 dark:text-blue-400 border-r border-gray-200 dark:border-surface-border">
-                    {formatCurrency(partner.chitContributions || 0)}
-                  </td>
-                  <td className={`px-3 py-3 text-right border-r border-gray-200 dark:border-surface-border ${
-                    (partner.recordedAmounts || 0) >= 0 ? 'text-green-600' : 'text-red-600'
-                  }`}>
-                    {formatCurrency(partner.recordedAmounts || 0)}
-                  </td>
-                  <td className="px-3 py-3 text-right text-red-600 border-r border-gray-200 dark:border-surface-border">
-                    {formatCurrency(partner.loanDisbursements || 0)}
-                  </td>
-                  <td className="px-3 py-3 text-right text-orange-600 border-r border-gray-200 dark:border-surface-border">
-                    {formatCurrency(partner.documentCharges || 0)}
-                  </td>
-                  <td className="px-3 py-3 text-right text-purple-600 dark:text-purple-400 border-r border-gray-200 dark:border-surface-border">
-                    {formatCurrency(partner.auctionPayouts || 0)}
-                  </td>
-                  <td className="px-3 py-3 text-right text-indigo-600 dark:text-indigo-400 border-r border-gray-200 dark:border-surface-border">
-                    {formatCurrency(partner.partnerTransfers || 0)}
-                  </td>
-                  <td className={`px-3 py-3 text-right font-semibold ${
-                    (partner.partnerTotalAmount || 0) >= 0 ? 'text-green-600' : 'text-red-600'
-                  }`}>
-                    {formatCurrency(partner.partnerTotalAmount || 0)}
-                  </td>
+              {data.partnerBreakdown.map((partner, index) => (
+                <tr key={`${partner.partnerName}-${index}`} className="border-t">
+                  <th scope="row" className="sticky left-0 z-10 whitespace-nowrap bg-card px-4 py-2.5 text-left font-medium text-foreground">{partner.partnerName}</th>
+                  {COLUMNS.map((c) => (
+                    <td key={c.key} className="px-3 py-2.5 text-right">
+                      <Money value={partner[c.key] || 0} tone={c.tone} />
+                    </td>
+                  ))}
                 </tr>
               ))}
-              {/* Total Row */}
-              <tr className="table-foot-row">
-                <td className="px-3 py-3 font-bold text-gray-900 dark:text-theme-primary border-r border-gray-200 dark:border-surface-border sticky left-0 table-sticky-cell">Total</td>
-                <td className="px-3 py-3 text-right text-green-600 border-r border-gray-200 dark:border-surface-border">
-                  {formatCurrency(summaryData.totalLoanRepayment)}
-                </td>
-                <td className="px-3 py-3 text-right text-blue-600 dark:text-blue-400 border-r border-gray-200 dark:border-surface-border">
-                  {formatCurrency(summaryData.totalChitContributions)}
-                </td>
-                <td className={`px-3 py-3 text-right border-r border-gray-200 dark:border-surface-border ${
-                  summaryData.totalRecordedAmount >= 0 ? 'text-green-600' : 'text-red-600'
-                }`}>
-                  {formatCurrency(summaryData.totalRecordedAmount)}
-                </td>
-                <td className="px-3 py-3 text-right text-red-600 border-r border-gray-200 dark:border-surface-border">
-                  {formatCurrency(summaryData.totalLoanDisbursement)}
-                </td>
-                <td className="px-3 py-3 text-right text-orange-600 border-r border-gray-200 dark:border-surface-border">
-                  {formatCurrency(summaryData.totalDocumentCharges)}
-                </td>
-                <td className="px-3 py-3 text-right text-purple-600 dark:text-purple-400 border-r border-gray-200 dark:border-surface-border">
-                  {formatCurrency(summaryData.totalAuctionPayouts)}
-                </td>
-                <td className="px-3 py-3 text-right text-indigo-600 dark:text-indigo-400 border-r border-gray-200 dark:border-surface-border">
-                  {formatCurrency(summaryData.totalPartnerTransfers)}
-                </td>
-                <td className={`px-3 py-3 text-right font-bold ${
-                  summaryData.totalAmount >= 0 ? 'text-green-600' : 'text-red-600'
-                }`}>
-                  {formatCurrency(summaryData.totalAmount)}
-                </td>
+              <tr className="border-t-2 bg-muted/40 font-semibold">
+                <th scope="row" className="sticky left-0 z-10 bg-muted px-4 py-2.5 text-left text-foreground">Total</th>
+                {COLUMNS.map((c) => (
+                  <td key={c.key} className="px-3 py-2.5 text-right">
+                    <Money value={(data as unknown as Record<string, number>)[c.total] ?? 0} tone={c.tone} />
+                  </td>
+                ))}
               </tr>
             </tbody>
           </table>
         </div>
-      </div>
-    </div>
+      )}
+    </SectionCard>
   );
 }
