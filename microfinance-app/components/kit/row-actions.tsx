@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import Link from 'next/link';
-import { MoreHorizontal, type LucideIcon } from 'lucide-react';
+import { MoreVertical, type LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import {
@@ -61,7 +61,7 @@ export function RowActions({ actions, label = 'Row actions', align = 'end', clas
             onClick={(event) => event.stopPropagation()}
             onKeyDown={(event) => event.stopPropagation()}
           >
-            <MoreHorizontal aria-hidden="true" />
+            <MoreVertical aria-hidden="true" />
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent
