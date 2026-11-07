@@ -4,8 +4,8 @@
     "reload": 0,
     "alert": 5,
     "confirm": 1,
-    "hardNav": 2,
-    "palette": 204
+    "hardNav": 1,
+    "palette": 163
   },
   "files": {
     "app/activities/page.tsx": {
@@ -13,19 +13,6 @@
     },
     "app/calendar/page.tsx": {
       "palette": 22
-    },
-    "app/chit-funds/[id]/auctions/page.tsx": {
-      "palette": 9
-    },
-    "app/chit-funds/[id]/contributions/page.tsx": {
-      "hardNav": 1,
-      "palette": 11
-    },
-    "app/chit-funds/[id]/members/[memberId]/contributions/page.tsx": {
-      "palette": 3
-    },
-    "app/chit-funds/[id]/members/page.tsx": {
-      "palette": 17
     },
     "app/components/BalanceSummary.tsx": {
       "palette": 1
@@ -135,9 +122,6 @@
     },
     "components/chit-funds/ChitFundTable.tsx": {
       "palette": 12
-    },
-    "components/chit-funds/PayContributionBalanceModal.tsx": {
-      "palette": 1
     }
   }
 }

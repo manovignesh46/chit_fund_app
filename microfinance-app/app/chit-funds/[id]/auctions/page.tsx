@@ -1,835 +1,305 @@
-// @ts-nocheck
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+/**
+ * A fund's auctions (List template): every auction, month order, with record, details and
+ * delete.
+ *
+ * Requests: the fund (usually cached from its page), every auction in one page (the same key
+ * the fund page uses, so usually cached too) and every member of the fund (`all=1`): the
+ * winner list must offer everyone who has not won yet. The page used to read the default
+ * pages (10 auctions, 20 members), so later auctions were missing and members beyond the
+ * 20th could not be chosen.
+ */
+import * as React from 'react';
+import dynamic from 'next/dynamic';
 import Link from 'next/link';
-import { apiGet, apiPost, apiDelete } from '../../../lib/apiUtils';
-import BackTitle from '../../../components/common/BackTitle';
-import { useFirstLoad, refreshingClass } from '../../../hooks/useFirstLoad';
-import { formatDate as formatDateUtil, formatCurrency as formatCurrencyUtil } from '../../../../lib/formatUtils';
+import { useParams } from 'next/navigation';
+import { Eye, Plus, Trash2, Users } from 'lucide-react';
 
-interface GlobalMember {
-  id: number;
-  name: string;
-  contact: string;
-  email: string | null;
-  address: string | null;
+import { toast } from '@/lib/toast';
+import { formatMoney } from '@/lib/format';
+import { ApiError } from '@/lib/query/fetcher';
+import { chitFundWrites, invalidateChitFundAuctions, useAllChitFundMembers, useChitFund, useChitFundAuctions, type ChitFundAuction } from '@/lib/query/chit-funds';
+import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
+import { useBreadcrumbLabel } from '@/components/kit/app-shell/breadcrumb-labels';
+import { ConfirmDialog } from '@/components/kit/confirm-dialog';
+import { DataTable, type DataTableColumn } from '@/components/kit/data-table';
+import { DateText } from '@/components/kit/date-text';
+import { EmptyState } from '@/components/kit/empty-state';
+import { ErrorState } from '@/components/kit/error-state';
+import { Money } from '@/components/kit/money';
+import { PageContainer } from '@/components/kit/page-container';
+import { PageHeader } from '@/components/kit/page-header';
+import { StatusBadge } from '@/components/kit/status-badge';
+import { Discount } from '@/app/components/chit-funds/AuctionDialogs';
+
+const AuctionFormDialog = dynamic(() => import('@/app/components/chit-funds/AuctionDialogs'), { ssr: false });
+const AuctionDetailsDialog = dynamic(() => import('@/app/components/chit-funds/AuctionDialogs').then((m) => m.AuctionDetailsDialog), { ssr: false });
+
+interface AuctionRow extends ChitFundAuction {
+  /** Position among the auctions of the same month (1-based) when a month has several. */
+  sameMonthIndex: number | null;
 }
 
-interface Member {
-  id: number;
-  globalMember: GlobalMember;
-}
-
-interface Auction {
-  id: number;
-  month: number;
-  amount: number;
-  date: string;
-  winnerId: number;
-  winner: Member;
-  lowestBid?: number;
-  highestBid?: number;
-  numberOfBidders?: number;
-  notes?: string;
-}
-
-interface ChitFund {
-  id: number;
-  name: string;
-  totalAmount: number;
-  monthlyContribution: number;
-  duration: number;
-  membersCount: number;
-  status: string;
-  currentMonth: number;
+function PageSkeleton() {
+  return (
+    <div aria-hidden="true" className="space-y-6">
+      <div className="space-y-2">
+        <Skeleton className="h-4 w-40" />
+        <Skeleton className="h-8 w-48" />
+      </div>
+      <Skeleton className="h-72 w-full rounded-xl" />
+    </div>
+  );
 }
 
 export default function ChitFundAuctionsPage() {
-  const params = useParams();
-  const router = useRouter();
-  const chitFundId = params.id;
+  return (
+    <PageContainer fallback={<PageSkeleton />}>
+      <AuctionsView />
+    </PageContainer>
+  );
+}
 
-  const [chitFund, setChitFund] = useState<ChitFund | null>(null);
-  const [auctions, setAuctions] = useState<Auction[]>([]);
-  const [members, setMembers] = useState<Member[]>([]);
-  const [loading, setLoading] = useState(true);
-  // Bumped after a save to refetch in place (no full page reload).
-  const [reloadKey, setReloadKey] = useState(0);
-  const { initialLoading, refreshing } = useFirstLoad(loading);
-  const [error, setError] = useState<string | null>(null);
-  const [selectedAuction, setSelectedAuction] = useState<Auction | null>(null);
-  const [showDetailModal, setShowDetailModal] = useState(false);
+function AuctionsView() {
+  const params = useParams<{ id: string }>();
+  const id = parseInt(params.id, 10) || 0;
+  const fundQuery = useChitFund(id || null);
+  const fund = fundQuery.data;
+  useBreadcrumbLabel(id ? `/chit-funds/${id}` : null, fund?.name);
+  const auctionsQuery = useChitFundAuctions(id || null);
+  const membersQuery = useAllChitFundMembers(id || null);
+  const [formOpen, setFormOpen] = React.useState(false);
+  const [formMounted, setFormMounted] = React.useState(false);
+  const [details, setDetailsState] = React.useState<ChitFundAuction | null>(null);
+  const [detailsOpen, setDetailsOpen] = React.useState(false);
+  const setDetails = (a: ChitFundAuction) => {
+    setDetailsState(a);
+    setDetailsOpen(true);
+  };
+  const [toDelete, setToDelete] = React.useState<ChitFundAuction | null>(null);
 
-  // For deleting auction
-  const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const [auctionToDelete, setAuctionToDelete] = useState<number | null>(null);
-  const [isDeleting, setIsDeleting] = useState(false);
-  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const auctions = auctionsQuery.data?.auctions;
+  const rows = React.useMemo<AuctionRow[]>(() => {
+    const list = [...(auctions ?? [])].sort((a, b) => a.month - b.month || new Date(a.date).getTime() - new Date(b.date).getTime());
+    const byMonth = new Map<number, AuctionRow[]>();
+    const out = list.map((a) => ({ ...a, sameMonthIndex: null as number | null }));
+    for (const a of out) byMonth.set(a.month, [...(byMonth.get(a.month) ?? []), a]);
+    for (const group of byMonth.values()) if (group.length > 1) group.forEach((a, i) => (a.sameMonthIndex = i + 1));
+    return out;
+  }, [auctions]);
+  const members = membersQuery.data?.members;
+  // Members who have not won any auction yet.
+  const eligible = React.useMemo(
+    () => (members ?? []).filter((m) => !(auctions ?? []).some((a) => a.winnerId === m.id)).map((m) => ({ id: m.id, name: m.globalMember.name })),
+    [members, auctions]
+  );
 
-  // For adding new auction
-  const [showAddForm, setShowAddForm] = useState(false);
-  const [newAuction, setNewAuction] = useState({
-    winnerId: '',
-    month: '',
-    amount: '',
-    date: new Date().toISOString().split('T')[0], // Today's date in YYYY-MM-DD format
-    lowestBid: '',
-    highestBid: '',
-    numberOfBidders: '',
-    notes: '',
-  });
-  const [formErrors, setFormErrors] = useState<{[key: string]: string}>({});
-  const [isSubmitting, setIsSubmitting] = useState(false);
-
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setLoading(true);
-
-        // Fetch chit fund details, members and auctions together
-        const [chitFundData, membersData, auctionsData] = await Promise.all([
-          apiGet(
-            `/api/chit-funds/consolidated?action=detail&id=${chitFundId}`,
-            'Failed to fetch chit fund details'
-          ),
-          apiGet(
-            `/api/chit-funds/consolidated?action=members&id=${chitFundId}`,
-            'Failed to fetch members'
-          ),
-          apiGet(
-            `/api/chit-funds/consolidated?action=auctions&id=${chitFundId}`,
-            'Failed to fetch auctions'
-          ),
-        ]);
-        setChitFund(chitFundData);
-
-        // Check if the response is paginated or a direct array
-        if (membersData && membersData.members && Array.isArray(membersData.members)) {
-          // Handle paginated response
-          setMembers(membersData.members);
-        } else if (Array.isArray(membersData)) {
-          // Handle direct array response (for backward compatibility)
-          setMembers(membersData);
-        } else {
-          // Handle unexpected response format
-          console.error('Unexpected members data format:', membersData);
-          setMembers([]);
-        }
-
-        // Check if the response has an auctions property (new format) or is an array (old format)
-        if (auctionsData.auctions && Array.isArray(auctionsData.auctions)) {
-          setAuctions(auctionsData.auctions);
-        } else {
-          // Fallback for backward compatibility
-          setAuctions(Array.isArray(auctionsData) ? auctionsData : []);
-        }
-
-        setError(null);
-      } catch (err: any) {
-        console.error('Error fetching data:', err);
-        setError(err.message || 'Failed to load data. Please try again later.');
-      } finally {
-        setLoading(false);
+  if (!fund) {
+    if (fundQuery.error) {
+      const status = fundQuery.error instanceof ApiError ? fundQuery.error.status : 0;
+      if (status === 404 || status === 403 || status === 400) {
+        return (
+          <EmptyState
+            title="Chit fund not found"
+            description="The chit fund you are looking for does not exist or has been removed."
+            action={
+              <Button size="sm" variant="outline" asChild>
+                <Link href="/chit-funds">Back to chit funds</Link>
+              </Button>
+            }
+          />
+        );
       }
-    };
-
-    if (chitFundId) {
-      fetchData();
+      return <ErrorState title="Couldn't load this chit fund" error={fundQuery.error} onRetry={() => void fundQuery.mutate()} />;
     }
-  }, [chitFundId, reloadKey]);
-
-  // Handle ESC key to close modals
-  useEffect(() => {
-    const handleEscKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        if (showAddForm) {
-          setShowAddForm(false);
-        } else if (showDeleteModal) {
-          setShowDeleteModal(false);
-          setAuctionToDelete(null);
-        } else if (showDetailModal) {
-          setShowDetailModal(false);
-        }
-      }
-    };
-
-    document.addEventListener('keydown', handleEscKey);
-    return () => {
-      document.removeEventListener('keydown', handleEscKey);
-    };
-  }, [showAddForm, showDeleteModal, showDetailModal]);
-
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
-    const { name, value } = e.target;
-
-    // If month is changed and chit fund type is Fixed, auto-populate the amount
-    if (name === 'month' && chitFund?.chitFundType === 'Fixed' && chitFund.fixedAmounts && value) {
-      const selectedMonth = parseInt(value);
-      const fixedAmount = chitFund.fixedAmounts.find(fa => fa.month === selectedMonth);
-
-      setNewAuction({
-        ...newAuction,
-        [name]: value,
-        amount: fixedAmount ? fixedAmount.amount.toString() : '',
-      });
-    } else {
-      setNewAuction({
-        ...newAuction,
-        [name]: value,
-      });
-    }
-  };
-
-  const validateForm = () => {
-    const errors: {[key: string]: string} = {};
-
-    if (!newAuction.winnerId) {
-      errors.winnerId = 'Winner is required';
-    }
-
-    if (!newAuction.month) {
-      errors.month = 'Month is required';
-    } else if (isNaN(Number(newAuction.month)) || Number(newAuction.month) < 1 || Number(newAuction.month) > (chitFund?.duration || 0)) {
-      errors.month = `Month must be between 1 and ${chitFund?.duration || 0}`;
-    }
-
-    if (!newAuction.amount) {
-      errors.amount = 'Amount is required';
-    } else if (isNaN(Number(newAuction.amount)) || Number(newAuction.amount) <= 0) {
-      errors.amount = 'Amount must be a positive number';
-    }
-
-    if (!newAuction.date) {
-      errors.date = 'Auction date is required';
-    }
-
-    setFormErrors(errors);
-    return Object.keys(errors).length === 0;
-  };
-
-  const handleAddAuction = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    if (!validateForm()) {
-      return;
-    }
-
-    setIsSubmitting(true);
-
-    try {
-      // Use the apiPost function with the consolidated API endpoint
-      await apiPost(
-        `/api/chit-funds/consolidated?action=add-auction&id=${chitFundId}`,
-        {
-          ...newAuction,
-          chitFundId: Number(chitFundId),
-          winnerId: Number(newAuction.winnerId),
-          month: Number(newAuction.month),
-          amount: Number(newAuction.amount),
-          lowestBid: newAuction.lowestBid ? Number(newAuction.lowestBid) : undefined,
-          highestBid: newAuction.highestBid ? Number(newAuction.highestBid) : undefined,
-          numberOfBidders: newAuction.numberOfBidders ? Number(newAuction.numberOfBidders) : undefined,
-        },
-        'Failed to add auction'
-      );
-
-      // Reset form
-      setNewAuction({
-        winnerId: '',
-        month: '',
-        amount: '',
-        date: new Date().toISOString().split('T')[0],
-        lowestBid: '',
-        highestBid: '',
-        numberOfBidders: '',
-        notes: '',
-      });
-      setShowAddForm(false);
-
-      // Refetch auctions, members and fund totals in place
-      setReloadKey((key) => key + 1);
-    } catch (error) {
-      console.error('Error adding auction:', error);
-      setFormErrors({ submit: 'Failed to add auction. Please try again.' });
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  // Format currency
-  const formatCurrency = (amount: number) => {
-    return formatCurrencyUtil(amount);
-  };
-
-  // Format date
-  const formatDate = (dateString: string) => {
-    return formatDateUtil(dateString);
-  };
-
-  // Get eligible members (those who haven't won any auction yet)
-  const eligibleMembers = members.filter(member => {
-    return !auctions.some(auction => auction.winnerId === member.id);
-  });
-
-  // Get all months (allow multiple auctions per month)
-  const availableMonths = chitFund ?
-    Array.from({ length: chitFund.duration }, (_, i) => i + 1) :
-    [];
-
-  // Handle delete auction
-  const handleDeleteAuction = (id: number) => {
-    setAuctionToDelete(id);
-    setShowDeleteModal(true);
-    setDeleteError(null);
-  };
-
-  // Confirm delete auction
-  const confirmDeleteAuction = async () => {
-    if (!auctionToDelete) return;
-
-    setIsDeleting(true);
-    setDeleteError(null);
-
-    try {
-      // Use the apiDelete function with the consolidated API endpoint
-      await apiDelete(
-        `/api/chit-funds/consolidated?action=delete-auction&id=${chitFundId}`,
-        { auctionId: auctionToDelete },
-        'Failed to delete auction'
-      );
-
-      // Remove the deleted auction from the state
-      setAuctions(auctions.filter(a => a.id !== auctionToDelete));
-
-      // Close the modal
-      setShowDeleteModal(false);
-      setAuctionToDelete(null);
-    } catch (error: any) {
-      console.error('Error deleting auction:', error);
-      setDeleteError(error.message || 'Failed to delete auction. Please try again.');
-    } finally {
-      setIsDeleting(false);
-    }
-  };
-
-  if (initialLoading) {
-    return (
-      <div className="container mx-auto px-4 py-8">
-        <div className="flex justify-center items-center h-64">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-700 mx-auto mb-4"></div>
-            <p className="text-gray-700 dark:text-theme-secondary">Loading auctions data...</p>
-          </div>
-        </div>
-      </div>
-    );
+    return <PageSkeleton />;
   }
 
-  if (error) {
-    return (
-      <div className="container mx-auto px-4 py-8">
-        <div className="alert-error px-4 py-3 rounded">
-          <p className="font-bold">Error</p>
-          <p>{error}</p>
-          <button
-            onClick={() => router.back()}
-            className="mt-4 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition duration-300"
-          >
-            Go Back
-          </button>
-        </div>
-      </div>
-    );
-  }
+  const ready = auctions !== undefined && members !== undefined;
+  const canRecord = ready && eligible.length > 0;
 
-  if (!chitFund) {
-    return (
-      <div className="container mx-auto px-4 py-8">
-        <div className="bg-yellow-100 border border-yellow-400 text-yellow-700 px-4 py-3 rounded">
-          <p className="font-bold">Chit Fund Not Found</p>
-          <p>The chit fund you are looking for does not exist or has been removed.</p>
-          <Link href="/chit-funds" className="mt-4 inline-block px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-300">
-            Back to Chit Funds
-          </Link>
+  const recordAuction = async (body: Record<string, unknown>) => {
+    const saved = await chitFundWrites.addAuction(fund.id, body);
+    const winner = eligible.find((m) => m.id === Number(body.winnerId));
+    toast.success('Auction recorded', { description: `${saved?.winner?.globalMember?.name ?? winner?.name ?? 'Winner'} · Month ${body.month} · ${formatMoney(Number(body.amount))}` });
+    void invalidateChitFundAuctions(fund.id);
+  };
+
+  const deleteAuction = async () => {
+    if (!toDelete) return;
+    await chitFundWrites.deleteAuction(fund.id, toDelete.id);
+    toast.success('Auction deleted', { description: `Month ${toDelete.month} · ${toDelete.winner?.globalMember?.name ?? `Member ID: ${toDelete.winnerId}`}` });
+    await invalidateChitFundAuctions(fund.id);
+  };
+
+  const winnerName = (a: ChitFundAuction) => a.winner?.globalMember?.name || `Member ID: ${a.winnerId}`;
+  const columns: DataTableColumn<AuctionRow>[] = [
+    {
+      id: 'month',
+      header: 'Month',
+      cell: (a) => (
+        <span className="inline-flex items-center gap-2 whitespace-nowrap">
+          Month {a.month}
+          {a.sameMonthIndex ? <StatusBadge status="Partial" label={`#${a.sameMonthIndex}`} /> : null}
+        </span>
+      ),
+    },
+    { id: 'winner', header: 'Winner', cell: (a) => <span className="font-medium text-foreground">{winnerName(a)}</span> },
+    { id: 'amount', header: 'Amount', numeric: true, cell: (a) => <Money value={a.amount} tone="outflow" /> },
+    { id: 'date', header: 'Auction date', cell: (a) => <DateText value={a.date} /> },
+    { id: 'discount', header: 'Discount', numeric: true, cell: (a) => <Discount total={fund.totalAmount} amount={a.amount} /> },
+    {
+      id: 'actions',
+      header: <span className="sr-only">Actions</span>,
+      align: 'right',
+      cell: (a) => (
+        <div className="flex justify-end gap-1.5">
+          <Button size="sm" variant="outline" onClick={() => setDetails(a)}>
+            <Eye aria-hidden="true" />
+            View details
+          </Button>
+          <Button size="sm" variant="ghost" aria-label="Delete auction" className="text-destructive-text hover:bg-destructive-subtle hover:text-destructive-text" onClick={() => setToDelete(a)}>
+            <Trash2 aria-hidden="true" />
+            <span className="hidden sm:inline">Delete</span>
+          </Button>
         </div>
-      </div>
-    );
-  }
+      ),
+    },
+  ];
 
   return (
-    <div className={`container mx-auto px-4 py-8 ${refreshingClass(refreshing)}`} aria-busy={refreshing}>
-      <div className="flex justify-between items-center mb-6">
-        <div>
-          <BackTitle title="Auctions" href={`/chit-funds/${chitFundId}`} ariaLabel="Back to Chit Fund" />
-          <p className="text-gray-700 dark:text-theme-secondary">
-            Month {chitFund.currentMonth} of {chitFund.duration}
-            <br />
-            Monthly Contribution: {formatCurrency(chitFund.monthlyContribution)}
-            <br />
-            Type: <span className="font-semibold">{chitFund.chitFundType || 'Auction'}</span>
-            {chitFund.chitFundType === 'Fixed' && (
-              <span className="text-blue-600 dark:text-blue-400 ml-2">(Fixed amounts per month)</span>
-            )}
-          </p>
-        </div>
-        <div className="flex space-x-2 sm:space-x-4">
-          <Link href={`/chit-funds/${chitFundId}/members`} className="p-2 rounded-lg text-sm sm:text-base transition duration-300 flex items-center justify-center bg-blue-600 text-white hover:bg-blue-700 sm:px-4 sm:py-2">
-            <svg className="h-5 w-5 block sm:hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 20h5v-2a4 4 0 00-3-3.87M9 20H4v-2a4 4 0 013-3.87m9-4a4 4 0 10-8 0 4 4 0 008 0z" /></svg>
-            <span className="hidden sm:inline-flex items-center"><svg className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 20h5v-2a4 4 0 00-3-3.87M9 20H4v-2a4 4 0 013-3.87m9-4a4 4 0 10-8 0 4 4 0 008 0z" /></svg>View Members</span>
-          </Link>
-          {eligibleMembers.length > 0 ? (
-            <button
-              onClick={() => setShowAddForm(true)}
-              className="btn-primary p-2 sm:px-4 sm:py-2"
-            >
-              <svg className="h-5 w-5 block sm:hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" /></svg>
-              <span className="hidden sm:inline-flex items-center"><svg className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" /></svg>Record Auction</span>
-            </button>
-          ) : (
-            <div className="p-2 rounded-lg text-sm sm:text-base bg-gray-300 text-gray-700 dark:text-theme-secondary cursor-not-allowed flex items-center justify-center sm:px-4 sm:py-2" title="All members have already won auctions">
-              <svg className="h-5 w-5 block sm:hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" /></svg>
-              <span className="hidden sm:inline-flex items-center"><svg className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" /></svg>Record Auction (No Eligible Members)</span>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Auctions Table */}
-      <div className="themed-card overflow-hidden mb-8">
-        <div className="table-shell" style={{maxWidth: '85vw'}}>
-          <table className="w-full min-w-[700px] divide-y divide-surface-border text-xs sm:text-sm">
-            <thead className="bg-gray-50 dark:bg-surface-elevated">
-              <tr>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-theme-muted uppercase tracking-wider">
-                  Month
-                </th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-theme-muted uppercase tracking-wider">
-                  Winner
-                </th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-theme-muted uppercase tracking-wider">
-                  Amount
-                </th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-theme-muted uppercase tracking-wider">
-                  Auction Date
-                </th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-theme-muted uppercase tracking-wider">
-                  Discount
-                </th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-theme-muted uppercase tracking-wider">
-                  Details
-                </th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-theme-muted uppercase tracking-wider">
-                  Actions
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {auctions.length === 0 ? (
-                <tr>
-                  <td colSpan={7} className="px-6 py-4 text-center text-gray-500">
-                    No auctions found. Record auctions for this chit fund.
-                  </td>
-                </tr>
-              ) : (
-                auctions
-                  .sort((a, b) => a.month - b.month || new Date(a.date).getTime() - new Date(b.date).getTime())
-                  .map((auction, index) => {
-                    // Check if this is a duplicate month
-                    const sameMonthAuctions = auctions.filter(a => a.month === auction.month);
-                    const isDuplicateMonth = sameMonthAuctions.length > 1;
-                    const auctionIndex = sameMonthAuctions.findIndex(a => a.id === auction.id) + 1;
-
-                    return (
-                      <tr key={auction.id} className={`hover:bg-gray-50 dark:hover:bg-surface-hover ${isDuplicateMonth ? 'bg-yellow-50 dark:bg-yellow-900/20' : ''}`}>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-gray-900 dark:text-theme-primary">
-                            Month {auction.month}
-                            {isDuplicateMonth && (
-                              <span className="ml-2 px-2 py-1 text-xs bg-yellow-200 text-yellow-800 rounded-full">
-                                #{auctionIndex}
-                              </span>
-                            )}
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm font-medium text-blue-600 dark:text-blue-400">
-                            {auction.winner?.globalMember?.name || `Member ID: ${auction.winnerId}`}
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-gray-900 dark:text-theme-primary">{formatCurrency(auction.amount)}</div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-gray-900 dark:text-theme-primary">{formatDate(auction.date)}</div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-green-600">
-                            {formatCurrency(chitFund.totalAmount - auction.amount)}
-                            ({Math.round((1 - auction.amount / chitFund.totalAmount) * 100)}%)
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <button
-                            onClick={() => {
-                              // Show details in a modal instead of an alert
-                              setSelectedAuction(auction);
-                              setShowDetailModal(true);
-                            }}
-                            className="text-blue-600 dark:text-blue-400 hover:text-blue-900 dark:hover:text-blue-300 underline"
-                          >
-                            View Details
-                          </button>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <button
-                            onClick={() => handleDeleteAuction(auction.id)}
-                            className="text-red-600 hover:text-red-900 flex items-center"
-                            title="Delete auction"
-                          >
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 block sm:hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                            <span className="hidden sm:inline-flex items-center"><svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>Delete</span>
-                          </button>
-                        </td>
-                      </tr>
-                    );
-                  })
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {/* Add Auction Form */}
-      {showAddForm && (
-        <div className="modal-overlay flex items-center justify-center z-50">
-          <div className="themed-card p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
-            <h2 className="section-heading mb-4">Record New Auction</h2>
-            <form onSubmit={handleAddAuction}>
-              <div className="mb-4">
-                <label htmlFor="winnerId" className="block text-sm font-medium text-gray-700 dark:text-theme-secondary mb-1">
-                  Winner <span className="text-red-500">*</span>
-                </label>
-                <select
-                  id="winnerId"
-                  name="winnerId"
-                  value={newAuction.winnerId}
-                  onChange={handleInputChange}
-                  className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                    formErrors.winnerId ? 'border-red-500' : 'border-gray-200 dark:border-surface-border'
-                  }`}
-                >
-                  <option value="">
-                    {eligibleMembers.length > 0 ? 'Select a member' : 'No eligible members (all have won)'}
-                  </option>
-                  {eligibleMembers.map((member) => (
-                    <option key={member.id} value={member.id}>
-                      {member.globalMember.name}
-                    </option>
-                  ))}
-                </select>
-                {formErrors.winnerId && (
-                  <p className="mt-1 text-sm text-red-500">{formErrors.winnerId}</p>
-                )}
-              </div>
-              <div className="mb-4">
-                <label htmlFor="month" className="block text-sm font-medium text-gray-700 dark:text-theme-secondary mb-1">
-                  Month <span className="text-red-500">*</span>
-                </label>
-                <select
-                  id="month"
-                  name="month"
-                  value={newAuction.month}
-                  onChange={handleInputChange}
-                  className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                    formErrors.month ? 'border-red-500' : 'border-gray-200 dark:border-surface-border'
-                  }`}
-                >
-                  <option value="">Select a month</option>
-                  {availableMonths.map((month) => {
-                    const existingAuctions = auctions.filter(a => a.month === month);
-                    const hasExisting = existingAuctions.length > 0;
-                    return (
-                      <option key={month} value={month}>
-                        Month {month} {hasExisting ? `(${existingAuctions.length} existing)` : ''}
-                      </option>
-                    );
-                  })}
-                </select>
-                {formErrors.month && (
-                  <p className="mt-1 text-sm text-red-500">{formErrors.month}</p>
-                )}
-              </div>
-              <div className="mb-4">
-                <label htmlFor="amount" className="block text-sm font-medium text-gray-700 dark:text-theme-secondary mb-1">
-                  Auction Amount <span className="text-red-500">*</span>
-                  {chitFund?.chitFundType === 'Fixed' && newAuction.month && (
-                    <span className="text-xs text-blue-600 dark:text-blue-400 ml-2">(Auto-populated from fixed amount)</span>
-                  )}
-                </label>
-                <input
-                  type="number"
-                  id="amount"
-                  name="amount"
-                  value={newAuction.amount}
-                  onChange={handleInputChange}
-                  placeholder={chitFund.totalAmount.toString()}
-                  readOnly={chitFund?.chitFundType === 'Fixed' && newAuction.month && newAuction.amount}
-                  className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                    formErrors.amount ? 'border-red-500' : 'border-gray-200 dark:border-surface-border'
-                  } ${chitFund?.chitFundType === 'Fixed' && newAuction.month && newAuction.amount ? 'bg-gray-100 cursor-not-allowed' : ''}`}
-                />
-                {chitFund?.chitFundType === 'Fixed' && newAuction.month && newAuction.amount && (
-                  <p className="mt-1 text-xs text-blue-600 dark:text-blue-400">
-                    This amount is predefined for Month {newAuction.month} in this Fixed type chit fund.
-                  </p>
-                )}
-                {formErrors.amount && (
-                  <p className="mt-1 text-sm text-red-500">{formErrors.amount}</p>
-                )}
-              </div>
-              <div className="mb-4">
-                <label htmlFor="date" className="block text-sm font-medium text-gray-700 dark:text-theme-secondary mb-1">
-                  Auction Date <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="date"
-                  id="date"
-                  name="date"
-                  value={newAuction.date}
-                  onChange={handleInputChange}
-                  className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                    formErrors.date ? 'border-red-500' : 'border-gray-200 dark:border-surface-border'
-                  }`}
-                />
-                {formErrors.date && (
-                  <p className="mt-1 text-sm text-red-500">{formErrors.date}</p>
-                )}
-              </div>
-
-              {/* Only show Auction Details for Auction type chit funds */}
-              {chitFund?.chitFundType === 'Auction' && (
-                <>
-                  <h3 className="text-lg font-semibold text-gray-700 dark:text-theme-secondary mb-3 mt-6 border-t pt-4">Auction Details</h3>
-
-                  <div className="mb-4">
-                    <label htmlFor="lowestBid" className="block text-sm font-medium text-gray-700 dark:text-theme-secondary mb-1">
-                      Lowest Bid Amount
-                    </label>
-                    <input
-                      type="number"
-                      id="lowestBid"
-                      name="lowestBid"
-                      value={newAuction.lowestBid}
-                      onChange={handleInputChange}
-                      placeholder="Lowest bid in the auction"
-                      className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent border-gray-200 dark:border-surface-border"
-                    />
-                  </div>
-
-                  <div className="mb-4">
-                    <label htmlFor="highestBid" className="block text-sm font-medium text-gray-700 dark:text-theme-secondary mb-1">
-                      Highest Bid Amount
-                    </label>
-                    <input
-                      type="number"
-                      id="highestBid"
-                      name="highestBid"
-                      value={newAuction.highestBid}
-                      onChange={handleInputChange}
-                      placeholder="Highest bid in the auction"
-                      className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent border-gray-200 dark:border-surface-border"
-                    />
-                  </div>
-
-                  <div className="mb-4">
-                    <label htmlFor="numberOfBidders" className="block text-sm font-medium text-gray-700 dark:text-theme-secondary mb-1">
-                      Number of Bidders
-                    </label>
-                    <input
-                      type="number"
-                      id="numberOfBidders"
-                      name="numberOfBidders"
-                      value={newAuction.numberOfBidders}
-                      onChange={handleInputChange}
-                      placeholder="How many members participated in bidding"
-                      className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent border-gray-200 dark:border-surface-border"
-                    />
-                  </div>
-                </>
-              )}
-
-              <div className="mb-4">
-                <label htmlFor="notes" className="block text-sm font-medium text-gray-700 dark:text-theme-secondary mb-1">
-                  Auction Notes
-                </label>
-                <textarea
-                  id="notes"
-                  name="notes"
-                  value={newAuction.notes}
-                  onChange={handleInputChange}
-                  placeholder="Any additional notes about the auction process"
-                  rows={3}
-                  className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent border-gray-200 dark:border-surface-border"
-                />
-              </div>
-
-              {formErrors.submit && (
-                <div className="mb-4 alert-error px-4 py-3 rounded">
-                  <p>{formErrors.submit}</p>
-                </div>
-              )}
-              <div className="flex justify-end space-x-4">
-                <button
-                  type="button"
-                  onClick={() => setShowAddForm(false)}
-                  className="btn-neutral px-4 py-2 rounded-lg transition duration-300"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={isSubmitting}
-                  className="btn-primary disabled:opacity-50"
-                >
-                  {isSubmitting ? 'Recording...' : 'Record Auction'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Delete Confirmation Modal */}
-      {showDeleteModal && (
-        <div className="modal-overlay flex items-center justify-center z-50">
-          <div className="themed-card p-6 w-full max-w-md">
-            <h2 className="text-xl font-bold text-red-700 mb-4">Confirm Deletion</h2>
-            <p className="mb-6">Are you sure you want to delete this auction? This action cannot be undone.</p>
-            {deleteError && (
-              <div className="mb-4 alert-error px-4 py-3 rounded">
-                <p>{deleteError}</p>
-              </div>
-            )}
-            <div className="flex justify-end space-x-4">
-              <button
-                type="button"
+    <div>
+      <PageHeader
+        eyebrow={`Chit fund #${fund.id} · ${fund.name}`}
+        title="Auctions"
+        count={auctions?.length}
+        description={
+          <>
+            Month {fund.currentMonth} of {fund.duration} · Monthly contribution <Money value={fund.monthlyContribution} tone="plain" /> · Type{' '}
+            <span className="font-semibold text-foreground">{fund.chitFundType || 'Auction'}</span>
+            {fund.chitFundType === 'Fixed' ? <span className="ml-1 text-primary-text">(Fixed amounts per month)</span> : null}
+          </>
+        }
+        actions={
+          <>
+            <Button variant="outline" asChild>
+              <Link href={`/chit-funds/${fund.id}/members`}>
+                <Users aria-hidden="true" />
+                View members
+              </Link>
+            </Button>
+            {!ready || canRecord ? (
+              <Button
+                disabled={!ready}
                 onClick={() => {
-                  setShowDeleteModal(false);
-                  setAuctionToDelete(null);
+                  setFormMounted(true);
+                  setFormOpen(true);
                 }}
-                className="btn-neutral px-4 py-2 rounded-lg transition duration-300"
-                disabled={isDeleting}
               >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={confirmDeleteAuction}
-                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition duration-300 disabled:opacity-50"
-                disabled={isDeleting}
-              >
-                {isDeleting ? 'Deleting...' : 'Delete'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Auction Details Modal */}
-      {showDetailModal && selectedAuction && (
-        <div className="modal-overlay flex items-center justify-center z-50">
-          <div className="themed-card p-6 w-full max-w-md">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="section-heading">Auction Details</h2>
-              <button
-                onClick={() => setShowDetailModal(false)}
-                className="text-gray-500 hover:text-gray-700 dark:text-theme-secondary"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-
-            <div className="bg-gray-50 dark:bg-surface-elevated p-4 rounded-lg mb-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <p className="text-sm text-gray-500 dark:text-theme-muted">Month</p>
-                  <p className="text-md font-semibold text-gray-900 dark:text-theme-primary">Month {selectedAuction.month}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-500 dark:text-theme-muted">Winner</p>
-                  <p className="text-md font-semibold text-gray-900 dark:text-theme-primary">{selectedAuction.winner?.globalMember?.name || `Member ID: ${selectedAuction.winnerId}`}</p>
-                </div>
-              </div>
-            </div>
-
-            <div className="mb-4">
-              <h3 className="text-lg font-semibold mb-2 text-gray-900 dark:text-theme-heading">Auction Information</h3>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <p className="text-sm text-gray-500 dark:text-theme-muted">Amount</p>
-                  <p className="text-md font-semibold text-gray-900 dark:text-theme-primary">{formatCurrency(selectedAuction.amount)}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-500 dark:text-theme-muted">Date</p>
-                  <p className="text-md font-semibold text-gray-900 dark:text-theme-primary">{formatDate(selectedAuction.date)}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-500 dark:text-theme-muted">Discount</p>
-                  <p className="text-md font-semibold text-green-600 dark:text-green-400">
-                    {formatCurrency(chitFund.totalAmount - selectedAuction.amount)}
-                    ({Math.round((1 - selectedAuction.amount / chitFund.totalAmount) * 100)}%)
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {(selectedAuction.lowestBid || selectedAuction.highestBid || selectedAuction.numberOfBidders || selectedAuction.notes) && (
-              <div className="mb-4">
-                <h3 className="text-lg font-semibold mb-2 text-gray-900 dark:text-theme-heading">Additional Details</h3>
-                <div className="space-y-2">
-                  {selectedAuction.numberOfBidders && (
-                    <div>
-                      <p className="text-sm text-gray-500 dark:text-theme-muted">Number of Bidders</p>
-                      <p className="text-md text-gray-900 dark:text-theme-primary">{selectedAuction.numberOfBidders}</p>
-                    </div>
-                  )}
-                  {selectedAuction.lowestBid && (
-                    <div>
-                      <p className="text-sm text-gray-500 dark:text-theme-muted">Lowest Bid</p>
-                      <p className="text-md text-gray-900 dark:text-theme-primary">{formatCurrency(selectedAuction.lowestBid)}</p>
-                    </div>
-                  )}
-                  {selectedAuction.highestBid && (
-                    <div>
-                      <p className="text-sm text-gray-500 dark:text-theme-muted">Highest Bid</p>
-                      <p className="text-md text-gray-900 dark:text-theme-primary">{formatCurrency(selectedAuction.highestBid)}</p>
-                    </div>
-                  )}
-                  {selectedAuction.notes && (
-                    <div>
-                      <p className="text-sm text-gray-500 dark:text-theme-muted">Notes</p>
-                      <p className="text-md whitespace-pre-line text-gray-900 dark:text-theme-primary">{selectedAuction.notes}</p>
-                    </div>
-                  )}
-                </div>
-              </div>
+                <Plus aria-hidden="true" />
+                Record auction
+              </Button>
+            ) : (
+              <Button disabled title="All members have already won auctions">
+                <Plus aria-hidden="true" />
+                Record auction (no eligible members)
+              </Button>
             )}
+          </>
+        }
+      />
 
-            <div className="flex justify-end mt-6">
-              <button
-                onClick={() => setShowDetailModal(false)}
-                className="btn-neutral px-4 py-2 rounded-lg transition duration-300"
-              >
-                Close
-              </button>
+      <DataTable<AuctionRow>
+        label="Auctions"
+        mode="client"
+        columns={columns}
+        rows={rows}
+        getRowId={(a) => a.id}
+        isInitialLoading={auctions === undefined && !auctionsQuery.error}
+        isRefreshing={auctions !== undefined && auctionsQuery.isValidating}
+        error={auctionsQuery.error}
+        onRetry={() => void auctionsQuery.mutate()}
+        skeletonRows={5}
+        rowClassName={(a) => (a.sameMonthIndex ? 'bg-warning-subtle/60' : undefined)}
+        emptyState={
+          <EmptyState
+            title="No auctions found"
+            description="Record auctions for this chit fund."
+            action={
+              canRecord ? (
+                <Button
+                  size="sm"
+                  onClick={() => {
+                    setFormMounted(true);
+                    setFormOpen(true);
+                  }}
+                >
+                  <Plus aria-hidden="true" />
+                  Record auction
+                </Button>
+              ) : undefined
+            }
+          />
+        }
+        renderCard={(a) => (
+          <div className="space-y-2">
+            <div className="flex items-start justify-between gap-2">
+              <div className="min-w-0">
+                <p className="flex items-center gap-2 font-medium text-foreground">
+                  Month {a.month}
+                  {a.sameMonthIndex ? <StatusBadge status="Partial" label={`#${a.sameMonthIndex}`} /> : null}
+                </p>
+                <p className="truncate text-sm text-muted-foreground">{winnerName(a)}</p>
+                <p className="text-xs text-muted-foreground">
+                  <DateText value={a.date} />
+                </p>
+              </div>
+              <div className="text-right">
+                <Money value={a.amount} tone="outflow" className="font-medium" />
+                <p className="mt-0.5 text-xs">
+                  <Discount total={fund.totalAmount} amount={a.amount} />
+                </p>
+              </div>
+            </div>
+            <div className="flex flex-wrap justify-end gap-1.5">
+              <Button size="sm" variant="outline" onClick={() => setDetails(a)}>
+                <Eye aria-hidden="true" />
+                View details
+              </Button>
+              <Button size="sm" variant="ghost" aria-label="Delete auction" className="text-destructive-text hover:bg-destructive-subtle hover:text-destructive-text" onClick={() => setToDelete(a)}>
+                <Trash2 aria-hidden="true" />
+                Delete
+              </Button>
             </div>
           </div>
+        )}
+      />
+      {membersQuery.error ? (
+        <div className="mt-4">
+          <ErrorState compact title="Couldn't load the fund's members (needed to record an auction)" error={membersQuery.error} onRetry={() => void membersQuery.mutate()} />
         </div>
-      )}
+      ) : null}
+
+      {formMounted ? (
+        <AuctionFormDialog open={formOpen} onOpenChange={setFormOpen} fund={fund} eligibleMembers={eligible} auctions={auctions ?? []} onSubmit={recordAuction} />
+      ) : null}
+      {details ? <AuctionDetailsDialog open={detailsOpen} auction={details} totalAmount={fund.totalAmount} onOpenChange={setDetailsOpen} /> : null}
+      <ConfirmDialog
+        open={toDelete !== null}
+        onOpenChange={(open) => !open && setToDelete(null)}
+        title="Delete this auction?"
+        description="Are you sure you want to delete this auction? This action cannot be undone."
+        confirmLabel="Delete"
+        onConfirm={deleteAuction}
+      >
+        {toDelete ? (
+          <p className="text-sm text-muted-foreground">
+            Month {toDelete.month} · {winnerName(toDelete)} · <Money value={toDelete.amount} tone="plain" />
+          </p>
+        ) : null}
+      </ConfirmDialog>
     </div>
   );
 }

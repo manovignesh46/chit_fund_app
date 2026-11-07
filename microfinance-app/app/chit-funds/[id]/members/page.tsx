@@ -1,1609 +1,566 @@
-// @ts-nocheck
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+/**
+ * A fund's members (List template): who is in the fund, what each owes (server figures),
+ * who has won, with assign / create, record contribution, export and remove.
+ *
+ * List state (page, pageSize, q, sort, order, auction) lives in the URL; search, the auction
+ * filter and sort run on the server (`members` with list params). The fund comes from the
+ * shared cache (the page used to read it with a plain fetch on every view). The global-member
+ * picker searches the server 25 at a time (it used to load up to 1,000 people in one request).
+ *
+ * "Add month N due" and "Record contribution" are optimistic: the member's row shows "Saving"
+ * and the server's missed/pending figures show "Updating…" until the fund has been refetched.
+ */
+import * as React from 'react';
+import dynamic from 'next/dynamic';
 import Link from 'next/link';
-// import { apiGet, apiPost, apiPut, apiDelete } from '../../../lib/apiUtils';
-import { apiGet, apiPost, apiPut, apiDelete } from '../../../lib/apiUtils';
-import { UserGroupIcon, PlusCircleIcon, DocumentArrowDownIcon, TrashIcon, UserPlusIcon, UsersIcon, BanknotesIcon } from '@heroicons/react/24/outline';
-import BackTitle from '../../../components/common/BackTitle';
-import { useFirstLoad, refreshingClass } from '../../../hooks/useFirstLoad';
-import { formatDate as formatDateUtil, formatCurrency as formatCurrencyUtil } from '../../../../lib/formatUtils';
-
-interface GlobalMember {
-  id: number;
-  name: string;
-  contact: string;
-  email: string | null;
-  address: string | null;
-}
-
-interface Member {
-  id: number;
-  globalMemberId: number;
-  globalMember: GlobalMember;
-  joinDate: string;
-  auctionWon: boolean;
-  auctionMonth: number | null;
-  contribution: number;
-  missedContributions: number;
-  pendingAmount: number;
-}
-
-interface ChitFund {
-  id: number;
-  name: string;
-  totalAmount: number;
-  monthlyContribution: number;
-  duration: number;
-  membersCount: number;
-  status: string;
-  currentMonth: number;
-}
-
-// This component has been optimized for performance
-export default function ChitFundMembersPage() {
-  const params = useParams();
-  const router = useRouter();
-  const chitFundId = params.id;
-
-  const [chitFund, setChitFund] = useState<ChitFund | null>(null);
-  const [members, setMembers] = useState<Member[]>([]);
-  const [allContributions, setAllContributions] = useState<{memberId: number, month: number}[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  // Bumped after a save to refetch in place (no full page reload).
-  const [reloadKey, setReloadKey] = useState(0);
-  const { initialLoading, refreshing } = useFirstLoad(loading);
-
-  // For adding new member
-  const [showAddForm, setShowAddForm] = useState(false);
-  const [newMember, setNewMember] = useState({
-    name: '',
-    contact: '',
-  });
-  const [formErrors, setFormErrors] = useState<{[key: string]: string}>({});
-  const [isSubmitting, setIsSubmitting] = useState(false);
-
-  // For selecting global members
-  const [globalMembers, setGlobalMembers] = useState<GlobalMember[]>([]);
-  const [selectedGlobalMembers, setSelectedGlobalMembers] = useState<number[]>([]);
-  const [selectAllGlobal, setSelectAllGlobal] = useState(false);
-  const [loadingGlobalMembers, setLoadingGlobalMembers] = useState(false);
-
-  // For deleting member
-  const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const [memberToDelete, setMemberToDelete] = useState<number | null>(null);
-  const [isDeleting, setIsDeleting] = useState(false);
-  const [deleteError, setDeleteError] = useState<string | null>(null);
-
-  // For bulk deleting members
-  const [showBulkDeleteModal, setShowBulkDeleteModal] = useState(false);
-  const [isBulkDeleting, setIsBulkDeleting] = useState(false);
-  const [bulkDeleteError, setBulkDeleteError] = useState<string | null>(null);
-  const [bulkDeleteSuccess, setBulkDeleteSuccess] = useState<string | null>(null);
-
-  // For adding current month contribution
-  const [isAddingContribution, setIsAddingContribution] = useState(false);
-  const [contributionMemberId, setContributionMemberId] = useState<number | null>(null);
-  const [contributionSuccess, setContributionSuccess] = useState<string | null>(null);
-  const [contributionError, setContributionError] = useState<string | null>(null);
-
-  // For recording a specific contribution
-  const [showRecordContributionModal, setShowRecordContributionModal] = useState(false);
-  const [selectedMemberForContribution, setSelectedMemberForContribution] = useState<Member | null>(null);
-  const [selectedMonth, setSelectedMonth] = useState<number | null>(null);
-  const [newContribution, setNewContribution] = useState({
-    amount: '',
-    paidDate: new Date().toISOString().split('T')[0],
-    notes: '',
-  });
-  const [isSubmittingContribution, setIsSubmittingContribution] = useState(false);
-  const [submitContributionError, setSubmitContributionError] = useState<string | null>(null);
-  const [submitContributionSuccess, setSubmitContributionSuccess] = useState<string | null>(null);
-
-  // For selecting members
-  const [selectedMembers, setSelectedMembers] = useState<number[]>([]);
-  const [selectAll, setSelectAll] = useState(false);
-
-  // For pagination
-  const [currentPage, setCurrentPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
-  const [totalCount, setTotalCount] = useState(0);
-  const [pageSize, setPageSize] = useState(20);
-
-  // For exporting members
-  const [isExporting, setIsExporting] = useState(false);
-  const [exportError, setExportError] = useState<string | null>(null);
-
-  // Fetch global members
-  const fetchGlobalMembers = async () => {
-    try {
-      setLoadingGlobalMembers(true);
-
-      // Use the apiGet utility function
-      const data = await apiGet(
-        '/api/members/consolidated?action=list&page=1&pageSize=1000',
-        'Failed to fetch global members'
-      );
-
-      // Filter out members that are already in this chit fund
-      const existingMemberIds = members.map(member => member.globalMemberId);
-
-      // Check if the response has a members property (new format) or is an array (old format)
-      const membersArray = data.members && Array.isArray(data.members)
-        ? data.members
-        : (Array.isArray(data) ? data : []);
-
-      const filteredGlobalMembers = membersArray.filter((member: GlobalMember) =>
-        !existingMemberIds.includes(member.id)
-      );
-
-      setGlobalMembers(filteredGlobalMembers);
-      setError(null);
-    } catch (err) {
-      console.error('Error fetching global members:', err);
-      setError(`Failed to load global members: ${err instanceof Error ? err.message : 'Unknown error'}. Please try again later.`);
-    } finally {
-      setLoadingGlobalMembers(false);
-    }
-  };
-
-  useEffect(() => {
-    const fetchChitFundAndMembers = async () => {
-      try {
-        setLoading(true);
-
-        // Fetch chit fund details and the current page of members together
-        const [chitFundData, membersData] = await Promise.all([
-          apiGet(
-            `/api/chit-funds/consolidated?action=detail&id=${chitFundId}`,
-            'Failed to fetch chit fund details'
-          ),
-          apiGet(
-            `/api/chit-funds/consolidated?action=members&id=${chitFundId}&page=${currentPage}&pageSize=${pageSize}`,
-            'Failed to fetch members'
-          ),
-        ]);
-        setChitFund(chitFundData);
-
-        // Check if the response has pagination metadata
-        if (membersData.members && membersData.totalCount !== undefined) {
-          setMembers(membersData.members);
-          setTotalPages(Math.ceil(membersData.totalCount / pageSize));
-          setTotalCount(membersData.totalCount);
-
-          // Use contribution map from members response if available
-          if (membersData.contributionMap && Array.isArray(membersData.contributionMap)) {
-            setAllContributions(membersData.contributionMap);
-          }
-        } else {
-          // Fallback for backward compatibility
-          setMembers(membersData);
-          setTotalPages(Math.ceil(membersData.length / pageSize));
-          setTotalCount(membersData.length);
-
-          // Fallback: Fetch contributions separately if not included in members response
-          try {
-            const contributionsData = await apiGet(
-              `/api/chit-funds/consolidated?action=contributions&id=${chitFundId}&page=1&pageSize=1000`,
-              'Failed to fetch contributions'
-            );
-
-            // Extract contributions array from the response
-            const contributionsArray = contributionsData.contributions && Array.isArray(contributionsData.contributions)
-              ? contributionsData.contributions
-              : (Array.isArray(contributionsData) ? contributionsData : []);
-
-            // Create a simplified array of member IDs and months for easy checking
-            const contributionMap = contributionsArray.map((contribution: any) => ({
-              memberId: contribution.memberId,
-              month: contribution.month
-            }));
-            setAllContributions(contributionMap);
-          } catch (contributionsError) {
-            console.warn('Failed to fetch contributions as fallback:', contributionsError);
-            setAllContributions([]);
-          }
-        }
-
-        // Clear selected members when page changes
-        setSelectedMembers([]);
-        setSelectAll(false);
-
-        setError(null);
-      } catch (err) {
-        console.error('Error fetching data:', err);
-        setError(`Failed to load data: ${err instanceof Error ? err.message : 'Unknown error'}. Please try again later.`);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    if (chitFundId) {
-      fetchChitFundAndMembers();
-    }
-  }, [chitFundId, currentPage, pageSize, reloadKey]);
-
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setNewMember({
-      ...newMember,
-      [name]: value,
-    });
-  };
-
-  const validateForm = () => {
-    const errors: {[key: string]: string} = {};
-
-    if (!newMember.name.trim()) {
-      errors.name = 'Name is required';
-    }
-
-    if (!newMember.contact.trim()) {
-      errors.contact = 'Contact information is required';
-    } else if (!/^[0-9+\s-]{10,15}$/.test(newMember.contact.trim())) {
-      errors.contact = 'Please enter a valid phone number';
-    }
-
-    setFormErrors(errors);
-    return Object.keys(errors).length === 0;
-  };
-
-  const handleAddMember = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    if (!validateForm()) {
-      return;
-    }
-
-    setIsSubmitting(true);
-
-    try {
-      // Use the apiPost utility function
-      await apiPost(
-        `/api/chit-funds/consolidated?action=add-member&id=${chitFundId}`,
-        {
-          name: newMember.name,
-          contact: newMember.contact,
-          contribution: chitFund?.monthlyContribution || 0,
-        },
-        'Failed to add member'
-      );
-
-      // Reset form
-      setNewMember({
-        name: '',
-        contact: '',
-      });
-      setShowAddForm(false);
-
-      // Refetch members in place
-      setReloadKey((key) => key + 1);
-    } catch (error: any) {
-      console.error('Error adding member:', error);
-      setFormErrors({ submit: error.message || 'Failed to add member. Please try again.' });
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  // Format currency
-  const formatCurrency = (amount: number) => {
-    return formatCurrencyUtil(amount);
-  };
-
-  // Format date
-  const formatDate = (dateString: string) => {
-    return formatDateUtil(dateString);
-  };
-
-  // Handle delete member
-  const handleDeleteMember = (id: number) => {
-    setMemberToDelete(id);
-    setShowDeleteModal(true);
-    setDeleteError(null);
-  };
-
-  // Confirm delete member
-  const confirmDeleteMember = async () => {
-    if (!memberToDelete) return;
-
-    setIsDeleting(true);
-    setDeleteError(null);
-
-    try {
-      // Use the apiDelete utility function
-      await apiDelete(
-        `/api/chit-funds/consolidated?action=remove-member&id=${chitFundId}&memberId=${memberToDelete}`,
-        {},
-        'Failed to delete member'
-      );  
-
-      // Remove the deleted member from the state
-      setMembers(members.filter(m => m.id !== memberToDelete));
-
-      // Remove from selected members if present
-      if (selectedMembers.includes(memberToDelete)) {
-        setSelectedMembers(selectedMembers.filter(id => id !== memberToDelete));
-        if (selectAll) setSelectAll(false);
-      }
-
-      // Close the modal
-      setShowDeleteModal(false);
-      setMemberToDelete(null);
-    } catch (error: any) {
-      console.error('Error deleting member:', error);
-      setDeleteError(error.message || 'Failed to delete member. Please try again.');
-    } finally {
-      setIsDeleting(false);
-    }
-  };
-
-  // Handle bulk delete members
-  const handleBulkDeleteClick = () => {
-    if (selectedMembers.length === 0) return;
-    setShowBulkDeleteModal(true);
-    setBulkDeleteError(null);
-    setBulkDeleteSuccess(null);
-  };
-
-  // Confirm bulk delete members
-  const confirmBulkDeleteMembers = async () => {
-    if (selectedMembers.length === 0) return;
-
-    setIsBulkDeleting(true);
-    setBulkDeleteError(null);
-    setBulkDeleteSuccess(null);
-
-    try {
-      let successCount = 0;
-      let errorCount = 0;
-
-      // Process each selected member
-      for (const memberId of selectedMembers) {
-        try {
-          // Use the apiDelete utility function
-          await apiDelete(
-            `/api/chit-funds/consolidated?action=remove-member&id=${chitFundId}&memberId=${memberId}`,
-            {},
-            'Failed to delete member'
-          );  
-          successCount++;
-        } catch (error) {
-          console.error(`Error removing member ${memberId}:`, error);
-          errorCount++;
-        }
-      }
-
-      // Update the members list
-      if (successCount > 0) {
-        setMembers(members.filter(m => !selectedMembers.includes(m.id)));
-        setBulkDeleteSuccess(`Successfully removed ${successCount} member${successCount > 1 ? 's' : ''} from the chit fund.`);
-
-        // Clear selection
-        setSelectedMembers([]);
-        setSelectAll(false);
-
-        // Close modal after a delay
-        setTimeout(() => {
-          setShowBulkDeleteModal(false);
-        }, 2000);
-      }
-
-      if (errorCount > 0) {
-        setBulkDeleteError(`Failed to remove ${errorCount} member${errorCount > 1 ? 's' : ''} from the chit fund.`);
-      }
-
-    } catch (error: any) {
-      console.error('Error removing members:', error);
-      setBulkDeleteError(error.message || 'Failed to remove members. Please try again.');
-    } finally {
-      setIsBulkDeleting(false);
-    }
-  };
-
-  // Handle selecting/deselecting a member
-  const handleSelectMember = (memberId: number) => {
-    if (selectedMembers.includes(memberId)) {
-      setSelectedMembers(selectedMembers.filter(id => id !== memberId));
-      setSelectAll(false);
-    } else {
-      setSelectedMembers([...selectedMembers, memberId]);
-      if (selectedMembers.length + 1 === members.length) {
-        setSelectAll(true);
-      }
-    }
-  };
-
-  // Handle select all members
-  const handleSelectAll = () => {
-    if (selectAll) {
-      setSelectedMembers([]);
-      setSelectAll(false);
-    } else {
-      setSelectedMembers(members.map(member => member.id));
-      setSelectAll(true);
-    }
-  };
-
-  // Handle selecting/deselecting a global member
-  const handleSelectGlobalMember = (memberId: number) => {
-    if (selectedGlobalMembers.includes(memberId)) {
-      setSelectedGlobalMembers(selectedGlobalMembers.filter(id => id !== memberId));
-      setSelectAllGlobal(false);
-    } else {
-      setSelectedGlobalMembers([...selectedGlobalMembers, memberId]);
-      if (selectedGlobalMembers.length + 1 === globalMembers.length) {
-        setSelectAllGlobal(true);
-      }
-    }
-  };
-
-  // Handle select all global members
-  const handleSelectAllGlobalMembers = () => {
-    if (selectAllGlobal) {
-      setSelectedGlobalMembers([]);
-      setSelectAllGlobal(false);
-    } else {
-      setSelectedGlobalMembers(globalMembers.map(member => member.id));
-      setSelectAllGlobal(true);
-    }
-  };
-
-  // Handle assigning multiple global members to the chit fund
-  const handleAssignGlobalMembers = async () => {
-    if (selectedGlobalMembers.length === 0) {
-      setFormErrors({ submit: 'Please select at least one member to assign' });
-      return;
-    }
-
-    setIsSubmitting(true);
-    setFormErrors({});
-
-    try {
-      let successCount = 0;
-      let errorCount = 0;
-      const assignedIds: number[] = [];
-
-      // Process each selected member
-      for (const memberId of selectedGlobalMembers) {
-        try {
-          // Use the apiPost utility function
-          await apiPost(
-            `/api/chit-funds/consolidated?action=add-member&id=${chitFundId}`,
-            {
-              globalMemberId: memberId,
-              // No need to specify contribution as it will use the chit fund's monthlyContribution
-            },
-            'Failed to assign member'
-          );
-          successCount++;
-          assignedIds.push(memberId);
-        } catch (error) {
-          console.error(`Error assigning member ${memberId}:`, error);
-          errorCount++;
-        }
-      }
-
-      // Show appropriate message
-      if (successCount > 0) {
-        // Reset selection
-        setSelectedGlobalMembers([]);
-        setSelectAllGlobal(false);
-
-        // Drop the assigned members from the picker and refetch the list in place
-        setGlobalMembers((prev) => prev.filter((member) => !assignedIds.includes(member.id)));
-        setReloadKey((key) => key + 1);
-
-        // Close the form only when everything succeeded, so a partial failure stays visible
-        if (errorCount === 0) {
-          setShowAddForm(false);
-        }
-      }
-
-      if (errorCount > 0) {
-        setFormErrors({ submit: `Failed to assign ${errorCount} member${errorCount > 1 ? 's' : ''}. They may already be part of this chit fund.` });
-      }
-    } catch (error: any) {
-      console.error('Error assigning members:', error);
-      setFormErrors({ submit: error.message || 'Failed to assign members. Please try again.' });
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  // Handle exporting a single member
-  const handleExportMember = async (memberId: number) => {
-    try {
-      setIsExporting(true);
-      setExportError(null);
-
-      // Create a form to submit as POST
-      const form = document.createElement('form');
-      form.method = 'POST';
-      form.action = `/api/chit-funds/${chitFundId}/members/export`;
-      form.target = '_blank'; // Open in new tab
-
-      // Add member ID as hidden input
-      const input = document.createElement('input');
-      input.type = 'hidden';
-      input.name = 'memberIds';
-      input.value = JSON.stringify([memberId]);
-      form.appendChild(input);
-
-      // Add CSRF token if needed
-      // const csrfToken = document.createElement('input');
-      // csrfToken.type = 'hidden';
-      // csrfToken.name = 'csrfToken';
-      // csrfToken.value = 'your-csrf-token';
-      // form.appendChild(csrfToken);
-
-      // Submit the form
-      document.body.appendChild(form);
-      form.submit();
-      document.body.removeChild(form);
-    } catch (error: any) {
-      console.error('Error exporting member:', error);
-      setExportError(error.message || 'Failed to export member');
-    } finally {
-      setIsExporting(false);
-    }
-  };
-
-  // Handle exporting selected members
-  const handleExportSelectedMembers = async () => {
-    if (selectedMembers.length === 0) {
-      setExportError('Please select at least one member to export');
-      return;
-    }
-
-    try {
-      setIsExporting(true);
-      setExportError(null);
-
-      // Create a form to submit as POST
-      const form = document.createElement('form');
-      form.method = 'POST';
-      form.action = `/api/chit-funds/${chitFundId}/members/export`;
-      form.target = '_blank'; // Open in new tab
-
-      // Add member IDs as hidden input
-      const input = document.createElement('input');
-      input.type = 'hidden';
-      input.name = 'memberIds';
-      input.value = JSON.stringify(selectedMembers);
-      form.appendChild(input);
-
-      // Submit the form
-      document.body.appendChild(form);
-      form.submit();
-      document.body.removeChild(form);
-    } catch (error: any) {
-      console.error('Error exporting members:', error);
-      setExportError(error.message || 'Failed to export members');
-    } finally {
-      setIsExporting(false);
-    }
-  };
-
-  // Handle adding current month contribution for selected members
-  const handleAddCurrentMonthContributionForSelected = async () => {
-    if (!chitFund || selectedMembers.length === 0) return;
-
-    const currentMonth = chitFund.currentMonth;
-
-    // Clear previous messages
-    setContributionSuccess(null);
-    setContributionError(null);
-
-    // Set loading state
-    setIsAddingContribution(true);
-
-    try {
-      let successCount = 0;
-      let errorCount = 0;
-
-      // Process each selected member
-      for (const memberId of selectedMembers) {
-        // Skip if contribution already exists
-        if (allContributions.some(c => c.memberId === memberId && c.month === currentMonth)) {
-          errorCount++;
-          continue;
-        }
-
-        // Create the contribution using the apiPost utility function
-        try {
-          await apiPost(
-            `/api/chit-funds/consolidated?action=add-contribution&id=${chitFundId}`,
-            {
-              memberId: memberId,
-              month: currentMonth,
-              amount: chitFund.monthlyContribution, // Default to full amount
-              paidDate: new Date().toISOString().split('T')[0], // Today's date
-              notes: null, // Add notes field with null value
-            },
-            'Failed to add contribution'
-          );
-
-          // Update the contributions list
-          setAllContributions(prev => [...prev, { memberId, month: currentMonth }]);
-          successCount++;
-        } catch (error) {
-          console.error(`Error adding contribution for member ${memberId}:`, error);
-          errorCount++;
-        }
-      }
-
-      // Show appropriate message
-      if (successCount > 0) {
-        setContributionSuccess(`Added month ${currentMonth} contribution for ${successCount} member${successCount > 1 ? 's' : ''}`);
-      }
-
-      if (errorCount > 0) {
-        setContributionError(`Failed to add contribution for ${errorCount} member${errorCount > 1 ? 's' : ''}`);
-      }
-
-      // Auto-hide messages after 3 seconds
-      setTimeout(() => {
-        setContributionSuccess(null);
-        setContributionError(null);
-      }, 3000);
-
-    } catch (error: any) {
-      console.error('Error adding contributions:', error);
-      setContributionError(error.message || 'Failed to add contributions. Please try again.');
-
-      // Auto-hide error message after 3 seconds
-      setTimeout(() => {
-        setContributionError(null);
-      }, 3000);
-    } finally {
-      setIsAddingContribution(false);
-      setContributionMemberId(null);
-    }
-  };
-
-  // Handle adding current month contribution for a single member
-  const handleAddCurrentMonthContribution = async (memberId: number) => {
-    if (!chitFund) return;
-
-    const currentMonth = chitFund.currentMonth;
-
-    // Clear previous messages
-    setContributionSuccess(null);
-    setContributionError(null);
-
-    // Set the current member ID and loading state
-    setContributionMemberId(memberId);
-    setIsAddingContribution(true);
-
-    try {
-      // We're already checking in the UI if a contribution exists, but double-check here as well
-      if (allContributions.some(c => c.memberId === memberId && c.month === currentMonth)) {
-        throw new Error(`Contribution for month ${currentMonth} already exists for this member`);
-      }
-
-      // Create the contribution using the apiPost utility function
-      await apiPost(
-        `/api/chit-funds/consolidated?action=add-contribution&id=${chitFundId}`,
-        {
-          memberId: memberId,
-          month: currentMonth,
-          amount: chitFund.monthlyContribution, // Default to full amount
-          paidDate: new Date().toISOString().split('T')[0], // Today's date
-          notes: null, // Add notes field with null value
-        },
-        'Failed to create contribution'
-      );
-
-      // Show success message
-      const member = members.find(m => m.id === memberId);
-      setContributionSuccess(`Added month ${currentMonth} contribution for ${member?.globalMember.name}`);
-
-      // Update the contributions list
-      setAllContributions([...allContributions, { memberId, month: currentMonth }]);
-
-      // Auto-hide success message after 3 seconds
-      setTimeout(() => {
-        setContributionSuccess(null);
-      }, 3000);
-
-    } catch (error: any) {
-      console.error('Error adding contribution:', error);
-      setContributionError(error.message || 'Failed to add contribution. Please try again.');
-
-      // Auto-hide error message after 3 seconds
-      setTimeout(() => {
-        setContributionError(null);
-      }, 3000);
-    } finally {
-      setIsAddingContribution(false);
-      setContributionMemberId(null);
-    }
-  };
-
-  // Handle recording a contribution
-  const handleRecordContribution = () => {
-    if (!selectedMemberForContribution || selectedMonth === null || !chitFund) {
-      setSubmitContributionError('Missing required information');
-      return;
-    }
-
-    // Validate the form
-    if (!newContribution.amount || parseFloat(newContribution.amount) <= 0) {
-      setSubmitContributionError('Please enter a valid amount');
-      return;
-    }
-
-    if (!newContribution.paidDate) {
-      setSubmitContributionError('Please select a payment date');
-      return;
-    }
-
-    setIsSubmittingContribution(true);
-    setSubmitContributionError(null);
-    setSubmitContributionSuccess(null);
-
-    // Create the contribution using the apiPost utility function
-    apiPost(
-      `/api/chit-funds/consolidated?action=add-contribution&id=${chitFundId}`,
-      {
-        memberId: selectedMemberForContribution.id,
-        month: selectedMonth,
-        amount: parseFloat(newContribution.amount),
-        paidDate: newContribution.paidDate,
-        notes: newContribution.notes || null,
-      },
-      'Failed to record contribution'
-    )
-      .then(() => {
-        // Update the contributions list
-        setAllContributions(prev => [...prev, {
-          memberId: selectedMemberForContribution.id,
-          month: selectedMonth
-        }]);
-
-        // Show success message
-        setSubmitContributionSuccess(`Successfully recorded contribution for ${selectedMemberForContribution.globalMember.name} for month ${selectedMonth}`);
-
-        // Close the modal after a delay
-        setTimeout(() => {
-          setShowRecordContributionModal(false);
-        }, 2000);
-
-        // Refetch members and contributions in place
-        setReloadKey((key) => key + 1);
-      })
-      .catch((error) => {
-        console.error('Error recording contribution:', error);
-        setSubmitContributionError(error.message || 'Failed to record contribution. Please try again.');
-      })
-      .finally(() => {
-        setIsSubmittingContribution(false);
-      });
-  };
-
-  if (initialLoading) {
-    return (
-      <div className="container mx-auto px-4 py-8">
-        <div className="flex justify-center items-center h-64">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-700 mx-auto mb-4"></div>
-            <p className="text-gray-700 dark:text-theme-secondary">Loading members data...</p>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="container mx-auto px-4 py-8">
-        <div className="alert-error px-4 py-3 rounded">
-          <p className="font-bold">Error</p>
-          <p>{error}</p>
-          <button
-            onClick={() => router.back()}
-            className="mt-4 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition duration-300"
-          >
-            Go Back
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  if (!chitFund) {
-    return (
-      <div className="container mx-auto px-4 py-8">
-        <div className="bg-yellow-100 border border-yellow-400 text-yellow-700 px-4 py-3 rounded">
-          <p className="font-bold">Chit Fund Not Found</p>
-          <p>The chit fund you are looking for does not exist or has been removed.</p>
-          <Link href="/chit-funds" className="mt-4 inline-block px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-300">
-            Back to Chit Funds
-          </Link>
-        </div>
-      </div>
-    );
-  }
-
+import { useParams } from 'next/navigation';
+import { FileDown, ListChecks, Plus, Trash2, UserPlus, X } from 'lucide-react';
+
+import { toast } from '@/lib/toast';
+import { useListParams } from '@/lib/list/useListParams';
+import { normaliseListResponse, useListQuery } from '@/lib/list/useListQuery';
+import { ApiError } from '@/lib/query/fetcher';
+import { invalidate } from '@/lib/query/invalidate';
+import { prefetchQuery, whenIdle } from '@/lib/query/prefetch';
+import {
+  CHIT_FUNDS,
+  chitFundKeys,
+  chitFundWrites,
+  invalidateChitFundMembership,
+  useChitFund,
+  type ChitFundMemberListRow,
+  type ChitFundMembersResponse,
+} from '@/lib/query/chit-funds';
+import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Skeleton } from '@/components/ui/skeleton';
+import { useBreadcrumbLabel } from '@/components/kit/app-shell/breadcrumb-labels';
+import { ConfirmDialog } from '@/components/kit/confirm-dialog';
+import { DataTable, type DataTableColumn, type RowId } from '@/components/kit/data-table';
+import { DateText } from '@/components/kit/date-text';
+import { EmptyState } from '@/components/kit/empty-state';
+import { ErrorState, errorMessage } from '@/components/kit/error-state';
+import { FilterChips } from '@/components/kit/filter-chips';
+import { formatRange } from '@/components/kit/list-pagination';
+import { ListToolbar } from '@/components/kit/list-toolbar';
+import { Money } from '@/components/kit/money';
+import { NativeSelect } from '@/components/kit/native-select';
+import { PageContainer } from '@/components/kit/page-container';
+import { PageHeader } from '@/components/kit/page-header';
+import { RowActions } from '@/components/kit/row-actions';
+import { SearchInput } from '@/components/kit/search-input';
+import { StatusBadge } from '@/components/kit/status-badge';
+import { Updating } from '@/components/kit/updating';
+import { ContributionBusyError, pendingFor, todayIso, useContributionWrites } from '@/app/components/chit-funds/contribution-writes';
+import { quickContributionBody, quickContributionValues, type QuickContributionValues } from '@/app/components/chit-funds/QuickContributionDialog';
+
+const AddFundMemberDialog = dynamic(() => import('@/app/components/chit-funds/AddFundMemberDialog'), { ssr: false });
+const QuickContributionDialog = dynamic(() => import('@/app/components/chit-funds/QuickContributionDialog'), { ssr: false });
+
+const SORTS = ['name', 'contact', 'joinDate', 'contribution'] as const;
+const FILTERS = ['auction'] as const;
+type Filter = (typeof FILTERS)[number];
+const AUCTION_OPTIONS = [
+  { value: '', label: 'All members' },
+  { value: 'won', label: 'Won an auction' },
+  { value: 'notwon', label: 'Not won yet' },
+];
+const AUCTION_LABEL: Record<string, string> = { won: 'Won an auction', notwon: 'Not won yet' };
+const SORT_OPTIONS = [
+  { value: 'joinDate:asc', label: 'Join date (oldest first)' },
+  { value: 'name:asc', label: 'Name, A to Z' },
+  { value: 'name:desc', label: 'Name, Z to A' },
+  { value: 'contact:asc', label: 'Contact' },
+  { value: 'joinDate:desc', label: 'Newest first' },
+  { value: 'contribution:desc', label: 'Highest contribution' },
+];
+const REMOVE_WARNING = 'All contributions made by this member will be removed. Any auctions won by this member will be affected. This may affect the chit fund\'s financial records. (Members with contributions or auctions cannot be removed.)';
+
+type MembersPage = { contributionMap: ChitFundMembersResponse['contributionMap'] };
+
+function PageSkeleton() {
   return (
-    <div
-      className={`container w-full max-w-screen-xl mx-auto px-2 sm:px-4 py-4 sm:py-8 ${refreshingClass(refreshing)}`}
-      aria-busy={refreshing}
-    >
-      <div className="flex flex-row flex-wrap items-center justify-between gap-2 mb-6 sm:mb-8">
-        <BackTitle title="Members" href={`/chit-funds/${chitFundId}`} ariaLabel="Back to Chit Fund" className="break-words flex-shrink-0" />
-        <div className="flex flex-row flex-wrap gap-1 sm:gap-2 w-auto">
-          {/* View Contributions */}
-          <Link
-            href={`/chit-funds/${chitFundId}/contributions`}
-            aria-label="View Contributions"
-            className="btn-primary p-2 sm:px-4 sm:py-2"
-          >
-            <UsersIcon className="h-5 w-5 block sm:hidden" />
-            <span className="hidden sm:inline-flex items-center space-x-1 text-sm">
-              <UsersIcon className="h-5 w-5 mr-1" />
-              <span>View Contributions</span>
-            </span>
-          </Link>
-          {/* Add Member */}
-          <button
-            onClick={() => setShowAddForm(true)}
-            aria-label="Add Member"
-            className="p-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition flex items-center justify-center sm:px-4 sm:py-2"
-          >
-            <UserPlusIcon className="h-5 w-5 block sm:hidden" />
-            <span className="hidden sm:inline-flex items-center space-x-1 text-sm">
-              <UserPlusIcon className="h-5 w-5 mr-1" />
-              <span>Add Member</span>
-            </span>
-          </button>
-          {/* Bulk Actions (only if selectedMembers.length > 0) */}
-          {selectedMembers.length > 0 && chitFund && (
-            <>
-              <button
-                onClick={handleAddCurrentMonthContributionForSelected}
-                aria-label={`Add Month ${chitFund.currentMonth} Due for Selected`}
-                disabled={isAddingContribution}
-                className="btn-secondary p-2 sm:px-4 sm:py-2 disabled:opacity-50"
-              >
-                <PlusCircleIcon className="h-5 w-5 block sm:hidden" />
-                <span className="hidden sm:inline-flex items-center space-x-1 text-sm">
-                  <PlusCircleIcon className="h-5 w-5 mr-1" />
-                  <span>{isAddingContribution ? 'Processing...' : `Add Month ${chitFund.currentMonth} Due for Selected (${selectedMembers.length})`}</span>
-                </span>
-              </button>
-              <button
-                onClick={handleExportSelectedMembers}
-                aria-label="Export Selected"
-                disabled={isExporting}
-                className="btn-primary p-2 sm:px-4 sm:py-2 disabled:opacity-50"
-              >
-                <DocumentArrowDownIcon className="h-5 w-5 block sm:hidden" />
-                <span className="hidden sm:inline-flex items-center space-x-1 text-sm">
-                  <DocumentArrowDownIcon className="h-5 w-5 mr-1" />
-                  <span>{isExporting ? 'Exporting...' : `Export Selected (${selectedMembers.length})`}</span>
-                </span>
-              </button>
-              <button
-                onClick={handleBulkDeleteClick}
-                aria-label="Remove Selected"
-                disabled={isBulkDeleting}
-                className="p-2 rounded-lg bg-red-600 text-white hover:bg-red-700 transition flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed sm:px-4 sm:py-2"
-              >
-                <TrashIcon className="h-5 w-5 block sm:hidden" />
-                <span className="hidden sm:inline-flex items-center space-x-1 text-sm">
-                  <TrashIcon className="h-5 w-5 mr-1" />
-                  <span>{isBulkDeleting ? 'Removing...' : `Remove Selected (${selectedMembers.length})`}</span>
-                </span>
-              </button>
-            </>
-          )}
-        </div>
+    <div aria-hidden="true" className="space-y-6">
+      <div className="space-y-2">
+        <Skeleton className="h-4 w-40" />
+        <Skeleton className="h-8 w-48" />
       </div>
-      <p className="text-gray-700 dark:text-theme-secondary text-xs sm:text-sm w-full sm:w-auto mt-2 sm:mt-0">
-        Month {chitFund.currentMonth} of {chitFund.duration} |
-        Monthly Contribution: {formatCurrency(chitFund.monthlyContribution)}
-      </p>
-
-      {/* Notification Messages */}
-      {contributionSuccess && (
-        <div className="mb-4 alert-success px-2 sm:px-4 py-2 sm:py-3 rounded text-xs sm:text-sm">
-          <span className="block sm:inline">{contributionSuccess}</span>
-        </div>
-      )}
-      {contributionError && (
-        <div className="mb-4 alert-error px-2 sm:px-4 py-2 sm:py-3 rounded text-xs sm:text-sm">
-          <span className="block sm:inline">{contributionError}</span>
-        </div>
-      )}
-      {exportError && (
-        <div className="mb-4 alert-error px-2 sm:px-4 py-2 sm:py-3 rounded text-xs sm:text-sm">
-          <span className="block sm:inline">{exportError}</span>
-        </div>
-      )}
-
-      {/* Members Table */}
-      <div className="themed-card overflow-hidden mb-8">
-        <div className="table-shell" style={{maxWidth: '85vw'}}>
-          <table className="themed-table text-xs sm:text-sm" style={{minWidth: '1100px'}}>
-            <thead className="bg-gray-50 dark:bg-surface-elevated">
-              <tr>
-                <th scope="col" className="px-2 sm:px-6 py-2 sm:py-3 text-left font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
-                  <div className="flex items-center">
-                    <input
-                      type="checkbox"
-                      checked={selectAll}
-                      onChange={handleSelectAll}
-                      className="h-4 w-4 text-blue-600 border-gray-200 dark:border-surface-border rounded focus:ring-blue-500"
-                    />
-                    <span className="ml-2">Select</span>
-                  </div>
-                </th>
-                <th scope="col" className="px-2 sm:px-6 py-2 sm:py-3 text-left font-medium text-gray-500 uppercase tracking-wider">
-                  Name
-                </th>
-                <th scope="col" className="px-2 sm:px-6 py-2 sm:py-3 text-left font-medium text-gray-500 uppercase tracking-wider">
-                  Contact
-                </th>
-                <th scope="col" className="px-2 sm:px-6 py-2 sm:py-3 text-left font-medium text-gray-500 uppercase tracking-wider">
-                  Join Date
-                </th>
-                <th scope="col" className="px-2 sm:px-6 py-2 sm:py-3 text-left font-medium text-gray-500 uppercase tracking-wider">
-                  Contribution
-                </th>
-                <th scope="col" className="px-2 sm:px-6 py-2 sm:py-3 text-left font-medium text-gray-500 uppercase tracking-wider">
-                  Missed Contributions
-                </th>
-                <th scope="col" className="px-2 sm:px-6 py-2 sm:py-3 text-left font-medium text-gray-500 uppercase tracking-wider">
-                  Pending Amount
-                </th>
-                <th scope="col" className="px-2 sm:px-6 py-2 sm:py-3 text-left font-medium text-gray-500 uppercase tracking-wider">
-                  Auction Status
-                </th>
-                <th scope="col" className="px-2 sm:px-6 py-2 sm:py-3 text-left font-medium text-gray-500 uppercase tracking-wider">
-                  Actions
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {members.length === 0 ? (
-                <tr>
-                  <td colSpan={9} className="px-6 py-4 text-center text-gray-500">
-                    No members found. Add members to this chit fund.
-                  </td>
-                </tr>
-              ) : (
-                members.map((member) => (
-                  <tr key={member.id} className="hover:bg-gray-50 dark:hover:bg-surface-hover">
-                    <td className="px-2 sm:px-6 py-2 sm:py-4 whitespace-nowrap">
-                      <div className="flex items-center">
-                        <input
-                          type="checkbox"
-                          checked={selectedMembers.includes(member.id)}
-                          onChange={() => handleSelectMember(member.id)}
-                          className="h-4 w-4 text-blue-600 border-gray-200 dark:border-surface-border rounded focus:ring-blue-500"
-                        />
-                      </div>
-                    </td>
-                    <td className="px-2 sm:px-6 py-2 sm:py-4 whitespace-nowrap">
-                      <div className="text-sm font-medium text-blue-600 dark:text-blue-400">{member.globalMember.name}</div>
-                    </td>
-                    <td className="px-2 sm:px-6 py-2 sm:py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900 dark:text-theme-primary">{member.globalMember.contact}</div>
-                    </td>
-                    <td className="px-2 sm:px-6 py-2 sm:py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900 dark:text-theme-primary">{formatDate(member.joinDate)}</div>
-                    </td>
-                    <td className="px-2 sm:px-6 py-2 sm:py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900 dark:text-theme-primary">{formatCurrency(member.contribution)}</div>
-                    </td>
-                    <td className="px-2 sm:px-6 py-2 sm:py-4 whitespace-nowrap">
-                      <div className="flex flex-col">
-                        <div className={`text-xs sm:text-sm ${member.missedContributions > 0 ? 'text-red-600 font-semibold' : 'text-gray-900 dark:text-theme-primary'}`}>{member.missedContributions}</div>
-                        {member.missedContributions > 0 && (
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              // Find the next missing month
-                              const currentMonth = chitFund?.currentMonth || 1;
-                              const contributedMonths = allContributions
-                                .filter(c => c.memberId === member.id)
-                                .map(c => c.month);
-
-                              // Find the first month that doesn't have a contribution
-                              let missingMonth = 1;
-                              for (let month = 1; month <= currentMonth; month++) {
-                                if (!contributedMonths.includes(month)) {
-                                  missingMonth = month;
-                                  break;
-                                }
-                              }
-
-                              // Pre-populate amount based on month
-                              setSelectedMemberForContribution(member);
-                              setSelectedMonth(missingMonth);
-                              setNewContribution({
-                                amount: missingMonth === 1 ? String(chitFund?.firstMonthContribution || '') : String(chitFund?.monthlyContribution || ''),
-                                paidDate: new Date().toISOString().split('T')[0],
-                                notes: '',
-                              });
-                              setShowRecordContributionModal(true);
-                              setSubmitContributionError(null);
-                              setSubmitContributionSuccess(null);
-                            }}
-                            className="text-xs px-2 py-1 bg-blue-600 text-white rounded hover:bg-blue-700"
-                          >
-                            Record Contribution
-                          </button>
-                        )}
-                      </div>
-                    </td>
-                    <td className="px-2 sm:px-6 py-2 sm:py-4 whitespace-nowrap">
-                      <div className={`text-sm ${member.pendingAmount > 0 ? 'text-red-600 font-semibold' : 'text-gray-900 dark:text-theme-primary'}`}>
-                        {formatCurrency(member.pendingAmount)}
-                      </div>
-                    </td>
-                    <td className="px-2 sm:px-6 py-2 sm:py-4 whitespace-nowrap">
-                      {member.auctionWon ? (
-                        <span className="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
-                          Won in Month {member.auctionMonth}
-                        </span>
-                      ) : (
-                        <span className="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-900 dark:text-theme-primary">
-                          Not Won Yet
-                        </span>
-                      )}
-                    </td>
-                    <td className="px-2 sm:px-6 py-2 sm:py-4 whitespace-nowrap text-sm font-medium">
-                      <div className="flex space-x-2 sm:space-x-4">
-                        <Link href={`/chit-funds/${chitFundId}/members/${member.id}/contributions`} className="text-blue-600 dark:text-blue-400 hover:text-blue-900 dark:hover:text-blue-300">
-                          Contributions
-                        </Link>
-                        {/* Only show the Add Month Due button if no contribution exists for the current month */}
-                        {chitFund && !allContributions.some(c => c.memberId === member.id && c.month === chitFund.currentMonth) && (
-                          <button
-                            onClick={() => handleAddCurrentMonthContribution(member.id)}
-                            className={`${isAddingContribution && contributionMemberId === member.id
-                              ? 'text-gray-400 cursor-not-allowed'
-                              : 'text-green-600 hover:text-green-900'}`}
-                            title="Add current month contribution"
-                            disabled={isAddingContribution && contributionMemberId === member.id}
-                          >
-                            {isAddingContribution && contributionMemberId === member.id
-                              ? 'Adding...'
-                              : `Add Month ${chitFund.currentMonth} Due`}
-                          </button>
-                        )}
-                        <button
-                          onClick={() => handleExportMember(member.id)}
-                          className={`text-blue-600 dark:text-blue-400 hover:text-blue-900 dark:hover:text-blue-300 ${isExporting ? 'opacity-50 cursor-not-allowed' : ''}`}
-                          title="Export member data"
-                          disabled={isExporting}
-                        >
-                          {isExporting ? 'Exporting...' : 'Export'}
-                        </button>
-                        <button
-                          onClick={() => handleDeleteMember(member.id)}
-                          className="text-red-600 hover:text-red-900"
-                          title="Remove member"
-                        >
-                          Remove
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-
-          {/* Pagination Controls */}
-          <div className="mt-6 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between border-t border-gray-200 dark:border-surface-border themed-card px-2 sm:px-4 py-2 sm:py-3">
-            <div className="flex flex-1 justify-between sm:hidden">
-              <button
-                onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-                disabled={currentPage === 1}
-                className={`relative inline-flex items-center rounded-md border border-gray-200 dark:border-surface-border themed-card px-3 py-2 text-xs font-medium ${
-                  currentPage === 1 ? 'pagination-nav-btn' : 'text-gray-700 dark:text-theme-secondary hover:bg-gray-50 dark:hover:bg-surface-hover'
-                }`}
-              >
-                Previous
-              </button>
-              <button
-                onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-                disabled={currentPage === totalPages}
-                className={`relative ml-3 inline-flex items-center rounded-md border border-gray-200 dark:border-surface-border themed-card px-3 py-2 text-xs font-medium ${
-                  currentPage === totalPages ? 'pagination-nav-btn' : 'text-gray-700 dark:text-theme-secondary hover:bg-gray-50 dark:hover:bg-surface-hover'
-                }`}
-              >
-                Next
-              </button>
-            </div>
-            <div className="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between">
-              <div className="flex items-center">
-                <p className="text-sm text-gray-700 dark:text-theme-secondary mr-4">
-                  Showing <span className="font-medium">{members.length > 0 ? (currentPage - 1) * pageSize + 1 : 0}</span> to{' '}
-                  <span className="font-medium">{Math.min(currentPage * pageSize, (currentPage - 1) * pageSize + members.length)}</span> of{' '}
-                  <span className="font-medium">{totalCount}</span> results
-                </p>
-                <div className="flex items-center">
-                  <label htmlFor="pageSize" className="text-sm text-gray-700 dark:text-theme-secondary mr-2">
-                    Show:
-                  </label>
-                  <select
-                    id="pageSize"
-                    value={pageSize}
-                    onChange={(e) => {
-                      setPageSize(Number(e.target.value));
-                      setCurrentPage(1); // Reset to first page when changing page size
-                    }}
-                    className="themed-input text-sm py-1 pl-2 pr-8"
-                  >
-                    <option value="5">5</option>
-                    <option value="10">10</option>
-                    <option value="20">20</option>
-                    <option value="50">50</option>
-                    <option value="100">100</option>
-                  </select>
-                </div>
-              </div>
-              <div>
-                <nav className="isolate inline-flex -space-x-px rounded-md shadow-sm" aria-label="Pagination">
-                  <button
-                    onClick={() => setCurrentPage(1)}
-                    disabled={currentPage === 1}
-                    className={`relative inline-flex items-center rounded-l-md px-2 py-2 ${
-                      currentPage === 1 ? 'pagination-nav-btn' : 'pagination-nav-btn'
-                    }`}
-                  >
-                    <span className="sr-only">First</span>
-                    <span className="text-xs">First</span>
-                  </button>
-                  <button
-                    onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-                    disabled={currentPage === 1}
-                    className={`relative inline-flex items-center px-2 py-2 ${
-                      currentPage === 1 ? 'pagination-nav-btn' : 'pagination-nav-btn'
-                    }`}
-                  >
-                    <span className="sr-only">Previous</span>
-                    <span>←</span>
-                  </button>
-
-                  {/* Page numbers */}
-                  {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                    let pageNum;
-                    if (totalPages <= 5) {
-                      pageNum = i + 1;
-                    } else if (currentPage <= 3) {
-                      pageNum = i + 1;
-                    } else if (currentPage >= totalPages - 2) {
-                      pageNum = totalPages - 4 + i;
-                    } else {
-                      pageNum = currentPage - 2 + i;
-                    }
-
-                    return (
-                      <button
-                        key={pageNum}
-                        onClick={() => setCurrentPage(pageNum)}
-                        className={`relative inline-flex items-center px-4 py-2 text-sm font-semibold ${
-                          currentPage === pageNum
-                            ? 'z-10 bg-blue-600 text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600'
-                            : 'text-gray-900 dark:text-theme-primary pagination-page focus:outline-offset-0'
-                        }`}
-                      >
-                        {pageNum}
-                      </button>
-                    );
-                  })}
-
-                  <button
-                    onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-                    disabled={currentPage === totalPages}
-                    className={`relative inline-flex items-center px-2 py-2 ${
-                      currentPage === totalPages ? 'pagination-nav-btn' : 'pagination-nav-btn'
-                    }`}
-                  >
-                    <span className="sr-only">Next</span>
-                    <span>→</span>
-                  </button>
-                  <button
-                    onClick={() => setCurrentPage(totalPages)}
-                    disabled={currentPage === totalPages}
-                    className={`relative inline-flex items-center rounded-r-md px-2 py-2 ${
-                      currentPage === totalPages ? 'pagination-nav-btn' : 'pagination-nav-btn'
-                    }`}
-                  >
-                    <span className="sr-only">Last</span>
-                    <span className="text-xs">Last</span>
-                  </button>
-                </nav>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Delete Confirmation Modal */}
-      {showDeleteModal && (
-        <div className="modal-overlay flex items-center justify-center z-50">
-          <div className="themed-card p-6 w-full max-w-xs sm:max-w-md">
-            <h2 className="text-xl font-bold text-red-700 mb-4">Confirm Removal</h2>
-            <p className="mb-2">Are you sure you want to remove this member from the chit fund? This action cannot be undone.</p>
-            <div className="mb-6 bg-yellow-50 border border-yellow-400 text-yellow-700 p-3 rounded">
-              <p className="font-bold">Warning:</p>
-              <ul className="list-disc pl-5 mt-1">
-                <li>All contributions made by this member will be removed</li>
-                <li>Any auctions won by this member will be affected</li>
-                <li>This may affect the chit fund's financial records</li>
-              </ul>
-            </div>
-            {deleteError && (
-              <div className="mb-4 alert-error px-4 py-3 rounded">
-                <p>{deleteError}</p>
-              </div>
-            )}
-            <div className="flex justify-end space-x-4">
-              <button
-                type="button"
-                onClick={() => {
-                  setShowDeleteModal(false);
-                  setMemberToDelete(null);
-                  setDeleteError(null);
-                }}
-                className="btn-neutral px-4 py-2 rounded-lg transition duration-300"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={confirmDeleteMember}
-                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition duration-300 disabled:opacity-50"
-                disabled={isDeleting}
-              >
-                {isDeleting ? 'Removing...' : 'Remove'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Bulk Delete Confirmation Modal */}
-      {showBulkDeleteModal && (
-        <div className="modal-overlay flex items-center justify-center z-50">
-          <div className="themed-card p-6 w-full max-w-xs sm:max-w-md">
-            <h2 className="text-xl font-bold text-red-700 mb-4">Confirm Bulk Removal</h2>
-            <p className="mb-2">Are you sure you want to remove {selectedMembers.length} selected member{selectedMembers.length > 1 ? 's' : ''} from the chit fund? This action cannot be undone.</p>
-            <div className="mb-6 bg-yellow-50 border border-yellow-400 text-yellow-700 p-3 rounded">
-              <p className="font-bold">Warning:</p>
-              <ul className="list-disc pl-5 mt-1">
-                <li>All contributions made by these members will be removed</li>
-                <li>Any auctions won by these members will be affected</li>
-                <li>This may affect the chit fund's financial records</li>
-              </ul>
-            </div>
-
-            {bulkDeleteSuccess && (
-              <div className="mb-4 alert-success px-4 py-3 rounded">
-                <p>{bulkDeleteSuccess}</p>
-              </div>
-            )}
-
-            {bulkDeleteError && (
-              <div className="mb-4 alert-error px-4 py-3 rounded">
-                <p>{bulkDeleteError}</p>
-              </div>
-            )}
-
-            <div className="flex justify-end space-x-4">
-              <button
-                type="button"
-                onClick={() => {
-                  setShowBulkDeleteModal(false);
-                  setBulkDeleteError(null);
-                  setBulkDeleteSuccess(null);
-                }}
-                className="btn-neutral px-4 py-2 rounded-lg transition duration-300"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={confirmBulkDeleteMembers}
-                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition duration-300 disabled:opacity-50"
-                disabled={isBulkDeleting || bulkDeleteSuccess !== null}
-              >
-                {isBulkDeleting ? 'Removing...' : 'Remove Selected'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Add Member Form */}
-      {showAddForm && (
-        <div className="modal-overlay flex items-center justify-center z-50 px-2">
-          <div className="themed-card w-full max-w-xs sm:max-w-md px-2 sm:px-6 py-4 sm:py-6">
-            <h2 className="section-heading mb-4">Add Member to Chit Fund</h2>
-
-            <div className="mb-6">
-              <button
-                type="button"
-                onClick={fetchGlobalMembers}
-                className="btn-primary w-full justify-center"
-              >
-                <span className="mr-2">📋</span> Select from Global Members
-              </button>
-
-              {loadingGlobalMembers ? (
-                <div className="text-center py-4">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-700 mx-auto"></div>
-                  <p className="mt-2 text-sm text-gray-700 dark:text-theme-secondary">Loading global members...</p>
-                </div>
-              ) : globalMembers.length > 0 ? (
-                <div className="border rounded-lg overflow-hidden mt-4">
-                  <div className="bg-gray-50 dark:bg-surface-elevated p-3 border-b">
-                    <div className="flex items-center">
-                      <input
-                        type="checkbox"
-                        checked={selectAllGlobal}
-                        onChange={handleSelectAllGlobalMembers}
-                        className="h-4 w-4 text-blue-600 border-gray-200 dark:border-surface-border rounded focus:ring-blue-500"
-                      />
-                      <span className="ml-2 font-medium">Select All</span>
-
-                      {selectedGlobalMembers.length > 0 && (
-                        <button
-                          type="button"
-                          onClick={handleAssignGlobalMembers}
-                          disabled={isSubmitting}
-                          className={`ml-auto px-3 py-1 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-300 ${
-                            isSubmitting ? 'opacity-50 cursor-not-allowed' : ''
-                          }`}
-                        >
-                          {isSubmitting ? 'Assigning...' : `Assign Selected (${selectedGlobalMembers.length})`}
-                        </button>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="max-h-60 overflow-y-auto">
-                    <table className="min-w-full divide-y divide-surface-border">
-                      <thead className="bg-gray-50 dark:bg-surface-elevated">
-                        <tr>
-                          <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-theme-muted uppercase tracking-wider">
-                            Select
-                          </th>
-                          <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-theme-muted uppercase tracking-wider">
-                            Name
-                          </th>
-                          <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-theme-muted uppercase tracking-wider">
-                            Contact
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {globalMembers.map((member) => (
-                          <tr key={member.id} className="hover:bg-gray-50 dark:hover:bg-surface-hover">
-                            <td className="px-3 py-2 whitespace-nowrap">
-                              <input
-                                type="checkbox"
-                                checked={selectedGlobalMembers.includes(member.id)}
-                                onChange={() => handleSelectGlobalMember(member.id)}
-                                className="h-4 w-4 text-blue-600 border-gray-200 dark:border-surface-border rounded focus:ring-blue-500"
-                              />
-                            </td>
-                            <td className="px-3 py-2 whitespace-nowrap">{member.name}</td>
-                            <td className="px-3 py-2 whitespace-nowrap">{member.contact}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              ) : (
-                <p className="text-sm text-gray-700 dark:text-theme-secondary mt-2">Click to load global members that are not yet part of this chit fund.</p>
-              )}
-
-              <div className="text-center my-4 relative">
-                <hr className="my-4" />
-                <span className="px-3 themed-card text-gray-500 text-sm absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">OR</span>
-              </div>
-
-              <p className="text-sm text-gray-700 dark:text-theme-secondary mb-4">Create a new member and add them to this chit fund:</p>
-            </div>
-
-            <form onSubmit={handleAddMember}>
-              <div className="mb-4">
-                <label htmlFor="name" className="block text-sm font-medium text-gray-700 dark:text-theme-secondary mb-1">
-                  Name <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  id="name"
-                  name="name"
-                  value={newMember.name}
-                  onChange={handleInputChange}
-                  className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                    formErrors.name ? 'border-red-500' : 'border-gray-200 dark:border-surface-border'
-                  }`}
-                />
-                {formErrors.name && (
-                  <p className="mt-1 text-sm text-red-500">{formErrors.name}</p>
-                )}
-              </div>
-              <div className="mb-4">
-                <label htmlFor="contact" className="block text-sm font-medium text-gray-700 dark:text-theme-secondary mb-1">
-                  Contact Number <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  id="contact"
-                  name="contact"
-                  value={newMember.contact}
-                  onChange={handleInputChange}
-                  className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                    formErrors.contact ? 'border-red-500' : 'border-gray-200 dark:border-surface-border'
-                  }`}
-                />
-                {formErrors.contact && (
-                  <p className="mt-1 text-sm text-red-500">{formErrors.contact}</p>
-                )}
-              </div>
-              {formErrors.submit && (
-                <div className="mb-4 alert-error px-4 py-3 rounded">
-                  <p>{formErrors.submit}</p>
-                </div>
-              )}
-              <div className="flex justify-end space-x-4">
-                <button
-                  type="button"
-                  onClick={() => setShowAddForm(false)}
-                  className="btn-neutral px-4 py-2 rounded-lg transition duration-300"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={isSubmitting}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-300 disabled:opacity-50"
-                >
-                  {isSubmitting ? 'Adding...' : 'Add Member'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Record Contribution Modal */}
-      {showRecordContributionModal && selectedMemberForContribution && selectedMonth !== null && (
-        console.log("selectedMonth", selectedMonth),
-        <div className="modal-overlay flex items-center justify-center z-50">
-          <div className="themed-card p-6 w-full max-w-xs sm:max-w-md">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="section-heading">Record Contribution for {selectedMemberForContribution.globalMember.name}</h2>
-              <button
-                onClick={() => setShowRecordContributionModal(false)}
-                className="text-gray-500 hover:text-gray-700 dark:text-theme-secondary"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-
-            <div className="bg-gray-50 dark:bg-surface-elevated p-4 rounded-lg mb-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <p className="text-sm text-gray-500">Member</p>
-                  <p className="text-md font-semibold">{selectedMemberForContribution.globalMember.name}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-500">Month</p>
-                  <p className="text-md font-semibold">Month {selectedMonth}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-500">Expected Amount</p>
-                  <p className="text-md font-semibold">{selectedMonth == 1 ? formatCurrency(chitFund?.firstMonthContribution || 0) : formatCurrency(chitFund?.monthlyContribution || 0)}</p>
-                </div>
-              </div>
-            </div>
-
-            {submitContributionSuccess && (
-              <div className="mb-4 alert-success px-4 py-3 rounded">
-                <p>{submitContributionSuccess}</p>
-              </div>
-            )}
-
-            {submitContributionError && (
-              <div className="mb-4 alert-error px-4 py-3 rounded">
-                <p>{submitContributionError}</p>
-              </div>
-            )}
-
-            <div className="mb-4">
-              <label htmlFor="amount" className="block text-sm font-medium text-gray-700 dark:text-theme-secondary mb-1">
-                Amount <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="number"
-                id="amount"
-                value={newContribution.amount}
-                onChange={(e) => setNewContribution({...newContribution, amount: e.target.value})}
-                className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="Enter amount"
-              />
-            </div>
-
-            <div className="mb-4">
-              <label htmlFor="paidDate" className="block text-sm font-medium text-gray-700 dark:text-theme-secondary mb-1">
-                Payment Date <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="date"
-                id="paidDate"
-                value={newContribution.paidDate}
-                onChange={(e) => setNewContribution({...newContribution, paidDate: e.target.value})}
-                className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
-            </div>
-
-            <div className="mb-6">
-              <label htmlFor="notes" className="block text-sm font-medium text-gray-700 dark:text-theme-secondary mb-1">
-                Notes
-              </label>
-              <textarea
-                id="notes"
-                value={newContribution.notes}
-                onChange={(e) => setNewContribution({...newContribution, notes: e.target.value})}
-                className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                rows={3}
-                placeholder="Optional notes about this contribution"
-              ></textarea>
-            </div>
-
-            <div className="flex justify-end space-x-4">
-              <button
-                onClick={() => setShowRecordContributionModal(false)}
-                className="btn-neutral px-4 py-2 rounded-lg transition duration-300"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleRecordContribution}
-                disabled={isSubmittingContribution}
-                className={`btn-primary ${
-                  isSubmittingContribution ? 'opacity-50 cursor-not-allowed' : ''
-                }`}
-              >
-                {isSubmittingContribution ? 'Recording...' : 'Record Contribution'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <Skeleton className="h-10 w-full max-w-xl" />
+      <Skeleton className="h-96 w-full rounded-xl" />
     </div>
   );
 }
 
+export default function ChitFundMembersPage() {
+  return (
+    <PageContainer fallback={<PageSkeleton />}>
+      <FundMembers />
+    </PageContainer>
+  );
+}
 
+function FundMembers() {
+  const params = useParams<{ id: string }>();
+  const id = parseInt(params.id, 10) || 0;
+  const fundQuery = useChitFund(id || null);
+  const fund = fundQuery.data;
+  useBreadcrumbLabel(id ? `/chit-funds/${id}` : null, fund?.name);
 
-// Handle opening the record contribution modal
-function handleOpenRecordModal(member: any, month: number, setSelectedMemberForContribution: any, setSelectedMonth: any, setNewContribution: any, chitFund: any, setShowRecordContributionModal: any, setSubmitContributionError: any, setSubmitContributionSuccess: any) {
-  setSelectedMemberForContribution(member);
-  setSelectedMonth(month);
-  setNewContribution({
-    amount: chitFund ? chitFund.monthlyContribution.toString() : '',
-    paidDate: new Date().toISOString().split('T')[0],
-    notes: '',
+  // Default order is the legacy one (join date, oldest first), sent explicitly so the server adds
+  // the id tiebreaker: without it, members who joined on the same day could repeat across pages.
+  const list = useListParams<Filter>({ id: 'chit-fund-members', filters: FILTERS, sortable: SORTS, defaults: { sort: 'joinDate', order: 'asc' } });
+  const query = useListQuery<ChitFundMemberListRow, MembersPage>(CHIT_FUNDS, list, {
+    action: 'members',
+    id,
+    enabled: !!id,
+    select: (raw, request) => {
+      const result = normaliseListResponse<ChitFundMemberListRow, MembersPage>(raw, request, 'members');
+      return { ...result, summary: { contributionMap: (raw as ChitFundMembersResponse)?.contributionMap ?? [] } };
+    },
   });
-  setShowRecordContributionModal(true);
-  setSubmitContributionError(null);
-  setSubmitContributionSuccess(null);
+  const meta = query.meta;
+  const writes = useContributionWrites(id);
+  const [selected, setSelected] = React.useState<Set<RowId>>(() => new Set());
+  const [bulkRemove, setBulkRemove] = React.useState<number[] | null>(null);
+  const [addOpen, setAddOpen] = React.useState(false);
+  const [addMounted, setAddMounted] = React.useState(false);
+  const [record, setRecord] = React.useState<{ open: boolean; member: ChitFundMemberListRow; month: number; values: QuickContributionValues; error: string | null } | null>(null);
+
+  const resultKey = JSON.stringify(list.apiParams);
+  React.useEffect(() => setSelected(new Set()), [resultKey]);
+
+  // Preload the next page once this one has settled.
+  React.useEffect(() => {
+    if (!id || !list.ready || !meta?.hasNext || query.isRefreshing) return;
+    return whenIdle(() => prefetchQuery(chitFundKeys.members(id, { ...list.apiParams, page: meta.page + 1 })));
+  }, [id, list.ready, list.apiParams, meta, query.isRefreshing]);
+
+  const contributionMap = query.summary?.contributionMap;
+  const paidMonths = React.useMemo(() => {
+    const map = new Map<number, Set<number>>();
+    for (const c of contributionMap ?? []) {
+      let months = map.get(c.memberId);
+      if (!months) map.set(c.memberId, (months = new Set()));
+      months.add(c.month);
+    }
+    return map;
+  }, [contributionMap]);
+  const enrolled = React.useMemo(() => new Set((fund?.members ?? []).map((m) => m.globalMemberId)), [fund]);
+  const rowsById = React.useMemo(() => new Map(query.items.map((m) => [m.id, m])), [query.items]);
+
+  if (!fund) {
+    if (fundQuery.error) {
+      const status = fundQuery.error instanceof ApiError ? fundQuery.error.status : 0;
+      if (status === 404 || status === 403 || status === 400) {
+        return (
+          <EmptyState
+            title="Chit fund not found"
+            description="The chit fund you are looking for does not exist or has been removed."
+            action={
+              <Button size="sm" variant="outline" asChild>
+                <Link href="/chit-funds">Back to chit funds</Link>
+              </Button>
+            }
+          />
+        );
+      }
+      return <ErrorState title="Couldn't load this chit fund" error={fundQuery.error} onRetry={() => void fundQuery.mutate()} />;
+    }
+    return <PageSkeleton />;
+  }
+
+  const currentMonth = fund.currentMonth;
+  const hasMonth = (memberId: number, month: number) => paidMonths.get(memberId)?.has(month) ?? false;
+  const dueBody = (memberId: number) => ({
+    memberId,
+    month: currentMonth,
+    amount: fund.monthlyContribution, // the full amount, as before
+    paidDate: todayIso(),
+    notes: null,
+  });
+  const failMessage = (error: unknown, fallback: string) => (error instanceof ContributionBusyError ? error.message : errorMessage(error) ?? fallback);
+
+  const addDue = async (member: ChitFundMemberListRow) => {
+    if (hasMonth(member.id, currentMonth)) {
+      toast.error(`Contribution for month ${currentMonth} already exists for this member`);
+      return;
+    }
+    try {
+      await writes.record(dueBody(member.id), member.globalMemberId);
+      toast.success(`Added month ${currentMonth} contribution for ${member.globalMember.name}`);
+    } catch (error) {
+      toast.error('Contribution not added', { description: failMessage(error, 'Failed to add contribution. Please try again.') });
+    }
+  };
+
+  const selectedIds = Array.from(selected).map(Number);
+  const addDueForSelected = async () => {
+    try {
+      const result = await writes.recordMany(
+        selectedIds.map((memberId) => ({ body: dueBody(memberId), globalMemberId: rowsById.get(memberId)?.globalMemberId, skip: hasMonth(memberId, currentMonth) }))
+      );
+      if (result.saved > 0) toast.success(`Added month ${currentMonth} contribution for ${result.saved} member${result.saved > 1 ? 's' : ''}`);
+      if (result.failed > 0) toast.error(`Failed to add contribution for ${result.failed} member${result.failed > 1 ? 's' : ''}`);
+    } catch (error) {
+      toast.error('Contributions not added', { description: failMessage(error, 'Failed to add contributions. Please try again.') });
+    }
+  };
+
+  const openRecord = (member: ChitFundMemberListRow) => {
+    // The first month from 1 to the current month without a contribution.
+    let month = 1;
+    for (let m = 1; m <= (currentMonth || 1); m++) {
+      if (!hasMonth(member.id, m)) {
+        month = m;
+        break;
+      }
+    }
+    const amount = month === 1 ? String(fund.firstMonthContribution || '') : String(fund.monthlyContribution || '');
+    setRecord({ open: true, member, month, values: quickContributionValues(amount), error: null });
+  };
+  const submitRecord = (values: QuickContributionValues) => {
+    if (!record) return;
+    const { member, month } = record;
+    setRecord({ ...record, open: false, values });
+    void writes
+      .record(quickContributionBody(member.id, month, values), member.globalMemberId)
+      .then(() => toast.success('Contribution recorded', { description: `Successfully recorded contribution for ${member.globalMember.name} for month ${month}` }))
+      .catch((error) => {
+        const message = failMessage(error, 'Failed to record contribution. Please try again.');
+        toast.error('Contribution not recorded', { description: message });
+        setRecord({ open: true, member, month, values, error: message });
+      });
+  };
+
+  const membershipChanged = (globalMemberIds: number[]) => {
+    void invalidateChitFundMembership(fund.id, globalMemberIds.length === 1 ? globalMemberIds[0] : null);
+    if (globalMemberIds.length > 1) for (const g of globalMemberIds) void invalidate(['members', undefined, g]);
+  };
+
+  const removeMember = async (member: ChitFundMemberListRow) => {
+    await chitFundWrites.removeMember(fund.id, member.id);
+    toast.success('Member removed', { description: `${member.globalMember.name} · ${fund.name}` });
+    setSelected((prev) => {
+      const next = new Set(prev);
+      next.delete(member.id);
+      return next;
+    });
+    membershipChanged([member.globalMemberId]);
+  };
+
+  // One request at a time, in selection order, as before.
+  const removeSelected = async () => {
+    const ids = bulkRemove ?? [];
+    const removed: number[] = [];
+    let failed = 0;
+    for (const memberId of ids) {
+      try {
+        await chitFundWrites.removeMember(fund.id, memberId);
+        removed.push(memberId);
+      } catch {
+        failed += 1;
+      }
+    }
+    if (removed.length > 0) {
+      toast.success(`Successfully removed ${removed.length} member${removed.length > 1 ? 's' : ''} from the chit fund.`);
+      setSelected(new Set());
+      membershipChanged(removed.map((m) => rowsById.get(m)?.globalMemberId).filter((g): g is number => !!g));
+    }
+    if (failed > 0) toast.error(`Failed to remove ${failed} member${failed > 1 ? 's' : ''} from the chit fund.`, { description: 'Members with contributions or auctions cannot be removed.' });
+  };
+
+  const exportMembers = (ids: number[]) => {
+    try {
+      chitFundWrites.exportMembers(fund.id, ids);
+    } catch (error) {
+      toast.error('Export failed', { description: errorMessage(error) ?? 'Failed to export members' });
+    }
+  };
+
+  const busyFor = (member: ChitFundMemberListRow) => !!pendingFor(writes.pending, member.id);
+  const dueButton = (member: ChitFundMemberListRow) =>
+    hasMonth(member.id, currentMonth) ? null : busyFor(member) ? (
+      <StatusBadge status="saving" />
+    ) : (
+      <Button size="sm" variant="outline" className="whitespace-nowrap" disabled={writes.busy} onClick={() => void addDue(member)} aria-label={`Add month ${currentMonth} due`} title="Add current month contribution">
+        <Plus aria-hidden="true" />
+        Month {currentMonth} due
+      </Button>
+    );
+  const actionsFor = (member: ChitFundMemberListRow) => (
+    <RowActions
+      label={`Actions for ${member.globalMember.name}`}
+      actions={[
+        { label: 'Contributions', icon: ListChecks, href: `/chit-funds/${fund.id}/members/${member.id}/contributions` },
+        { label: 'Export', icon: FileDown, onSelect: () => exportMembers([member.id]) },
+        {
+          label: 'Remove from fund',
+          icon: Trash2,
+          destructive: true,
+          separatorBefore: true,
+          confirm: {
+            title: `Remove ${member.globalMember.name} from this chit fund?`,
+            description: `Are you sure you want to remove this member from the chit fund? This action cannot be undone. ${REMOVE_WARNING}`,
+            confirmLabel: 'Remove',
+            onConfirm: () => removeMember(member),
+          },
+        },
+      ]}
+    />
+  );
+  const missedCell = (member: ChitFundMemberListRow) => (
+    <Updating active={busyFor(member)}>
+      <span className="flex flex-col items-end gap-1">
+        <span className={member.missedContributions > 0 ? 'font-semibold text-destructive-text' : undefined}>{member.missedContributions}</span>
+        {member.missedContributions > 0 && !busyFor(member) ? (
+          <Button size="sm" variant="link" className="h-auto p-0 text-xs" disabled={writes.busy} onClick={() => openRecord(member)} aria-label="Record contribution">
+            Record
+          </Button>
+        ) : null}
+      </span>
+    </Updating>
+  );
+  const auctionBadge = (member: ChitFundMemberListRow) =>
+    member.auctionWon ? <StatusBadge status="Paid" label={`Won in Month ${member.auctionMonth}`} /> : <StatusBadge status="Pending" label="Not Won Yet" />;
+  const nameLink = (member: ChitFundMemberListRow) => (
+    <Link href={`/chit-funds/${fund.id}/members/${member.id}/contributions`} className="font-medium text-foreground hover:text-primary-text hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+      {member.globalMember.name}
+    </Link>
+  );
+
+  const columns: DataTableColumn<ChitFundMemberListRow>[] = [
+    { id: 'name', header: 'Name', sortable: true, cell: nameLink },
+    { id: 'contact', header: 'Contact', sortable: true, cell: (m) => <span className="whitespace-nowrap tabular-nums">{m.globalMember.contact}</span> },
+    { id: 'joinDate', header: 'Join date', sortable: true, hideBelow: '2xl', cell: (m) => <DateText value={m.joinDate} /> },
+    { id: 'contribution', header: 'Contribution', sortable: true, numeric: true, cell: (m) => <Money value={m.contribution} tone="plain" /> },
+    { id: 'missed', header: 'Missed', numeric: true, cell: missedCell },
+    { id: 'pending', header: 'Pending amount', numeric: true, cell: (m) => <Updating active={busyFor(m)}><Money value={m.pendingAmount} tone="overdue" className={m.pendingAmount > 0 ? 'font-semibold' : undefined} /></Updating> },
+    { id: 'auction', header: 'Auction', cell: auctionBadge },
+    {
+      id: 'actions',
+      header: <span className="sr-only">Actions</span>,
+      align: 'right',
+      cell: (m) => (
+        <div className="flex items-center justify-end gap-1">
+          {dueButton(m)}
+          {actionsFor(m)}
+        </div>
+      ),
+    },
+  ];
+
+  const chips = list.activeFilters.map((f) => ({
+    key: f.name,
+    label: f.name === 'q' ? `Search: ${f.value}` : AUCTION_LABEL[f.value] ?? `${f.name}: ${f.value}`,
+    onRemove: () => list.setParams({ [f.name]: null } as Parameters<typeof list.setParams>[0]),
+  }));
+  const openAdd = () => {
+    setAddMounted(true);
+    setAddOpen(true);
+  };
+  const toggleSelected = (memberId: number, checked: boolean) =>
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (checked) next.add(memberId);
+      else next.delete(memberId);
+      return next;
+    });
+
+  return (
+    <div>
+      <PageHeader
+        eyebrow={`Chit fund #${fund.id} · ${fund.name}`}
+        title="Members"
+        count={meta?.totalCount}
+        description={
+          <>
+            Month {fund.currentMonth} of {fund.duration} · Monthly contribution <Money value={fund.monthlyContribution} tone="plain" />
+          </>
+        }
+        actions={
+          <>
+            <Button variant="outline" asChild>
+              <Link href={`/chit-funds/${fund.id}/contributions`}>
+                <ListChecks aria-hidden="true" />
+                View contributions
+              </Link>
+            </Button>
+            <Button onClick={openAdd}>
+              <UserPlus aria-hidden="true" />
+              Add member
+            </Button>
+          </>
+        }
+      />
+
+      <ListToolbar
+        search={<SearchInput value={list.params.q} onChange={(q) => list.setParams({ q })} placeholder="Search by name or phone" label="Search this fund's members by name or phone" />}
+        primaryFilter={<NativeSelect aria-label="Auction" className="w-48" value={list.params.auction ?? ''} onValueChange={(value) => list.setParams({ auction: value || null })} options={AUCTION_OPTIONS} />}
+        sort={
+          <NativeSelect
+            aria-label="Sort by"
+            size="sm"
+            value={list.params.sort ? `${list.params.sort}:${list.params.order ?? 'asc'}` : 'joinDate:asc'}
+            onValueChange={(value) => {
+              if (value === 'joinDate:asc') return list.setParams({ sort: null, order: null });
+              const [sort, order] = value.split(':');
+              list.setParams({ sort, order: order as 'asc' | 'desc' });
+            }}
+            options={SORT_OPTIONS}
+          />
+        }
+        chips={<FilterChips chips={chips} onClearAll={list.clearFilters} />}
+        resultSummary={meta ? formatRange(meta.page, meta.pageSize, meta.totalCount) : null}
+      />
+
+      <DataTable<ChitFundMemberListRow>
+        label="Members"
+        columns={columns}
+        rows={query.items}
+        getRowId={(m) => m.id}
+        isInitialLoading={query.isInitialLoading}
+        isRefreshing={query.isRefreshing}
+        error={query.error}
+        onRetry={() => void query.mutate()}
+        sort={{ sort: list.params.sort, order: list.params.order }}
+        onSortChange={(next) => list.setParams({ sort: next.sort, order: next.order })}
+        selection={{ selected, onChange: setSelected, rowLabel: (m) => `Select ${m.globalMember.name}` }}
+        rowClassName={(m) => (busyFor(m) ? 'bg-info-subtle/60' : undefined)}
+        emptyState={
+          list.isFiltered ? (
+            <EmptyState variant="no-results" description={list.params.q ? `No members match "${list.params.q}".` : 'No members match these filters.'} onClearFilters={list.clearFilters} />
+          ) : (
+            <EmptyState
+              title="No members found"
+              description="Add members to this chit fund."
+              action={
+                <Button size="sm" onClick={openAdd}>
+                  <UserPlus aria-hidden="true" />
+                  Add member
+                </Button>
+              }
+            />
+          )
+        }
+        pagination={
+          meta
+            ? {
+                page: meta.page,
+                pageSize: list.params.pageSize,
+                totalCount: meta.totalCount,
+                onPageChange: (page) => list.setParams({ page }),
+                onPageSizeChange: (pageSize) => list.setParams({ pageSize }),
+              }
+            : undefined
+        }
+        renderCard={(m) => (
+          <div className="flex gap-3">
+            <div className="pt-0.5">
+              <Checkbox aria-label={`Select ${m.globalMember.name}`} checked={selected.has(m.id)} onCheckedChange={(c) => toggleSelected(m.id, c === true)} />
+            </div>
+            <div className="min-w-0 flex-1 space-y-2">
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                  {nameLink(m)}
+                  <div className="text-sm tabular-nums text-muted-foreground">{m.globalMember.contact}</div>
+                  <div className="mt-1">{auctionBadge(m)}</div>
+                </div>
+                <div className="-mr-2 -mt-2">{actionsFor(m)}</div>
+              </div>
+              <dl className="grid grid-cols-3 gap-x-3 text-sm">
+                <div>
+                  <dt className="text-xs text-muted-foreground">Contribution</dt>
+                  <dd>
+                    <Money value={m.contribution} tone="plain" />
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-xs text-muted-foreground">Missed</dt>
+                  <dd>
+                    <Updating active={busyFor(m)}>
+                      <span className={m.missedContributions > 0 ? 'font-semibold text-destructive-text' : undefined}>{m.missedContributions}</span>
+                    </Updating>
+                  </dd>
+                </div>
+                <div className="text-right">
+                  <dt className="text-xs text-muted-foreground">Pending</dt>
+                  <dd>
+                    <Updating active={busyFor(m)}>
+                      <Money value={m.pendingAmount} tone="overdue" />
+                    </Updating>
+                  </dd>
+                </div>
+              </dl>
+              <div className="flex flex-wrap justify-end gap-1.5">
+                {m.missedContributions > 0 && !busyFor(m) ? (
+                  <Button size="sm" variant="outline" disabled={writes.busy} onClick={() => openRecord(m)}>
+                    Record contribution
+                  </Button>
+                ) : null}
+                {dueButton(m)}
+              </div>
+            </div>
+          </div>
+        )}
+      />
+
+      {selected.size > 0 ? (
+        <div
+          role="region"
+          aria-label="Selected members"
+          className="sticky bottom-[calc(var(--bottom-nav-height,0px)+0.75rem)] z-30 mt-4 flex flex-wrap items-center gap-2 rounded-xl border bg-card p-2 pl-4 shadow-lg"
+        >
+          <p className="mr-auto text-sm font-medium tabular-nums text-foreground" aria-live="polite">
+            {selected.size} selected
+          </p>
+          <Button variant="outline" size="sm" onClick={() => void addDueForSelected()} disabled={writes.busy}>
+            <Plus aria-hidden="true" />
+            {writes.busy ? 'Processing…' : `Add month ${currentMonth} due (${selected.size})`}
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => exportMembers(selectedIds)}>
+            <FileDown aria-hidden="true" />
+            Export selected ({selected.size})
+          </Button>
+          <Button variant="destructive" size="sm" onClick={() => setBulkRemove(selectedIds)}>
+            <Trash2 aria-hidden="true" />
+            Remove selected ({selected.size})
+          </Button>
+          <Button variant="ghost" size="sm" onClick={() => setSelected(new Set())} aria-label="Clear selection">
+            <X aria-hidden="true" />
+          </Button>
+        </div>
+      ) : null}
+
+      <ConfirmDialog
+        open={bulkRemove !== null}
+        onOpenChange={(open) => !open && setBulkRemove(null)}
+        title={`Remove ${bulkRemove?.length ?? 0} ${bulkRemove?.length === 1 ? 'member' : 'members'} from the chit fund?`}
+        description={`Are you sure you want to remove ${bulkRemove?.length ?? 0} selected member${(bulkRemove?.length ?? 0) > 1 ? 's' : ''} from the chit fund? This action cannot be undone. All contributions made by these members will be removed. Any auctions won by these members will be affected. This may affect the chit fund's financial records.`}
+        confirmLabel="Remove selected"
+        onConfirm={removeSelected}
+      />
+
+      {addMounted ? <AddFundMemberDialog open={addOpen} onOpenChange={setAddOpen} fund={fund} enrolled={enrolled} onChanged={membershipChanged} /> : null}
+      {record ? (
+        <QuickContributionDialog
+          open={record.open}
+          onOpenChange={(open) => setRecord((prev) => (prev ? { ...prev, open } : prev))}
+          title={`Record contribution for ${record.member.globalMember.name}`}
+          info={[
+            { label: 'Member', value: <span className="font-semibold">{record.member.globalMember.name}</span> },
+            { label: 'Month', value: <span className="font-semibold">Month {record.month}</span> },
+            { label: 'Expected amount', value: <Money value={record.month == 1 ? fund.firstMonthContribution || 0 : fund.monthlyContribution || 0} tone="plain" className="font-semibold" /> },
+          ]}
+          values={record.values}
+          onValuesChange={(values) => setRecord((prev) => (prev ? { ...prev, values } : prev))}
+          dateMessage="Please select a payment date"
+          submitError={record.error}
+          busy={writes.busy}
+          onSubmit={submitRecord}
+        />
+      ) : null}
+    </div>
+  );
 }

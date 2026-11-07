@@ -628,18 +628,37 @@ async function getChitFundDetail(request: NextRequest, id: number, currentUserId
   return NextResponse.json(responseData);
 }
 
-// Handler for getting members of a chit fund
+// List-contract sort keys for a fund's members: stored columns only (the missed-contribution
+// and pending-amount figures are computed below, so they cannot be sorted in SQL).
+const CHIT_MEMBER_SORTS: Record<string, SortTarget> = {
+  name: (order) => ({ globalMember: { name: order } }),
+  contact: (order) => ({ globalMember: { contact: order } }),
+  joinDate: 'joinDate',
+  contribution: 'contribution',
+};
+const CHIT_MEMBER_SEARCH = ['globalMember.name', 'globalMember.contact'] as const;
+
+// Handler for getting members of a chit fund.
+// Optional list-contract params (q, sort, order, auction=won|notwon) filter and order in SQL and
+// add `meta` next to the legacy keys. `all=1` returns every member of the fund on one page
+// (the auctions page needs all of them to know who can still win; a fund has tens of members,
+// and the per-member figures below already read every contribution of the fund).
+// With none of these params the handler runs exactly the query it always ran.
 async function getChitFundMembers(request: NextRequest, id: number, currentUserId: number) {
   const { searchParams } = new URL(request.url);
   const page = parseInt(searchParams.get('page') || '1');
   const pageSize = parseInt(searchParams.get('pageSize') || '20');
+  const all = searchParams.get('all') === '1';
+  const list = parseListParams(searchParams, { sortable: CHIT_MEMBER_SORTS, searchable: CHIT_MEMBER_SEARCH, filters: ['auction'] });
+  const auctionFilter = list.filters.auction === 'won' || list.filters.auction === 'notwon' ? list.filters.auction : null;
+  const withMeta = !!(list.q || list.sort || searchParams.has('order') || auctionFilter);
 
   // Validate pagination parameters
-  const validPage = page > 0 ? page : 1;
-  const validPageSize = pageSize > 0 ? pageSize : 10;
+  const validPage = all ? 1 : page > 0 ? page : 1;
+  const requestedPageSize = pageSize > 0 ? pageSize : 10;
 
   // Calculate skip value for pagination
-  const skip = (validPage - 1) * validPageSize;
+  const skip = (validPage - 1) * requestedPageSize;
 
   // Check if the chit fund exists
   const chitFund = await prisma.chitFund.findUnique({
@@ -661,14 +680,21 @@ async function getChitFundMembers(request: NextRequest, id: number, currentUserI
     );
   }
 
+  const memberWhere: any = {
+    chitFundId: id,
+    ...(list.searchWhere ?? {}),
+    ...(auctionFilter === 'won' ? { auctions: { some: {} } } : auctionFilter === 'notwon' ? { auctions: { none: {} } } : {}),
+  };
+
   // Get total count for pagination
   const totalCount = await prisma.member.count({
-    where: { chitFundId: id },
+    where: memberWhere,
   });
+  const validPageSize = all ? Math.max(totalCount, 1) : requestedPageSize;
 
   // Get paginated members for this chit fund
   const members = await prisma.member.findMany({
-    where: { chitFundId: id },
+    where: memberWhere,
     include: {
       globalMember: true,
       _count: {
@@ -682,9 +708,8 @@ async function getChitFundMembers(request: NextRequest, id: number, currentUserI
         take: 1, // We only need to know if they won any auction
       },
     },
-    orderBy: { joinDate: 'asc' },
-    skip,
-    take: validPageSize,
+    orderBy: list.orderBy ?? { joinDate: 'asc' },
+    ...(all ? {} : { skip, take: validPageSize }),
   });
 
   // Get all contributions for this chit fund with balance information
@@ -759,7 +784,9 @@ async function getChitFundMembers(request: NextRequest, id: number, currentUserI
     totalCount,
     page: validPage,
     pageSize: validPageSize,
-    totalPages: Math.ceil(totalCount / validPageSize)
+    totalPages: Math.ceil(totalCount / validPageSize),
+    // List metadata, only for list-contract requests (legacy callers get exactly the keys above).
+    ...(withMeta ? { meta: buildMeta({ page: validPage, pageSize: validPageSize, totalCount, sort: list.sort, order: list.order, q: list.q }) } : {}),
   });
 }
 

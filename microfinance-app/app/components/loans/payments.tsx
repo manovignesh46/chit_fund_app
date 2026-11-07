@@ -12,7 +12,7 @@
 import * as React from 'react';
 import Link from 'next/link';
 import { toast } from '@/lib/toast';
-import { Check, Eye, Loader2, Percent } from 'lucide-react';
+import { Check, Eye, Percent } from 'lucide-react';
 
 import { usePartner } from '@/app/contexts/PartnerContext';
 import { formatMoney } from '@/lib/format';
@@ -23,7 +23,6 @@ import { DateText } from '@/components/kit/date-text';
 import { errorMessage } from '@/components/kit/error-state';
 import { Money } from '@/components/kit/money';
 import { StatusBadge } from '@/components/kit/status-badge';
-import { cn } from '@/lib/utils';
 
 export interface PendingPayment {
   period: number;
@@ -146,20 +145,8 @@ export function useQuickPay(loan: LoanRecord | undefined, record: (body: AddRepa
   );
 }
 
-/** "Updating…" marker for a server-computed figure while a write is being confirmed. */
-export function Updating({ active, children, className }: { active: boolean; children: React.ReactNode; className?: string }) {
-  return (
-    <span className={cn('relative inline-flex items-center gap-2', className)} aria-busy={active || undefined}>
-      <span className={cn('transition-opacity', active && 'opacity-40')}>{children}</span>
-      {active ? (
-        <span className="inline-flex items-center gap-1 text-xs font-normal text-muted-foreground">
-          <Loader2 aria-hidden="true" className="h-3.5 w-3.5 motion-safe:animate-spin" />
-          Updating…
-        </span>
-      ) : null}
-    </span>
-  );
-}
+/** "Updating…" marker (moved to the kit in Phase 6b; re-exported for existing imports). */
+export { Updating } from '@/components/kit/updating';
 
 const periodLabel = (loan: LoanRecord, period: number) => (loan.repaymentType === 'Weekly' ? `Week ${period}` : `Month ${period}`);
 

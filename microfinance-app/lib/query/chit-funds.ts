@@ -167,6 +167,61 @@ export interface ContributionsResponse {
   totalPages: number;
 }
 
+/** One row of the members endpoint (`members`): the fund member plus server-computed figures. */
+export interface ChitFundMemberListRow {
+  id: number;
+  globalMemberId: number;
+  globalMember: GlobalMemberRef & { address?: string | null };
+  name: string;
+  contact: string;
+  joinDate: string;
+  contribution: number;
+  contributionsCount: number;
+  auctionWon: boolean;
+  auctionMonth: number | null;
+  /** Months 1..currentMonth without a contribution (server; 0 unless the fund is Active). */
+  missedContributions: number;
+  /** missed × member contribution + partial balances (server; 0 unless the fund is Active). */
+  pendingAmount: number;
+}
+
+export interface ChitFundMembersResponse {
+  members: ChitFundMemberListRow[];
+  /** Every contribution of the fund as { memberId, month } (not paginated). */
+  contributionMap: { memberId: number; month: number }[];
+  totalCount: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+}
+
+/** A full contribution row (member-detail `contributions`, add-contribution / pay-balance responses). */
+export interface ChitContribution {
+  id: number;
+  memberId: number;
+  chitFundId: number;
+  month: number;
+  amount: number;
+  paidDate: string;
+  balance: number;
+  balancePaymentDate: string | null;
+  balancePaymentStatus: string | null;
+  actualBalancePaymentDate: string | null;
+  notes: string | null;
+}
+
+/** The member-detail endpoint: the fund member with every contribution (month order) and auctions. */
+export interface ChitFundMemberDetail {
+  id: number;
+  globalMemberId: number;
+  chitFundId: number;
+  joinDate: string;
+  contribution: number;
+  globalMember: GlobalMemberRef;
+  contributions: ChitContribution[];
+  auctions: { id: number; month: number; amount: number; date: string }[];
+}
+
 export interface AuctionBooking {
   id: number;
   month: number;
@@ -201,6 +256,19 @@ export const chitFundKeys = {
    * are always complete; the paginated `contributions` page is not needed, so it is 1 row.
    */
   contributionStatus: (id: number): QueryKey => queryKeys.action(CHIT_FUNDS, 'contributions', id, { page: 1, pageSize: 1 }),
+  /**
+   * One page of the fund's members (list params: page, pageSize, q, sort, order, auction).
+   * The members page builds this key through useListQuery({ action: 'members', id }).
+   */
+  members: (id: number, params: QueryParams): QueryKey => queryKeys.action(CHIT_FUNDS, 'members', id, params),
+  /**
+   * Every member of the fund in one response (`all=1`, see getChitFundMembers): for pickers
+   * that must offer all of them (the auction winner). Cost: one row per member (tens) plus the
+   * fund's contributions, which the endpoint reads anyway for its per-member figures.
+   */
+  allMembers: (id: number): QueryKey => queryKeys.action(CHIT_FUNDS, 'members', id, { all: 1 }),
+  /** One fund member with all of their contributions (member-detail). */
+  memberDetail: (id: number, memberId: number): QueryKey => queryKeys.action(CHIT_FUNDS, 'member-detail', id, { memberId }),
   bookings: (id: number): QueryKey => queryKeys.action(CHIT_FUNDS, 'auction-bookings', id),
   /** Active funds for the auction-bookings picker (unchanged request: status=Active, pageSize=100). */
   activeFunds: (): QueryKey => queryKeys.list(CHIT_FUNDS, { status: 'Active', pageSize: 100 }),
@@ -244,6 +312,16 @@ export function useChitFundContributionStatus(id: number | null, enabled = true)
 
 export function useAuctionBookings(id: number | null) {
   return useSWR<AuctionBookingsResponse>(id ? chitFundKeys.bookings(id) : null);
+}
+
+/** Every member of a fund (chitFundKeys.allMembers). */
+export function useAllChitFundMembers(id: number | null, enabled = true) {
+  return useSWR<ChitFundMembersResponse>(id && enabled ? chitFundKeys.allMembers(id) : null);
+}
+
+/** One fund member and all of their contributions. */
+export function useChitFundMember(id: number | null, memberId: number | null) {
+  return useSWR<ChitFundMemberDetail>(id && memberId ? chitFundKeys.memberDetail(id, memberId) : null);
 }
 
 /** Start loading what a fund's page shows first (detail + auctions), ahead of navigation. */
@@ -301,6 +379,53 @@ export const chitFundWrites = {
   /** DELETE /api/chit-funds/:id/auction-bookings `{ bookingId }`. */
   removeBooking: (id: number, bookingId: number) =>
     apiFetch<{ success?: boolean }>(`/chit-funds/${id}/auction-bookings`, { method: 'DELETE', body: { bookingId } }),
+
+  // Writes of the fund's own pages (members, contributions, auctions). Bodies are passed through
+  // unchanged: each page builds them exactly as it always did (see the pages for the shapes).
+  // None of these is idempotent enough to retry: never retry them automatically.
+
+  /** Assign an existing person: body `{ globalMemberId }` (the fund's monthly contribution applies). */
+  assignExisting: (id: number, globalMemberId: number) =>
+    apiFetch<unknown>(consolidated('add-member', id), { method: 'POST', body: { globalMemberId } }),
+  /** Create a person and add them: body `{ name, contact, contribution }`. Creates a new person every time. */
+  createAndAdd: (id: number, body: { name: string; contact: string; contribution: number }) =>
+    apiFetch<unknown>(consolidated('add-member', id), { method: 'POST', body }),
+  /** DELETE `remove-member&memberId=` with body `{}`. Refused for members with contributions or auctions. */
+  removeMember: (id: number, memberId: number) =>
+    apiFetch<{ success?: boolean }>(`${consolidated('remove-member', id)}&memberId=${memberId}`, { method: 'DELETE', body: {} }),
+  /** POST add-contribution; refused (400) when the member already has that month. Returns the saved row. */
+  addContribution: (id: number, body: Record<string, unknown>) =>
+    apiFetch<ChitContribution>(consolidated('add-contribution', id), { method: 'POST', body }),
+  /** DELETE delete-contribution `{ contributionId }` (its ledger entries go with it). */
+  deleteContribution: (id: number, contributionId: number) =>
+    apiFetch<{ success?: boolean }>(consolidated('delete-contribution', id), { method: 'DELETE', body: { contributionId } }),
+  /** POST pay-contribution-balance `{ contributionId, amount, paidDate }`. Not idempotent (a second call pays again). */
+  payContributionBalance: (id: number, body: { contributionId: number; amount: number; paidDate: string }) =>
+    apiFetch<ChitContribution>(consolidated('pay-contribution-balance', id), { method: 'POST', body }),
+  /** POST add-auction (refused when the winner already won in this fund). */
+  addAuction: (id: number, body: Record<string, unknown>) =>
+    apiFetch<ChitFundAuction>(consolidated('add-auction', id), { method: 'POST', body }),
+  /** DELETE delete-auction `{ auctionId }`. */
+  deleteAuction: (id: number, auctionId: number) =>
+    apiFetch<{ success?: boolean }>(consolidated('delete-auction', id), { method: 'DELETE', body: { auctionId } }),
+  /**
+   * Member export: the form post the pages always made (new tab, field `memberIds` = JSON array),
+   * so the server's download response opens there.
+   */
+  exportMembers: (id: number, memberIds: number[]): void => {
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = `/api/chit-funds/${id}/members/export`;
+    form.target = '_blank';
+    const input = document.createElement('input');
+    input.type = 'hidden';
+    input.name = 'memberIds';
+    input.value = JSON.stringify(memberIds);
+    form.appendChild(input);
+    document.body.appendChild(form);
+    form.submit();
+    document.body.removeChild(form);
+  },
 };
 
 /** Default file name of a single-fund export from the list (as before). */
