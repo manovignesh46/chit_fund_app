@@ -1,884 +1,534 @@
-// @ts-nocheck
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+/**
+ * Chit funds list (List template). List state lives in the URL (page, pageSize, q, sort,
+ * order, status; status defaults to Active); search, filter and sort run on the server over
+ * the whole dataset. The key figures come from one summary request. Rows preload the fund's
+ * page after the pointer rests on them; the next page preloads when idle.
+ */
+import * as React from 'react';
 import Link from 'next/link';
-import { ChitFundsListSkeleton } from '../components/skeletons';
-import { ArrowDownTrayIcon, TrashIcon, PlusCircleIcon, ArrowPathIcon, BanknotesIcon, UserGroupIcon, ClockIcon } from '@heroicons/react/24/solid';
-import { BuildingLibraryIcon } from '@heroicons/react/24/outline';
-import ActionDropdown, { ActionItem } from '../components/ui/ActionDropdown';
-import { formatDate as formatDateUtil } from '../../lib/formatUtils';
-import SortableTableHeader, { useSortableData } from '../components/common/SortableTableHeader';
-import PageSectionHeader from '../components/layout/PageSectionHeader';
-import StatsCard from '../components/layout/StatsCard';
-import FilterBar from '../components/layout/FilterBar';
-import { invalidateDashboardCache } from '../../lib/dashboardCache';
-import { useFirstLoad, refreshingClass } from '../hooks/useFirstLoad';
+import { useRouter } from 'next/navigation';
+import { Building2, Clock, Copy, Eye, FileDown, Files, Pencil, Plus, RotateCw, Trash2, Users, Wallet, X } from 'lucide-react';
 
-// Define interfaces
-interface ChitFund {
-  id: number;
-  name: string;
-  totalAmount: number;
-  monthlyContribution: number;
-  duration: number;
-  membersCount: number;
-  status: string;
-  startDate: string;
-  currentMonth: number;
-  nextAuctionDate: string | null;
-  hasPendingContribution?: boolean;
-  _count?: {
-    members: number;
-    auctions: number;
-  };
-}
+import { toast } from '@/lib/toast';
+import { useListParams } from '@/lib/list/useListParams';
+import { useListQuery } from '@/lib/list/useListQuery';
+import { ALL } from '@/lib/list/types';
+import { queryKeys } from '@/lib/query/keys';
+import { prefetchQuery, whenIdle } from '@/lib/query/prefetch';
+import {
+  CHIT_FUNDS,
+  chitFundWrites,
+  invalidateChitFunds,
+  invalidateDeletedChitFund,
+  listExportFilename,
+  prefetchChitFund,
+  useChitFundsSummary,
+  type ChitFundRecord,
+} from '@/lib/query/chit-funds';
+import { errorMessage } from '@/components/kit/error-state';
 
-interface PaginatedResponse {
-  chitFunds: ChitFund[];
-  totalCount: number;
-  page: number;
-  pageSize: number;
-  totalPages: number;
+import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
+import { ConfirmDialog } from '@/components/kit/confirm-dialog';
+import { DataTable, type DataTableColumn, type RowId } from '@/components/kit/data-table';
+import { DateText } from '@/components/kit/date-text';
+import { EmptyState } from '@/components/kit/empty-state';
+import { FilterChips } from '@/components/kit/filter-chips';
+import { formatRange } from '@/components/kit/list-pagination';
+import { ListToolbar } from '@/components/kit/list-toolbar';
+import { Money } from '@/components/kit/money';
+import { NativeSelect } from '@/components/kit/native-select';
+import { PageContainer } from '@/components/kit/page-container';
+import { PageHeader } from '@/components/kit/page-header';
+import { RowActions } from '@/components/kit/row-actions';
+import { SearchInput } from '@/components/kit/search-input';
+import { StatCard } from '@/components/kit/stat-card';
+import { StatusBadge } from '@/components/kit/status-badge';
+
+const SORTS = ['name', 'totalAmount', 'monthlyContribution', 'currentMonth', 'members', 'status', 'nextAuctionDate', 'startDate', 'createdAt'] as const;
+const FILTERS = ['status'] as const;
+type Filter = (typeof FILTERS)[number];
+
+const STATUS_OPTIONS = [
+  { value: ALL, label: 'All statuses' },
+  { value: 'Active', label: 'Active' },
+  { value: 'Upcoming', label: 'Upcoming' },
+  { value: 'Completed', label: 'Completed' },
+];
+const SORT_OPTIONS = [
+  { value: 'createdAt:desc', label: 'Newest first' },
+  { value: 'createdAt:asc', label: 'Oldest first' },
+  { value: 'name:asc', label: 'Name, A to Z' },
+  { value: 'name:desc', label: 'Name, Z to A' },
+  { value: 'totalAmount:desc', label: 'Largest total amount' },
+  { value: 'monthlyContribution:desc', label: 'Largest monthly contribution' },
+  { value: 'currentMonth:desc', label: 'Furthest along' },
+  { value: 'nextAuctionDate:asc', label: 'Next auction soonest' },
+  { value: 'startDate:desc', label: 'Started most recently' },
+];
+
+/**
+ * Hover preloads the fund's page, but only for the row the pointer rests on (400 ms), and
+ * never for a fund just deleted. The chit-funds GETs run the shared current-month update
+ * (which can write), so a preload is not free on the server.
+ */
+function usePrefetchOnRest(delay = 400) {
+  const timer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const gone = React.useRef(new Set<number>());
+  const cancel = React.useCallback(() => {
+    if (timer.current) clearTimeout(timer.current);
+    timer.current = null;
+  }, []);
+  React.useEffect(() => cancel, [cancel]);
+  const schedule = React.useCallback(
+    (id: number) => {
+      cancel();
+      if (gone.current.has(id)) return;
+      timer.current = setTimeout(() => {
+        // Checked again when the timer fires: the fund may have been deleted meanwhile.
+        if (!gone.current.has(id)) prefetchChitFund(id);
+      }, delay);
+    },
+    [cancel, delay]
+  );
+  const forget = React.useCallback((id: number) => {
+    gone.current.add(id);
+  }, []);
+  return { schedule, cancel, forget };
 }
 
 export default function ChitFundsPage() {
+  return (
+    <PageContainer>
+      <ChitFundsList />
+    </PageContainer>
+  );
+}
+
+function ChitFundsList() {
   const router = useRouter();
-  const [chitFunds, setChitFunds] = useState<ChitFund[]>([]);
-  const [loading, setLoading] = useState(true);
-  const { initialLoading, refreshing } = useFirstLoad(loading);
-  const [error, setError] = useState<string | null>(null);
+  // The default sort is sent explicitly (sort=createdAt&order=desc): the server then adds the id
+  // tiebreaker, so funds created at the same moment never repeat or vanish across pages. Calls
+  // without a sort keep the legacy order.
+  const list = useListParams<Filter>({ id: 'chit-funds', filters: FILTERS, defaults: { status: 'Active', sort: 'createdAt', order: 'desc' }, sortable: SORTS });
+  const query = useListQuery<ChitFundRecord>(CHIT_FUNDS, list, { itemsKey: 'chitFunds' });
+  const summary = useChitFundsSummary();
+  const meta = query.meta;
+  const status = list.params.status ?? 'Active';
+  const [selected, setSelected] = React.useState<Set<RowId>>(() => new Set());
+  const [bulkIds, setBulkIds] = React.useState<number[] | null>(null);
+  const [exporting, setExporting] = React.useState(false);
+  const prefetch = usePrefetchOnRest();
 
-  // Pagination state
-  const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
-  const [totalPages, setTotalPages] = useState(1);
-  const [totalCount, setTotalCount] = useState(0);
+  // Selection clears whenever the result set changes (page, search, filter, sort, size).
+  const resultKey = JSON.stringify(list.apiParams);
+  React.useEffect(() => setSelected(new Set()), [resultKey]);
 
-  // Selection state
-  const [selectedChitFunds, setSelectedChitFunds] = useState<number[]>([]);
-  const [selectAll, setSelectAll] = useState(false);
+  // Preload the next page once this one has settled.
+  React.useEffect(() => {
+    if (!list.ready || !meta?.hasNext || query.isRefreshing) return;
+    const next = queryKeys.list(CHIT_FUNDS, { ...list.apiParams, page: meta.page + 1 });
+    return whenIdle(() => prefetchQuery(next));
+  }, [list.ready, list.apiParams, meta, query.isRefreshing]);
 
-  // Delete modal state
-  const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const [chitFundToDelete, setChitFundToDelete] = useState<number | null>(null);
-  const [isDeleting, setIsDeleting] = useState(false);
-  const [deleteError, setDeleteError] = useState<string | null>(null);
-  const [deleteSuccess, setDeleteSuccess] = useState<string | null>(null);
+  const rows = query.items;
+  const selectedIds = React.useMemo(() => Array.from(selected).map(Number), [selected]);
+  const nameOf = (id: number) => rows.find((f) => f.id === id)?.name ?? `Chit fund #${id}`;
 
-  // Bulk delete modal state
-  const [showBulkDeleteModal, setShowBulkDeleteModal] = useState(false);
-  const [isBulkDeleting, setIsBulkDeleting] = useState(false);
-  const [bulkDeleteError, setBulkDeleteError] = useState<string | null>(null);
-  const [bulkDeleteSuccess, setBulkDeleteSuccess] = useState<string | null>(null);
+  const refresh = () => {
+    void query.mutate();
+    void summary.mutate();
+  };
 
-  // Export state
-  const [isExporting, setIsExporting] = useState(false);
+  const deleteFund = async (fund: ChitFundRecord) => {
+    prefetch.cancel();
+    prefetch.forget(fund.id);
+    try {
+      await chitFundWrites.remove(fund.id);
+    } catch (error) {
+      throw new Error(errorMessage(error) ?? 'Failed to delete chit fund');
+    }
+    toast.success('Chit fund deleted', { description: fund.name });
+    setSelected((prev) => {
+      const next = new Set(prev);
+      next.delete(fund.id);
+      return next;
+    });
+    invalidateDeletedChitFund(fund.id).forget();
+  };
 
-  // Status filter state
-  const [statusFilter, setStatusFilter] = useState<string>('Active');
-  const [searchQuery, setSearchQuery] = useState('');
-  const [stats, setStats] = useState({
-    active: 0,
-    upcoming: 0,
-    totalMembers: 0,
-    totalValue: 0,
-  });
+  const exportFunds = async (ids: number[]) => {
+    if (exporting || ids.length === 0) return;
+    setExporting(true);
+    try {
+      // One fund: the single-fund export; several: the bulk export (as before).
+      if (ids.length === 1) await chitFundWrites.exportOne(ids[0], listExportFilename());
+      else await chitFundWrites.exportMany(ids);
+    } catch {
+      toast.error('Failed to export chit funds. Please try again.');
+    } finally {
+      setExporting(false);
+    }
+  };
 
-  // Add sorting functionality
-  const { items: sortedChitFunds, sortConfig, requestSort } = useSortableData(chitFunds);
-  const filteredChitFunds = sortedChitFunds.filter((fund) =>
-    !searchQuery || fund.name.toLowerCase().includes(searchQuery.toLowerCase())
+  // One request at a time, in selection order; HTTP errors count as failures.
+  const bulkDelete = async () => {
+    const ids = bulkIds ?? [];
+    prefetch.cancel();
+    ids.forEach(prefetch.forget);
+    const failures: string[] = [];
+    let deleted = 0;
+    for (const id of ids) {
+      try {
+        await chitFundWrites.remove(id);
+        deleted += 1;
+      } catch (error) {
+        failures.push(`${nameOf(id)}: ${errorMessage(error) ?? 'Unknown error'}`);
+      }
+    }
+    if (deleted > 0) {
+      setSelected(new Set());
+      void invalidateChitFunds();
+    }
+    if (failures.length === 0) {
+      toast.success(`${deleted} chit ${deleted === 1 ? 'fund' : 'funds'} deleted`);
+    } else if (deleted === 0) {
+      throw new Error(`Failed to delete ${failures.length} chit ${failures.length === 1 ? 'fund' : 'funds'}. ${failures.join(' · ')}`);
+    } else {
+      toast.error(`${deleted} of ${ids.length} chit funds deleted, ${failures.length} failed`, { description: failures.join(' · ') });
+    }
+  };
+
+  const deleteDescription = (count: number) =>
+    `This action cannot be undone. This will also delete all members, contributions, and auctions associated with ${count === 1 ? 'this chit fund' : 'these chit funds'}.`;
+
+  const actionsFor = (fund: ChitFundRecord) => (
+    <RowActions
+      label={`Actions for ${fund.name}`}
+      actions={[
+        { label: 'View', icon: Eye, href: `/chit-funds/${fund.id}` },
+        { label: 'Edit', icon: Pencil, href: `/chit-funds/${fund.id}/edit` },
+        { label: 'Copy', icon: Copy, href: `/chit-funds/new?copy=${fund.id}` },
+        { label: 'Export', icon: FileDown, onSelect: () => void exportFunds([fund.id]), disabled: exporting },
+        {
+          label: 'Delete',
+          icon: Trash2,
+          destructive: true,
+          separatorBefore: true,
+          confirm: {
+            title: `Delete ${fund.name}?`,
+            description: deleteDescription(1),
+            confirmLabel: 'Delete chit fund',
+            onConfirm: () => deleteFund(fund),
+          },
+        },
+      ]}
+    />
   );
 
-  // Fetch chit funds function
-  const fetchChitFunds = async () => {
-    try {
-      setLoading(true);
-      let url = `/api/chit-funds/consolidated?action=list&page=${currentPage}&pageSize=${pageSize}`;
+  const fundName = (fund: ChitFundRecord, onClick?: (event: React.MouseEvent) => void) => (
+    <span className="inline-flex min-w-0 items-center gap-2">
+      {fund.hasPendingContribution ? (
+        <span className="h-2 w-2 shrink-0 rounded-full bg-destructive" title="Pending contribution">
+          <span className="sr-only">Pending contribution</span>
+        </span>
+      ) : null}
+      <Link
+        href={`/chit-funds/${fund.id}`}
+        onClick={onClick}
+        className="truncate font-medium text-foreground hover:text-primary-text hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      >
+        {fund.name}
+      </Link>
+    </span>
+  );
 
-      // Add status filter if selected
-      if (statusFilter) {
-        url += `&status=${statusFilter}`;
+  const columns: DataTableColumn<ChitFundRecord>[] = [
+    { id: 'name', header: 'Name', sortable: true, cell: (fund) => fundName(fund) },
+    { id: 'totalAmount', header: 'Total amount', numeric: true, sortable: true, cell: (fund) => <Money value={fund.totalAmount} tone="plain" /> },
+    {
+      id: 'monthlyContribution',
+      header: 'Monthly',
+      numeric: true,
+      sortable: true,
+      hideBelow: 'lg',
+      cell: (fund) => <Money value={fund.monthlyContribution} tone="plain" />,
+    },
+    {
+      id: 'currentMonth',
+      header: <span title="Current month / duration">Month</span>,
+      numeric: true,
+      sortable: true,
+      cell: (fund) => (
+        <span className="whitespace-nowrap">
+          {fund.currentMonth || 0}
+          <span className="text-muted-foreground"> / {fund.duration}</span>
+        </span>
+      ),
+    },
+    {
+      id: 'members',
+      header: <span title="Members auctioned / members">Auctioned</span>,
+      numeric: true,
+      sortable: true,
+      hideBelow: 'xl',
+      cell: (fund) => (
+        <span className="whitespace-nowrap">
+          {fund._count?.auctions || 0}
+          <span className="text-muted-foreground"> / {fund._count?.members || 0}</span>
+        </span>
+      ),
+    },
+    { id: 'status', header: 'Status', sortable: true, cell: (fund) => <StatusBadge status={fund.status} /> },
+    { id: 'nextAuctionDate', header: 'Next auction', sortable: true, hideBelow: 'lg', cell: (fund) => <DateText value={fund.nextAuctionDate} /> },
+    { id: 'actions', header: <span className="sr-only">Actions</span>, width: '3.5rem', align: 'right', cell: actionsFor },
+  ];
+
+  const chips = list.activeFilters.map((f) => ({
+    key: f.name,
+    label: f.name === 'q' ? `Search: ${f.value}` : `Status: ${f.value === ALL ? 'All' : f.value}`,
+    onRemove: () => list.setParams({ [f.name]: null } as Parameters<typeof list.setParams>[0]),
+  }));
+
+  const toggleSelected = (id: number, checked: boolean) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (checked) next.add(id);
+      else next.delete(id);
+      return next;
+    });
+  };
+
+  const emptyState = list.params.q ? (
+    <EmptyState variant="no-results" description={`No chit funds match "${list.params.q}".`} onClearFilters={list.clearFilters} />
+  ) : status !== ALL ? (
+    <EmptyState
+      title={`No ${status.toLowerCase()} chit funds`}
+      description={`No chit funds found with status "${status}".`}
+      action={
+        <Button size="sm" variant="outline" onClick={() => list.setParams({ status: ALL })}>
+          Show all statuses
+        </Button>
       }
-
-      const response = await fetch(url);
-
-      if (!response.ok) {
-        throw new Error('Failed to fetch chit funds');
+    />
+  ) : (
+    <EmptyState
+      title="No chit funds yet"
+      description="Create a chit fund, or start from a template."
+      action={
+        <Button size="sm" asChild>
+          <Link href="/chit-funds/new">
+            <Plus aria-hidden="true" />
+            Create your first chit fund
+          </Link>
+        </Button>
       }
+    />
+  );
 
-      const data: PaginatedResponse = await response.json();
-      console.log('Fetched chit funds:', data);
-
-      // Check if the response has pagination metadata
-      if (data.chitFunds && Array.isArray(data.chitFunds)) {
-        setChitFunds(data.chitFunds);
-        setTotalCount(data.totalCount || 0);
-        setTotalPages(data.totalPages || 1);
-      } else {
-        // Fallback for backward compatibility
-        setChitFunds(Array.isArray(data) ? data : []);
-        setTotalPages(1);
-        setTotalCount(Array.isArray(data) ? data.length : 0);
-      }
-
-      // Clear selected chit funds when page changes
-      setSelectedChitFunds([]);
-      setSelectAll(false);
-      setError(null);
-    } catch (err) {
-      console.error('Error fetching chit funds:', err);
-      setError('Failed to load chit funds. Please try again later.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Initial data fetch
-  useEffect(() => {
-    fetchChitFunds();
-  }, [currentPage, pageSize, statusFilter]);
-
-  useEffect(() => {
-    const fetchStats = async () => {
-      try {
-        const [activeRes, upcomingRes, allRes] = await Promise.all([
-          fetch('/api/chit-funds/consolidated?action=list&page=1&pageSize=1&status=Active'),
-          fetch('/api/chit-funds/consolidated?action=list&page=1&pageSize=1&status=Upcoming'),
-          fetch('/api/chit-funds/consolidated?action=list&page=1&pageSize=500&status=Active'),
-        ]);
-        const activeData = await activeRes.json();
-        const upcomingData = await upcomingRes.json();
-        const allData = await allRes.json();
-        const funds = allData.chitFunds || [];
-        setStats({
-          active: activeData.totalCount || 0,
-          upcoming: upcomingData.totalCount || 0,
-          totalMembers: funds.reduce((sum: number, f: ChitFund) => sum + (f._count?.members || f.membersCount || 0), 0),
-          totalValue: funds.reduce((sum: number, f: ChitFund) => sum + (f.totalAmount || 0), 0),
-        });
-      } catch (err) {
-        console.error('Error fetching chit fund stats:', err);
-      }
-    };
-    fetchStats();
-  }, []);
-
-  // Handle selecting/deselecting a chit fund
-  const handleSelectChitFund = (chitFundId: number) => {
-    if (selectedChitFunds.includes(chitFundId)) {
-      setSelectedChitFunds(selectedChitFunds.filter(id => id !== chitFundId));
-      setSelectAll(false);
-    } else {
-      setSelectedChitFunds([...selectedChitFunds, chitFundId]);
-      if (selectedChitFunds.length + 1 === chitFunds.length) {
-        setSelectAll(true);
-      }
-    }
-  };
-
-  // Handle select all chit funds
-  const handleSelectAll = () => {
-    if (selectAll) {
-      setSelectedChitFunds([]);
-      setSelectAll(false);
-    } else {
-      setSelectedChitFunds(chitFunds.map(fund => fund.id));
-      setSelectAll(true);
-    }
-  };
-
-  // Handle delete chit fund
-  const handleDeleteChitFund = (chitFundId: number) => {
-    setChitFundToDelete(chitFundId);
-    setShowDeleteModal(true);
-    setDeleteError(null);
-    setDeleteSuccess(null);
-  };
-
-  // Confirm delete chit fund
-  const confirmDeleteChitFund = async () => {
-    if (!chitFundToDelete) return;
-
-    setIsDeleting(true);
-    setDeleteError(null);
-
-    try {
-      const response = await fetch(`/api/chit-funds/consolidated?action=delete&id=${chitFundToDelete}`, {
-        method: 'DELETE',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to delete chit fund');
-      }
-      invalidateDashboardCache();
-
-      // Show success message
-      setDeleteSuccess('Chit fund deleted successfully');
-
-      // Refresh data after a short delay
-      setTimeout(() => {
-        setShowDeleteModal(false);
-        setChitFundToDelete(null);
-        setDeleteSuccess(null);
-        fetchChitFunds();
-      }, 1500);
-    } catch (error) {
-      console.error('Error deleting chit fund:', error);
-      setDeleteError(error instanceof Error ? error.message : 'An error occurred');
-    } finally {
-      setIsDeleting(false);
-    }
-  };
-
-  // Handle bulk delete chit funds
-  const handleBulkDeleteClick = () => {
-    if (selectedChitFunds.length === 0) return;
-    setShowBulkDeleteModal(true);
-    setBulkDeleteError(null);
-    setBulkDeleteSuccess(null);
-  };
-
-  // Confirm bulk delete chit funds
-  const confirmBulkDeleteChitFunds = async () => {
-    if (selectedChitFunds.length === 0) return;
-
-    setIsBulkDeleting(true);
-    setBulkDeleteError(null);
-
-    try {
-      // Delete chit funds one by one
-      const deletePromises = selectedChitFunds.map(chitFundId =>
-        fetch(`/api/chit-funds/consolidated?action=delete&id=${chitFundId}`, {
-          method: 'DELETE',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-        })
-      );
-
-      const results = await Promise.allSettled(deletePromises);
-      const failedCount = results.filter(result => result.status === 'rejected').length;
-
-      if (failedCount > 0) {
-        throw new Error(`Failed to delete ${failedCount} chit funds`);
-      }
-      invalidateDashboardCache();
-
-      // Show success message
-      setBulkDeleteSuccess(`${selectedChitFunds.length} chit funds deleted successfully`);
-
-      // Refresh data after a short delay
-      setTimeout(() => {
-        setShowBulkDeleteModal(false);
-        setSelectedChitFunds([]);
-        setSelectAll(false);
-        setBulkDeleteSuccess(null);
-        fetchChitFunds();
-      }, 1500);
-    } catch (error) {
-      console.error('Error deleting chit funds:', error);
-      setBulkDeleteError(error instanceof Error ? error.message : 'An error occurred');
-    } finally {
-      setIsBulkDeleting(false);
-    }
-  };
-
-  // Handle export selected chit funds
-  const handleExportSelected = async () => {
-    if (selectedChitFunds.length === 0 || isExporting) return;
-
-    try {
-      setIsExporting(true);
-
-      // If only one chit fund is selected, use the single export endpoint
-      if (selectedChitFunds.length === 1) {
-        const response = await fetch(`/api/chit-funds/${selectedChitFunds[0]}/export`, {
-          method: 'GET',
-        });
-
-        if (!response.ok) {
-          throw new Error('Failed to export chit fund');
-        }
-
-        // Get the blob from the response
-        const blob = await response.blob();
-
-        // Generate filename with current date
-        const today = new Date();
-        const dateStr = today.toISOString().split('T')[0]; // YYYY-MM-DD format
-        const filename = `ChitFund_Details_${dateStr}.xlsx`;
-
-        // Create a URL for the blob
-        const url = window.URL.createObjectURL(blob);
-
-        // Create a temporary link element
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = filename;
-
-        // Append to the document and trigger a click
-        document.body.appendChild(a);
-        a.click();
-
-        // Clean up
-        window.URL.revokeObjectURL(url);
-        document.body.removeChild(a);
-      } else {
-        // Multiple chit funds selected, use the bulk export endpoint
-        const response = await fetch('/api/chit-funds/export', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            chitFundIds: selectedChitFunds,
-          }),
-        });
-
-        if (!response.ok) {
-          throw new Error('Failed to export chit funds');
-        }
-
-        // Get the blob from the response
-        const blob = await response.blob();
-
-        // Generate filename with current date
-        const today = new Date();
-        const dateStr = today.toISOString().split('T')[0]; // YYYY-MM-DD format
-        const filename = `ChitFunds_Export_${dateStr}.xlsx`;
-
-        // Create a URL for the blob
-        const url = window.URL.createObjectURL(blob);
-
-        // Create a temporary link element
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = filename;
-
-        // Append to the document and trigger a click
-        document.body.appendChild(a);
-        a.click();
-
-        // Clean up
-        window.URL.revokeObjectURL(url);
-        document.body.removeChild(a);
-      }
-    } catch (error) {
-      console.error('Error exporting chit funds:', error);
-      alert('Failed to export chit funds. Please try again.');
-    } finally {
-      setIsExporting(false);
-    }
-  };
-
-  // Format currency
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-IN', {
-      style: 'currency',
-      currency: 'INR',
-      maximumFractionDigits: 0,
-    }).format(amount);
-  };
-
-  // Format date
-  const formatDate = (dateString: string | null) => {
-    return formatDateUtil(dateString);
-  };
-
-  // Get status color
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'Active':
-        return 'bg-green-100 text-green-800 dark:status-badge-active';
-      case 'Upcoming':
-        return 'bg-yellow-100 text-yellow-800 dark:status-badge-upcoming';
-      case 'Completed':
-        return 'bg-gray-100 text-gray-800 dark:status-badge-completed';
-      default:
-        return 'bg-gray-100 text-gray-800 dark:status-badge-completed';
-    }
-  };
-
+  const stats = summary.data;
   return (
-    <div className="page-container">
-      <PageSectionHeader
-        icon={<BuildingLibraryIcon className="w-5 h-5" />}
-        title="Chit Funds"
-        subtitle="Manage active chit fund schemes and auctions"
+    <div>
+      <PageHeader
+        title="Chit funds"
+        count={meta?.totalCount}
+        description="Manage active chit fund schemes and auctions"
         actions={
           <>
-            <button
-              onClick={() => fetchChitFunds()}
-              className="btn-secondary"
-              aria-label="Refresh"
-            >
-              <ArrowPathIcon className="h-4 w-4" />
-            </button>
-            {selectedChitFunds.length > 0 && (
-              <>
-                <button
-                  onClick={handleExportSelected}
-                  disabled={isExporting}
-                  className="btn-secondary disabled:opacity-50"
-                >
-                  <ArrowDownTrayIcon className="h-4 w-4" />
-                  <span className="hidden sm:inline">{isExporting ? 'Exporting...' : 'Export'}</span>
-                </button>
-                <button
-                  onClick={handleBulkDeleteClick}
-                  className="btn-secondary text-red-400 hover:text-red-300"
-                >
-                  <TrashIcon className="h-4 w-4" />
-                  <span className="hidden sm:inline">Delete</span>
-                </button>
-              </>
-            )}
-            <Link href="/chit-fund-templates" className="btn-secondary">
-              <span className="hidden sm:inline">Templates</span>
-              <span className="sm:hidden">Tmpl</span>
-            </Link>
-            <Link href="/chit-funds/new" className="btn-primary">
-              <PlusCircleIcon className="h-4 w-4" />
-              <span>Add Chit Fund</span>
-            </Link>
+            <Button variant="ghost" size="icon" onClick={refresh} aria-label="Refresh" title="Refresh">
+              <RotateCw aria-hidden="true" className={query.isValidating ? 'motion-safe:animate-spin' : undefined} />
+            </Button>
+            <Button variant="outline" asChild>
+              <Link href="/chit-fund-templates">
+                <Files aria-hidden="true" />
+                Templates
+              </Link>
+            </Button>
+            <Button asChild>
+              <Link href="/chit-funds/new">
+                <Plus aria-hidden="true" />
+                Add chit fund
+              </Link>
+            </Button>
           </>
         }
       />
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <StatsCard
-          label="Active Chit Funds"
-          value={stats.active}
-          icon={<BuildingLibraryIcon className="w-4 h-4" />}
+      <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <StatCard
+          label="Active chit funds"
+          icon={Building2}
+          loading={!stats && !summary.error}
+          value={stats ? stats.active.toLocaleString('en-IN') : '—'}
+          onClick={() => list.setParams({ status: null })}
         />
-        <StatsCard
-          label="Total Value"
-          value={formatCurrency(stats.totalValue)}
-          icon={<BanknotesIcon className="w-4 h-4" />}
+        <StatCard
+          label="Total value"
+          icon={Wallet}
+          loading={!stats && !summary.error}
+          value={<Money value={stats?.totalValue ?? null} tone="plain" compact />}
+          hint="Active funds"
         />
-        <StatsCard
-          label="Total Members"
-          value={stats.totalMembers.toLocaleString()}
-          icon={<UserGroupIcon className="w-4 h-4" />}
+        <StatCard
+          label="Total members"
+          icon={Users}
+          loading={!stats && !summary.error}
+          value={stats ? stats.totalMembers.toLocaleString('en-IN') : '—'}
+          hint="Active funds"
         />
-        <StatsCard
+        <StatCard
           label="Upcoming"
-          value={stats.upcoming}
-          icon={<ClockIcon className="w-4 h-4" />}
+          icon={Clock}
+          loading={!stats && !summary.error}
+          value={stats ? stats.upcoming.toLocaleString('en-IN') : '—'}
+          onClick={() => list.setParams({ status: 'Upcoming' })}
         />
       </div>
 
-      <FilterBar
-        searchValue={searchQuery}
-        onSearchChange={setSearchQuery}
-        searchPlaceholder="Search chit funds..."
-        filters={[
-          {
-            id: 'statusFilter',
-            value: statusFilter,
-            onChange: (value) => {
-              setStatusFilter(value);
-              setCurrentPage(1);
-            },
-            options: [
-              { value: '', label: 'All Status' },
-              { value: 'Active', label: 'Active' },
-              { value: 'Upcoming', label: 'Upcoming' },
-              { value: 'Completed', label: 'Completed' },
-            ],
-          },
-        ]}
+      <ListToolbar
+        search={<SearchInput value={list.params.q} onChange={(q) => list.setParams({ q })} placeholder="Search chit funds by name" label="Search chit funds by name" />}
+        primaryFilter={
+          <NativeSelect
+            aria-label="Status"
+            className="w-44"
+            value={status}
+            onValueChange={(value) => list.setParams({ status: value === 'Active' ? null : value })}
+            options={STATUS_OPTIONS}
+          />
+        }
+        sort={
+          <NativeSelect
+            aria-label="Sort by"
+            size="sm"
+            value={list.params.sort ? `${list.params.sort}:${list.params.order ?? 'asc'}` : 'createdAt:desc'}
+            onValueChange={(value) => {
+              if (value === 'createdAt:desc') return list.setParams({ sort: null, order: null });
+              const [sort, order] = value.split(':');
+              list.setParams({ sort, order: order as 'asc' | 'desc' });
+            }}
+            options={SORT_OPTIONS}
+          />
+        }
+        chips={<FilterChips chips={chips} onClearAll={list.clearFilters} />}
+        resultSummary={meta ? formatRange(meta.page, meta.pageSize, meta.totalCount) : null}
       />
 
-      {initialLoading ? (
-        <ChitFundsListSkeleton />
-      ) : error ? (
-        <div className="dark-card alert-error text-sm">
-          <p className="font-bold">Error</p>
-          <p>{error}</p>
-        </div>
-      ) : chitFunds.length === 0 ? (
-        <div className="dark-card p-8 text-center">
-          <p className="text-gray-400 mb-4">
-            {statusFilter ? `No chit funds found with status "${statusFilter}".` : 'No chit funds found.'}
-          </p>
-          {!statusFilter && (
-            <Link href="/chit-funds/new" className="btn-primary">
-              Create Your First Chit Fund
-            </Link>
-          )}
-        </div>
-      ) : (
-        <div className={`dark-card overflow-hidden ${refreshingClass(refreshing)}`} aria-busy={refreshing}>
-          {selectedChitFunds.length > 0 && (
-            <div className="px-4 py-3 border-b border-gray-200 dark:border-surface-border">
-              <span className="text-sm text-gray-400">{selectedChitFunds.length} selected</span>
+      <DataTable<ChitFundRecord>
+        label="Chit funds"
+        columns={columns}
+        rows={rows}
+        getRowId={(fund) => fund.id}
+        isInitialLoading={query.isInitialLoading}
+        isRefreshing={query.isRefreshing}
+        error={query.error}
+        onRetry={() => void query.mutate()}
+        sort={{ sort: list.params.sort, order: list.params.order }}
+        onSortChange={(next) => list.setParams({ sort: next.sort, order: next.order })}
+        selection={{ selected, onChange: setSelected, rowLabel: (fund) => `Select ${fund.name}` }}
+        onRowClick={(fund) => {
+          prefetch.cancel();
+          router.push(`/chit-funds/${fund.id}`);
+        }}
+        onRowIntent={(fund) => prefetch.schedule(fund.id)}
+        emptyState={emptyState}
+        pagination={
+          meta
+            ? {
+                page: meta.page,
+                pageSize: list.params.pageSize,
+                totalCount: meta.totalCount,
+                onPageChange: (page) => list.setParams({ page }),
+                onPageSizeChange: (pageSize) => list.setParams({ pageSize }),
+              }
+            : undefined
+        }
+        renderCard={(fund) => (
+          <div className="flex gap-3">
+            <div className="pt-0.5" onClick={(event) => event.stopPropagation()}>
+              <Checkbox aria-label={`Select ${fund.name}`} checked={selected.has(fund.id)} onCheckedChange={(checked) => toggleSelected(fund.id, checked === true)} />
             </div>
-          )}
-
-          <div className="table-shell">
-            <table className="dark-table" style={{ minWidth: '700px' }}>
-              <thead>
-                <tr>
-                  <th scope="col">
-                    <div className="flex items-center">
-                      <input
-                        type="checkbox"
-                        checked={selectAll}
-                        onChange={handleSelectAll}
-                        className="h-4 w-4 text-blue-600 border-gray-200 dark:border-surface-border bg-gray-50 dark:bg-surface-elevated rounded focus:ring-blue-500"
-                      />
-                    </div>
-                  </th>
-                  <SortableTableHeader
-                    label="Name"
-                    sortKey="name"
-                    currentSortKey={sortConfig.key}
-                    currentSortDirection={sortConfig.direction}
-                    onSort={requestSort}
-                  />
-                  <SortableTableHeader
-                    label="Total Amount"
-                    sortKey="totalAmount"
-                    currentSortKey={sortConfig.key}
-                    currentSortDirection={sortConfig.direction}
-                    onSort={requestSort}
-                  />
-                  <SortableTableHeader
-                    label="Monthly Contribution"
-                    sortKey="monthlyContribution"
-                    currentSortKey={sortConfig.key}
-                    currentSortDirection={sortConfig.direction}
-                    onSort={requestSort}
-                  />
-                  <SortableTableHeader
-                    label="Duration (Completed/Total)"
-                    sortKey="duration"
-                    currentSortKey={sortConfig.key}
-                    currentSortDirection={sortConfig.direction}
-                    onSort={requestSort}
-                  />
-                  <SortableTableHeader
-                    label="Members (Auctioned/Total)"
-                    sortKey="membersCount"
-                    currentSortKey={sortConfig.key}
-                    currentSortDirection={sortConfig.direction}
-                    onSort={requestSort}
-                  />
-                  <SortableTableHeader
-                    label="Status"
-                    sortKey="status"
-                    currentSortKey={sortConfig.key}
-                    currentSortDirection={sortConfig.direction}
-                    onSort={requestSort}
-                  />
-                  <SortableTableHeader
-                    label="Next Auction"
-                    sortKey="nextAuctionDate"
-                    currentSortKey={sortConfig.key}
-                    currentSortDirection={sortConfig.direction}
-                    onSort={requestSort}
-                    className="px-6 py-3"
-                  />
-                  <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredChitFunds.map((fund) => (
-                  <tr
-                    key={fund.id}
-                    className="cursor-pointer"
-                    onClick={(e) => {
-                      // Prevent navigation when clicking on checkbox or action buttons/links
-                      if (
-                        e.target instanceof HTMLInputElement ||
-                        e.target instanceof HTMLButtonElement ||
-                        (e.target instanceof HTMLElement &&
-                          (e.target.closest('button') || e.target.closest('input') || e.target.closest('a')))
-                      ) {
-                        return;
-                      }
-                      router.push(`/chit-funds/${fund.id}`);
-                    }}
-                  >
-                    <td className="whitespace-nowrap">
-                      <div className="flex items-center">
-                        <input
-                          type="checkbox"
-                          checked={selectedChitFunds.includes(fund.id)}
-                          onChange={() => handleSelectChitFund(fund.id)}
-                          className="h-4 w-4 text-blue-600 border-gray-200 dark:border-surface-border bg-gray-50 dark:bg-surface-elevated rounded focus:ring-blue-500"
-                        />
-                      </div>
-                    </td>
-                    <td className="whitespace-nowrap">
-                      <div className="flex items-center gap-2">
-                        {fund.hasPendingContribution && (
-                          <span
-                            className="inline-block h-2 w-2 rounded-full bg-red-500 dark:bg-red-400 flex-shrink-0"
-                            title="Pending contribution"
-                          />
-                        )}
-                        <div className="text-sm font-medium text-gray-900 dark:text-theme-primary">{fund.name}</div>
-                      </div>
-                    </td>
-                    <td className="whitespace-nowrap">
-                      <div className="text-sm">{formatCurrency(fund.totalAmount)}</div>
-                    </td>
-                    <td className="whitespace-nowrap">
-                      <div className="text-sm">{formatCurrency(fund.monthlyContribution)}</div>
-                    </td>
-                    <td className="whitespace-nowrap">
-                      <div className="text-sm">{fund.currentMonth || 0}/{fund.duration}</div>
-                    </td>
-                    <td className="whitespace-nowrap">
-                      <div className="text-sm">{fund._count?.auctions || 0}/{fund._count?.members || 0}</div>
-                    </td>
-                    <td className="whitespace-nowrap">
-                      <span className={getStatusColor(fund.status)}>
-                        {fund.status.toLowerCase()}
-                      </span>
-                    </td>
-                    <td className="whitespace-nowrap">
-                      <div className="text-sm text-gray-400">{formatDate(fund.nextAuctionDate)}</div>
-                    </td>
-                    <td className="whitespace-nowrap text-sm font-medium">
-                      <ActionDropdown
-                        actions={[
-                          {
-                            label: 'Edit',
-                            href: `/chit-funds/${fund.id}/edit`,
-                            onClick: () => {},
-                            icon: (
-                              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path fill="currentColor" d="M16.862 3.487a2.25 2.25 0 113.182 3.182l-9.193 9.193a2.25 2.25 0 01-.708.471l-3.25 1.3a.75.75 0 01-.97-.97l1.3-3.25a2.25 2.25 0 01.471-.708l9.193-9.193zM19.5 6.75L17.25 4.5" />
-                              </svg>
-                            ),
-                            className: 'text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300'
-                          },
-                          {
-                            label: 'Copy',
-                            href: `/chit-funds/new?copy=${fund.id}`,
-                            onClick: () => {},
-                            icon: (
-                              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2v-2" />
-                              </svg>
-                            ),
-                            className: 'text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300'
-                          },
-                          {
-                            label: 'Delete',
-                            onClick: () => handleDeleteChitFund(fund.id),
-                            icon: (
-                              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                              </svg>
-                            ),
-                            className: 'text-red-600 hover:text-red-700'
-                          }
-                        ]}
-                      />
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          {/* Pagination controls */}
-          <div className="p-4 border-t border-gray-200 dark:border-surface-border">
-            <div className="flex flex-col md:flex-row justify-between items-center gap-2 md:gap-0">
-              <div className="mb-2 md:mb-0 flex items-center">
-                <p className="text-xs sm:text-sm text-gray-400 mr-2 sm:mr-4">
-                  Showing {filteredChitFunds.length} of {totalCount} chit funds
-                </p>
-                <div className="flex items-center">
-                  <label htmlFor="pageSize" className="text-xs sm:text-sm text-gray-400 mr-2">
-                    Show:
-                  </label>
-                  <select
-                    id="pageSize"
-                    value={pageSize}
-                    onChange={(e) => {
-                      setPageSize(Number(e.target.value));
-                      setCurrentPage(1);
-                    }}
-                    className="themed-input text-xs sm:text-sm py-1 pl-2 pr-8"
-                  >
-                    <option value="5">5</option>
-                    <option value="10">10</option>
-                    <option value="20">20</option>
-                    <option value="50">50</option>
-                    <option value="100">100</option>
-                  </select>
+            <div className="min-w-0 flex-1 space-y-2">
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0 space-y-1">
+                  {fundName(fund, (event) => event.stopPropagation())}
+                  <div>
+                    <StatusBadge status={fund.status} />
+                  </div>
+                </div>
+                <div className="-mr-2 -mt-2" onClick={(event) => event.stopPropagation()}>
+                  {actionsFor(fund)}
                 </div>
               </div>
-
-              <div className="flex flex-col md:flex-row items-center space-y-2 md:space-y-0">
+              <dl className="grid grid-cols-2 gap-x-3 gap-y-2 text-sm">
                 <div>
-                  <nav className="isolate inline-flex -space-x-px rounded-lg" aria-label="Pagination">
-                    <button
-                      onClick={() => setCurrentPage(1)}
-                      disabled={currentPage === 1}
-                      className="pagination-bordered rounded-l-lg"
-                    >
-                      <span className="sr-only">First</span>
-                      <span className="text-xs">First</span>
-                    </button>
-                    <button
-                      onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-                      disabled={currentPage === 1}
-                      className="pagination-bordered border-y"
-                    >
-                      <span className="sr-only">Previous</span>
-                      <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                        <path fillRule="evenodd" d="M12.79 5.23a.75.75 0 01-.02 1.06L8.832 10l3.938 3.71a.75.75 0 11-1.04 1.08l-4.5-4.25a.75.75 0 010-1.08l4.5-4.25a.75.75 0 011.06.02z" clipRule="evenodd" />
-                      </svg>
-                    </button>
-
-                    {/* Page numbers */}
-                    {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                      let pageNum;
-                      if (totalPages <= 5) {
-                        pageNum = i + 1;
-                      } else if (currentPage <= 3) {
-                        pageNum = i + 1;
-                      } else if (currentPage >= totalPages - 2) {
-                        pageNum = totalPages - 4 + i;
-                      } else {
-                        pageNum = currentPage - 2 + i;
-                      }
-
-                      return (
-                        <button
-                          key={pageNum}
-                          onClick={() => setCurrentPage(pageNum)}
-                          className={
-                            currentPage === pageNum
-                              ? 'pagination-page-active border-y border-blue-600'
-                              : 'pagination-page border-y'
-                          }
-                        >
-                          {pageNum}
-                        </button>
-                      );
-                    })}
-
-                    <button
-                      onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-                      disabled={currentPage === totalPages}
-                      className="pagination-bordered border-y"
-                    >
-                      <span className="sr-only">Next</span>
-                      <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                        <path fillRule="evenodd" d="M7.21 14.77a.75.75 0 01.02-1.06L11.168 10 7.23 6.29a.75.75 0 111.04-1.08l4.5 4.25a.75.75 0 010 1.08l-4.5 4.25a.75.75 0 01-1.06-.02z" clipRule="evenodd" />
-                      </svg>
-                    </button>
-                    <button
-                      onClick={() => setCurrentPage(totalPages)}
-                      disabled={currentPage === totalPages}
-                      className="pagination-bordered rounded-r-lg"
-                    >
-                      <span className="sr-only">Last</span>
-                      <span className="text-xs">Last</span>
-                    </button>
-                  </nav>
+                  <dt className="text-xs text-muted-foreground">Total amount</dt>
+                  <dd>
+                    <Money value={fund.totalAmount} tone="plain" />
+                  </dd>
                 </div>
-              </div>
+                <div className="text-right">
+                  <dt className="text-xs text-muted-foreground">Monthly</dt>
+                  <dd>
+                    <Money value={fund.monthlyContribution} tone="plain" />
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-xs text-muted-foreground">Month</dt>
+                  <dd className="tabular-nums">
+                    {fund.currentMonth || 0} / {fund.duration}
+                  </dd>
+                </div>
+                <div className="text-right">
+                  <dt className="text-xs text-muted-foreground">Auctioned / members</dt>
+                  <dd className="tabular-nums">
+                    {fund._count?.auctions || 0} / {fund._count?.members || 0}
+                  </dd>
+                </div>
+                <div className="col-span-2">
+                  <dt className="text-xs text-muted-foreground">Next auction</dt>
+                  <dd>
+                    <DateText value={fund.nextAuctionDate} />
+                  </dd>
+                </div>
+              </dl>
             </div>
           </div>
-        </div>
-      )}
+        )}
+      />
 
-      {/* Delete Confirmation Modal */}
-      {showDeleteModal && (
-        <div className="modal-overlay">
-          <div className="dark-card p-4 sm:p-6 max-w-md w-full">
-            <h3 className="text-lg font-semibold mb-4 text-white">Confirm Delete</h3>
-            {deleteSuccess ? (
-              <div className="alert-success mb-4">
-                <p>{deleteSuccess}</p>
-              </div>
-            ) : (
-              <>
-                <p className="mb-4 text-gray-300">Are you sure you want to delete this chit fund? This action cannot be undone.</p>
-                <p className="mb-4 text-red-400 font-semibold">Warning: This will also delete all members, contributions, and auctions associated with this chit fund.</p>
-                {deleteError && (
-                  <div className="alert-error mb-4">
-                    <p>{deleteError}</p>
-                  </div>
-                )}
-                <div className="flex justify-end space-x-3">
-                  <button
-                    onClick={() => setShowDeleteModal(false)}
-                    className="btn-secondary"
-                    disabled={isDeleting}
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={confirmDeleteChitFund}
-                    className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-500 transition duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
-                    disabled={isDeleting}
-                  >
-                    {isDeleting ? 'Deleting...' : 'Delete'}
-                  </button>
-                </div>
-              </>
-            )}
-          </div>
+      {selected.size > 0 ? (
+        <div
+          role="region"
+          aria-label="Selected chit funds"
+          className="sticky bottom-[calc(var(--bottom-nav-height,0px)+0.75rem)] z-30 mt-4 flex flex-wrap items-center gap-2 rounded-xl border bg-card p-2 pl-4 shadow-lg"
+        >
+          <p className="mr-auto text-sm font-medium tabular-nums text-foreground" aria-live="polite">
+            {selected.size} selected
+          </p>
+          <Button variant="outline" size="sm" onClick={() => void exportFunds(selectedIds)} disabled={exporting}>
+            <FileDown aria-hidden="true" />
+            {exporting ? 'Exporting…' : 'Export selected'}
+          </Button>
+          <Button variant="destructive" size="sm" onClick={() => setBulkIds(selectedIds)}>
+            <Trash2 aria-hidden="true" />
+            Delete selected
+          </Button>
+          <Button variant="ghost" size="sm" onClick={() => setSelected(new Set())} aria-label="Clear selection">
+            <X aria-hidden="true" />
+          </Button>
         </div>
-      )}
+      ) : null}
 
-      {/* Bulk Delete Confirmation Modal */}
-      {showBulkDeleteModal && (
-        <div className="modal-overlay">
-          <div className="dark-card p-4 sm:p-6 max-w-md w-full">
-            <h3 className="text-lg font-semibold mb-4 text-white">Confirm Bulk Delete</h3>
-            {bulkDeleteSuccess ? (
-              <div className="alert-success mb-4">
-                <p>{bulkDeleteSuccess}</p>
-              </div>
-            ) : (
-              <>
-                <p className="mb-4 text-gray-300">Are you sure you want to delete {selectedChitFunds.length} chit funds? This action cannot be undone.</p>
-                <p className="mb-4 text-red-400 font-semibold">Warning: This will also delete all members, contributions, and auctions associated with these chit funds.</p>
-                {bulkDeleteError && (
-                  <div className="alert-error mb-4">
-                    <p>{bulkDeleteError}</p>
-                  </div>
-                )}
-                <div className="flex justify-end space-x-3">
-                  <button
-                    onClick={() => setShowBulkDeleteModal(false)}
-                    className="btn-secondary"
-                    disabled={isBulkDeleting}
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={confirmBulkDeleteChitFunds}
-                    className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-500 transition duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
-                    disabled={isBulkDeleting}
-                  >
-                    {isBulkDeleting ? 'Deleting...' : 'Delete Selected'}
-                  </button>
-                </div>
-              </>
-            )}
-          </div>
-        </div>
-      )}
+      <ConfirmDialog
+        open={bulkIds !== null}
+        onOpenChange={(open) => !open && setBulkIds(null)}
+        title={`Delete ${bulkIds?.length ?? 0} chit ${bulkIds?.length === 1 ? 'fund' : 'funds'}?`}
+        description={deleteDescription(bulkIds?.length ?? 0)}
+        confirmLabel="Delete selected"
+        onConfirm={bulkDelete}
+      />
     </div>
   );
 }

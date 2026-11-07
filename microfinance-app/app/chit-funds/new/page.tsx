@@ -1,661 +1,162 @@
-// @ts-nocheck
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+/**
+ * New chit fund (Form template). ?copy=<id> prefills from a fund ("<name> - Copy", no start
+ * date, template picker hidden); ?template=<id> applies a template and locks the financial
+ * fields. The URL is read after hydration (the page is prerendered without search params).
+ */
+import * as React from 'react';
 import Link from 'next/link';
-import { invalidateDashboardCache } from '../../../lib/dashboardCache';
+import { useRouter, useSearchParams } from 'next/navigation';
+
+import { toast } from '@/lib/toast';
+import { useHydrated } from '@/hooks/use-hydrated';
+import { CHIT_FUNDS, chitFundWrites, invalidateChitFunds, useChitFund, type ChitFundDetail } from '@/lib/query/chit-funds';
+import { fetchTemplate, TEMPLATES } from '@/lib/query/chit-fund-templates';
+import {
+  ChitFundForm,
+  EMPTY_FUND_FORM,
+  stateFromTemplate,
+  type ChitFundFormSubmit,
+  type FixedAmounts,
+  type FundFormState,
+} from '@/app/components/chit-funds/ChitFundForm';
+import { errorMessage, ErrorState } from '@/components/kit/error-state';
+import { PageContainer, PageSkeleton } from '@/components/kit/page-container';
+import { PageHeader } from '@/components/kit/page-header';
+import { Button } from '@/components/ui/button';
+
+/** The request body /chit-funds/new has always sent (strings as typed; fixedAmounts only for Fixed). */
+function createBody({ values: v, fixedAmounts, templateId }: ChitFundFormSubmit) {
+  return {
+    name: v.name,
+    totalAmount: v.totalAmount,
+    monthlyContribution: v.monthlyContribution,
+    firstMonthContribution: v.firstMonthContribution,
+    duration: v.duration,
+    membersCount: v.membersCount,
+    startDate: v.startDate,
+    description: v.description,
+    chitFundType: v.chitFundType,
+    fixedAmounts: v.chitFundType === 'Fixed' ? fixedAmounts : undefined,
+    templateId: templateId ?? undefined,
+  };
+}
+
+/** Prefill from a fund being copied, as the page always did. */
+function stateFromCopy(data: ChitFundDetail): FundFormState {
+  const fixedAmounts: FixedAmounts = {};
+  if (data.chitFundType === 'Fixed') {
+    for (const item of data.fixedAmounts ?? []) fixedAmounts[item.month] = item.amount.toString();
+  }
+  return {
+    values: {
+      ...EMPTY_FUND_FORM,
+      name: `${data.name} - Copy`,
+      totalAmount: data.totalAmount.toString(),
+      monthlyContribution: data.monthlyContribution.toString(),
+      firstMonthContribution: data.firstMonthContribution?.toString() || '',
+      duration: data.duration.toString(),
+      membersCount: data.membersCount.toString(),
+      startDate: '',
+      description: data.description || '',
+      chitFundType: data.chitFundType,
+    },
+    fixedAmounts,
+  };
+}
+
+const BLANK: FundFormState = { values: EMPTY_FUND_FORM, fixedAmounts: {} };
 
 export default function NewChitFundPage() {
+  return (
+    <PageContainer fallback={<PageSkeleton rows={8} />}>
+      <NewChitFund />
+    </PageContainer>
+  );
+}
+
+function NewChitFund() {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const copyFromId = searchParams.get('copy');
-  const templateFromId = searchParams.get('template');
-  const [isLoading, setIsLoading] = useState(false);
-  // Provenance: the template this fund is instantiated from (stamped on submit).
-  const [linkedTemplateId, setLinkedTemplateId] = useState<number | null>(null);
-  // Templates available to pick from in the on-page selector.
-  const [templates, setTemplates] = useState<any[]>([]);
-  // When a template is selected (via the dropdown or a ?template= link), financial/
-  // structural fields are locked to it (the template is the single source of truth).
-  // Only instance fields (name, start date, description) stay editable.
-  const isFromTemplate = linkedTemplateId != null;
-  
-  const [formData, setFormData] = useState({
-    name: '',
-    totalAmount: '',
-    monthlyContribution: '',
-    firstMonthContribution: '',
-    duration: '',
-    membersCount: '',
-    startDate: '',
-    description: '',
-    chitFundType: 'Auction', // Default to Auction
-  });
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [errors, setErrors] = useState<Record<string, string>>({});
-  const [fixedAmounts, setFixedAmounts] = useState<{[month: number]: string}>({});
+  const hydrated = useHydrated();
+  const search = useSearchParams();
+  const copyId = hydrated ? parseInt(search.get('copy') ?? '', 10) || null : null;
+  const templateParam = hydrated ? parseInt(search.get('template') ?? '', 10) || null : null;
 
-  // Fetch chit fund data when copying
-  useEffect(() => {
-    if (!copyFromId) return;
-    
-    const fetchChitFundData = async () => {
-      setIsLoading(true);
-      try {
-        // Fetch the chit fund details
-        const response = await fetch(`/api/chit-funds/consolidated?action=detail&id=${copyFromId}`);
-        if (!response.ok) throw new Error('Failed to fetch chit fund');
-        const data = await response.json();
+  const copyQuery = useChitFund(copyId);
+  const [initial, setInitial] = React.useState<{ state: FundFormState; templateId: number | null } | null>(null);
+  const [linkedTemplate, setLinkedTemplate] = React.useState<number | null>(null);
 
-        // Fixed amounts are already included in the response under fixedAmounts
-        const fixedAmountsData = data.fixedAmounts?.reduce((acc: any, item: any) => {
-          acc[item.month] = item.amount.toString();
-          return acc;
-        }, {}) || {};
-
-        // Remove non-copyable fields and set default name
-        setFormData({
-          name: `${data.name} - Copy`,
-          totalAmount: data.totalAmount.toString(),
-          monthlyContribution: data.monthlyContribution.toString(),
-          firstMonthContribution: data.firstMonthContribution?.toString() || '',
-          duration: data.duration.toString(),
-          membersCount: data.membersCount.toString(),
-          startDate: '',  // Reset start date as it should be new
-          description: data.description || '',
-          chitFundType: data.chitFundType,
-        });
-
-        if (data.chitFundType === 'Fixed') {
-          setFixedAmounts(fixedAmountsData);
-        }
-
-      } catch (error) {
-        console.error('Error fetching chit fund data:', error);
-        alert('Failed to load chit fund data for copying');
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchChitFundData();
-  }, [copyFromId]);
-
-  // Load the list of templates for the on-page selector.
-  useEffect(() => {
-    if (copyFromId) return; // template selector is hidden in copy mode
-    const loadTemplates = async () => {
-      try {
-        const res = await fetch('/api/chit-fund-templates/consolidated?action=list');
-        if (res.ok) {
-          const data = await res.json();
-          setTemplates(data.templates || []);
-        }
-      } catch (error) {
-        console.error('Error loading templates:', error);
-      }
-    };
-    loadTemplates();
-  }, [copyFromId]);
-
-  // Prefill the form's structural fields from a template and lock them. Leaves
-  // instance fields (name, startDate, description) untouched so a user who already
-  // typed a name doesn't lose it when picking a template.
-  const applyTemplate = async (templateId: number) => {
-    try {
-      const response = await fetch(`/api/chit-fund-templates/consolidated?action=detail&id=${templateId}`);
-      if (!response.ok) throw new Error('Failed to fetch template');
-      const data = await response.json();
-
-      setFormData((prev) => ({
-        ...prev,
-        totalAmount: data.totalAmount.toString(),
-        monthlyContribution: data.monthlyContribution.toString(),
-        firstMonthContribution: data.firstMonthContribution?.toString() || '',
-        duration: data.duration.toString(),
-        membersCount: data.membersCount.toString(),
-        chitFundType: data.chitFundType,
-      }));
-
-      if (data.chitFundType === 'Fixed' && data.fixedAmountsPattern) {
-        const fixedAmountsData: { [month: number]: string } = {};
-        Object.keys(data.fixedAmountsPattern).forEach((m) => {
-          fixedAmountsData[Number(m)] = data.fixedAmountsPattern[m].toString();
-        });
-        setFixedAmounts(fixedAmountsData);
-      } else {
-        setFixedAmounts({});
-      }
-
-      setLinkedTemplateId(data.id);
-    } catch (error) {
-      console.error('Error fetching template data:', error);
-      alert('Failed to load template data');
-    }
-  };
-
-  // Clear the selected template — unlock fields for manual entry.
-  const clearTemplate = () => {
-    setLinkedTemplateId(null);
-  };
-
-  // Deep-link support: /chit-funds/new?template=<id> pre-selects that template.
-  useEffect(() => {
-    if (!templateFromId) return;
-    (async () => {
-      setIsLoading(true);
-      await applyTemplate(Number(templateFromId));
-      setIsLoading(false);
-    })();
-  }, [templateFromId]);
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
-    const { name, value } = e.target;
-
-    let updatedFormData = {
-      ...formData,
-      [name]: value,
-    };
-
-
-    // If chit fund type changes to Fixed, auto-calculate first month contribution
-    if (name === 'chitFundType' && value === 'Fixed' && formData.totalAmount && formData.duration) {
-      const totalAmount = parseFloat(formData.totalAmount);
-      const duration = parseInt(formData.duration);
-      if (!isNaN(totalAmount) && totalAmount > 0 && !isNaN(duration) && duration > 0) {
-        updatedFormData.firstMonthContribution = (totalAmount / duration).toString();
-      }
-    }
-
-    // If total amount or duration changes and chit fund type is Fixed, recalculate first month contribution
-    if ((name === 'totalAmount' || name === 'duration') && formData.chitFundType === 'Fixed') {
-      const totalAmount = parseFloat(name === 'totalAmount' ? value : formData.totalAmount);
-      const duration = parseInt(name === 'duration' ? value : formData.duration);
-      if (!isNaN(totalAmount) && totalAmount > 0 && !isNaN(duration) && duration > 0) {
-        updatedFormData.firstMonthContribution = (totalAmount / duration).toString();
-      }
-    }
-
-    // If chit fund type changes from Fixed to Auction, clear first month contribution
-    if (name === 'chitFundType' && value === 'Auction') {
-      updatedFormData.firstMonthContribution = '';
-    }
-
-    setFormData(updatedFormData);
-
-    // Auto-calculate members count only (removed monthly contribution auto-calculation)
-    if (name === 'duration') {
-      if (value) {
-        const duration = parseInt(value);
-        if (!isNaN(duration) && duration > 0) {
-          const membersCount = duration;
-
-          setFormData(prev => ({
-            ...prev,
-            membersCount: membersCount.toString(),
-          }));
-
-          // If it's a fixed type, initialize fixed amounts
-          if (formData.chitFundType === 'Fixed') {
-            const newFixedAmounts: {[month: number]: string} = {};
-            for (let i = 1; i <= duration; i++) {
-              newFixedAmounts[i] = fixedAmounts[i] || '';
-            }
-            setFixedAmounts(newFixedAmounts);
-          }
-        }
-      }
-    }
-
-    // If chit fund type changes to Fixed, initialize fixed amounts
-    if (name === 'chitFundType' && value === 'Fixed' && formData.duration) {
-      const duration = parseInt(formData.duration);
-      const newFixedAmounts: {[month: number]: string} = {};
-      for (let i = 1; i <= duration; i++) {
-        newFixedAmounts[i] = fixedAmounts[i] || '';
-      }
-      setFixedAmounts(newFixedAmounts);
-    }
-
-    // If chit fund type changes to Auction, clear fixed amounts
-    if (name === 'chitFundType' && value === 'Auction') {
-      setFixedAmounts({});
-    }
-  };
-
-  const handleFixedAmountChange = (month: number, value: string) => {
-    setFixedAmounts({
-      ...fixedAmounts,
-      [month]: value,
-    });
-  };
-
-  const validateForm = () => {
-    const newErrors: Record<string, string> = {};
-
-    if (!formData.name.trim()) {
-      newErrors.name = 'Chit fund name is required';
-    }
-
-    if (!formData.totalAmount) {
-      newErrors.totalAmount = 'Total amount is required';
-    } else if (isNaN(Number(formData.totalAmount)) || Number(formData.totalAmount) <= 0) {
-      newErrors.totalAmount = 'Please enter a valid amount';
-    }
-
-    if (!formData.monthlyContribution) {
-      newErrors.monthlyContribution = 'Monthly contribution is required';
-    } else if (isNaN(Number(formData.monthlyContribution)) || Number(formData.monthlyContribution) <= 0) {
-      newErrors.monthlyContribution = 'Please enter a valid amount';
-    }
-
-    if (!formData.duration) {
-      newErrors.duration = 'Duration is required';
-    } else if (isNaN(Number(formData.duration)) || Number(formData.duration) <= 0 || Number(formData.duration) > 60) {
-      newErrors.duration = 'Please enter a valid duration (1-60 months)';
-    }
-
-    if (!formData.membersCount) {
-      newErrors.membersCount = 'Members count is required';
-    } else if (isNaN(Number(formData.membersCount)) || Number(formData.membersCount) <= 0) {
-      newErrors.membersCount = 'Please enter a valid number of members';
-    }
-
-    if (!formData.startDate) {
-      newErrors.startDate = 'Start date is required';
-    }
-
-    // Validate first month contribution if chit fund type is Fixed
-    if (formData.chitFundType === 'Fixed') {
-      if (!formData.firstMonthContribution) {
-        newErrors.firstMonthContribution = '1st month contribution is required for Fixed type chit funds';
-      } else if (isNaN(Number(formData.firstMonthContribution)) || Number(formData.firstMonthContribution) <= 0) {
-        newErrors.firstMonthContribution = 'Please enter a valid amount';
-      }
-    }
-
-    // Validate fixed amounts if chit fund type is Fixed
-    if (formData.chitFundType === 'Fixed' && formData.duration) {
-      const duration = parseInt(formData.duration);
-      for (let i = 1; i <= duration; i++) {
-        if (!fixedAmounts[i] || isNaN(Number(fixedAmounts[i])) || Number(fixedAmounts[i]) <= 0) {
-          newErrors[`fixedAmount${i}`] = `Amount for month ${i} is required and must be a valid positive number`;
-        }
-      }
-    }
-
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
-
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-
-    if (!validateForm()) {
+  // Prefill once (copy or template), so background revalidation never overwrites typing.
+  React.useEffect(() => {
+    if (!hydrated || initial) return;
+    if (copyId) {
+      if (copyQuery.data) setInitial({ state: stateFromCopy(copyQuery.data), templateId: null });
       return;
     }
-
-    setIsSubmitting(true);
-
-    try {
-      // Prepare the data to send
-      const dataToSend = {
-        ...formData,
-        fixedAmounts: formData.chitFundType === 'Fixed' ? fixedAmounts : undefined,
-        // Provenance link (nullable) — only set when instantiated from a template
-        templateId: linkedTemplateId ?? undefined,
+    if (templateParam) {
+      let live = true;
+      fetchTemplate(templateParam)
+        .then((template) => {
+          if (!live) return;
+          setInitial({ state: stateFromTemplate(EMPTY_FUND_FORM, template), templateId: template.id });
+          setLinkedTemplate(template.id);
+        })
+        .catch(() => {
+          if (!live) return;
+          toast.error('Failed to load template data');
+          setInitial({ state: BLANK, templateId: null });
+        });
+      return () => {
+        live = false;
       };
+    }
+    setInitial({ state: BLANK, templateId: null });
+  }, [hydrated, initial, copyId, templateParam, copyQuery.data]);
 
-      // Make the actual API call to create a chit fund
-      const response = await fetch('/api/chit-funds/consolidated?action=create', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(dataToSend),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to create chit fund');
-      }
-
-      const data = await response.json();
-      console.log('Chit fund created successfully:', data);
-
-      // Redirect to chit funds page after successful submission
-      invalidateDashboardCache();
+  const submit = async (submitted: ChitFundFormSubmit) => {
+    try {
+      await chitFundWrites.create(createBody(submitted));
+      // This page's own queries (template list, copied fund) are not refetched on the way out.
+      void invalidateChitFunds([TEMPLATES, [CHIT_FUNDS, 'detail']]);
+      toast.success('Chit fund created', { description: submitted.values.name });
       router.push('/chit-funds');
     } catch (error) {
-      console.error('Error creating chit fund:', error);
-      setIsSubmitting(false);
-      alert('Failed to create chit fund. Please try again.');
+      toast.error('Failed to create chit fund', { description: `${errorMessage(error) ?? 'An unknown error occurred'}. Please try again.` });
+      throw error;
     }
   };
 
-  if (isLoading) {
-    return (
-      <div className="container mx-auto px-4 py-8">
-        <div className="flex justify-center items-center h-64">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-700 mx-auto mb-4"></div>
-            <p className="text-gray-700 dark:text-theme-secondary">Loading chit fund data...</p>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  const title = linkedTemplate !== null ? 'Create chit fund from template' : copyId ? 'Copy chit fund' : 'New chit fund';
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="page-title">
-          {isFromTemplate ? 'Create Chit Fund from Template' : copyFromId ? 'Copy Chit Fund' : 'Create New Chit Fund'}
-        </h1>
-        <Link href="/chit-funds" className="btn-neutral px-4 py-2 rounded-lg transition duration-300">
-          Cancel
-        </Link>
-      </div>
-
-      {isFromTemplate && (
-        <div className="mb-6 rounded-lg border border-blue-200 bg-blue-50 dark:bg-blue-900/20 dark:border-blue-800 px-4 py-3 text-sm text-blue-800 dark:text-blue-300">
-          Financial fields are <strong>locked to the template</strong>. Enter only the name, start date, and (optionally) a
-          description. To change amounts, edit the template instead.
-        </div>
+    <div>
+      <PageHeader
+        title={title}
+        description={copyId && copyQuery.data ? `Copying ${copyQuery.data.name}. Choose a new start date.` : 'Set up a new chit fund scheme.'}
+        actions={
+          <Button variant="ghost" asChild>
+            <Link href="/chit-funds">Cancel</Link>
+          </Button>
+        }
+      />
+      {initial ? (
+        <ChitFundForm
+          mode="create"
+          initial={initial.state}
+          initialTemplateId={initial.templateId}
+          copyMode={!!copyId}
+          onTemplateChange={setLinkedTemplate}
+          onSubmit={submit}
+          cancelHref="/chit-funds"
+          submitLabel="Create chit fund"
+          submittingLabel="Creating…"
+        />
+      ) : copyQuery.error ? (
+        <ErrorState title="Failed to load chit fund data for copying" error={copyQuery.error} onRetry={() => void copyQuery.mutate()} />
+      ) : (
+        <PageSkeleton rows={8} />
       )}
-
-      <div className="themed-card overflow-hidden">
-        <form onSubmit={handleSubmit} className="p-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {!copyFromId && (
-              <div className="md:col-span-2">
-                <label htmlFor="templateSelect" className="block text-sm font-medium text-gray-700 dark:text-theme-secondary mb-1">
-                  Start from Template
-                </label>
-                <select
-                  id="templateSelect"
-                  value={linkedTemplateId ?? ''}
-                  onChange={(e) => {
-                    const v = e.target.value;
-                    if (!v) { clearTemplate(); } else { applyTemplate(Number(v)); }
-                  }}
-                  className="w-full px-4 py-2 border border-gray-200 dark:border-surface-border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                >
-                  <option value="">Blank — enter all details manually</option>
-                  {templates.map((t) => (
-                    <option key={t.id} value={t.id}>
-                      {t.name} · {t.chitFundType} · {t.duration} mo · ₹{t.totalAmount}
-                    </option>
-                  ))}
-                </select>
-                <p className="mt-1 text-xs text-gray-500">
-                  {isFromTemplate
-                    ? 'Financial fields are locked to the selected template. Choose "Blank" to enter them manually.'
-                    : templates.length === 0
-                      ? 'No templates yet — create one under Chit Fund Templates in the left nav.'
-                      : 'Pick a template to auto-fill and lock the financial fields.'}
-                </p>
-              </div>
-            )}
-
-            <div className="md:col-span-2">
-              <label htmlFor="name" className="block text-sm font-medium text-gray-700 dark:text-theme-secondary mb-1">
-                Chit Fund Name <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="text"
-                id="name"
-                name="name"
-                value={formData.name}
-                onChange={handleChange}
-                className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                  errors.name ? 'border-red-500' : 'border-gray-200 dark:border-surface-border'
-                }`}
-                placeholder="e.g., Gold Chit Fund"
-              />
-              {errors.name && (
-                <p className="mt-1 text-sm text-red-500">{errors.name}</p>
-              )}
-            </div>
-
-            <div>
-              <label htmlFor="totalAmount" className="block text-sm font-medium text-gray-700 dark:text-theme-secondary mb-1">
-                Total Amount (₹) <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="number"
-                id="totalAmount"
-                name="totalAmount"
-                value={formData.totalAmount}
-                onChange={handleChange}
-                min="1"
-                step="1"
-                readOnly={isFromTemplate}
-                className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                  errors.totalAmount ? 'border-red-500' : 'border-gray-200 dark:border-surface-border'
-                } ${isFromTemplate ? 'bg-gray-100 dark:bg-gray-800 cursor-not-allowed' : ''}`}
-                placeholder="e.g., 1200000"
-              />
-              {errors.totalAmount && (
-                <p className="mt-1 text-sm text-red-500">{errors.totalAmount}</p>
-              )}
-            </div>
-
-            <div>
-              <label htmlFor="duration" className="block text-sm font-medium text-gray-700 dark:text-theme-secondary mb-1">
-                Duration (months) <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="number"
-                id="duration"
-                name="duration"
-                value={formData.duration}
-                onChange={handleChange}
-                min="1"
-                max="60"
-                readOnly={isFromTemplate}
-                className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                  errors.duration ? 'border-red-500' : 'border-gray-200 dark:border-surface-border'
-                } ${isFromTemplate ? 'bg-gray-100 dark:bg-gray-800 cursor-not-allowed' : ''}`}
-                placeholder="e.g., 1-60"
-              />
-              {errors.duration && (
-                <p className="mt-1 text-sm text-red-500">{errors.duration}</p>
-              )}
-            </div>
-
-            <div>
-              <label htmlFor="chitFundType" className="block text-sm font-medium text-gray-700 dark:text-theme-secondary mb-1">
-                Chit Fund Type <span className="text-red-500">*</span>
-              </label>
-              <select
-                id="chitFundType"
-                name="chitFundType"
-                value={formData.chitFundType}
-                onChange={handleChange}
-                disabled={isFromTemplate}
-                className={`w-full px-4 py-2 border border-gray-200 dark:border-surface-border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${isFromTemplate ? 'bg-gray-100 dark:bg-gray-800 cursor-not-allowed' : ''}`}
-              >
-                <option value="Auction">Auction</option>
-                <option value="Fixed">Fixed</option>
-              </select>
-              <p className="mt-1 text-xs text-gray-500">
-                Auction: Members bid for the amount each month. Fixed: Predefined amounts for each month.
-              </p>
-            </div>
-
-            <div>
-              <label htmlFor="membersCount" className="block text-sm font-medium text-gray-700 dark:text-theme-secondary mb-1">
-                Number of Members <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="number"
-                id="membersCount"
-                name="membersCount"
-                value={formData.membersCount}
-                onChange={handleChange}
-                min="1"
-                max="50"
-                readOnly={isFromTemplate}
-                className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                  errors.membersCount ? 'border-red-500' : 'border-gray-200 dark:border-surface-border'
-                } ${isFromTemplate ? 'bg-gray-100 dark:bg-gray-800 cursor-not-allowed' : ''}`}
-                placeholder="e.g., 20"
-              />
-              {errors.membersCount && (
-                <p className="mt-1 text-sm text-red-500">{errors.membersCount}</p>
-              )}
-              <p className="mt-1 text-xs text-gray-500">Typically equal to the duration in months</p>
-            </div>
-
-            <div>
-              <label htmlFor="monthlyContribution" className="block text-sm font-medium text-gray-700 dark:text-theme-secondary mb-1">
-                Monthly Contribution (₹) <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="number"
-                id="monthlyContribution"
-                name="monthlyContribution"
-                value={formData.monthlyContribution}
-                onChange={handleChange}
-                min="1"
-                step="1"
-                readOnly={isFromTemplate}
-                className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                  errors.monthlyContribution ? 'border-red-500' : 'border-gray-200 dark:border-surface-border'
-                } ${isFromTemplate ? 'bg-gray-100 dark:bg-gray-800 cursor-not-allowed' : ''}`}
-                placeholder="e.g., 10000"
-              />
-              {errors.monthlyContribution && (
-                <p className="mt-1 text-sm text-red-500">{errors.monthlyContribution}</p>
-              )}
-              <p className="mt-1 text-xs text-gray-500">
-                {formData.chitFundType === 'Fixed'
-                  ? 'Monthly contribution for months 2 onwards'
-                  : 'Enter the monthly contribution amount'
-                }
-              </p>
-            </div>
-
-            {/* First Month Contribution - Only show when Fixed type is selected */}
-            {formData.chitFundType === 'Fixed' && (
-              <div>
-                <label htmlFor="firstMonthContribution" className="block text-sm font-medium text-gray-700 dark:text-theme-secondary mb-1">
-                  1st Month Contribution (₹) <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="number"
-                  id="firstMonthContribution"
-                  name="firstMonthContribution"
-                  value={formData.firstMonthContribution}
-                  onChange={handleChange}
-                  min="1"
-                  step="1"
-                  readOnly={isFromTemplate}
-                  className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                    errors.firstMonthContribution ? 'border-red-500' : 'border-gray-200 dark:border-surface-border'
-                  } ${isFromTemplate ? 'bg-gray-100 dark:bg-gray-800 cursor-not-allowed' : ''}`}
-                  placeholder="Auto-calculated from total amount"
-                />
-                {errors.firstMonthContribution && (
-                  <p className="mt-1 text-sm text-red-500">{errors.firstMonthContribution}</p>
-                )}
-                <p className="mt-1 text-xs text-blue-600 dark:text-blue-400">
-                  Default: Total Amount ÷ Duration = ₹{formData.totalAmount || '0'} ÷ {formData.duration || '0'} = ₹{formData.firstMonthContribution || '0'}
-                </p>
-              </div>
-            )}
-
-            <div>
-              <label htmlFor="startDate" className="block text-sm font-medium text-gray-700 dark:text-theme-secondary mb-1">
-                Start Date <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="date"
-                id="startDate"
-                name="startDate"
-                value={formData.startDate}
-                onChange={handleChange}
-                className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                  errors.startDate ? 'border-red-500' : 'border-gray-200 dark:border-surface-border'
-                }`}
-              />
-              {errors.startDate && (
-                <p className="mt-1 text-sm text-red-500">{errors.startDate}</p>
-              )}
-            </div>
-
-            <div className="md:col-span-2">
-              <label htmlFor="description" className="block text-sm font-medium text-gray-700 dark:text-theme-secondary mb-1">
-                Description
-              </label>
-              <textarea
-                id="description"
-                name="description"
-                value={formData.description}
-                onChange={handleChange}
-                rows={3}
-                className="w-full px-4 py-2 border border-gray-200 dark:border-surface-border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="Additional details about this chit fund..."
-              />
-            </div>
-
-            {/* Fixed Amounts Section - Only show when Fixed type is selected */}
-            {formData.chitFundType === 'Fixed' && formData.duration && (
-              <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-gray-700 dark:text-theme-secondary mb-3">
-                  Fixed Amounts for Each Month <span className="text-red-500">*</span>
-                </label>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {Array.from({ length: parseInt(formData.duration) }, (_, index) => {
-                    const month = index + 1;
-                    return (
-                      <div key={month}>
-                        <label htmlFor={`fixedAmount${month}`} className="block text-sm font-medium text-gray-700 dark:text-theme-secondary mb-1">
-                          Month {month} Amount (₹)
-                        </label>
-                        <input
-                          type="number"
-                          id={`fixedAmount${month}`}
-                          value={fixedAmounts[month] || ''}
-                          onChange={(e) => handleFixedAmountChange(month, e.target.value)}
-                          min="1"
-                          step="1"
-                          readOnly={isFromTemplate}
-                          className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                            errors[`fixedAmount${month}`] ? 'border-red-500' : 'border-gray-200 dark:border-surface-border'
-                          } ${isFromTemplate ? 'bg-gray-100 dark:bg-gray-800 cursor-not-allowed' : ''}`}
-                          placeholder={`e.g., ${40000 + (month - 1) * 5000}`}
-                        />
-                        {errors[`fixedAmount${month}`] && (
-                          <p className="mt-1 text-xs text-red-500">{errors[`fixedAmount${month}`]}</p>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-                <p className="mt-2 text-xs text-gray-500">
-                  Define the amount to be given to the winner for each month. Example: Month 1: ₹40,000, Month 2: ₹45,000, etc.
-                </p>
-              </div>
-            )}
-          </div>
-
-          <div className="mt-8 flex justify-end">
-            <Link href="/chit-funds" className="btn-neutral px-6 py-2 rounded-lg transition duration-300 mr-4">
-              Cancel
-            </Link>
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {isSubmitting ? 'Creating...' : 'Create Chit Fund'}
-            </button>
-          </div>
-        </form>
-      </div>
     </div>
   );
 }

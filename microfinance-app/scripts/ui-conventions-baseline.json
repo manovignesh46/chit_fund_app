@@ -2,10 +2,10 @@
   "description": "UI conventions ratchet baseline (scripts/check-ui-conventions.js). Totals may only go down.",
   "totals": {
     "reload": 0,
-    "alert": 13,
-    "confirm": 2,
+    "alert": 5,
+    "confirm": 1,
     "hardNav": 2,
-    "palette": 255
+    "palette": 204
   },
   "files": {
     "app/activities/page.tsx": {
@@ -14,24 +14,6 @@
     "app/calendar/page.tsx": {
       "palette": 22
     },
-    "app/chit-fund-templates/TemplateForm.tsx": {
-      "alert": 1,
-      "palette": 2
-    },
-    "app/chit-fund-templates/[id]/edit/page.tsx": {
-      "palette": 1
-    },
-    "app/chit-fund-templates/[id]/page.tsx": {
-      "palette": 3
-    },
-    "app/chit-fund-templates/page.tsx": {
-      "alert": 1,
-      "confirm": 1,
-      "palette": 6
-    },
-    "app/chit-funds/[id]/assign-member/page.tsx": {
-      "palette": 4
-    },
     "app/chit-funds/[id]/auctions/page.tsx": {
       "palette": 9
     },
@@ -39,36 +21,11 @@
       "hardNav": 1,
       "palette": 11
     },
-    "app/chit-funds/[id]/edit/page.tsx": {
-      "alert": 1,
-      "palette": 2
-    },
     "app/chit-funds/[id]/members/[memberId]/contributions/page.tsx": {
       "palette": 3
     },
     "app/chit-funds/[id]/members/page.tsx": {
       "palette": 17
-    },
-    "app/chit-funds/[id]/page.tsx": {
-      "alert": 1,
-      "palette": 15
-    },
-    "app/chit-funds/auction-bookings/page.tsx": {
-      "palette": 4
-    },
-    "app/chit-funds/auction-history/page.tsx": {
-      "palette": 1
-    },
-    "app/chit-funds/new/page.tsx": {
-      "alert": 3,
-      "palette": 2
-    },
-    "app/chit-funds/page.tsx": {
-      "alert": 1,
-      "palette": 9
-    },
-    "app/chit-funds/projection/page.tsx": {
-      "palette": 2
     },
     "app/components/BalanceSummary.tsx": {
       "palette": 1

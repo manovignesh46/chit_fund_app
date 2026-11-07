@@ -1,70 +1,81 @@
-// @ts-nocheck
 'use client';
 
-import React, { useEffect, useState } from 'react';
-import { useParams } from 'next/navigation';
+/** Edit a chit fund template (Form template). Existing funds keep the values they were created with. */
+import * as React from 'react';
 import Link from 'next/link';
+import { useParams } from 'next/navigation';
+import { Info } from 'lucide-react';
+
+import { ApiError } from '@/lib/query/fetcher';
+import { useChitFundTemplate, type ChitFundTemplate } from '@/lib/query/chit-fund-templates';
 import TemplateForm from '../../TemplateForm';
-import { chitFundTemplateAPI } from '../../../../lib/api';
+import { Button } from '@/components/ui/button';
+import { useBreadcrumbLabel } from '@/components/kit/app-shell/breadcrumb-labels';
+import { EmptyState } from '@/components/kit/empty-state';
+import { ErrorState } from '@/components/kit/error-state';
+import { PageContainer, PageSkeleton } from '@/components/kit/page-container';
+import { PageHeader } from '@/components/kit/page-header';
 
 export default function EditChitFundTemplatePage() {
-  const params = useParams();
-  const id = Number(params.id);
-  const [initial, setInitial] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-
-  useEffect(() => {
-    const load = async () => {
-      try {
-        const data = await chitFundTemplateAPI.getById(id);
-        setInitial(data);
-      } catch (e) {
-        setError(e?.message || 'Failed to load template');
-      } finally {
-        setLoading(false);
-      }
-    };
-    load();
-  }, [id]);
-
-  if (loading) {
-    return (
-      <div className="container mx-auto px-4 py-8">
-        <div className="flex justify-center items-center h-64">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-700 mx-auto mb-4"></div>
-            <p className="text-gray-700 dark:text-theme-secondary">Loading template...</p>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (error || !initial) {
-    return (
-      <div className="container mx-auto px-4 py-8">
-        <p className="text-red-500">{error || 'Template not found'}</p>
-        <Link href="/chit-fund-templates" className="text-blue-600 dark:text-blue-400 hover:underline">Back to templates</Link>
-      </div>
-    );
-  }
-
   return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="page-title">Edit Template</h1>
-        <Link href="/chit-fund-templates" className="btn-neutral px-4 py-2 rounded-lg transition duration-300">
-          Cancel
-        </Link>
-      </div>
-      {initial._count?.chitFunds > 0 && (
-        <div className="mb-6 rounded-lg border border-blue-200 bg-blue-50 dark:bg-blue-900/20 dark:border-blue-800 px-4 py-3 text-sm text-blue-800 dark:text-blue-300">
-          {initial._count.chitFunds} chit fund(s) were created from this template. Editing it will <strong>not</strong> affect them —
-          each fund keeps the values it was created with.
-        </div>
+    <PageContainer fallback={<PageSkeleton rows={8} />}>
+      <EditTemplate />
+    </PageContainer>
+  );
+}
+
+function EditTemplate() {
+  const params = useParams<{ id: string }>();
+  const id = parseInt(params.id, 10) || 0;
+  const { data, error, mutate } = useChitFundTemplate(id || null);
+  useBreadcrumbLabel(id ? `/chit-fund-templates/${id}` : null, data?.name);
+
+  // Prefill once: background revalidation must not overwrite what the user is typing.
+  const [initial, setInitial] = React.useState<ChitFundTemplate | null>(null);
+  React.useEffect(() => {
+    if (data && !initial) setInitial(data);
+  }, [data, initial]);
+
+  const status = error instanceof ApiError ? error.status : 0;
+  const usedBy = initial?._count?.chitFunds ?? 0;
+  return (
+    <div>
+      <PageHeader
+        title="Edit template"
+        description={data?.name}
+        actions={
+          <Button variant="ghost" asChild>
+            <Link href="/chit-fund-templates">Cancel</Link>
+          </Button>
+        }
+      />
+      {initial ? (
+        <>
+          {usedBy > 0 ? (
+            <p className="mb-6 flex items-start gap-2 rounded-md border border-info-border bg-info-subtle px-3 py-2 text-sm text-info-text">
+              <Info aria-hidden="true" className="mt-0.5 h-4 w-4 shrink-0" />
+              <span>
+                {usedBy} chit fund(s) were created from this template. Editing it will <strong>not</strong> affect them — each fund keeps the values it
+                was created with.
+              </span>
+            </p>
+          ) : null}
+          <TemplateForm mode="edit" templateId={id} initial={initial} />
+        </>
+      ) : error && (status === 404 || status === 403 || status === 400) ? (
+        <EmptyState
+          title="Template not found"
+          action={
+            <Button size="sm" variant="outline" asChild>
+              <Link href="/chit-fund-templates">Back to templates</Link>
+            </Button>
+          }
+        />
+      ) : error ? (
+        <ErrorState title="Failed to load template" error={error} onRetry={() => void mutate()} />
+      ) : (
+        <PageSkeleton rows={8} />
       )}
-      <TemplateForm mode="edit" templateId={id} initial={initial} />
     </div>
   );
 }

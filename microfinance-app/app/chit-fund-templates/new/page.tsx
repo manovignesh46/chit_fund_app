@@ -1,20 +1,27 @@
-// @ts-nocheck
 'use client';
 
-import React from 'react';
+/** New chit fund template (Form template). */
+import * as React from 'react';
 import Link from 'next/link';
+
 import TemplateForm from '../TemplateForm';
+import { Button } from '@/components/ui/button';
+import { PageContainer } from '@/components/kit/page-container';
+import { PageHeader } from '@/components/kit/page-header';
 
 export default function NewChitFundTemplatePage() {
   return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="page-title">Create New Template</h1>
-        <Link href="/chit-fund-templates" className="btn-neutral px-4 py-2 rounded-lg transition duration-300">
-          Cancel
-        </Link>
-      </div>
+    <PageContainer>
+      <PageHeader
+        title="New template"
+        description="The amounts and duration new chit funds can start from."
+        actions={
+          <Button variant="ghost" asChild>
+            <Link href="/chit-fund-templates">Cancel</Link>
+          </Button>
+        }
+      />
       <TemplateForm mode="create" />
-    </div>
+    </PageContainer>
   );
 }
