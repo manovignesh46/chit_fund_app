@@ -10,7 +10,7 @@ const prismaAny = prisma as any;
 export async function POST(request: NextRequest) {
   try {
     // Get the current user ID from the request
-    const currentUserId = getCurrentUserId(request);
+    const currentUserId = await getCurrentUserId(request);
     if (!currentUserId) {
       return NextResponse.json(
         { error: 'Unauthorized' },

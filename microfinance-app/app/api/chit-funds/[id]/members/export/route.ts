@@ -18,7 +18,7 @@ export async function POST(
 ) {
   try {
     // Get the current user ID from the request
-    const currentUserId = getCurrentUserId(request);
+    const currentUserId = await getCurrentUserId(request);
     if (!currentUserId) {
       return NextResponse.json(
         { error: 'Unauthorized' },
