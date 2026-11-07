@@ -450,43 +450,41 @@ function ChitFundsList() {
               <Checkbox aria-label={`Select ${fund.name}`} checked={selected.has(fund.id)} onCheckedChange={(checked) => toggleSelected(fund.id, checked === true)} />
             </div>
             <div className="min-w-0 flex-1 space-y-2">
+              {/* Same shape as the loans card: name and type on the left, status and menu on the right. */}
               <div className="flex items-start justify-between gap-2">
-                <div className="min-w-0 space-y-1">
+                <div className="min-w-0">
                   {fundName(fund, (event) => event.stopPropagation())}
-                  <div>
-                    <StatusBadge status={fund.status} />
+                  <div className="text-xs text-muted-foreground">
+                    {fund.chitFundType || 'Chit fund'} · <Money value={fund.totalAmount} tone="plain" />
                   </div>
                 </div>
-                <div className="-mr-2 -mt-2" onClick={(event) => event.stopPropagation()}>
-                  {actionsFor(fund)}
+                <div className="flex items-start gap-1">
+                  <StatusBadge status={fund.status} />
+                  <div className="-mr-2 -mt-2" onClick={(event) => event.stopPropagation()}>
+                    {actionsFor(fund)}
+                  </div>
                 </div>
               </div>
-              <dl className="grid grid-cols-2 gap-x-3 gap-y-2 text-sm">
+              <dl className="grid grid-cols-2 gap-x-3 gap-y-1.5 text-sm">
                 <div>
-                  <dt className="text-xs text-muted-foreground">Total amount</dt>
-                  <dd>
-                    <Money value={fund.totalAmount} tone="plain" />
-                  </dd>
-                </div>
-                <div className="text-right">
                   <dt className="text-xs text-muted-foreground">Monthly</dt>
                   <dd>
                     <Money value={fund.monthlyContribution} tone="plain" />
                   </dd>
                 </div>
-                <div>
+                <div className="text-right">
                   <dt className="text-xs text-muted-foreground">Month</dt>
                   <dd className="tabular-nums">
                     {fund.currentMonth || 0} / {fund.duration}
                   </dd>
                 </div>
-                <div className="text-right">
+                <div>
                   <dt className="text-xs text-muted-foreground">Auctioned / members</dt>
                   <dd className="tabular-nums">
                     {fund._count?.auctions || 0} / {fund._count?.members || 0}
                   </dd>
                 </div>
-                <div className="col-span-2">
+                <div className="text-right">
                   <dt className="text-xs text-muted-foreground">Next auction</dt>
                   <dd>
                     <DateText value={fund.nextAuctionDate} />
