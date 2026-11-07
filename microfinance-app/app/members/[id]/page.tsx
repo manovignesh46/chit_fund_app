@@ -50,7 +50,7 @@ import { formatRange } from '@/components/kit/list-pagination';
 import { Money } from '@/components/kit/money';
 import { NativeSelect } from '@/components/kit/native-select';
 import { PageContainer } from '@/components/kit/page-container';
-import { PageHeader } from '@/components/kit/page-header';
+import { iconOnPhone, PageHeader } from '@/components/kit/page-header';
 import { RowActions, type RowAction } from '@/components/kit/row-actions';
 import { SectionCard } from '@/components/kit/section-card';
 import { StatCard } from '@/components/kit/stat-card';
@@ -207,9 +207,9 @@ function MemberDetailView() {
         }
         actions={
           <>
-            <Button variant="outline" onClick={() => setEditOpen(true)}>
+            <Button className={iconOnPhone} variant="outline" onClick={() => setEditOpen(true)}>
               <Pencil aria-hidden="true" />
-              Edit
+              <span className="max-sm:sr-only">Edit</span>
             </Button>
             <RowActions label="More member actions" actions={menu} />
           </>

@@ -37,7 +37,7 @@ import { ListToolbar } from '@/components/kit/list-toolbar';
 import { Money } from '@/components/kit/money';
 import { NativeSelect } from '@/components/kit/native-select';
 import { PageContainer } from '@/components/kit/page-container';
-import { PageHeader } from '@/components/kit/page-header';
+import { iconOnPhone, PageHeader } from '@/components/kit/page-header';
 import { describePeriod } from '@/components/kit/period-picker';
 import { ResponsiveDialog } from '@/components/kit/responsive-dialog';
 import { RowActions } from '@/components/kit/row-actions';
@@ -327,13 +327,13 @@ function Transactions() {
         count={meta?.totalCount}
         actions={
           <>
-            <Button onClick={() => setRecordOpen(true)}>
+            <Button className={iconOnPhone} onClick={() => setRecordOpen(true)}>
               <Plus aria-hidden="true" />
-              Record transaction
+              <span className="max-sm:sr-only">Record transaction</span>
             </Button>
-            <Button variant="outline" onClick={exportExcel} aria-label="Export to Excel">
+            <Button className={iconOnPhone} variant="outline" onClick={exportExcel} aria-label="Export to Excel">
               <Download aria-hidden="true" />
-              <span className="hidden sm:inline">Export</span>
+              <span className="max-sm:sr-only">Export</span>
             </Button>
             <RowActions
               label="More transaction actions"

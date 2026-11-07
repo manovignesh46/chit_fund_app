@@ -42,7 +42,7 @@ import { ListToolbar } from '@/components/kit/list-toolbar';
 import { Money } from '@/components/kit/money';
 import { NativeSelect } from '@/components/kit/native-select';
 import { PageContainer } from '@/components/kit/page-container';
-import { PageHeader } from '@/components/kit/page-header';
+import { iconOnPhone, PageHeader } from '@/components/kit/page-header';
 import { SearchInput } from '@/components/kit/search-input';
 import { StatusBadge } from '@/components/kit/status-badge';
 import { Updating } from '@/components/kit/updating';
@@ -425,21 +425,18 @@ function ContributionsView() {
           )
         }
         actions={
-          // Phones: the two actions share one row at half width each.
-          <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto">
-            <Button variant="outline" className="w-full sm:w-auto" asChild>
+          <>
+            <Button variant="outline" className={iconOnPhone} asChild>
               <Link href={`/chit-funds/${fund.id}/members`}>
                 <Users aria-hidden="true" />
-                <span className="sm:hidden">Members</span>
-                <span className="hidden sm:inline">View members</span>
+                <span className="max-sm:sr-only">View members</span>
               </Link>
             </Button>
-            <Button className="w-full sm:w-auto" onClick={() => openForm()} disabled={!data}>
+            <Button className={iconOnPhone} onClick={() => openForm()} disabled={!data}>
               <Plus aria-hidden="true" />
-              <span className="sm:hidden">Record</span>
-              <span className="hidden sm:inline">Record contribution</span>
+              <span className="max-sm:sr-only">Record contribution</span>
             </Button>
-          </div>
+          </>
         }
       />
 

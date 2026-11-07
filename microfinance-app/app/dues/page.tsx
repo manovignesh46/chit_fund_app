@@ -33,7 +33,7 @@ import { ListToolbar } from '@/components/kit/list-toolbar';
 import { Money } from '@/components/kit/money';
 import { NativeSelect } from '@/components/kit/native-select';
 import { PageContainer } from '@/components/kit/page-container';
-import { PageHeader } from '@/components/kit/page-header';
+import { iconOnPhone, PageHeader } from '@/components/kit/page-header';
 import { SearchInput } from '@/components/kit/search-input';
 import { SectionCard } from '@/components/kit/section-card';
 import { StatCard } from '@/components/kit/stat-card';
@@ -149,13 +149,13 @@ function DuesTracker() {
         description="Overdue and upcoming loan installments and chit contributions"
         actions={
           <>
-            <Button variant="outline" onClick={() => void query.mutate()} disabled={query.isValidating}>
+            <Button className={iconOnPhone} variant="outline" onClick={() => void query.mutate()} disabled={query.isValidating}>
               <RefreshCw aria-hidden="true" className={cn(query.isValidating && 'motion-safe:animate-spin')} />
-              {query.isValidating ? 'Refreshing…' : 'Refresh'}
+              <span className="max-sm:sr-only">{query.isValidating ? 'Refreshing…' : 'Refresh'}</span>
             </Button>
-            <Button onClick={() => void exportCsv()} disabled={!extras?.filtered.count || exporting}>
+            <Button className={iconOnPhone} onClick={() => void exportCsv()} disabled={!extras?.filtered.count || exporting}>
               <Download aria-hidden="true" />
-              {exporting ? 'Exporting…' : 'Export CSV'}
+              <span className="max-sm:sr-only">{exporting ? 'Exporting…' : 'Export CSV'}</span>
             </Button>
           </>
         }

@@ -23,7 +23,7 @@ import { EmptyState } from '@/components/kit/empty-state';
 import { ErrorState } from '@/components/kit/error-state';
 import { Money } from '@/components/kit/money';
 import { PageContainer, PageSkeleton } from '@/components/kit/page-container';
-import { PageHeader } from '@/components/kit/page-header';
+import { iconOnPhone, PageHeader } from '@/components/kit/page-header';
 import { ResponsiveDialog } from '@/components/kit/responsive-dialog';
 import { SectionCard } from '@/components/kit/section-card';
 import { StatusBadge } from '@/components/kit/status-badge';
@@ -97,9 +97,9 @@ function Partners() {
         title="Partners"
         description="Who you are working as, each partner's cash balance, and manual entries."
         actions={
-          <Button onClick={() => setRecordOpen(true)}>
+          <Button className={iconOnPhone} onClick={() => setRecordOpen(true)}>
             <ArrowLeftRight aria-hidden="true" />
-            Record transaction
+            <span className="max-sm:sr-only">Record transaction</span>
           </Button>
         }
       />

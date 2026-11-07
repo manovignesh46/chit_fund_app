@@ -30,7 +30,7 @@ import { EmptyState } from '@/components/kit/empty-state';
 import { ErrorState } from '@/components/kit/error-state';
 import { Money } from '@/components/kit/money';
 import { PageContainer } from '@/components/kit/page-container';
-import { PageHeader } from '@/components/kit/page-header';
+import { iconOnPhone, PageHeader } from '@/components/kit/page-header';
 import { StatusBadge } from '@/components/kit/status-badge';
 import { Discount } from '@/app/components/chit-funds/AuctionDialogs';
 
@@ -184,14 +184,14 @@ function AuctionsView() {
         }
         actions={
           <>
-            <Button variant="outline" asChild>
+            <Button className={iconOnPhone} variant="outline" asChild>
               <Link href={`/chit-funds/${fund.id}/members`}>
                 <Users aria-hidden="true" />
-                View members
+                <span className="max-sm:sr-only">View members</span>
               </Link>
             </Button>
             {!ready || canRecord ? (
-              <Button
+              <Button className={iconOnPhone}
                 disabled={!ready}
                 onClick={() => {
                   setFormMounted(true);
@@ -199,12 +199,12 @@ function AuctionsView() {
                 }}
               >
                 <Plus aria-hidden="true" />
-                Record auction
+                <span className="max-sm:sr-only">Record auction</span>
               </Button>
             ) : (
-              <Button disabled title="All members have already won auctions">
+              <Button className={iconOnPhone} disabled title="All members have already won auctions">
                 <Plus aria-hidden="true" />
-                Record auction (no eligible members)
+                <span className="max-sm:sr-only">Record auction (no eligible members)</span>
               </Button>
             )}
           </>

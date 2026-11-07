@@ -29,7 +29,7 @@ import { EmptyState } from '@/components/kit/empty-state';
 import { ErrorState } from '@/components/kit/error-state';
 import { Money } from '@/components/kit/money';
 import { PageContainer } from '@/components/kit/page-container';
-import { PageHeader } from '@/components/kit/page-header';
+import { iconOnPhone, PageHeader } from '@/components/kit/page-header';
 import { currentMonthKey, MonthPicker, monthLabel, monthRange, parseMonth, SegmentedControl } from '@/components/kit/period-picker';
 import { StatusBadge } from '@/components/kit/status-badge';
 import { MonthlyStatsCards, parseEventDate, toMonthStats, type ModalKind, type PendingKind } from '../components/calendar/month-panels';
@@ -129,12 +129,13 @@ function Calendar() {
     <PageHeader
       title="Calendar"
       description={monthLabel(year, m)}
+      actionsLayout="stack"
       actions={
         <>
           <MonthPicker value={month} onChange={goTo} />
-          <Button variant="outline" onClick={() => goTo(currentMonthKey())} aria-label="Go to Today">
+          <Button className={iconOnPhone} variant="outline" onClick={() => goTo(currentMonthKey())} aria-label="Go to Today">
             <CalendarCheck aria-hidden="true" />
-            Today
+            <span className="max-sm:sr-only">Today</span>
           </Button>
         </>
       }

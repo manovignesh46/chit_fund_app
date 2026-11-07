@@ -48,7 +48,7 @@ import { ListToolbar } from '@/components/kit/list-toolbar';
 import { Money } from '@/components/kit/money';
 import { NativeSelect } from '@/components/kit/native-select';
 import { PageContainer } from '@/components/kit/page-container';
-import { PageHeader } from '@/components/kit/page-header';
+import { iconOnPhone, PageHeader } from '@/components/kit/page-header';
 import { RowActions } from '@/components/kit/row-actions';
 import { SearchInput } from '@/components/kit/search-input';
 import { StatusBadge } from '@/components/kit/status-badge';
@@ -381,15 +381,15 @@ function FundMembers() {
         }
         actions={
           <>
-            <Button variant="outline" asChild>
+            <Button className={iconOnPhone} variant="outline" asChild>
               <Link href={`/chit-funds/${fund.id}/contributions`}>
                 <ListChecks aria-hidden="true" />
-                View contributions
+                <span className="max-sm:sr-only">View contributions</span>
               </Link>
             </Button>
-            <Button onClick={openAdd}>
+            <Button className={iconOnPhone} onClick={openAdd}>
               <UserPlus aria-hidden="true" />
-              Add member
+              <span className="max-sm:sr-only">Add member</span>
             </Button>
           </>
         }

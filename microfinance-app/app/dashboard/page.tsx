@@ -45,7 +45,7 @@ import { EmptyState } from '@/components/kit/empty-state';
 import { ErrorState } from '@/components/kit/error-state';
 import { Money } from '@/components/kit/money';
 import { PageContainer } from '@/components/kit/page-container';
-import { PageHeader } from '@/components/kit/page-header';
+import { iconOnPhone, PageHeader } from '@/components/kit/page-header';
 import { SectionCard } from '@/components/kit/section-card';
 import { StatCard } from '@/components/kit/stat-card';
 import { StatusBadge } from '@/components/kit/status-badge';
@@ -177,22 +177,22 @@ function Dashboard() {
         title={updating ? <Updating active>Dashboard</Updating> : 'Dashboard'}
         actions={
           <>
-            <Button variant="outline" asChild>
+            <Button className={iconOnPhone} variant="outline" asChild>
               <Link href="/members" aria-label="Manage Members">
                 <Users aria-hidden="true" />
-                <span className="hidden sm:inline">Members</span>
+                <span className="max-sm:sr-only">Members</span>
               </Link>
             </Button>
-            <Button variant="outline" asChild>
+            <Button className={iconOnPhone} variant="outline" asChild>
               <Link href="/chit-funds/new" aria-label="New Chit Fund">
                 <Plus aria-hidden="true" />
-                <span className="hidden sm:inline">New chit fund</span>
+                <span className="max-sm:sr-only">New chit fund</span>
               </Link>
             </Button>
-            <Button asChild>
+            <Button className={iconOnPhone} asChild>
               <Link href="/loans/new" aria-label="New Loan">
                 <HandCoins aria-hidden="true" />
-                <span className="hidden sm:inline">New loan</span>
+                <span className="max-sm:sr-only">New loan</span>
               </Link>
             </Button>
           </>

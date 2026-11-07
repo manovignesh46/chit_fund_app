@@ -32,7 +32,7 @@ import { formatRange } from '@/components/kit/list-pagination';
 import { ListToolbar } from '@/components/kit/list-toolbar';
 import { NativeSelect } from '@/components/kit/native-select';
 import { PageContainer } from '@/components/kit/page-container';
-import { PageHeader } from '@/components/kit/page-header';
+import { iconOnPhone, PageHeader } from '@/components/kit/page-header';
 import { RowActions } from '@/components/kit/row-actions';
 import { SearchInput } from '@/components/kit/search-input';
 
@@ -282,9 +282,9 @@ function MembersList() {
         title="Members"
         count={meta?.totalCount}
         actions={
-          <Button onClick={() => openForm(null)}>
+          <Button className={iconOnPhone} onClick={() => openForm(null)}>
             <Plus aria-hidden="true" />
-            Add member
+            <span className="max-sm:sr-only">Add member</span>
           </Button>
         }
       />

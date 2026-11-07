@@ -25,7 +25,7 @@ import { FormField } from '@/components/kit/form-field';
 import { Money } from '@/components/kit/money';
 import { NativeSelect } from '@/components/kit/native-select';
 import { PageContainer } from '@/components/kit/page-container';
-import { PageHeader } from '@/components/kit/page-header';
+import { iconOnPhone, PageHeader } from '@/components/kit/page-header';
 import { SectionCard } from '@/components/kit/section-card';
 import { StatCard } from '@/components/kit/stat-card';
 import { StatusBadge } from '@/components/kit/status-badge';
@@ -200,16 +200,16 @@ function Projection() {
         description="Calendar-month view across all loans and chit funds — one shared pool of funds."
         actions={
           <>
-            <Button variant="outline" asChild>
+            <Button className={iconOnPhone} variant="outline" asChild>
               <Link href="/chit-funds/auction-history">
                 <History aria-hidden="true" />
-                Auction history
+                <span className="max-sm:sr-only">Auction history</span>
               </Link>
             </Button>
-            <Button asChild>
+            <Button className={iconOnPhone} asChild>
               <Link href="/chit-funds/auction-bookings">
                 <ListPlus aria-hidden="true" />
-                Edit bookings
+                <span className="max-sm:sr-only">Edit bookings</span>
               </Link>
             </Button>
           </>

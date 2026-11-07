@@ -36,7 +36,7 @@ import { EmptyState } from '@/components/kit/empty-state';
 import { ErrorState, errorMessage } from '@/components/kit/error-state';
 import { formatRange, ListPagination } from '@/components/kit/list-pagination';
 import { PageContainer } from '@/components/kit/page-container';
-import { PageHeader } from '@/components/kit/page-header';
+import { iconOnPhone, PageHeader } from '@/components/kit/page-header';
 import { SegmentedControl } from '@/components/kit/period-picker';
 
 const NotificationDetailSheet = dynamic(() => import('../components/NotificationDetailSheet'), { ssr: false });
@@ -199,9 +199,9 @@ function Notifications() {
         description={unreadCount > 0 ? `${unreadCount.toLocaleString('en-IN')} unread` : undefined}
         actions={
           unreadCount > 0 ? (
-            <Button variant="outline" onClick={() => void markAllRead()} disabled={markingAll} className="w-full sm:w-auto">
+            <Button variant="outline" className={iconOnPhone} onClick={() => void markAllRead()} disabled={markingAll}>
               {markingAll ? <Loader2 aria-hidden="true" className="motion-safe:animate-spin" /> : <CheckCheck aria-hidden="true" />}
-              Mark all as read
+              <span className="max-sm:sr-only">Mark all as read</span>
             </Button>
           ) : null
         }

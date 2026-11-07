@@ -23,7 +23,7 @@ import { DataTable, RefreshProgress, type DataTableColumn } from '@/components/k
 import { ErrorState } from '@/components/kit/error-state';
 import { Money } from '@/components/kit/money';
 import { PageContainer } from '@/components/kit/page-container';
-import { PageHeader } from '@/components/kit/page-header';
+import { iconOnPhone, PageHeader } from '@/components/kit/page-header';
 import { SegmentedControl } from '@/components/kit/period-picker';
 import { StatCard } from '@/components/kit/stat-card';
 
@@ -128,10 +128,11 @@ function FinancialTrends() {
       <PageHeader
         title="Financial trends"
         description="Cash flow, profit and money outside, period by period."
+        actionsLayout="stack"
         actions={
           <>
             <SegmentedControl aria-label="Period" value={duration} onChange={(next) => url.set({ period: next === 'monthly' ? null : next })} options={PERIODS} />
-            <Button
+            <Button className={iconOnPhone}
               variant="outline"
               onClick={() => {
                 void dashboardAPI.exportFinancialData(duration, TREND_LIMITS[duration]);
@@ -139,7 +140,7 @@ function FinancialTrends() {
               }}
             >
               <Download aria-hidden="true" />
-              Export
+              <span className="max-sm:sr-only">Export</span>
             </Button>
           </>
         }

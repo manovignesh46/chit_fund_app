@@ -29,7 +29,7 @@ import { EmptyState } from '@/components/kit/empty-state';
 import { ErrorState, errorMessage } from '@/components/kit/error-state';
 import { Money } from '@/components/kit/money';
 import { PageContainer } from '@/components/kit/page-container';
-import { PageHeader } from '@/components/kit/page-header';
+import { iconOnPhone, PageHeader } from '@/components/kit/page-header';
 import { SectionCard } from '@/components/kit/section-card';
 import { StatusBadge } from '@/components/kit/status-badge';
 import { Updating } from '@/components/kit/updating';
@@ -225,9 +225,9 @@ function MemberContributions() {
           </>
         }
         actions={
-          <Button variant="outline" onClick={() => chitFundWrites.exportMembers(fund.id, [member.id])}>
+          <Button className={iconOnPhone} variant="outline" onClick={() => chitFundWrites.exportMembers(fund.id, [member.id])}>
             <FileDown aria-hidden="true" />
-            Export member data
+            <span className="max-sm:sr-only">Export member data</span>
           </Button>
         }
       />

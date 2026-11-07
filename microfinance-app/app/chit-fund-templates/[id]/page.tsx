@@ -16,7 +16,7 @@ import { EmptyState } from '@/components/kit/empty-state';
 import { ErrorState } from '@/components/kit/error-state';
 import { Money } from '@/components/kit/money';
 import { PageContainer } from '@/components/kit/page-container';
-import { PageHeader } from '@/components/kit/page-header';
+import { iconOnPhone, PageHeader } from '@/components/kit/page-header';
 import { SectionCard } from '@/components/kit/section-card';
 import { StatusBadge } from '@/components/kit/status-badge';
 
@@ -77,16 +77,16 @@ function TemplateDetail() {
         description={template.description || undefined}
         actions={
           <>
-            <Button asChild>
+            <Button className={iconOnPhone} asChild>
               <Link href={`/chit-funds/new?template=${template.id}`}>
                 <PlusCircle aria-hidden="true" />
-                Create fund from this
+                <span className="max-sm:sr-only">Create fund from this</span>
               </Link>
             </Button>
-            <Button variant="outline" asChild>
+            <Button className={iconOnPhone} variant="outline" asChild>
               <Link href={`/chit-fund-templates/${template.id}/edit`}>
                 <Pencil aria-hidden="true" />
-                Edit
+                <span className="max-sm:sr-only">Edit</span>
               </Link>
             </Button>
           </>

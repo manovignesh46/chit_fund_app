@@ -25,7 +25,7 @@ import { ListToolbar } from '@/components/kit/list-toolbar';
 import { Money } from '@/components/kit/money';
 import { NativeSelect } from '@/components/kit/native-select';
 import { PageContainer } from '@/components/kit/page-container';
-import { PageHeader } from '@/components/kit/page-header';
+import { iconOnPhone, PageHeader } from '@/components/kit/page-header';
 import { RowActions } from '@/components/kit/row-actions';
 import { SearchInput } from '@/components/kit/search-input';
 
@@ -156,13 +156,13 @@ function TemplatesList() {
         count={meta?.totalCount}
         actions={
           <>
-            <Button variant="outline" asChild>
+            <Button className={iconOnPhone} variant="outline" asChild>
               <Link href="/chit-funds">Chit funds</Link>
             </Button>
-            <Button asChild>
+            <Button className={iconOnPhone} asChild>
               <Link href="/chit-fund-templates/new">
                 <Plus aria-hidden="true" />
-                New template
+                <span className="max-sm:sr-only">New template</span>
               </Link>
             </Button>
           </>

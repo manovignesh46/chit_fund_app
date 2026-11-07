@@ -23,7 +23,7 @@ import { ErrorState, errorMessage } from '@/components/kit/error-state';
 import { FormField } from '@/components/kit/form-field';
 import { NativeSelect } from '@/components/kit/native-select';
 import { PageContainer, PageSkeleton } from '@/components/kit/page-container';
-import { PageHeader } from '@/components/kit/page-header';
+import { iconOnPhone, PageHeader } from '@/components/kit/page-header';
 import { ResponsiveDialog } from '@/components/kit/responsive-dialog';
 
 const EMPTY_FORM = { name: '', email: '', password: '', partnerId: '', role: 'partner' };
@@ -111,9 +111,9 @@ function Users() {
         count={users.data ? rows.length : undefined}
         description="Create individual login accounts for each business partner. They will log in directly — no partner selection popup."
         actions={
-          <Button onClick={() => setFormOpen(true)}>
+          <Button className={iconOnPhone} onClick={() => setFormOpen(true)}>
             <Plus aria-hidden="true" />
-            Add user
+            <span className="max-sm:sr-only">Add user</span>
           </Button>
         }
       />
